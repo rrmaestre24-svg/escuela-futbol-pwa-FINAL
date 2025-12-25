@@ -1,5 +1,5 @@
 // ========================================
-// CONFIGURACIÓN - MEJORADO
+// CONFIGURACIÓN - CON GESTIÓN DE CONTRASEÑAS
 // ========================================
 
 // Cargar configuración al abrir vista
@@ -13,6 +13,12 @@ function loadSettings() {
     document.getElementById('userName').value = currentUser.name || '';
     document.getElementById('userBirthDate').value = currentUser.birthDate || '';
     document.getElementById('userPhone').value = currentUser.phone || '';
+    
+    // Mostrar email (no editable por seguridad)
+    const emailDisplay = document.getElementById('userEmailDisplay');
+    if (emailDisplay) {
+      emailDisplay.textContent = currentUser.email || '';
+    }
   }
   
   // Datos del club - MEJORADO
@@ -102,6 +108,125 @@ document.getElementById('userProfileForm')?.addEventListener('submit', function(
   showToast('✅ Perfil actualizado');
 });
 
+// NUEVO: Cambiar contraseña
+document.getElementById('changePasswordForm')?.addEventListener('submit', function(e) {
+  e.preventDefault();
+  
+  const currentUser = getCurrentUser();
+  if (!currentUser) {
+    showToast('❌ No hay usuario en sesión');
+    return;
+  }
+  
+  const currentPassword = document.getElementById('currentPassword').value;
+  const newPassword = document.getElementById('newPassword').value;
+  const confirmPassword = document.getElementById('confirmPassword').value;
+  
+  // Validar contraseña actual
+  const users = getUsers();
+  const user = users.find(u => u.id === currentUser.id);
+  
+  if (!user) {
+    showToast('❌ Usuario no encontrado');
+    return;
+  }
+  
+  if (user.password !== currentPassword) {
+    showToast('❌ La contraseña actual es incorrecta');
+    document.getElementById('currentPassword').classList.add('border-red-500');
+    return;
+  }
+  
+  // Validar nueva contraseña
+  if (newPassword.length < 6) {
+    showToast('❌ La nueva contraseña debe tener al menos 6 caracteres');
+    return;
+  }
+  
+  if (newPassword !== confirmPassword) {
+    showToast('❌ Las contraseñas no coinciden');
+    document.getElementById('confirmPassword').classList.add('border-red-500');
+    return;
+  }
+  
+  if (newPassword === currentPassword) {
+    showToast('⚠️ La nueva contraseña debe ser diferente a la actual');
+    return;
+  }
+  
+  // Actualizar contraseña
+  updateUser(currentUser.id, { password: newPassword });
+  
+  // Limpiar formulario
+  document.getElementById('changePasswordForm').reset();
+  
+  showToast('✅ Contraseña cambiada correctamente');
+  
+  console.log('🔐 Contraseña actualizada para:', currentUser.email);
+});
+
+// NUEVO: Mostrar/Ocultar contraseña
+function togglePasswordVisibility(inputId) {
+  const input = document.getElementById(inputId);
+  const button = input.nextElementSibling;
+  const icon = button.querySelector('[data-lucide]');
+  
+  if (input.type === 'password') {
+    input.type = 'text';
+    icon.setAttribute('data-lucide', 'eye-off');
+  } else {
+    input.type = 'password';
+    icon.setAttribute('data-lucide', 'eye');
+  }
+  
+  lucide.createIcons();
+}
+
+// NUEVO: Indicador de seguridad de contraseña
+document.getElementById('newPassword')?.addEventListener('input', function(e) {
+  const password = e.target.value;
+  const strengthBar = document.getElementById('passwordStrength');
+  const strengthText = document.getElementById('passwordStrengthText');
+  
+  if (!strengthBar || !strengthText) return;
+  
+  let strength = 0;
+  let text = '';
+  let color = '';
+  
+  if (password.length === 0) {
+    strength = 0;
+    text = '';
+  } else if (password.length < 6) {
+    strength = 25;
+    text = 'Muy débil';
+    color = 'bg-red-500';
+  } else if (password.length < 8) {
+    strength = 50;
+    text = 'Débil';
+    color = 'bg-orange-500';
+  } else if (password.length < 10) {
+    strength = 75;
+    text = 'Media';
+    color = 'bg-yellow-500';
+  } else {
+    strength = 100;
+    text = 'Fuerte';
+    color = 'bg-green-500';
+  }
+  
+  // Bonus por caracteres especiales
+  if (/[A-Z]/.test(password)) strength += 5;
+  if (/[0-9]/.test(password)) strength += 5;
+  if (/[^A-Za-z0-9]/.test(password)) strength += 10;
+  
+  strength = Math.min(100, strength);
+  
+  strengthBar.style.width = strength + '%';
+  strengthBar.className = `h-full transition-all duration-300 ${color}`;
+  strengthText.textContent = text;
+});
+
 // Guardar configuración del club - MEJORADO CON COLOR
 document.getElementById('clubSettingsForm')?.addEventListener('submit', function(e) {
   e.preventDefault();
@@ -144,36 +269,34 @@ document.getElementById('clubPrimaryColor')?.addEventListener('input', function(
   }
 });
 
-// Toggle modo oscuro (ya está en app.js)
-function toggleDarkMode() {
-  const html = document.documentElement;
-  const isDark = html.classList.contains('dark');
-  
-  if (isDark) {
-    html.classList.remove('dark');
-    setDarkMode(false);
-    showToast('☀️ Modo claro activado');
-  } else {
-    html.classList.add('dark');
-    setDarkMode(true);
-    showToast('🌙 Modo oscuro activado');
-  }
-  
-  if (typeof updateDarkModeIcons === 'function') {
-    updateDarkModeIcons();
-  }
-}
-
 // Exportar datos
 function exportData() {
   exportAllData();
 }
-
-// Aplicar modo oscuro al cargar
-function applyDarkMode() {
-  if (getDarkMode()) {
-    document.documentElement.classList.add('dark');
+// Cambiar logo del club - MEJORADO
+document.getElementById('changeClubLogo')?.addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (file) {
+    if (!file.type.startsWith('image/')) {
+      showToast('❌ Por favor selecciona una imagen válida');
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      showToast('❌ La imagen es muy grande. Máximo 2MB');
+      return;
+    }
+    imageToBase64(file, function(base64) {
+      document.getElementById('clubLogo').src = base64;
+      document.getElementById('headerLogo').src = base64;
+      
+      updateSchoolSettings({ logo: base64 });
+      showToast('✅ Logo actualizado');
+      
+      // AGREGAR ESTA LÍNEA
+      if (typeof generatePWAIcons === 'function') {
+        generatePWAIcons();
+      }
+    });
   }
-}
-
-console.log('✅ settings.js cargado (MEJORADO)');
+});
+console.log('✅ settings.js cargado (CON GESTIÓN DE CONTRASEÑAS)');

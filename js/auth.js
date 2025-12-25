@@ -219,5 +219,53 @@ window.addEventListener('DOMContentLoaded', function() {
     document.getElementById('appContainer').classList.add('hidden');
   }
 });
+// NUEVO: Recuperar contraseña
+function forgotPassword() {
+  const email = prompt('📧 Ingresa tu email registrado:');
+  
+  if (!email) return;
+  
+  const users = getUsers();
+  const user = users.find(u => u.email === email);
+  
+  if (!user) {
+    showToast('❌ Email no encontrado');
+    return;
+  }
+  
+  // Simulación de recuperación (en producción enviarías un email real)
+  const confirmReset = confirm(
+    `✅ Usuario encontrado: ${user.name}\n\n` +
+    `📱 Teléfono registrado: ${user.phone}\n\n` +
+    `¿Deseas restablecer la contraseña?\n` +
+    `(Se enviará un SMS al teléfono registrado)`
+  );
+  
+  if (confirmReset) {
+    const newPassword = prompt(
+      '🔐 Ingresa tu nueva contraseña:\n' +
+      '(Mínimo 6 caracteres)'
+    );
+    
+    if (!newPassword || newPassword.length < 6) {
+      showToast('❌ Contraseña no válida (mínimo 6 caracteres)');
+      return;
+    }
+    
+    const confirmNewPassword = prompt('🔐 Confirma tu nueva contraseña:');
+    
+    if (newPassword !== confirmNewPassword) {
+      showToast('❌ Las contraseñas no coinciden');
+      return;
+    }
+    
+    // Actualizar contraseña
+    updateUser(user.id, { password: newPassword });
+    
+    showToast('✅ Contraseña restablecida correctamente. Ya puedes iniciar sesión.');
+    
+    console.log('🔐 Contraseña restablecida para:', user.email);
+  }
+}
 
 console.log('✅ auth.js cargado (MEJORADO)');
