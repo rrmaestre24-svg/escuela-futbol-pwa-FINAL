@@ -27,6 +27,13 @@ function loadSettings() {
   document.getElementById('clubSocial').value = settings.socialMedia || '';
   document.getElementById('clubFoundedYear').value = settings.foundedYear || '';
   document.getElementById('clubMonthlyFee').value = settings.monthlyFee || '';
+  
+  // Color primario
+  const colorInput = document.getElementById('clubPrimaryColor');
+  if (colorInput) {
+    colorInput.value = settings.primaryColor || '#0d9488';
+    previewPrimaryColor(settings.primaryColor || '#0d9488');
+  }
 }
 
 // Cambiar avatar del usuario - MEJORADO
@@ -95,7 +102,7 @@ document.getElementById('userProfileForm')?.addEventListener('submit', function(
   showToast('✅ Perfil actualizado');
 });
 
-// Guardar configuración del club - MEJORADO
+// Guardar configuración del club - MEJORADO CON COLOR
 document.getElementById('clubSettingsForm')?.addEventListener('submit', function(e) {
   e.preventDefault();
   
@@ -112,14 +119,32 @@ document.getElementById('clubSettingsForm')?.addEventListener('submit', function
     monthlyFee: parseFloat(document.getElementById('clubMonthlyFee').value)
   };
   
+  // Agregar color primario si existe el campo
+  const colorInput = document.getElementById('clubPrimaryColor');
+  if (colorInput) {
+    settings.primaryColor = colorInput.value;
+  }
+  
   updateSchoolSettings(settings);
+  
+  // Aplicar nuevo color inmediatamente
+  if (typeof applyPrimaryColor === 'function') {
+    applyPrimaryColor();
+  }
   
   document.getElementById('headerClubName').textContent = settings.name;
   
   showToast('✅ Configuración del club actualizada');
 });
 
-// Toggle modo oscuro (ya corregido en app.js)
+// Preview de color en tiempo real
+document.getElementById('clubPrimaryColor')?.addEventListener('input', function(e) {
+  if (typeof previewPrimaryColor === 'function') {
+    previewPrimaryColor(e.target.value);
+  }
+});
+
+// Toggle modo oscuro (ya está en app.js)
 function toggleDarkMode() {
   const html = document.documentElement;
   const isDark = html.classList.contains('dark');
@@ -134,7 +159,9 @@ function toggleDarkMode() {
     showToast('🌙 Modo oscuro activado');
   }
   
-  updateDarkModeIcons();
+  if (typeof updateDarkModeIcons === 'function') {
+    updateDarkModeIcons();
+  }
 }
 
 // Exportar datos

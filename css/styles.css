@@ -1,4 +1,44 @@
 /* ========================================
+   CONFIGURACIÓN BASE MODO OSCURO
+======================================== */
+
+/* Forzar transición suave */
+* {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+/* Modo claro (por defecto) */
+:root {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f9fafb;
+  --text-primary: #1f2937;
+  --text-secondary: #6b7280;
+}
+
+/* Modo oscuro */
+:root.dark,
+html.dark,
+.dark {
+  --bg-primary: #1f2937;
+  --bg-secondary: #111827;
+  --text-primary: #f9fafb;
+  --text-secondary: #d1d5db;
+}
+
+/* Aplicar colores base */
+html {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+body {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+
+
+/* ========================================
    VARIABLES Y RESET
 ======================================== */
 :root {

@@ -55,49 +55,82 @@ function navigateTo(view) {
   window.scrollTo(0, 0);
 }
 
-// Toggle modo oscuro CORREGIDO
+// Toggle modo oscuro - VERSIÓN DEFINITIVA
 function toggleDarkMode() {
   const html = document.documentElement;
+  const body = document.body;
   const isDark = html.classList.contains('dark');
   
+  console.log('🌓 Cambiando modo - Estado actual:', isDark ? 'OSCURO' : 'CLARO');
+  
   if (isDark) {
+    // ACTIVAR MODO CLARO
     html.classList.remove('dark');
-    setDarkMode(false);
+    body.classList.remove('dark');
+    localStorage.setItem('darkMode', 'false');
+    console.log('☀️ MODO CLARO ACTIVADO');
     showToast('☀️ Modo claro activado');
   } else {
+    // ACTIVAR MODO OSCURO
     html.classList.add('dark');
-    setDarkMode(true);
+    body.classList.add('dark');
+    localStorage.setItem('darkMode', 'true');
+    console.log('🌙 MODO OSCURO ACTIVADO');
     showToast('🌙 Modo oscuro activado');
   }
   
-  // Actualizar icono del botón
+  // Actualizar iconos
   updateDarkModeIcons();
+  
+  // Forzar repaint
+  html.style.display = 'none';
+  html.offsetHeight;
+  html.style.display = '';
 }
 
 // Actualizar iconos de modo oscuro
 function updateDarkModeIcons() {
   const isDark = document.documentElement.classList.contains('dark');
-  const buttons = document.querySelectorAll('[onclick="toggleDarkMode()"]');
+  const allButtons = document.querySelectorAll('button');
   
-  buttons.forEach(button => {
-    const icon = button.querySelector('[data-lucide]');
-    if (icon) {
-      if (isDark) {
-        icon.setAttribute('data-lucide', 'sun');
-      } else {
-        icon.setAttribute('data-lucide', 'moon');
+  allButtons.forEach(button => {
+    const buttonText = button.textContent || button.innerHTML;
+    if (buttonText.includes('toggleDarkMode') || button.getAttribute('onclick') === 'toggleDarkMode()') {
+      const icon = button.querySelector('[data-lucide]');
+      if (icon) {
+        if (isDark) {
+          icon.setAttribute('data-lucide', 'sun');
+        } else {
+          icon.setAttribute('data-lucide', 'moon');
+        }
       }
     }
   });
   
-  lucide.createIcons();
+  // Recrear iconos
+  if (typeof lucide !== 'undefined' && lucide.createIcons) {
+    setTimeout(() => {
+      lucide.createIcons();
+    }, 100);
+  }
 }
 
 // Aplicar modo oscuro al cargar
 function applyDarkMode() {
-  if (getDarkMode()) {
-    document.documentElement.classList.add('dark');
+  const darkMode = localStorage.getItem('darkMode') === 'true';
+  const html = document.documentElement;
+  const body = document.body;
+  
+  console.log('🎨 Aplicando modo guardado:', darkMode ? 'OSCURO' : 'CLARO');
+  
+  if (darkMode) {
+    html.classList.add('dark');
+    body.classList.add('dark');
+  } else {
+    html.classList.remove('dark');
+    body.classList.remove('dark');
   }
+  
   updateDarkModeIcons();
 }
 
@@ -105,7 +138,7 @@ function applyDarkMode() {
 function initApp() {
   console.log('🚀 Inicializando MY CLUB...');
   
-  // Aplicar modo oscuro
+  // Aplicar modo oscuro PRIMERO
   applyDarkMode();
   
   // Cargar datos del club en el header
@@ -115,6 +148,11 @@ function initApp() {
   document.getElementById('headerLogo').src = settings.logo || getDefaultLogo();
   document.getElementById('headerClubName').textContent = settings.name || 'MY CLUB';
   
+  // Aplicar color primario del club
+  if (typeof applyPrimaryColor === 'function') {
+    applyPrimaryColor();
+  }
+  
   // Actualizar notificaciones
   updateNotifications();
   
@@ -122,7 +160,9 @@ function initApp() {
   navigateTo('dashboard');
   
   // Inicializar Lucide icons
-  lucide.createIcons();
+  if (typeof lucide !== 'undefined' && lucide.createIcons) {
+    lucide.createIcons();
+  }
   
   console.log('✅ MY CLUB inicializado correctamente');
   console.log('👤 Usuario:', currentUser?.name);
@@ -131,19 +171,15 @@ function initApp() {
 
 // Cerrar modales al hacer click fuera
 window.addEventListener('click', function(e) {
-  // Modal de jugador
   if (e.target.id === 'playerModal') {
     closePlayerModal();
   }
-  // Modal de detalles de jugador
   if (e.target.id === 'playerDetailsModal') {
     closePlayerDetailsModal();
   }
-  // Modal de pago
   if (e.target.id === 'paymentModal') {
     closePaymentModal();
   }
-  // Modal de evento
   if (e.target.id === 'eventModal') {
     closeEventModal();
   }
@@ -159,7 +195,4 @@ window.addEventListener('error', function(e) {
   console.error('Error:', e.message);
 });
 
-// Logs de carga
 console.log('✅ app.js cargado');
-console.log('🎯 MY CLUB PWA v1.0');
-console.log('⚽ Sistema de gestión de escuelas de fútbol');

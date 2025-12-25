@@ -10,10 +10,17 @@
     <meta name="mobile-web-app-capable" content="yes">
     
     <title>MY CLUB - Gestión Escuelas de Fútbol</title>
+
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
+    <!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+    tailwind.config = {
+        darkMode: 'class'
+    }
+</script>
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     
@@ -326,8 +333,8 @@
                     <div id="dashboardNotificationsList" class="space-y-2"></div>
                 </div>
 
-                <!-- Botón Contabilidad -->
-                <button onclick="showAccountingView()" class="w-full bg-gradient-to-r from-teal-600 to-blue-600 text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 hover:shadow-xl transition-all transform hover:scale-105">
+               <!-- Botón Contabilidad -->
+                    <button onclick="showAccountingView()" class="w-full bg-gradient-to-r from-teal-600 to-blue-600 text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 hover:shadow-xl transition-all transform hover:scale-105">
                     <i data-lucide="trending-up" class="w-6 h-6"></i>
                     Ver Contabilidad Completa
                 </button>
@@ -483,7 +490,7 @@
                 </div>
 
                 <!-- Configuración del Club -->
-                <!-- Configuración del Club -->
+                
 <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
     <h3 class="font-bold text-gray-800 dark:text-white mb-4">Datos del Club</h3>
     <div class="flex items-center gap-4 mb-4">
@@ -517,10 +524,27 @@
             <input type="number" id="clubFoundedYear" placeholder="Año de fundación" min="1900" max="2024" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
             <input type="number" id="clubMonthlyFee" placeholder="Cuota mensual" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
         </div>
-        
-        <button type="submit" class="w-full bg-teal-600 hover:bg-teal-700 text-white py-2 rounded-lg">Guardar Cambios</button>
-    </form>
+        <div class="grid grid-cols-2 gap-3">
+    <input type="number" id="clubFoundedYear" placeholder="Año de fundación" min="1900" max="2024" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+    <input type="number" id="clubMonthlyFee" placeholder="Cuota mensual" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
 </div>
+
+        <!-- AGREGAR ESTA SECCIÓN COMPLETA -->
+        <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Color Primario del Club</label>
+            <div class="flex gap-3 items-center">
+                <input type="color" id="clubPrimaryColor" class="w-20 h-10 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer">
+                <div id="colorPreview" class="flex-1 h-10 rounded-lg border-2 border-gray-300 dark:border-gray-600"></div>
+            </div>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Este color personalizará toda la aplicación</p>
+        </div>
+        <!-- FIN DE LA SECCIÓN A AGREGAR -->
+
+        <button type="submit" class="w-full bg-teal-600 hover:bg-teal-700 text-white py-2 rounded-lg">Guardar Cambios</button>
+                
+                <button type="submit" class="w-full bg-teal-600 hover:bg-teal-700 text-white py-2 rounded-lg">Guardar Cambios</button>
+            </form>
+        </div>
 
                 <!-- Opciones -->
                 <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm space-y-3">
@@ -1005,6 +1029,7 @@
     <script src="js/utils.js"></script>
     <script src="js/install.js"></script>
     <script src="js/cache.js"></script>
+    <script src="js/theme.js"></script>
     <script src="js/storage.js"></script>
     <script src="js/whatsapp.js"></script>
     <script src="js/pdf.js"></script>
@@ -1030,6 +1055,18 @@
                 .catch(err => console.log('❌ Error al registrar SW', err));
         }
     </script>
+        </script>
+
+    <!-- Botón Flotante de Instalación -->
+    <button id="installButtonFloat" class="hidden fixed bottom-24 right-4 z-50 bg-gradient-to-r from-teal-600 to-blue-600 text-white px-4 py-3 rounded-full shadow-2xl hover:shadow-3xl transition-all transform hover:scale-110 animate-bounce" onclick="installPWA()" title="Instalar MY CLUB">
+        <div class="flex items-center gap-2">
+            <i data-lucide="download" class="w-5 h-5"></i>
+            <span class="font-medium">Instalar</span>
+        </div>
+    </button>
+
+</body>
+</html>
 
 </body>
 </html>
