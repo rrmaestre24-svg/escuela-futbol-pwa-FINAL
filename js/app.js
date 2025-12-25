@@ -77,18 +77,18 @@ function toggleDarkMode() {
 // Actualizar iconos de modo oscuro
 function updateDarkModeIcons() {
   const isDark = document.documentElement.classList.contains('dark');
-  const moonIcons = document.querySelectorAll('[data-lucide="moon"]');
-  const sunIcons = document.querySelectorAll('[data-lucide="sun"]');
+  const buttons = document.querySelectorAll('[onclick="toggleDarkMode()"]');
   
-  if (isDark) {
-    moonIcons.forEach(icon => {
-      icon.setAttribute('data-lucide', 'sun');
-    });
-  } else {
-    sunIcons.forEach(icon => {
-      icon.setAttribute('data-lucide', 'moon');
-    });
-  }
+  buttons.forEach(button => {
+    const icon = button.querySelector('[data-lucide]');
+    if (icon) {
+      if (isDark) {
+        icon.setAttribute('data-lucide', 'sun');
+      } else {
+        icon.setAttribute('data-lucide', 'moon');
+      }
+    }
+  });
   
   lucide.createIcons();
 }

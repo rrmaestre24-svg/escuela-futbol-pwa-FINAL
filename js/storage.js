@@ -1,5 +1,5 @@
 // ========================================
-// GESTIÓN DE LOCALSTORAGE
+// GESTIÓN DE LOCALSTORAGE - MEJORADO
 // ========================================
 
 // Inicializar estructura de datos
@@ -23,6 +23,11 @@ function initStorage() {
       email: '',
       phone: '',
       address: '',
+      city: '',
+      country: 'Colombia',
+      website: '',
+      socialMedia: '',
+      foundedYear: '',
       monthlyFee: 0,
       currency: 'COP',
       primaryColor: '#0d9488'
@@ -282,4 +287,4 @@ function clearAllData() {
 // Inicializar al cargar
 initStorage();
 
-console.log('✅ storage.js cargado');
+console.log('✅ storage.js cargado (MEJORADO)');

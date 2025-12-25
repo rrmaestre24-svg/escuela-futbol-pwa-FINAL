@@ -44,6 +44,12 @@
                 <div class="text-6xl mb-4">⚽</div>
                 <h1 class="text-3xl font-bold text-gray-800 dark:text-white">MY CLUB</h1>
                 <p class="text-gray-600 dark:text-gray-300 mt-2">Gestión de Escuelas de Fútbol</p>
+                
+                <!-- Botón de instalación grande en login -->
+                <button id="installButtonLogin" class="hidden mt-4 bg-gradient-to-r from-teal-600 to-blue-600 text-white px-6 py-3 rounded-lg font-medium flex items-center justify-center gap-2 mx-auto hover:shadow-lg transition-all transform hover:scale-105 animate-bounce" onclick="installPWA()">
+                    <i data-lucide="download" class="w-5 h-5"></i>
+                    Instalar Aplicación
+                </button>
             </div>
             
             <!-- Tabs -->
@@ -213,15 +219,17 @@
                     </div>
                 </div>
                 <div class="flex items-center gap-2">
-                    <button onclick="toggleDarkMode()" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                        <i data-lucide="moon" class="w-5 h-5 text-gray-600 dark:text-gray-300"></i>
-                    </button>
-                    <button onclick="showNotificationsView()" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors relative">
-                        <i data-lucide="bell" class="w-5 h-5 text-gray-600 dark:text-gray-300"></i>
-                        <span id="notificationBadge" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">0</span>
-                    </button>
-                </div>
-            </div>
+            <!-- Botón de Instalación (solo visible si se puede instalar) -->
+            <div class="flex items-center gap-2">
+    <!-- Botón de Instalación (solo visible si se puede instalar) -->
+    <button id="installButton" class="hidden p-2 rounded-lg bg-teal-600 hover:bg-teal-700 text-white transition-colors animate-pulse" onclick="installPWA()" title="Instalar aplicación">
+        <i data-lucide="download" class="w-5 h-5"></i>
+    </button>
+    
+    <button onclick="toggleDarkMode()" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+        <i data-lucide="moon" class="w-5 h-5 text-gray-600 dark:text-gray-300"></i>
+    </button>
+    <button onclick="showNotificationsView()" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors relative">
         </header>
 
         <!-- Main Content -->
@@ -523,22 +531,33 @@
                         </button>
                     </div>
                     
-                    <button onclick="exportData()" class="w-full border border-teal-600 text-teal-600 dark:text-teal-400 py-2 rounded-lg flex items-center justify-center gap-2">
+                    <button onclick="clearAppCache()" class="w-full border border-blue-600 text-blue-600 dark:text-blue-400 py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
+                        <i data-lucide="refresh-cw" class="w-5 h-5"></i>
+                        Limpiar Caché y Actualizar
+                    </button>
+                    
+                    <button onclick="exportData()" class="w-full border border-teal-600 text-teal-600 dark:text-teal-400 py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors">
                         <i data-lucide="download" class="w-5 h-5"></i>
                         Exportar Datos (JSON)
                     </button>
                     
-                    <button onclick="logout()" class="w-full bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg flex items-center justify-center gap-2">
-                        <i data-lucide="log-out" class="w-5 h-5"></i>
-                        Cerrar Sesión
+                    <button onclick="checkForUpdates()" class="w-full border border-purple-600 text-purple-600 dark:text-purple-400 py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors">
+                        <i data-lucide="cloud-download" class="w-5 h-5"></i>
+                        Buscar Actualizaciones
                     </button>
                     
-                    <button onclick="clearAllData()" class="w-full bg-gray-700 hover:bg-gray-800 text-white py-2 rounded-lg flex items-center justify-center gap-2">
-                        <i data-lucide="trash-2" class="w-5 h-5"></i>
-                        Borrar Todos los Datos
-                    </button>
+                    <div class="border-t border-gray-300 dark:border-gray-600 pt-3 mt-3">
+                        <button onclick="logout()" class="w-full bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg flex items-center justify-center gap-2 transition-colors">
+                            <i data-lucide="log-out" class="w-5 h-5"></i>
+                            Cerrar Sesión
+                        </button>
+                        
+                        <button onclick="clearAllData()" class="w-full bg-gray-700 hover:bg-gray-800 text-white py-2 rounded-lg flex items-center justify-center gap-2 mt-3 transition-colors">
+                            <i data-lucide="trash-2" class="w-5 h-5"></i>
+                            Borrar Todos los Datos
+                        </button>
+                    </div>
                 </div>
-            </div>
 
             <!-- ========================================
                  VISTA: CUMPLEAÑOS
@@ -984,6 +1003,8 @@
 
     <!-- Scripts en orden -->
     <script src="js/utils.js"></script>
+    <script src="js/install.js"></script>
+    <script src="js/cache.js"></script>
     <script src="js/storage.js"></script>
     <script src="js/whatsapp.js"></script>
     <script src="js/pdf.js"></script>

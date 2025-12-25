@@ -1,42 +1,55 @@
-const CACHE_NAME = 'my-club-v1';
+const CACHE_NAME = 'my-club-v1.0.3';
 const urlsToCache = [
-  '/',
-  '/index.html',
-  '/offline.html',
-  '/css/styles.css',
-  '/js/app.js',
-  '/js/auth.js',
-  '/js/storage.js',
-  '/js/players.js',
-  '/js/payments.js',
-  '/js/notifications.js',
-  '/js/calendar.js',
-  '/js/birthdays.js',
-  '/js/accounting.js',
-  '/js/dashboard.js',
-  '/js/settings.js',
-  '/js/pdf.js',
-  '/js/whatsapp.js',
-  '/js/utils.js'
+  './',
+  './index.html',
+  './offline.html',
+  './manifest.json',
+  './css/styles.css',
+  './js/app.js',
+  './js/auth.js',
+  './js/storage.js',
+  './js/players.js',
+  './js/payments.js',
+  './js/notifications.js',
+  './js/calendar.js',
+  './js/birthdays.js',
+  './js/accounting.js',
+  './js/dashboard.js',
+  './js/settings.js',
+  './js/pdf.js',
+  './js/whatsapp.js',
+  './js/utils.js',
+  './js/install.js',
+  './js/cache.js'
 ];
 
 // Instalación del Service Worker
 self.addEventListener('install', event => {
-  console.log('⚽ Service Worker: Instalando...');
+  console.log('⚽ Service Worker: Instalando v' + CACHE_NAME);
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
         console.log('✅ Cache abierto');
-        return cache.addAll(urlsToCache);
+        return cache.addAll(urlsToCache).catch(err => {
+          console.error('❌ Error al cachear archivos:', err);
+          // Intentar cachear uno por uno
+          return Promise.all(
+            urlsToCache.map(url => {
+              return cache.add(url).catch(err => {
+                console.warn('No se pudo cachear:', url);
+              });
+            })
+          );
+        });
       })
-      .catch(err => console.error('❌ Error al cachear:', err))
   );
+  // Forzar activación inmediata
   self.skipWaiting();
 });
 
 // Activación del Service Worker
 self.addEventListener('activate', event => {
-  console.log('⚽ Service Worker: Activando...');
+  console.log('⚽ Service Worker: Activando v' + CACHE_NAME);
   event.waitUntil(
     caches.keys().then(cacheNames => {
       return Promise.all(
@@ -49,40 +62,47 @@ self.addEventListener('activate', event => {
       );
     })
   );
+  // Tomar control inmediato de todas las páginas
   return self.clients.claim();
 });
 
-// Estrategia: Cache First, fallback a Network, fallback a Offline
+// Escuchar mensajes (para SKIP_WAITING)
+self.addEventListener('message', event => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    console.log('⏭️ Saltando espera - Activando nueva versión');
+    self.skipWaiting();
+  }
+});
+
+// Estrategia: Network First, fallback a Cache
 self.addEventListener('fetch', event => {
+  // Ignorar chrome-extension y otras URLs no HTTP
+  if (!event.request.url.startsWith('http')) {
+    return;
+  }
+
   event.respondWith(
-    caches.match(event.request)
+    fetch(event.request)
       .then(response => {
-        // Cache hit - devolver respuesta cacheada
-        if (response) {
-          return response;
-        }
-        
-        // Clonar request
-        const fetchRequest = event.request.clone();
-        
-        return fetch(fetchRequest).then(response => {
-          // Verificar si es una respuesta válida
-          if (!response || response.status !== 200 || response.type !== 'basic') {
-            return response;
-          }
-          
-          // Clonar respuesta
+        // Si la respuesta es válida, cachearla
+        if (response && response.status === 200) {
           const responseToCache = response.clone();
-          
-          // Cachear nueva respuesta
           caches.open(CACHE_NAME).then(cache => {
             cache.put(event.request, responseToCache);
           });
-          
-          return response;
-        }).catch(() => {
-          // Si falla la red, mostrar página offline
-          return caches.match('/offline.html');
+        }
+        return response;
+      })
+      .catch(() => {
+        // Si falla la red, buscar en cache
+        return caches.match(event.request).then(response => {
+          if (response) {
+            return response;
+          }
+          // Si no está en cache, mostrar página offline
+          if (event.request.mode === 'navigate') {
+            return caches.match('./offline.html');
+          }
         });
       })
   );
