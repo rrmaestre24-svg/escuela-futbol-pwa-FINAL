@@ -72,98 +72,128 @@
             </form>
             
             <!-- Register Form -->
-            <form id="registerForm" class="space-y-4 hidden">
-                <div class="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                    <strong>Paso 1:</strong> Datos del Club
-                </div>
-                
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Logo del Club</label>
-                    <input type="file" id="regClubLogo" accept="image/*" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
-                    <img id="regLogoPreview" class="hidden mt-2 w-24 h-24 object-cover rounded-lg">
-                </div>
-                
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre del Club *</label>
-                    <input type="text" id="regClubName" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white">
-                </div>
-                
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Color Primario</label>
-                        <input type="color" id="regClubColor" value="#0d9488" class="w-full h-10 border border-gray-300 dark:border-gray-600 rounded-lg">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Moneda</label>
-                        <select id="regClubCurrency" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
-                            <option value="COP">COP $</option>
-                            <option value="USD">USD $</option>
-                            <option value="EUR">EUR €</option>
-                        </select>
-                    </div>
-                </div>
-                
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cuota Mensual *</label>
-                    <input type="number" id="regMonthlyFee" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white">
-                </div>
-                
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email del Club *</label>
-                    <input type="email" id="regClubEmail" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white">
-                </div>
-                
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Teléfono del Club *</label>
-                    <input type="tel" id="regClubPhone" required placeholder="+57 300 1234567" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white">
-                </div>
-                
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Dirección</label>
-                    <input type="text" id="regClubAddress" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white">
-                </div>
-                
-                <div class="border-t border-gray-300 dark:border-gray-600 pt-4 mt-4">
-                    <div class="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                        <strong>Paso 2:</strong> Datos del Administrador
-                    </div>
-                </div>
-                
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Foto de Perfil</label>
-                    <input type="file" id="regAdminAvatar" accept="image/*" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
-                    <img id="regAvatarPreview" class="hidden mt-2 w-24 h-24 object-cover rounded-full">
-                </div>
-                
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre Completo *</label>
-                    <input type="text" id="regAdminName" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white">
-                </div>
-                
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha de Nacimiento *</label>
-                    <input type="date" id="regAdminBirthDate" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white">
-                </div>
-                
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Teléfono Personal *</label>
-                    <input type="tel" id="regAdminPhone" required placeholder="+57 300 1234567" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white">
-                </div>
-                
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email Personal *</label>
-                    <input type="email" id="regAdminEmail" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white">
-                </div>
-                
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Contraseña *</label>
-                    <input type="password" id="regAdminPassword" required minlength="6" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white">
-                </div>
-                
-                <button type="submit" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-medium py-3 rounded-lg transition-all transform hover:scale-105">
-                    Crear Club
-                </button>
-            </form>
+             <!-- Register Form -->
+<form id="registerForm" class="space-y-4 hidden">
+    <div class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+        <strong>Paso 1:</strong> Datos del Club
+    </div>
+    
+    <div>
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Logo del Club</label>
+        <input type="file" id="regClubLogo" accept="image/*" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+        <img id="regLogoPreview" class="hidden mt-2 w-24 h-24 object-cover rounded-lg mx-auto">
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 text-center">Máximo 2MB</p>
+    </div>
+    
+    <div>
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre del Club *</label>
+        <input type="text" id="regClubName" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white">
+    </div>
+    
+    <div class="grid grid-cols-2 gap-4">
+        <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Color Primario</label>
+            <input type="color" id="regClubColor" value="#0d9488" class="w-full h-10 border border-gray-300 dark:border-gray-600 rounded-lg">
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Moneda</label>
+            <select id="regClubCurrency" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+                <option value="COP">COP $</option>
+                <option value="USD">USD $</option>
+                <option value="EUR">EUR €</option>
+            </select>
+        </div>
+    </div>
+    
+    <div>
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cuota Mensual *</label>
+        <input type="number" id="regMonthlyFee" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white">
+    </div>
+    
+    <div>
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email del Club *</label>
+        <input type="email" id="regClubEmail" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white">
+    </div>
+    
+    <div>
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Teléfono del Club *</label>
+        <input type="tel" id="regClubPhone" required placeholder="+57 300 1234567" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white">
+    </div>
+    
+    <div>
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Dirección *</label>
+        <input type="text" id="regClubAddress" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white">
+    </div>
+
+    <div>
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ciudad</label>
+        <input type="text" id="regClubCity" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white">
+    </div>
+
+    <div>
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">País</label>
+        <input type="text" id="regClubCountry" value="Colombia" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white">
+    </div>
+
+    <div>
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Sitio Web</label>
+        <input type="url" id="regClubWebsite" placeholder="https://miclub.com" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white">
+    </div>
+
+    <div>
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Redes Sociales</label>
+        <input type="text" id="regClubSocial" placeholder="@miclub" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white">
+    </div>
+
+    <div>
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Año de Fundación</label>
+        <input type="number" id="regClubFoundedYear" min="1900" max="2024" placeholder="2020" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white">
+    </div>
+    
+    <div class="border-t border-gray-300 dark:border-gray-600 pt-4 mt-4">
+        <div class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            <strong>Paso 2:</strong> Datos del Administrador
+        </div>
+    </div>
+    
+    <div>
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Foto de Perfil</label>
+        <input type="file" id="regAdminAvatar" accept="image/*" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+        <img id="regAvatarPreview" class="hidden mt-2 w-24 h-24 object-cover rounded-full mx-auto">
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 text-center">Máximo 2MB</p>
+    </div>
+    
+    <div>
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre Completo *</label>
+        <input type="text" id="regAdminName" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white">
+    </div>
+    
+    <div>
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha de Nacimiento *</label>
+        <input type="date" id="regAdminBirthDate" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white">
+    </div>
+    
+    <div>
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Teléfono Personal *</label>
+        <input type="tel" id="regAdminPhone" required placeholder="+57 300 1234567" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white">
+    </div>
+    
+    <div>
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email Personal *</label>
+        <input type="email" id="regAdminEmail" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white">
+    </div>
+    
+    <div>
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Contraseña *</label>
+        <input type="password" id="regAdminPassword" required minlength="6" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white">
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Mínimo 6 caracteres</p>
+    </div>
+    
+    <button type="submit" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-medium py-3 rounded-lg transition-all transform hover:scale-105">
+        Crear Club
+    </button>
+</form>
+            
         </div>
     </div>
 
@@ -445,24 +475,44 @@
                 </div>
 
                 <!-- Configuración del Club -->
-                <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
-                    <h3 class="font-bold text-gray-800 dark:text-white mb-4">Datos del Club</h3>
-                    <div class="flex items-center gap-4 mb-4">
-                        <img id="clubLogo" src="" alt="Logo" class="w-20 h-20 rounded-lg object-cover border-2 border-gray-300">
-                        <div>
-                            <input type="file" id="changeClubLogo" accept="image/*" class="hidden">
-                            <button onclick="document.getElementById('changeClubLogo').click()" class="text-sm text-teal-600 dark:text-teal-400 underline">Cambiar logo</button>
-                        </div>
-                    </div>
-                    <form id="clubSettingsForm" class="space-y-3">
-                        <input type="text" id="clubName" placeholder="Nombre del club" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
-                        <input type="email" id="clubEmail" placeholder="Email del club" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
-                        <input type="tel" id="clubPhone" placeholder="Teléfono" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
-                        <input type="text" id="clubAddress" placeholder="Dirección" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
-                        <input type="number" id="clubMonthlyFee" placeholder="Cuota mensual" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
-                        <button type="submit" class="w-full bg-teal-600 hover:bg-teal-700 text-white py-2 rounded-lg">Guardar Cambios</button>
-                    </form>
-                </div>
+                <!-- Configuración del Club -->
+<div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+    <h3 class="font-bold text-gray-800 dark:text-white mb-4">Datos del Club</h3>
+    <div class="flex items-center gap-4 mb-4">
+        <img id="clubLogo" src="" alt="Logo" class="w-20 h-20 rounded-lg object-cover border-2 border-gray-300">
+        <div>
+            <input type="file" id="changeClubLogo" accept="image/*" class="hidden">
+            <button onclick="document.getElementById('changeClubLogo').click()" class="text-sm text-teal-600 dark:text-teal-400 underline">Cambiar logo</button>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Máximo 2MB</p>
+        </div>
+    </div>
+    <form id="clubSettingsForm" class="space-y-3">
+        <input type="text" id="clubName" placeholder="Nombre del club" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+        
+        <div class="grid grid-cols-2 gap-3">
+            <input type="email" id="clubEmail" placeholder="Email del club" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+            <input type="tel" id="clubPhone" placeholder="Teléfono" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+        </div>
+        
+        <input type="text" id="clubAddress" placeholder="Dirección" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+        
+        <div class="grid grid-cols-2 gap-3">
+            <input type="text" id="clubCity" placeholder="Ciudad" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+            <input type="text" id="clubCountry" placeholder="País" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+        </div>
+        
+        <input type="url" id="clubWebsite" placeholder="Sitio web" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+        
+        <input type="text" id="clubSocial" placeholder="Redes sociales (@usuario)" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+        
+        <div class="grid grid-cols-2 gap-3">
+            <input type="number" id="clubFoundedYear" placeholder="Año de fundación" min="1900" max="2024" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+            <input type="number" id="clubMonthlyFee" placeholder="Cuota mensual" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+        </div>
+        
+        <button type="submit" class="w-full bg-teal-600 hover:bg-teal-700 text-white py-2 rounded-lg">Guardar Cambios</button>
+    </form>
+</div>
 
                 <!-- Opciones -->
                 <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm space-y-3">
@@ -625,119 +675,155 @@
     ========================================= -->
 
     <!-- Modal Agregar/Editar Jugador -->
-    <div id="playerModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-        <div class="bg-white dark:bg-gray-800 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-scale-in">
-            <div class="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4 flex items-center justify-between">
-                <h3 id="playerModalTitle" class="font-bold text-xl text-gray-800 dark:text-white">Agregar Jugador</h3>
-                <button onclick="closePlayerModal()" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
-                    <i data-lucide="x" class="w-6 h-6 text-gray-600 dark:text-gray-300"></i>
+   <div id="playerModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-gray-800 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-scale-in">
+        <div class="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4 flex items-center justify-between z-10">
+            <h3 id="playerModalTitle" class="font-bold text-xl text-gray-800 dark:text-white">Agregar Jugador</h3>
+            <button onclick="closePlayerModal()" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
+                <i data-lucide="x" class="w-6 h-6 text-gray-600 dark:text-gray-300"></i>
+            </button>
+        </div>
+        <form id="playerForm" class="p-4 space-y-4">
+            <input type="hidden" id="playerId">
+            
+            <div class="text-center">
+                <input type="file" id="playerAvatar" accept="image/*" class="hidden">
+                <img id="playerAvatarPreview" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%23e5e7eb'/%3E%3Ctext x='50' y='50' text-anchor='middle' dy='.3em' font-size='40' fill='%239ca3af'%3E👤%3C/text%3E%3C/svg%3E" alt="Avatar" class="w-24 h-24 rounded-full mx-auto object-cover border-4 border-teal-500 cursor-pointer" onclick="document.getElementById('playerAvatar').click()">
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">Click para cambiar foto (máx 2MB)</p>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre Completo *</label>
+                    <input type="text" id="playerName" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha de Nacimiento *</label>
+                    <input type="date" id="playerBirthDate" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500">
+                </div>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Categoría *</label>
+                    <select id="playerCategory" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500">
+                        <option value="">Seleccionar...</option>
+                        <option value="Sub-8">Sub-8</option>
+                        <option value="Sub-10">Sub-10</option>
+                        <option value="Sub-12">Sub-12</option>
+                        <option value="Sub-14">Sub-14</option>
+                        <option value="Sub-16">Sub-16</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Posición</label>
+                    <select id="playerPosition" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500">
+                        <option value="">Seleccionar...</option>
+                        <option value="Portero">Portero</option>
+                        <option value="Defensa Central">Defensa Central</option>
+                        <option value="Lateral Derecho">Lateral Derecho</option>
+                        <option value="Lateral Izquierdo">Lateral Izquierdo</option>
+                        <option value="Medio Centro">Medio Centro</option>
+                        <option value="Medio Defensivo">Medio Defensivo</option>
+                        <option value="Medio Ofensivo">Medio Ofensivo</option>
+                        <option value="Extremo Derecho">Extremo Derecho</option>
+                        <option value="Extremo Izquierdo">Extremo Izquierdo</option>
+                        <option value="Delantero Centro">Delantero Centro</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Número de Camiseta</label>
+                    <input type="number" id="playerJerseyNumber" min="1" max="99" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Talla Uniforme</label>
+                    <select id="playerUniformSize" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500">
+                        <option value="">Seleccionar...</option>
+                        <option value="4">4</option>
+                        <option value="6">6</option>
+                        <option value="8">8</option>
+                        <option value="10">10</option>
+                        <option value="12">12</option>
+                        <option value="14">14</option>
+                        <option value="XS">XS</option>
+                        <option value="S">S</option>
+                        <option value="M">M</option>
+                        <option value="L">L</option>
+                        <option value="XL">XL</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
+                    <input type="email" id="playerEmail" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Teléfono Acudiente *</label>
+                    <input type="tel" id="playerPhone" required placeholder="+57 300 1234567" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Contacto de Emergencia</label>
+                <input type="tel" id="playerEmergencyContact" placeholder="+57 300 1234567" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500">
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Dirección</label>
+                <input type="text" id="playerAddress" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500">
+            </div>
+
+            <div class="border-t border-gray-300 dark:border-gray-600 pt-4">
+                <h4 class="font-medium text-gray-800 dark:text-white mb-3 flex items-center gap-2">
+                    <i data-lucide="heart-pulse" class="w-5 h-5 text-red-600"></i>
+                    Información Médica
+                </h4>
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo de Sangre</label>
+                        <select id="playerBloodType" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500">
+                            <option value="">Seleccionar...</option>
+                            <option value="A+">A+</option>
+                            <option value="A-">A-</option>
+                            <option value="B+">B+</option>
+                            <option value="B-">B-</option>
+                            <option value="AB+">AB+</option>
+                            <option value="AB-">AB-</option>
+                            <option value="O+">O+</option>
+                            <option value="O-">O-</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Alergias</label>
+                        <input type="text" id="playerAllergies" placeholder="Ninguna" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500">
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Medicamentos</label>
+                    <input type="text" id="playerMedications" placeholder="Ninguno" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500">
+                </div>
+                <div class="mt-4">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Condiciones Especiales</label>
+                    <textarea id="playerConditions" rows="2" placeholder="Ninguna" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500"></textarea>
+                </div>
+            </div>
+
+            <div class="flex gap-2 pt-4 sticky bottom-0 bg-white dark:bg-gray-800 pb-2">
+                <button type="button" onclick="closePlayerModal()" class="flex-1 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                    Cancelar
+                </button>
+                <button type="submit" class="flex-1 bg-teal-600 hover:bg-teal-700 text-white py-2 rounded-lg transition-colors">
+                    Guardar
                 </button>
             </div>
-            <form id="playerForm" class="p-4 space-y-4">
-                <input type="hidden" id="playerId">
-                
-                <div class="text-center">
-                    <input type="file" id="playerAvatar" accept="image/*" class="hidden">
-                    <img id="playerAvatarPreview" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%23e5e7eb'/%3E%3Ctext x='50' y='50' text-anchor='middle' dy='.3em' font-size='40' fill='%239ca3af'%3E👤%3C/text%3E%3C/svg%3E" alt="Avatar" class="w-24 h-24 rounded-full mx-auto object-cover border-4 border-teal-500 cursor-pointer" onclick="document.getElementById('playerAvatar').click()">
-                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">Click para cambiar foto</p>
-                </div>
-
-                <div class="grid md:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre Completo *</label>
-                        <input type="text" id="playerName" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha de Nacimiento *</label>
-                        <input type="date" id="playerBirthDate" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
-                    </div>
-                </div>
-
-                <div class="grid md:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Categoría *</label>
-                        <select id="playerCategory" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
-                            <option value="">Seleccionar...</option>
-                            <option value="Sub-8">Sub-8</option>
-                            <option value="Sub-10">Sub-10</option>
-                            <option value="Sub-12">Sub-12</option>
-                            <option value="Sub-14">Sub-14</option>
-                            <option value="Sub-16">Sub-16</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Talla Uniforme</label>
-                        <select id="playerUniformSize" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
-                            <option value="">Seleccionar...</option>
-                            <option value="XS">XS</option>
-                            <option value="S">S</option>
-                            <option value="M">M</option>
-                            <option value="L">L</option>
-                            <option value="XL">XL</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div class="grid md:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
-                        <input type="email" id="playerEmail" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Teléfono Acudiente *</label>
-                        <input type="tel" id="playerPhone" required placeholder="+57 300 1234567" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
-                    </div>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Dirección</label>
-                    <input type="text" id="playerAddress" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
-                </div>
-
-                <div class="border-t border-gray-300 dark:border-gray-600 pt-4">
-                    <h4 class="font-medium text-gray-800 dark:text-white mb-3">Información Médica</h4>
-                    <div class="grid md:grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo de Sangre</label>
-                            <select id="playerBloodType" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
-                                <option value="">Seleccionar...</option>
-                                <option value="A+">A+</option>
-                                <option value="A-">A-</option>
-                                <option value="B+">B+</option>
-                                <option value="B-">B-</option>
-                                <option value="AB+">AB+</option>
-                                <option value="AB-">AB-</option>
-                                <option value="O+">O+</option>
-                                <option value="O-">O-</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Alergias</label>
-                            <input type="text" id="playerAllergies" placeholder="Ninguna" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
-                        </div>
-                    </div>
-                    <div class="mt-4">
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Medicamentos</label>
-                        <input type="text" id="playerMedications" placeholder="Ninguno" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
-                    </div>
-                    <div class="mt-4">
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Condiciones Especiales</label>
-                        <textarea id="playerConditions" rows="2" placeholder="Ninguna" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"></textarea>
-                    </div>
-                </div>
-
-                <div class="flex gap-2 pt-4">
-                    <button type="button" onclick="closePlayerModal()" class="flex-1 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 py-2 rounded-lg">
-                        Cancelar
-                    </button>
-                    <button type="submit" class="flex-1 bg-teal-600 hover:bg-teal-700 text-white py-2 rounded-lg">
-                        Guardar
-                    </button>
-                </div>
-            </form>
-        </div>
+        </form>
     </div>
-
+   </div>
     <!-- Modal Detalles Jugador -->
     <div id="playerDetailsModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
         <div class="bg-white dark:bg-gray-800 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-scale-in">

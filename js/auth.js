@@ -1,5 +1,5 @@
 // ========================================
-// SISTEMA DE AUTENTICACIÓN
+// SISTEMA DE AUTENTICACIÓN - MEJORADO
 // ========================================
 
 // Mostrar tab de login
@@ -22,10 +22,18 @@ function showRegisterTab() {
   document.getElementById('loginTab').classList.add('bg-gray-200', 'dark:bg-gray-700', 'text-gray-700', 'dark:text-gray-300');
 }
 
-// Preview de logo en registro
+// Preview de logo en registro - MEJORADO
 document.getElementById('regClubLogo')?.addEventListener('change', function(e) {
   const file = e.target.files[0];
   if (file) {
+    if (!file.type.startsWith('image/')) {
+      showToast('❌ Por favor selecciona una imagen válida');
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      showToast('❌ La imagen es muy grande. Máximo 2MB');
+      return;
+    }
     imageToBase64(file, function(base64) {
       const preview = document.getElementById('regLogoPreview');
       preview.src = base64;
@@ -34,10 +42,18 @@ document.getElementById('regClubLogo')?.addEventListener('change', function(e) {
   }
 });
 
-// Preview de avatar en registro
+// Preview de avatar en registro - MEJORADO
 document.getElementById('regAdminAvatar')?.addEventListener('change', function(e) {
   const file = e.target.files[0];
   if (file) {
+    if (!file.type.startsWith('image/')) {
+      showToast('❌ Por favor selecciona una imagen válida');
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      showToast('❌ La imagen es muy grande. Máximo 2MB');
+      return;
+    }
     imageToBase64(file, function(base64) {
       const preview = document.getElementById('regAvatarPreview');
       preview.src = base64;
@@ -73,7 +89,7 @@ document.getElementById('loginForm')?.addEventListener('submit', function(e) {
   }
 });
 
-// Registro
+// Registro - MEJORADO
 document.getElementById('registerForm')?.addEventListener('submit', function(e) {
   e.preventDefault();
   
@@ -86,6 +102,11 @@ document.getElementById('registerForm')?.addEventListener('submit', function(e) 
   const clubEmail = document.getElementById('regClubEmail').value;
   const clubPhone = document.getElementById('regClubPhone').value;
   const clubAddress = document.getElementById('regClubAddress').value;
+  const clubCity = document.getElementById('regClubCity').value;
+  const clubCountry = document.getElementById('regClubCountry').value;
+  const clubWebsite = document.getElementById('regClubWebsite').value;
+  const clubSocial = document.getElementById('regClubSocial').value;
+  const clubFoundedYear = document.getElementById('regClubFoundedYear').value;
   
   // Datos del admin
   const adminAvatarFile = document.getElementById('regAdminAvatar').files[0];
@@ -126,13 +147,18 @@ document.getElementById('registerForm')?.addEventListener('submit', function(e) 
   
   // Completar registro
   const completeRegistration = (clubLogo, adminAvatar) => {
-    // Guardar configuración del club
+    // Guardar configuración del club - MEJORADO
     updateSchoolSettings({
       name: clubName,
       logo: clubLogo,
       email: clubEmail,
       phone: clubPhone,
       address: clubAddress,
+      city: clubCity,
+      country: clubCountry,
+      website: clubWebsite,
+      socialMedia: clubSocial,
+      foundedYear: clubFoundedYear,
       monthlyFee: monthlyFee,
       currency: clubCurrency,
       primaryColor: clubColor
@@ -194,4 +220,4 @@ window.addEventListener('DOMContentLoaded', function() {
   }
 });
 
-console.log('✅ auth.js cargado');
+console.log('✅ auth.js cargado (MEJORADO)');

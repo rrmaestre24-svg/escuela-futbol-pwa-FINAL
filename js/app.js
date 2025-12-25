@@ -55,6 +55,52 @@ function navigateTo(view) {
   window.scrollTo(0, 0);
 }
 
+// Toggle modo oscuro CORREGIDO
+function toggleDarkMode() {
+  const html = document.documentElement;
+  const isDark = html.classList.contains('dark');
+  
+  if (isDark) {
+    html.classList.remove('dark');
+    setDarkMode(false);
+    showToast('☀️ Modo claro activado');
+  } else {
+    html.classList.add('dark');
+    setDarkMode(true);
+    showToast('🌙 Modo oscuro activado');
+  }
+  
+  // Actualizar icono del botón
+  updateDarkModeIcons();
+}
+
+// Actualizar iconos de modo oscuro
+function updateDarkModeIcons() {
+  const isDark = document.documentElement.classList.contains('dark');
+  const moonIcons = document.querySelectorAll('[data-lucide="moon"]');
+  const sunIcons = document.querySelectorAll('[data-lucide="sun"]');
+  
+  if (isDark) {
+    moonIcons.forEach(icon => {
+      icon.setAttribute('data-lucide', 'sun');
+    });
+  } else {
+    sunIcons.forEach(icon => {
+      icon.setAttribute('data-lucide', 'moon');
+    });
+  }
+  
+  lucide.createIcons();
+}
+
+// Aplicar modo oscuro al cargar
+function applyDarkMode() {
+  if (getDarkMode()) {
+    document.documentElement.classList.add('dark');
+  }
+  updateDarkModeIcons();
+}
+
 // Inicializar aplicación
 function initApp() {
   console.log('🚀 Inicializando MY CLUB...');

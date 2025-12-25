@@ -1,5 +1,5 @@
 // ========================================
-// CONFIGURACIÓN
+// CONFIGURACIÓN - MEJORADO
 // ========================================
 
 // Cargar configuración al abrir vista
@@ -15,19 +15,32 @@ function loadSettings() {
     document.getElementById('userPhone').value = currentUser.phone || '';
   }
   
-  // Datos del club
+  // Datos del club - MEJORADO
   document.getElementById('clubLogo').src = settings.logo || getDefaultLogo();
   document.getElementById('clubName').value = settings.name || '';
   document.getElementById('clubEmail').value = settings.email || '';
   document.getElementById('clubPhone').value = settings.phone || '';
   document.getElementById('clubAddress').value = settings.address || '';
+  document.getElementById('clubCity').value = settings.city || '';
+  document.getElementById('clubCountry').value = settings.country || '';
+  document.getElementById('clubWebsite').value = settings.website || '';
+  document.getElementById('clubSocial').value = settings.socialMedia || '';
+  document.getElementById('clubFoundedYear').value = settings.foundedYear || '';
   document.getElementById('clubMonthlyFee').value = settings.monthlyFee || '';
 }
 
-// Cambiar avatar del usuario
+// Cambiar avatar del usuario - MEJORADO
 document.getElementById('changeAvatar')?.addEventListener('change', function(e) {
   const file = e.target.files[0];
   if (file) {
+    if (!file.type.startsWith('image/')) {
+      showToast('❌ Por favor selecciona una imagen válida');
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      showToast('❌ La imagen es muy grande. Máximo 2MB');
+      return;
+    }
     imageToBase64(file, function(base64) {
       document.getElementById('userAvatar').src = base64;
       
@@ -41,10 +54,18 @@ document.getElementById('changeAvatar')?.addEventListener('change', function(e) 
   }
 });
 
-// Cambiar logo del club
+// Cambiar logo del club - MEJORADO
 document.getElementById('changeClubLogo')?.addEventListener('change', function(e) {
   const file = e.target.files[0];
   if (file) {
+    if (!file.type.startsWith('image/')) {
+      showToast('❌ Por favor selecciona una imagen válida');
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      showToast('❌ La imagen es muy grande. Máximo 2MB');
+      return;
+    }
     imageToBase64(file, function(base64) {
       document.getElementById('clubLogo').src = base64;
       document.getElementById('headerLogo').src = base64;
@@ -71,12 +92,10 @@ document.getElementById('userProfileForm')?.addEventListener('submit', function(
   updateUser(currentUser.id, userData);
   setCurrentUser({ ...currentUser, ...userData });
   
-  document.getElementById('headerClubName').textContent = getSchoolSettings().name;
-  
   showToast('✅ Perfil actualizado');
 });
 
-// Guardar configuración del club
+// Guardar configuración del club - MEJORADO
 document.getElementById('clubSettingsForm')?.addEventListener('submit', function(e) {
   e.preventDefault();
   
@@ -85,6 +104,11 @@ document.getElementById('clubSettingsForm')?.addEventListener('submit', function
     email: document.getElementById('clubEmail').value,
     phone: document.getElementById('clubPhone').value,
     address: document.getElementById('clubAddress').value,
+    city: document.getElementById('clubCity').value,
+    country: document.getElementById('clubCountry').value,
+    website: document.getElementById('clubWebsite').value,
+    socialMedia: document.getElementById('clubSocial').value,
+    foundedYear: document.getElementById('clubFoundedYear').value,
     monthlyFee: parseFloat(document.getElementById('clubMonthlyFee').value)
   };
   
@@ -95,7 +119,7 @@ document.getElementById('clubSettingsForm')?.addEventListener('submit', function
   showToast('✅ Configuración del club actualizada');
 });
 
-// Toggle modo oscuro
+// Toggle modo oscuro (ya corregido en app.js)
 function toggleDarkMode() {
   const html = document.documentElement;
   const isDark = html.classList.contains('dark');
@@ -103,10 +127,14 @@ function toggleDarkMode() {
   if (isDark) {
     html.classList.remove('dark');
     setDarkMode(false);
+    showToast('☀️ Modo claro activado');
   } else {
     html.classList.add('dark');
     setDarkMode(true);
+    showToast('🌙 Modo oscuro activado');
   }
+  
+  updateDarkModeIcons();
 }
 
 // Exportar datos
@@ -121,4 +149,4 @@ function applyDarkMode() {
   }
 }
 
-console.log('✅ settings.js cargado');
+console.log('✅ settings.js cargado (MEJORADO)');

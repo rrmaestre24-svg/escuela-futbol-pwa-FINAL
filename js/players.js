@@ -1,5 +1,5 @@
 // ========================================
-// GESTIÓN DE JUGADORES
+// GESTIÓN DE JUGADORES - MEJORADO
 // ========================================
 
 let currentEditingPlayerId = null;
@@ -29,6 +29,8 @@ function showEditPlayerModal(playerId) {
   document.getElementById('playerName').value = player.name;
   document.getElementById('playerBirthDate').value = player.birthDate;
   document.getElementById('playerCategory').value = player.category;
+  document.getElementById('playerPosition').value = player.position || '';
+  document.getElementById('playerJerseyNumber').value = player.jerseyNumber || '';
   document.getElementById('playerUniformSize').value = player.uniformSize || '';
   document.getElementById('playerEmail').value = player.email || '';
   document.getElementById('playerPhone').value = player.phone;
@@ -37,6 +39,7 @@ function showEditPlayerModal(playerId) {
   document.getElementById('playerAllergies').value = player.medicalInfo?.allergies || '';
   document.getElementById('playerMedications').value = player.medicalInfo?.medications || '';
   document.getElementById('playerConditions').value = player.medicalInfo?.conditions || '';
+  document.getElementById('playerEmergencyContact').value = player.emergencyContact || '';
   document.getElementById('playerAvatarPreview').src = player.avatar || getDefaultAvatar();
   
   document.getElementById('playerModal').classList.remove('hidden');
@@ -48,17 +51,30 @@ function closePlayerModal() {
   currentEditingPlayerId = null;
 }
 
-// Preview de avatar jugador
+// Preview de avatar jugador - MEJORADO
 document.getElementById('playerAvatar')?.addEventListener('change', function(e) {
   const file = e.target.files[0];
   if (file) {
+    // Validar tipo de archivo
+    if (!file.type.startsWith('image/')) {
+      showToast('❌ Por favor selecciona una imagen válida');
+      return;
+    }
+    
+    // Validar tamaño (máximo 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      showToast('❌ La imagen es muy grande. Máximo 2MB');
+      return;
+    }
+    
     imageToBase64(file, function(base64) {
       document.getElementById('playerAvatarPreview').src = base64;
+      showToast('✅ Imagen cargada');
     });
   }
 });
 
-// Guardar jugador
+// Guardar jugador - MEJORADO
 document.getElementById('playerForm')?.addEventListener('submit', function(e) {
   e.preventDefault();
   
@@ -70,10 +86,13 @@ document.getElementById('playerForm')?.addEventListener('submit', function(e) {
     name: document.getElementById('playerName').value,
     birthDate: document.getElementById('playerBirthDate').value,
     category: document.getElementById('playerCategory').value,
+    position: document.getElementById('playerPosition').value,
+    jerseyNumber: document.getElementById('playerJerseyNumber').value,
     uniformSize: document.getElementById('playerUniformSize').value,
     email: document.getElementById('playerEmail').value,
     phone: document.getElementById('playerPhone').value,
     address: document.getElementById('playerAddress').value,
+    emergencyContact: document.getElementById('playerEmergencyContact').value,
     medicalInfo: {
       bloodType: document.getElementById('playerBloodType').value,
       allergies: document.getElementById('playerAllergies').value,
@@ -118,7 +137,7 @@ function renderPlayersList() {
   const players = getPlayers();
   const searchTerm = document.getElementById('playerSearch')?.value || '';
   
-  const filtered = filterBySearch(players, searchTerm, ['name', 'category', 'phone', 'email']);
+  const filtered = filterBySearch(players, searchTerm, ['name', 'category', 'phone', 'email', 'position', 'jerseyNumber']);
   const sorted = sortBy(filtered, 'name', 'asc');
   
   const container = document.getElementById('playersList');
@@ -146,6 +165,11 @@ function renderPlayersList() {
               <div class="flex-1 min-w-0">
                 <h3 class="font-bold text-gray-800 dark:text-white truncate">${player.name}</h3>
                 <p class="text-sm text-gray-500 dark:text-gray-400">${player.category} • ${age} años</p>
+                ${player.position || player.jerseyNumber ? `
+                  <p class="text-xs text-teal-600 dark:text-teal-400">
+                    ${player.position ? player.position : ''} ${player.jerseyNumber ? '#' + player.jerseyNumber : ''}
+                  </p>
+                ` : ''}
               </div>
               <span class="badge ${statusColor} text-xs">${player.status}</span>
             </div>
@@ -186,7 +210,7 @@ function renderPlayersList() {
 // Buscar jugadores en tiempo real
 document.getElementById('playerSearch')?.addEventListener('input', renderPlayersList);
 
-// Mostrar detalles del jugador
+// Mostrar detalles del jugador - MEJORADO
 function showPlayerDetails(playerId) {
   const player = getPlayerById(playerId);
   if (!player) {
@@ -208,6 +232,11 @@ function showPlayerDetails(playerId) {
         <img src="${player.avatar || getDefaultAvatar()}" alt="${player.name}" class="w-32 h-32 rounded-full object-cover border-4 border-teal-500 mx-auto mb-4">
         <h2 class="text-2xl font-bold text-gray-800 dark:text-white">${player.name}</h2>
         <p class="text-gray-500 dark:text-gray-400">${player.category} • ${age} años</p>
+        ${player.position || player.jerseyNumber ? `
+          <p class="text-teal-600 dark:text-teal-400 font-medium mt-1">
+            ${player.position ? player.position : ''} ${player.jerseyNumber ? '• Dorsal #' + player.jerseyNumber : ''}
+          </p>
+        ` : ''}
         <span class="inline-block mt-2 px-4 py-1 rounded-full text-sm font-medium ${player.status === 'Activo' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' : 'bg-gray-100 text-gray-800'}">${player.status}</span>
       </div>
       
@@ -226,6 +255,12 @@ function showPlayerDetails(playerId) {
             <span class="text-gray-500 dark:text-gray-400">Teléfono:</span>
             <a href="https://wa.me/${cleanPhone(player.phone)}" target="_blank" class="text-teal-600 dark:text-teal-400 font-medium hover:underline">${player.phone}</a>
           </div>
+          ${player.emergencyContact ? `
+            <div class="flex justify-between">
+              <span class="text-gray-500 dark:text-gray-400">Contacto emergencia:</span>
+              <span class="text-gray-800 dark:text-white font-medium">${player.emergencyContact}</span>
+            </div>
+          ` : ''}
           ${player.email ? `
             <div class="flex justify-between">
               <span class="text-gray-500 dark:text-gray-400">Email:</span>
@@ -353,4 +388,4 @@ function deletePlayerConfirm(playerId) {
   }
 }
 
-console.log('✅ players.js cargado');
+console.log('✅ players.js cargado (MEJORADO)');
