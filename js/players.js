@@ -1,0 +1,356 @@
+// ========================================
+// GESTIÓN DE JUGADORES
+// ========================================
+
+let currentEditingPlayerId = null;
+
+// Mostrar modal agregar jugador
+function showAddPlayerModal() {
+  currentEditingPlayerId = null;
+  document.getElementById('playerModalTitle').textContent = 'Agregar Jugador';
+  document.getElementById('playerForm').reset();
+  document.getElementById('playerId').value = '';
+  document.getElementById('playerAvatarPreview').src = getDefaultAvatar();
+  document.getElementById('playerModal').classList.remove('hidden');
+}
+
+// Mostrar modal editar jugador
+function showEditPlayerModal(playerId) {
+  currentEditingPlayerId = playerId;
+  const player = getPlayerById(playerId);
+  
+  if (!player) {
+    showToast('❌ Jugador no encontrado');
+    return;
+  }
+  
+  document.getElementById('playerModalTitle').textContent = 'Editar Jugador';
+  document.getElementById('playerId').value = player.id;
+  document.getElementById('playerName').value = player.name;
+  document.getElementById('playerBirthDate').value = player.birthDate;
+  document.getElementById('playerCategory').value = player.category;
+  document.getElementById('playerUniformSize').value = player.uniformSize || '';
+  document.getElementById('playerEmail').value = player.email || '';
+  document.getElementById('playerPhone').value = player.phone;
+  document.getElementById('playerAddress').value = player.address || '';
+  document.getElementById('playerBloodType').value = player.medicalInfo?.bloodType || '';
+  document.getElementById('playerAllergies').value = player.medicalInfo?.allergies || '';
+  document.getElementById('playerMedications').value = player.medicalInfo?.medications || '';
+  document.getElementById('playerConditions').value = player.medicalInfo?.conditions || '';
+  document.getElementById('playerAvatarPreview').src = player.avatar || getDefaultAvatar();
+  
+  document.getElementById('playerModal').classList.remove('hidden');
+}
+
+// Cerrar modal jugador
+function closePlayerModal() {
+  document.getElementById('playerModal').classList.add('hidden');
+  currentEditingPlayerId = null;
+}
+
+// Preview de avatar jugador
+document.getElementById('playerAvatar')?.addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (file) {
+    imageToBase64(file, function(base64) {
+      document.getElementById('playerAvatarPreview').src = base64;
+    });
+  }
+});
+
+// Guardar jugador
+document.getElementById('playerForm')?.addEventListener('submit', function(e) {
+  e.preventDefault();
+  
+  const playerId = document.getElementById('playerId').value;
+  const avatarFile = document.getElementById('playerAvatar').files[0];
+  const currentAvatar = document.getElementById('playerAvatarPreview').src;
+  
+  const playerData = {
+    name: document.getElementById('playerName').value,
+    birthDate: document.getElementById('playerBirthDate').value,
+    category: document.getElementById('playerCategory').value,
+    uniformSize: document.getElementById('playerUniformSize').value,
+    email: document.getElementById('playerEmail').value,
+    phone: document.getElementById('playerPhone').value,
+    address: document.getElementById('playerAddress').value,
+    medicalInfo: {
+      bloodType: document.getElementById('playerBloodType').value,
+      allergies: document.getElementById('playerAllergies').value,
+      medications: document.getElementById('playerMedications').value,
+      conditions: document.getElementById('playerConditions').value
+    }
+  };
+  
+  const savePlayerData = (avatar) => {
+    playerData.avatar = avatar;
+    
+    if (playerId) {
+      // Editar
+      updatePlayer(playerId, playerData);
+      showToast('✅ Jugador actualizado');
+    } else {
+      // Crear nuevo
+      const newPlayer = {
+        id: generateId(),
+        ...playerData,
+        status: 'Activo',
+        enrollmentDate: getCurrentDate()
+      };
+      savePlayer(newPlayer);
+      showToast('✅ Jugador agregado');
+    }
+    
+    closePlayerModal();
+    renderPlayersList();
+    updateDashboard();
+  };
+  
+  if (avatarFile) {
+    imageToBase64(avatarFile, savePlayerData);
+  } else {
+    savePlayerData(currentAvatar);
+  }
+});
+
+// Renderizar lista de jugadores
+function renderPlayersList() {
+  const players = getPlayers();
+  const searchTerm = document.getElementById('playerSearch')?.value || '';
+  
+  const filtered = filterBySearch(players, searchTerm, ['name', 'category', 'phone', 'email']);
+  const sorted = sortBy(filtered, 'name', 'asc');
+  
+  const container = document.getElementById('playersList');
+  
+  if (sorted.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-icon">👤</div>
+        <p class="text-gray-500 dark:text-gray-400">No hay jugadores registrados</p>
+      </div>
+    `;
+    return;
+  }
+  
+  container.innerHTML = sorted.map(player => {
+    const age = calculateAge(player.birthDate);
+    const statusColor = player.status === 'Activo' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
+    
+    return `
+      <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm card-hover animate-slide-in">
+        <div class="flex items-start gap-3">
+          <img src="${player.avatar || getDefaultAvatar()}" alt="${player.name}" class="w-16 h-16 rounded-full object-cover border-2 border-teal-500">
+          <div class="flex-1 min-w-0">
+            <div class="flex items-start justify-between gap-2">
+              <div class="flex-1 min-w-0">
+                <h3 class="font-bold text-gray-800 dark:text-white truncate">${player.name}</h3>
+                <p class="text-sm text-gray-500 dark:text-gray-400">${player.category} • ${age} años</p>
+              </div>
+              <span class="badge ${statusColor} text-xs">${player.status}</span>
+            </div>
+            <div class="mt-2 flex flex-wrap gap-2">
+              <a href="https://wa.me/${cleanPhone(player.phone)}" target="_blank" class="text-sm text-teal-600 dark:text-teal-400 flex items-center gap-1 hover:underline">
+                <i data-lucide="phone" class="w-4 h-4"></i>
+                ${player.phone}
+              </a>
+              ${player.email ? `
+                <span class="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1">
+                  <i data-lucide="mail" class="w-4 h-4"></i>
+                  ${player.email}
+                </span>
+              ` : ''}
+            </div>
+            <div class="mt-3 flex gap-2">
+              <button onclick="showPlayerDetails('${player.id}')" class="flex-1 bg-teal-600 hover:bg-teal-700 text-white text-sm py-2 px-3 rounded-lg flex items-center justify-center gap-1">
+                <i data-lucide="eye" class="w-4 h-4"></i>
+                Ver
+              </button>
+              <button onclick="showEditPlayerModal('${player.id}')" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-sm py-2 px-3 rounded-lg flex items-center justify-center gap-1">
+                <i data-lucide="edit" class="w-4 h-4"></i>
+                Editar
+              </button>
+              <button onclick="deletePlayerConfirm('${player.id}')" class="bg-red-600 hover:bg-red-700 text-white text-sm py-2 px-3 rounded-lg">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+  
+  lucide.createIcons();
+}
+
+// Buscar jugadores en tiempo real
+document.getElementById('playerSearch')?.addEventListener('input', renderPlayersList);
+
+// Mostrar detalles del jugador
+function showPlayerDetails(playerId) {
+  const player = getPlayerById(playerId);
+  if (!player) {
+    showToast('❌ Jugador no encontrado');
+    return;
+  }
+  
+  const age = calculateAge(player.birthDate);
+  const payments = getPaymentsByPlayer(playerId);
+  const paid = payments.filter(p => p.status === 'Pagado');
+  const pending = payments.filter(p => p.status === 'Pendiente');
+  const totalPaid = paid.reduce((sum, p) => sum + p.amount, 0);
+  const totalPending = pending.reduce((sum, p) => sum + p.amount, 0);
+  
+  const content = `
+    <div class="space-y-4">
+      <!-- Avatar y datos básicos -->
+      <div class="text-center">
+        <img src="${player.avatar || getDefaultAvatar()}" alt="${player.name}" class="w-32 h-32 rounded-full object-cover border-4 border-teal-500 mx-auto mb-4">
+        <h2 class="text-2xl font-bold text-gray-800 dark:text-white">${player.name}</h2>
+        <p class="text-gray-500 dark:text-gray-400">${player.category} • ${age} años</p>
+        <span class="inline-block mt-2 px-4 py-1 rounded-full text-sm font-medium ${player.status === 'Activo' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' : 'bg-gray-100 text-gray-800'}">${player.status}</span>
+      </div>
+      
+      <!-- Información personal -->
+      <div class="bg-gray-50 dark:bg-gray-700 rounded-xl p-4">
+        <h3 class="font-bold text-gray-800 dark:text-white mb-3 flex items-center gap-2">
+          <i data-lucide="user" class="w-5 h-5 text-teal-600"></i>
+          Información Personal
+        </h3>
+        <div class="space-y-2 text-sm">
+          <div class="flex justify-between">
+            <span class="text-gray-500 dark:text-gray-400">Fecha de nacimiento:</span>
+            <span class="text-gray-800 dark:text-white font-medium">${formatDate(player.birthDate)}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-500 dark:text-gray-400">Teléfono:</span>
+            <a href="https://wa.me/${cleanPhone(player.phone)}" target="_blank" class="text-teal-600 dark:text-teal-400 font-medium hover:underline">${player.phone}</a>
+          </div>
+          ${player.email ? `
+            <div class="flex justify-between">
+              <span class="text-gray-500 dark:text-gray-400">Email:</span>
+              <span class="text-gray-800 dark:text-white font-medium">${player.email}</span>
+            </div>
+          ` : ''}
+          ${player.address ? `
+            <div class="flex justify-between">
+              <span class="text-gray-500 dark:text-gray-400">Dirección:</span>
+              <span class="text-gray-800 dark:text-white font-medium">${player.address}</span>
+            </div>
+          ` : ''}
+          ${player.uniformSize ? `
+            <div class="flex justify-between">
+              <span class="text-gray-500 dark:text-gray-400">Talla uniforme:</span>
+              <span class="text-gray-800 dark:text-white font-medium">${player.uniformSize}</span>
+            </div>
+          ` : ''}
+          <div class="flex justify-between">
+            <span class="text-gray-500 dark:text-gray-400">Fecha de inscripción:</span>
+            <span class="text-gray-800 dark:text-white font-medium">${formatDate(player.enrollmentDate)}</span>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Información médica -->
+      <div class="bg-gray-50 dark:bg-gray-700 rounded-xl p-4">
+        <h3 class="font-bold text-gray-800 dark:text-white mb-3 flex items-center gap-2">
+          <i data-lucide="heart-pulse" class="w-5 h-5 text-red-600"></i>
+          Información Médica
+        </h3>
+        <div class="space-y-2 text-sm">
+          <div class="flex justify-between">
+            <span class="text-gray-500 dark:text-gray-400">Tipo de sangre:</span>
+            <span class="text-gray-800 dark:text-white font-medium">${player.medicalInfo?.bloodType || 'No especificado'}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-500 dark:text-gray-400">Alergias:</span>
+            <span class="text-gray-800 dark:text-white font-medium">${player.medicalInfo?.allergies || 'Ninguna'}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-500 dark:text-gray-400">Medicamentos:</span>
+            <span class="text-gray-800 dark:text-white font-medium">${player.medicalInfo?.medications || 'Ninguno'}</span>
+          </div>
+          ${player.medicalInfo?.conditions ? `
+            <div>
+              <span class="text-gray-500 dark:text-gray-400">Condiciones especiales:</span>
+              <p class="text-gray-800 dark:text-white font-medium mt-1">${player.medicalInfo.conditions}</p>
+            </div>
+          ` : ''}
+        </div>
+      </div>
+      
+      <!-- Historial de pagos -->
+      <div class="bg-gray-50 dark:bg-gray-700 rounded-xl p-4">
+        <h3 class="font-bold text-gray-800 dark:text-white mb-3 flex items-center gap-2">
+          <i data-lucide="dollar-sign" class="w-5 h-5 text-green-600"></i>
+          Historial de Pagos
+        </h3>
+        <div class="grid grid-cols-2 gap-4 mb-4">
+          <div class="text-center">
+            <p class="text-xs text-gray-500 dark:text-gray-400">Total Pagado</p>
+            <p class="text-lg font-bold text-green-600">${formatCurrency(totalPaid)}</p>
+          </div>
+          <div class="text-center">
+            <p class="text-xs text-gray-500 dark:text-gray-400">Total Pendiente</p>
+            <p class="text-lg font-bold text-red-600">${formatCurrency(totalPending)}</p>
+          </div>
+        </div>
+        
+        ${payments.length > 0 ? `
+          <div class="space-y-2 max-h-48 overflow-y-auto">
+            ${payments.map(p => `
+              <div class="flex items-center justify-between text-sm border-b border-gray-200 dark:border-gray-600 pb-2">
+                <div>
+                  <p class="font-medium text-gray-800 dark:text-white">${p.concept}</p>
+                  <p class="text-xs text-gray-500 dark:text-gray-400">${formatDate(p.paidDate || p.dueDate)}</p>
+                </div>
+                <div class="text-right">
+                  <p class="font-bold text-gray-800 dark:text-white">${formatCurrency(p.amount)}</p>
+                  <span class="text-xs ${p.status === 'Pagado' ? 'text-green-600' : 'text-red-600'}">${p.status}</span>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        ` : `
+          <p class="text-sm text-gray-500 dark:text-gray-400 text-center py-4">No hay pagos registrados</p>
+        `}
+      </div>
+      
+      <!-- Botones de acción -->
+      <div class="flex gap-2">
+        <button onclick="generatePlayerAccountStatementPDF('${player.id}')" class="flex-1 bg-teal-600 hover:bg-teal-700 text-white py-3 rounded-lg flex items-center justify-center gap-2">
+          <i data-lucide="file-text" class="w-5 h-5"></i>
+          Estado de Cuenta PDF
+        </button>
+        <button onclick="sendAccountStatementWhatsApp('${player.id}')" class="flex-1 bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg flex items-center justify-center gap-2">
+          <i data-lucide="message-circle" class="w-5 h-5"></i>
+          Enviar WhatsApp
+        </button>
+      </div>
+    </div>
+  `;
+  
+  document.getElementById('playerDetailsContent').innerHTML = content;
+  document.getElementById('playerDetailsModal').classList.remove('hidden');
+  lucide.createIcons();
+}
+
+// Cerrar modal detalles
+function closePlayerDetailsModal() {
+  document.getElementById('playerDetailsModal').classList.add('hidden');
+}
+
+// Eliminar jugador
+function deletePlayerConfirm(playerId) {
+  const player = getPlayerById(playerId);
+  if (!player) return;
+  
+  if (confirmAction(`¿Estás seguro de eliminar a ${player.name}? Esta acción eliminará también todos sus pagos.`)) {
+    deletePlayer(playerId);
+    showToast('✅ Jugador eliminado');
+    renderPlayersList();
+    updateDashboard();
+  }
+}
+
+console.log('✅ players.js cargado');

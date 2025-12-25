@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#0d9488">
+    <meta name="description" content="Gestión completa de escuelas de fútbol infantil">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="mobile-web-app-capable" content="yes">
+    
+    <title>MY CLUB - Gestión Escuelas de Fútbol</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    
+    <!-- jsPDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <!-- Manifest -->
+    <link rel="manifest" href="manifest.json">
+    
+    <!-- Icons -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚽</text></svg>">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚽</text></svg>">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
+
+    <!-- ========================================
+         PANTALLA DE LOGIN
+    ========================================= -->
+    <div id="loginScreen" class="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-teal-500 to-blue-600">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 w-full max-w-md animate-fade-in">
+            <div class="text-center mb-8">
+                <div class="text-6xl mb-4">⚽</div>
+                <h1 class="text-3xl font-bold text-gray-800 dark:text-white">MY CLUB</h1>
+                <p class="text-gray-600 dark:text-gray-300 mt-2">Gestión de Escuelas de Fútbol</p>
+            </div>
+            
+            <!-- Tabs -->
+            <div class="flex gap-2 mb-6">
+                <button onclick="showLoginTab()" id="loginTab" class="flex-1 py-2 px-4 rounded-lg font-medium transition-all bg-teal-600 text-white">
+                    Iniciar Sesión
+                </button>
+                <button onclick="showRegisterTab()" id="registerTab" class="flex-1 py-2 px-4 rounded-lg font-medium transition-all bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+                    Registrarse
+                </button>
+            </div>
+            
+            <!-- Login Form -->
+            <form id="loginForm" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email *</label>
+                    <input type="email" id="loginEmail" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Contraseña *</label>
+                    <input type="password" id="loginPassword" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white">
+                </div>
+                <button type="submit" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-medium py-3 rounded-lg transition-all transform hover:scale-105">
+                    Entrar
+                </button>
+            </form>
+            
+            <!-- Register Form -->
+            <form id="registerForm" class="space-y-4 hidden">
+                <div class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                    <strong>Paso 1:</strong> Datos del Club
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Logo del Club</label>
+                    <input type="file" id="regClubLogo" accept="image/*" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+                    <img id="regLogoPreview" class="hidden mt-2 w-24 h-24 object-cover rounded-lg">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre del Club *</label>
+                    <input type="text" id="regClubName" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white">
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Color Primario</label>
+                        <input type="color" id="regClubColor" value="#0d9488" class="w-full h-10 border border-gray-300 dark:border-gray-600 rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Moneda</label>
+                        <select id="regClubCurrency" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+                            <option value="COP">COP $</option>
+                            <option value="USD">USD $</option>
+                            <option value="EUR">EUR €</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cuota Mensual *</label>
+                    <input type="number" id="regMonthlyFee" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email del Club *</label>
+                    <input type="email" id="regClubEmail" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Teléfono del Club *</label>
+                    <input type="tel" id="regClubPhone" required placeholder="+57 300 1234567" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Dirección</label>
+                    <input type="text" id="regClubAddress" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white">
+                </div>
+                
+                <div class="border-t border-gray-300 dark:border-gray-600 pt-4 mt-4">
+                    <div class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                        <strong>Paso 2:</strong> Datos del Administrador
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Foto de Perfil</label>
+                    <input type="file" id="regAdminAvatar" accept="image/*" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+                    <img id="regAvatarPreview" class="hidden mt-2 w-24 h-24 object-cover rounded-full">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre Completo *</label>
+                    <input type="text" id="regAdminName" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha de Nacimiento *</label>
+                    <input type="date" id="regAdminBirthDate" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Teléfono Personal *</label>
+                    <input type="tel" id="regAdminPhone" required placeholder="+57 300 1234567" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email Personal *</label>
+                    <input type="email" id="regAdminEmail" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Contraseña *</label>
+                    <input type="password" id="regAdminPassword" required minlength="6" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white">
+                </div>
+                
+                <button type="submit" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-medium py-3 rounded-lg transition-all transform hover:scale-105">
+                    Crear Club
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ========================================
+         APLICACIÓN PRINCIPAL (Después del login)
+    ========================================= -->
+    <div id="appContainer" class="hidden">
+        
+        <!-- Top Bar -->
+        <header class="bg-white dark:bg-gray-800 shadow-sm fixed top-0 left-0 right-0 z-40">
+            <div class="flex items-center justify-between px-4 py-3">
+                <div class="flex items-center gap-3">
+                    <img id="headerLogo" src="" alt="Logo" class="w-10 h-10 rounded-lg object-cover">
+                    <div>
+                        <h1 id="headerClubName" class="font-bold text-gray-800 dark:text-white">MY CLUB</h1>
+                        <p id="headerViewName" class="text-xs text-gray-500 dark:text-gray-400">Dashboard</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="toggleDarkMode()" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                        <i data-lucide="moon" class="w-5 h-5 text-gray-600 dark:text-gray-300"></i>
+                    </button>
+                    <button onclick="showNotificationsView()" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors relative">
+                        <i data-lucide="bell" class="w-5 h-5 text-gray-600 dark:text-gray-300"></i>
+                        <span id="notificationBadge" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">0</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="pt-16 pb-20 min-h-screen">
+            
+            <!-- ========================================
+                 VISTA: DASHBOARD
+            ========================================= -->
+            <div id="dashboardView" class="p-4 space-y-4">
+                <!-- Stats Cards -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+                        <div class="flex items-center gap-3">
+                            <div class="p-3 bg-teal-100 dark:bg-teal-900 rounded-lg">
+                                <i data-lucide="users" class="w-6 h-6 text-teal-600 dark:text-teal-400"></i>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-500 dark:text-gray-400">Jugadores</p>
+                                <p id="statPlayers" class="text-2xl font-bold text-gray-800 dark:text-white">0</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+                        <div class="flex items-center gap-3">
+                            <div class="p-3 bg-red-100 dark:bg-red-900 rounded-lg">
+                                <i data-lucide="alert-circle" class="w-6 h-6 text-red-600 dark:text-red-400"></i>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-500 dark:text-gray-400">Pendientes</p>
+                                <p id="statPending" class="text-2xl font-bold text-gray-800 dark:text-white">0</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+                        <div class="flex items-center gap-3">
+                            <div class="p-3 bg-green-100 dark:bg-green-900 rounded-lg">
+                                <i data-lucide="dollar-sign" class="w-6 h-6 text-green-600 dark:text-green-400"></i>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-500 dark:text-gray-400">Este Mes</p>
+                                <p id="statIncome" class="text-xl font-bold text-gray-800 dark:text-white">$0</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+                        <div class="flex items-center gap-3">
+                            <div class="p-3 bg-blue-100 dark:bg-blue-900 rounded-lg">
+                                <i data-lucide="calendar" class="w-6 h-6 text-blue-600 dark:text-blue-400"></i>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-500 dark:text-gray-400">Eventos</p>
+                                <p id="statEvents" class="text-2xl font-bold text-gray-800 dark:text-white">0</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Cumpleaños Próximos -->
+                <div id="upcomingBirthdaysCard" class="hidden bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl p-4 shadow-lg text-white">
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="cake" class="w-6 h-6"></i>
+                            <h3 class="font-bold text-lg">Cumpleaños Próximos</h3>
+                        </div>
+                        <button onclick="showBirthdaysView()" class="text-sm underline">Ver todos</button>
+                    </div>
+                    <div id="upcomingBirthdaysList" class="space-y-2"></div>
+                </div>
+
+                <!-- Próximos Eventos -->
+                <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="font-bold text-gray-800 dark:text-white flex items-center gap-2">
+                            <i data-lucide="calendar-days" class="w-5 h-5 text-blue-600"></i>
+                            Próximos Eventos
+                        </h3>
+                        <button onclick="navigateTo('calendar')" class="text-sm text-teal-600 dark:text-teal-400">Ver todo</button>
+                    </div>
+                    <div id="dashboardEventsList" class="space-y-2"></div>
+                </div>
+
+                <!-- Notificaciones Recientes -->
+                <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="font-bold text-gray-800 dark:text-white flex items-center gap-2">
+                            <i data-lucide="bell-ring" class="w-5 h-5 text-red-600"></i>
+                            Notificaciones Recientes
+                        </h3>
+                        <button onclick="showNotificationsView()" class="text-sm text-teal-600 dark:text-teal-400">Ver todas</button>
+                    </div>
+                    <div id="dashboardNotificationsList" class="space-y-2"></div>
+                </div>
+
+                <!-- Botón Contabilidad -->
+                <button onclick="showAccountingView()" class="w-full bg-gradient-to-r from-teal-600 to-blue-600 text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 hover:shadow-xl transition-all transform hover:scale-105">
+                    <i data-lucide="trending-up" class="w-6 h-6"></i>
+                    Ver Contabilidad Completa
+                </button>
+            </div>
+
+            <!-- ========================================
+                 VISTA: JUGADORES
+            ========================================= -->
+            <div id="playersView" class="hidden p-4 space-y-4">
+                <!-- Buscador y botón agregar -->
+                <div class="flex gap-2">
+                    <div class="flex-1 relative">
+                        <input type="text" id="playerSearch" placeholder="Buscar jugador..." class="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white">
+                        <i data-lucide="search" class="w-5 h-5 text-gray-400 absolute left-3 top-2.5"></i>
+                    </div>
+                    <button onclick="showAddPlayerModal()" class="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg flex items-center gap-2">
+                        <i data-lucide="user-plus" class="w-5 h-5"></i>
+                        Agregar
+                    </button>
+                </div>
+
+                <!-- Lista de jugadores -->
+                <div id="playersList" class="space-y-3"></div>
+            </div>
+
+            <!-- ========================================
+                 VISTA: PAGOS
+            ========================================= -->
+            <div id="paymentsView" class="hidden p-4 space-y-4">
+                <!-- Tabs -->
+                <div class="flex gap-2">
+                    <button onclick="showPaymentTab('monthly')" id="monthlyTab" class="flex-1 py-2 px-4 rounded-lg font-medium transition-all bg-teal-600 text-white">
+                        Mensualidades
+                    </button>
+                    <button onclick="showPaymentTab('extras')" id="extrasTab" class="flex-1 py-2 px-4 rounded-lg font-medium transition-all bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+                        Extras
+                    </button>
+                    <button onclick="showPaymentTab('history')" id="historyTab" class="flex-1 py-2 px-4 rounded-lg font-medium transition-all bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+                        Historial
+                    </button>
+                </div>
+
+                <button onclick="showAddPaymentModal()" class="w-full bg-teal-600 hover:bg-teal-700 text-white py-3 rounded-lg flex items-center justify-center gap-2">
+                    <i data-lucide="plus-circle" class="w-5 h-5"></i>
+                    Registrar Pago
+                </button>
+
+                <!-- Contenido de tabs -->
+                <div id="monthlyPaymentsContent" class="space-y-3"></div>
+                <div id="extrasPaymentsContent" class="hidden space-y-3"></div>
+                <div id="historyPaymentsContent" class="hidden">
+                    <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="border-b border-gray-200 dark:border-gray-700">
+                                    <th class="text-left py-2 text-gray-600 dark:text-gray-300">Fecha</th>
+                                    <th class="text-left py-2 text-gray-600 dark:text-gray-300">Jugador</th>
+                                    <th class="text-left py-2 text-gray-600 dark:text-gray-300">Concepto</th>
+                                    <th class="text-right py-2 text-gray-600 dark:text-gray-300">Monto</th>
+                                    <th class="text-center py-2 text-gray-600 dark:text-gray-300">Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody id="paymentsHistoryTable"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================
+                 VISTA: CALENDARIO
+            ========================================= -->
+            <div id="calendarView" class="hidden p-4 space-y-4">
+                <!-- Controles -->
+                <div class="flex items-center justify-between bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+                    <button onclick="previousMonth()" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
+                        <i data-lucide="chevron-left" class="w-6 h-6 text-gray-600 dark:text-gray-300"></i>
+                    </button>
+                    <h3 id="calendarMonthYear" class="font-bold text-lg text-gray-800 dark:text-white"></h3>
+                    <button onclick="nextMonth()" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
+                        <i data-lucide="chevron-right" class="w-6 h-6 text-gray-600 dark:text-gray-300"></i>
+                    </button>
+                </div>
+
+                <button onclick="showAddEventModal()" class="w-full bg-teal-600 hover:bg-teal-700 text-white py-3 rounded-lg flex items-center justify-center gap-2">
+                    <i data-lucide="plus-circle" class="w-5 h-5"></i>
+                    Agregar Evento
+                </button>
+
+                <!-- Grid del calendario -->
+                <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+                    <div class="grid grid-cols-7 gap-1 mb-2">
+                        <div class="text-center text-xs font-medium text-gray-500 dark:text-gray-400 py-2">Dom</div>
+                        <div class="text-center text-xs font-medium text-gray-500 dark:text-gray-400 py-2">Lun</div>
+                        <div class="text-center text-xs font-medium text-gray-500 dark:text-gray-400 py-2">Mar</div>
+                        <div class="text-center text-xs font-medium text-gray-500 dark:text-gray-400 py-2">Mié</div>
+                        <div class="text-center text-xs font-medium text-gray-500 dark:text-gray-400 py-2">Jue</div>
+                        <div class="text-center text-xs font-medium text-gray-500 dark:text-gray-400 py-2">Vie</div>
+                        <div class="text-center text-xs font-medium text-gray-500 dark:text-gray-400 py-2">Sáb</div>
+                    </div>
+                    <div id="calendarGrid" class="grid grid-cols-7 gap-1"></div>
+                </div>
+
+                <!-- Leyenda -->
+                <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+                    <h4 class="font-medium text-gray-800 dark:text-white mb-3">Leyenda</h4>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 rounded bg-blue-500"></div>
+                            <span class="text-sm text-gray-600 dark:text-gray-300">Partido</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 rounded bg-green-500"></div>
+                            <span class="text-sm text-gray-600 dark:text-gray-300">Entrenamiento</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 rounded bg-yellow-500"></div>
+                            <span class="text-sm text-gray-600 dark:text-gray-300">Torneo</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 rounded bg-purple-500"></div>
+                            <span class="text-sm text-gray-600 dark:text-gray-300">Otro Evento</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Próximos eventos -->
+                <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+                    <h4 class="font-medium text-gray-800 dark:text-white mb-3">Próximos Eventos</h4>
+                    <div id="upcomingEventsList" class="space-y-2"></div>
+                </div>
+            </div>
+
+            <!-- ========================================
+                 VISTA: CONFIGURACIÓN
+            ========================================= -->
+            <div id="settingsView" class="hidden p-4 space-y-4">
+                <!-- Perfil Usuario -->
+                <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+                    <h3 class="font-bold text-gray-800 dark:text-white mb-4">Mi Perfil</h3>
+                    <div class="flex items-center gap-4 mb-4">
+                        <img id="userAvatar" src="" alt="Avatar" class="w-20 h-20 rounded-full object-cover border-4 border-teal-500">
+                        <div>
+                            <input type="file" id="changeAvatar" accept="image/*" class="hidden">
+                            <button onclick="document.getElementById('changeAvatar').click()" class="text-sm text-teal-600 dark:text-teal-400 underline">Cambiar foto</button>
+                        </div>
+                    </div>
+                    <form id="userProfileForm" class="space-y-3">
+                        <input type="text" id="userName" placeholder="Nombre completo" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+                        <input type="date" id="userBirthDate" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+                        <input type="tel" id="userPhone" placeholder="Teléfono" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+                        <button type="submit" class="w-full bg-teal-600 hover:bg-teal-700 text-white py-2 rounded-lg">Guardar Cambios</button>
+                    </form>
+                </div>
+
+                <!-- Configuración del Club -->
+                <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+                    <h3 class="font-bold text-gray-800 dark:text-white mb-4">Datos del Club</h3>
+                    <div class="flex items-center gap-4 mb-4">
+                        <img id="clubLogo" src="" alt="Logo" class="w-20 h-20 rounded-lg object-cover border-2 border-gray-300">
+                        <div>
+                            <input type="file" id="changeClubLogo" accept="image/*" class="hidden">
+                            <button onclick="document.getElementById('changeClubLogo').click()" class="text-sm text-teal-600 dark:text-teal-400 underline">Cambiar logo</button>
+                        </div>
+                    </div>
+                    <form id="clubSettingsForm" class="space-y-3">
+                        <input type="text" id="clubName" placeholder="Nombre del club" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+                        <input type="email" id="clubEmail" placeholder="Email del club" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+                        <input type="tel" id="clubPhone" placeholder="Teléfono" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+                        <input type="text" id="clubAddress" placeholder="Dirección" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+                        <input type="number" id="clubMonthlyFee" placeholder="Cuota mensual" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+                        <button type="submit" class="w-full bg-teal-600 hover:bg-teal-700 text-white py-2 rounded-lg">Guardar Cambios</button>
+                    </form>
+                </div>
+
+                <!-- Opciones -->
+                <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-gray-800 dark:text-white">Modo Oscuro</span>
+                        <button onclick="toggleDarkMode()" id="darkModeToggle" class="w-12 h-6 bg-gray-300 dark:bg-teal-600 rounded-full relative transition-colors">
+                            <div class="w-5 h-5 bg-white rounded-full absolute top-0.5 left-0.5 dark:left-6 transition-all"></div>
+                        </button>
+                    </div>
+                    
+                    <button onclick="exportData()" class="w-full border border-teal-600 text-teal-600 dark:text-teal-400 py-2 rounded-lg flex items-center justify-center gap-2">
+                        <i data-lucide="download" class="w-5 h-5"></i>
+                        Exportar Datos (JSON)
+                    </button>
+                    
+                    <button onclick="logout()" class="w-full bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg flex items-center justify-center gap-2">
+                        <i data-lucide="log-out" class="w-5 h-5"></i>
+                        Cerrar Sesión
+                    </button>
+                    
+                    <button onclick="clearAllData()" class="w-full bg-gray-700 hover:bg-gray-800 text-white py-2 rounded-lg flex items-center justify-center gap-2">
+                        <i data-lucide="trash-2" class="w-5 h-5"></i>
+                        Borrar Todos los Datos
+                    </button>
+                </div>
+            </div>
+
+            <!-- ========================================
+                 VISTA: CUMPLEAÑOS
+            ========================================= -->
+            <div id="birthdaysView" class="hidden p-4 space-y-4">
+                <div class="bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl p-6 text-white text-center">
+                    <i data-lucide="cake" class="w-16 h-16 mx-auto mb-2"></i>
+                    <h2 class="text-2xl font-bold">Cumpleaños del Año</h2>
+                    <p class="text-sm opacity-90 mt-1">Jugadores y Staff</p>
+                </div>
+                
+                <div id="birthdaysByMonth" class="space-y-4"></div>
+            </div>
+
+            <!-- ========================================
+                 VISTA: NOTIFICACIONES
+            ========================================= -->
+            <div id="notificationsView" class="hidden p-4 space-y-4">
+                <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+                    <h3 class="font-bold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
+                        <i data-lucide="bell-ring" class="w-6 h-6 text-red-600"></i>
+                        Notificaciones de Pago
+                    </h3>
+                    <div id="notificationsList" class="space-y-3"></div>
+                </div>
+            </div>
+
+            <!-- ========================================
+                 VISTA: CONTABILIDAD
+            ========================================= -->
+            <div id="accountingView" class="hidden p-4 space-y-4">
+                <!-- Resumen -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-4 text-white shadow-lg">
+                        <p class="text-xs opacity-90">Total Ingresos</p>
+                        <p id="accTotalIncome" class="text-2xl font-bold mt-1">$0</p>
+                    </div>
+                    <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-4 text-white shadow-lg">
+                        <p class="text-xs opacity-90">Este Mes</p>
+                        <p id="accMonthIncome" class="text-2xl font-bold mt-1">$0</p>
+                    </div>
+                    <div class="bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-xl p-4 text-white shadow-lg">
+                        <p class="text-xs opacity-90">Por Cobrar</p>
+                        <p id="accPending" class="text-2xl font-bold mt-1">$0</p>
+                    </div>
+                    <div class="bg-gradient-to-br from-teal-500 to-teal-600 rounded-xl p-4 text-white shadow-lg">
+                        <p class="text-xs opacity-90">Pagos Realizados</p>
+                        <p id="accPaidCount" class="text-2xl font-bold mt-1">0</p>
+                    </div>
+                </div>
+
+                <!-- Gráficos -->
+                <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+                    <h4 class="font-bold text-gray-800 dark:text-white mb-4">Ingresos por Mes (Últimos 12 meses)</h4>
+                    <canvas id="incomeByMonthChart"></canvas>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+                        <h4 class="font-bold text-gray-800 dark:text-white mb-4">Ingresos por Categoría</h4>
+                        <canvas id="incomeByCategoryChart"></canvas>
+                    </div>
+                    <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+                        <h4 class="font-bold text-gray-800 dark:text-white mb-4">Ingresos por Tipo</h4>
+                        <canvas id="incomeByTypeChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Tabla de jugadores -->
+                <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+                    <h4 class="font-bold text-gray-800 dark:text-white mb-4">Estado por Jugador</h4>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="border-b border-gray-200 dark:border-gray-700">
+                                    <th class="text-left py-2 text-gray-600 dark:text-gray-300">Jugador</th>
+                                    <th class="text-left py-2 text-gray-600 dark:text-gray-300">Categoría</th>
+                                    <th class="text-right py-2 text-gray-600 dark:text-gray-300">Pagado</th>
+                                    <th class="text-right py-2 text-gray-600 dark:text-gray-300">Pendiente</th>
+                                    <th class="text-center py-2 text-gray-600 dark:text-gray-300">Cumplimiento</th>
+                                    <th class="text-center py-2 text-gray-600 dark:text-gray-300">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="accountingPlayersTable"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Botones de acción -->
+                <div class="grid md:grid-cols-2 gap-4">
+                    <button onclick="generateFullReport()" class="bg-teal-600 hover:bg-teal-700 text-white py-3 rounded-lg flex items-center justify-center gap-2">
+                        <i data-lucide="file-text" class="w-5 h-5"></i>
+                        Reporte Completo PDF
+                    </button>
+                    <button onclick="exportCSV()" class="bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg flex items-center justify-center gap-2">
+                        <i data-lucide="download" class="w-5 h-5"></i>
+                        Exportar CSV
+                    </button>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- Bottom Navigation -->
+        <nav class="bg-white dark:bg-gray-800 shadow-lg fixed bottom-0 left-0 right-0 z-40 border-t border-gray-200 dark:border-gray-700">
+            <div class="flex justify-around items-center py-2">
+                <button onclick="navigateTo('dashboard')" data-nav="dashboard" class="nav-item flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-all">
+                    <i data-lucide="home" class="w-6 h-6"></i>
+                    <span class="text-xs">Inicio</span>
+                </button>
+                <button onclick="navigateTo('players')" data-nav="players" class="nav-item flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-all">
+                    <i data-lucide="users" class="w-6 h-6"></i>
+                    <span class="text-xs">Jugadores</span>
+                </button>
+                <button onclick="navigateTo('payments')" data-nav="payments" class="nav-item flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-all">
+                    <i data-lucide="credit-card" class="w-6 h-6"></i>
+                    <span class="text-xs">Pagos</span>
+                </button>
+                <button onclick="navigateTo('calendar')" data-nav="calendar" class="nav-item flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-all">
+                    <i data-lucide="calendar" class="w-6 h-6"></i>
+                    <span class="text-xs">Calendario</span>
+                </button>
+                <button onclick="navigateTo('settings')" data-nav="settings" class="nav-item flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-all">
+                    <i data-lucide="settings" class="w-6 h-6"></i>
+                    <span class="text-xs">Config</span>
+                </button>
+            </div>
+        </nav>
+
+    </div>
+
+    <!-- ========================================
+         MODALES
+    ========================================= -->
+
+    <!-- Modal Agregar/Editar Jugador -->
+    <div id="playerModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-scale-in">
+            <div class="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4 flex items-center justify-between">
+                <h3 id="playerModalTitle" class="font-bold text-xl text-gray-800 dark:text-white">Agregar Jugador</h3>
+                <button onclick="closePlayerModal()" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
+                    <i data-lucide="x" class="w-6 h-6 text-gray-600 dark:text-gray-300"></i>
+                </button>
+            </div>
+            <form id="playerForm" class="p-4 space-y-4">
+                <input type="hidden" id="playerId">
+                
+                <div class="text-center">
+                    <input type="file" id="playerAvatar" accept="image/*" class="hidden">
+                    <img id="playerAvatarPreview" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%23e5e7eb'/%3E%3Ctext x='50' y='50' text-anchor='middle' dy='.3em' font-size='40' fill='%239ca3af'%3E👤%3C/text%3E%3C/svg%3E" alt="Avatar" class="w-24 h-24 rounded-full mx-auto object-cover border-4 border-teal-500 cursor-pointer" onclick="document.getElementById('playerAvatar').click()">
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">Click para cambiar foto</p>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre Completo *</label>
+                        <input type="text" id="playerName" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha de Nacimiento *</label>
+                        <input type="date" id="playerBirthDate" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+                    </div>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Categoría *</label>
+                        <select id="playerCategory" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+                            <option value="">Seleccionar...</option>
+                            <option value="Sub-8">Sub-8</option>
+                            <option value="Sub-10">Sub-10</option>
+                            <option value="Sub-12">Sub-12</option>
+                            <option value="Sub-14">Sub-14</option>
+                            <option value="Sub-16">Sub-16</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Talla Uniforme</label>
+                        <select id="playerUniformSize" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+                            <option value="">Seleccionar...</option>
+                            <option value="XS">XS</option>
+                            <option value="S">S</option>
+                            <option value="M">M</option>
+                            <option value="L">L</option>
+                            <option value="XL">XL</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
+                        <input type="email" id="playerEmail" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Teléfono Acudiente *</label>
+                        <input type="tel" id="playerPhone" required placeholder="+57 300 1234567" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Dirección</label>
+                    <input type="text" id="playerAddress" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+                </div>
+
+                <div class="border-t border-gray-300 dark:border-gray-600 pt-4">
+                    <h4 class="font-medium text-gray-800 dark:text-white mb-3">Información Médica</h4>
+                    <div class="grid md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo de Sangre</label>
+                            <select id="playerBloodType" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+                                <option value="">Seleccionar...</option>
+                                <option value="A+">A+</option>
+                                <option value="A-">A-</option>
+                                <option value="B+">B+</option>
+                                <option value="B-">B-</option>
+                                <option value="AB+">AB+</option>
+                                <option value="AB-">AB-</option>
+                                <option value="O+">O+</option>
+                                <option value="O-">O-</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Alergias</label>
+                            <input type="text" id="playerAllergies" placeholder="Ninguna" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Medicamentos</label>
+                        <input type="text" id="playerMedications" placeholder="Ninguno" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+                    </div>
+                    <div class="mt-4">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Condiciones Especiales</label>
+                        <textarea id="playerConditions" rows="2" placeholder="Ninguna" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"></textarea>
+                    </div>
+                </div>
+
+                <div class="flex gap-2 pt-4">
+                    <button type="button" onclick="closePlayerModal()" class="flex-1 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 py-2 rounded-lg">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="flex-1 bg-teal-600 hover:bg-teal-700 text-white py-2 rounded-lg">
+                        Guardar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Detalles Jugador -->
+    <div id="playerDetailsModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-scale-in">
+            <div class="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4 flex items-center justify-between">
+                <h3 class="font-bold text-xl text-gray-800 dark:text-white">Detalles del Jugador</h3>
+                <button onclick="closePlayerDetailsModal()" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
+                    <i data-lucide="x" class="w-6 h-6 text-gray-600 dark:text-gray-300"></i>
+                </button>
+            </div>
+            <div id="playerDetailsContent" class="p-4"></div>
+        </div>
+    </div>
+
+    <!-- Modal Agregar/Editar Pago -->
+    <div id="paymentModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl max-w-lg w-full animate-scale-in">
+            <div class="border-b border-gray-200 dark:border-gray-700 p-4 flex items-center justify-between">
+                <h3 class="font-bold text-xl text-gray-800 dark:text-white">Registrar Pago</h3>
+                <button onclick="closePaymentModal()" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
+                    <i data-lucide="x" class="w-6 h-6 text-gray-600 dark:text-gray-300"></i>
+                </button>
+            </div>
+            <form id="paymentForm" class="p-4 space-y-4">
+                <input type="hidden" id="paymentId">
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Jugador *</label>
+                    <select id="paymentPlayer" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"></select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo de Pago *</label>
+                    <select id="paymentType" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+                        <option value="">Seleccionar...</option>
+                        <option value="Mensualidad">Mensualidad</option>
+                        <option value="Uniforme">Uniforme</option>
+                        <option value="Torneo">Torneo</option>
+                        <option value="Equipamiento">Equipamiento</option>
+                        <option value="Otro">Otro</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Concepto *</label>
+                    <input type="text" id="paymentConcept" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Monto *</label>
+                    <input type="number" id="paymentAmount" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha de Vencimiento *</label>
+                    <input type="date" id="paymentDueDate" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Estado *</label>
+                    <select id="paymentStatus" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+                        <option value="Pendiente">Pendiente</option>
+                        <option value="Pagado">Pagado</option>
+                    </select>
+                </div>
+
+                <div id="paidDateContainer" class="hidden">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha de Pago</label>
+                    <input type="date" id="paymentPaidDate" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+                </div>
+
+                <div id="paymentMethodContainer" class="hidden">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Método de Pago</label>
+                    <select id="paymentMethod" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+                        <option value="">Seleccionar...</option>
+                        <option value="Efectivo">Efectivo</option>
+                        <option value="Transferencia">Transferencia</option>
+                        <option value="Tarjeta">Tarjeta</option>
+                        <option value="Nequi">Nequi</option>
+                        <option value="Daviplata">Daviplata</option>
+                    </select>
+                </div>
+
+                <div class="flex gap-2 pt-4">
+                    <button type="button" onclick="closePaymentModal()" class="flex-1 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 py-2 rounded-lg">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="flex-1 bg-teal-600 hover:bg-teal-700 text-white py-2 rounded-lg">
+                        Guardar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Agregar/Editar Evento -->
+    <div id="eventModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl max-w-lg w-full animate-scale-in">
+            <div class="border-b border-gray-200 dark:border-gray-700 p-4 flex items-center justify-between">
+                <h3 class="font-bold text-xl text-gray-800 dark:text-white">Agregar Evento</h3>
+                <button onclick="closeEventModal()" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
+                    <i data-lucide="x" class="w-6 h-6 text-gray-600 dark:text-gray-300"></i>
+                </button>
+            </div>
+            <form id="eventForm" class="p-4 space-y-4">
+                <input type="hidden" id="eventId">
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo de Evento *</label>
+                    <select id="eventType" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+                        <option value="">Seleccionar...</option>
+                        <option value="Partido">Partido</option>
+                        <option value="Entrenamiento">Entrenamiento</option>
+                        <option value="Torneo">Torneo</option>
+                        <option value="Otro">Otro Evento</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Título *</label>
+                    <input type="text" id="eventTitle" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Descripción</label>
+                    <textarea id="eventDescription" rows="3" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"></textarea>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha *</label>
+                        <input type="date" id="eventDate" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Hora *</label>
+                        <input type="time" id="eventTime" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ubicación</label>
+                    <input type="text" id="eventLocation" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+                </div>
+
+                <div class="flex gap-2 pt-4">
+                    <button type="button" onclick="closeEventModal()" class="flex-1 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 py-2 rounded-lg">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="flex-1 bg-teal-600 hover:bg-teal-700 text-white py-2 rounded-lg">
+                        Guardar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toast" class="hidden fixed bottom-24 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-slide-up"></div>
+
+    <!-- Scripts en orden -->
+    <script src="js/utils.js"></script>
+    <script src="js/storage.js"></script>
+    <script src="js/whatsapp.js"></script>
+    <script src="js/pdf.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/players.js"></script>
+    <script src="js/payments.js"></script>
+    <script src="js/notifications.js"></script>
+    <script src="js/calendar.js"></script>
+    <script src="js/birthdays.js"></script>
+    <script src="js/accounting.js"></script>
+    <script src="js/dashboard.js"></script>
+    <script src="js/settings.js"></script>
+    <script src="js/app.js"></script>
+
+    <script>
+        // Inicializar Lucide Icons
+        lucide.createIcons();
+        
+        // Registrar Service Worker
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js')
+                .then(reg => console.log('✅ Service Worker registrado', reg))
+                .catch(err => console.log('❌ Error al registrar SW', err));
+        }
+    </script>
+
+</body>
+</html>
