@@ -63,33 +63,6 @@ MY CLUB es una Progressive Web App (PWA) completa para la gestión de escuelas d
 ### Estructura de Archivos
 
 # ⚽ MY CLUB - PWA de Gestión de Escuelas de Fútbol
-
-## 📋 Descripción
-
-MY-CLUB/
-├── index.html
-├── manifest.json
-├── sw.js
-├── offline.html
-├── README.md
-├── css/
-│ └── styles.css
-└── js/
-├── app.js
-├── auth.js
-├── storage.js
-├── players.js
-├── payments.js
-├── notifications.js
-├── calendar.js
-├── birthdays.js
-├── accounting.js
-├── dashboard.js
-├── settings.js
-├── pdf.js
-├── whatsapp.js
-└── utils.js
-
 ## 💻 Tecnologías Utilizadas
 
 - HTML5
