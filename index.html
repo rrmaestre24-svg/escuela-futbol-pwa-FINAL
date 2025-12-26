@@ -655,9 +655,22 @@
                         Exportar Datos (JSON)
                     </button>
                     <button onclick="openImportDialog()" class="w-full border border-green-600 text-green-600 dark:text-green-400 py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors">
-                    <i data-lucide="upload" class="w-5 h-5"></i>
-                    Importar Datos (JSON)
+                <i data-lucide="upload" class="w-5 h-5"></i>
+                Importar Datos (JSON)
+            </button>
+            <div class="border-t border-gray-300 dark:border-gray-600 pt-3 mt-3">
+                    <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">🔥 Sincronización con Firebase</p>
+                    
+                    <button onclick="syncAllToFirebase()" class="w-full border border-blue-600 text-blue-600 dark:text-blue-400 py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors mb-2">
+                        <i data-lucide="cloud-upload" class="w-5 h-5"></i>
+                        Subir a Firebase
                     </button>
+
+                    <button onclick="syncAllFromFirebase()" class="w-full border border-purple-600 text-purple-600 dark:text-purple-400 py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors">
+                        <i data-lucide="cloud-download" class="w-5 h-5"></i>
+                        Descargar de Firebase
+                    </button>
+                </div>
                     
                     <button onclick="checkForUpdates()" class="w-full border border-purple-600 text-purple-600 dark:text-purple-400 py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors">
                         <i data-lucide="cloud-download" class="w-5 h-5"></i>
@@ -1191,8 +1204,10 @@
 
     <!-- Toast Notifications -->
     <div id="toast" class="hidden fixed bottom-24 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-slide-up"></div>
-
+     
     <!-- Scripts en orden -->
+    <script src="js/firebase-config.js" type="module"></script>
+    <script src="js/firebase-sync.js"></script>
     <script src="js/utils.js"></script>
     <script src="js/install.js"></script>
     <script src="js/cache.js"></script>

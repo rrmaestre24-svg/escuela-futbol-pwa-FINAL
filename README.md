@@ -145,3 +145,70 @@ Uso libre para escuelas de fútbol.
 **Desarrollado con ⚽ para la gestión deportiva**
 
 
+# ⚽ MY CLUB - PWA de Gestión de Escuelas de Fútbol
+
+## 🚀 Instalación
+
+1. Clona el repositorio:
+```bash
+git clone https://github.com/TU_USUARIO/my-club.git
+cd my-club
+```
+
+2. Configura Firebase:
+   - Copia `js/firebase-config.example.js` a `js/firebase-config.js`
+   - Reemplaza las credenciales con las de tu proyecto Firebase
+
+3. Abre `index.html` en Live Server o cualquier servidor local
+
+## 🔥 Configurar Firebase
+
+1. Crea un proyecto en [Firebase Console](https://console.firebase.google.com/)
+2. Habilita **Firestore Database**
+3. Habilita **Authentication** (Email/Password)
+4. Copia las credenciales a `firebase-config.js`
+
+## 📋 Reglas de Firestore
+
+Configura estas reglas en Firebase Console > Firestore Database > Reglas:
+```javascript
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Regla para usuarios - cada usuario solo puede acceder a sus propios datos
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      
+      // Subcolecciones del usuario
+      match /{subcollection}/{document=**} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+    
+    // Denegar acceso a cualquier otra ruta no definida
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+```
+
+## 🛠️ Tecnologías
+
+- HTML5 + Tailwind CSS
+- JavaScript Vanilla (ES6+)
+- Firebase (Firestore + Auth)
+- Service Worker (PWA)
+- Chart.js
+- jsPDF
+
+## 📱 Características
+
+- ✅ PWA instalable
+- ✅ Gestión de jugadores
+- ✅ Sistema de pagos
+- ✅ Calendario de eventos
+- ✅ Sincronización multi-dispositivo
+- ✅ Modo offline
+- ✅ Modo oscuro

@@ -135,10 +135,18 @@ function applyDarkMode() {
 }
 
 // Inicializar aplicación
-function initApp() {
+async function initApp() {
   console.log('🚀 Inicializando MY CLUB...');
   
-  // Aplicar modo oscuro PRIMERO
+  // Inicializar Firebase PRIMERO
+  if (typeof initFirebase === 'function') {
+    const firebaseReady = await initFirebase();
+    if (firebaseReady) {
+      console.log('✅ Firebase listo para usar');
+    }
+  }
+  
+  // Aplicar modo oscuro
   applyDarkMode();
   
   // Cargar datos del club en el header
