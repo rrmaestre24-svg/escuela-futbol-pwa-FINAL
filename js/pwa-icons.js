@@ -32,7 +32,13 @@ function generatePWAIcons() {
     // Dibujar logo centrado con padding
     const padding = 30;
     const size = 192 - (padding * 2);
-    ctx.drawImage(img, padding, padding, size, size);
+    
+    // Centrar y escalar manteniendo proporción
+    const scale = Math.min(size / img.width, size / img.height);
+    const x = (192 - img.width * scale) / 2;
+    const y = (192 - img.height * scale) / 2;
+    
+    ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
     
     // Convertir a PNG
     const icon192 = canvas.toDataURL('image/png');
@@ -45,7 +51,11 @@ function generatePWAIcons() {
     
     const padding512 = 80;
     const size512 = 512 - (padding512 * 2);
-    ctx.drawImage(img, padding512, padding512, size512, size512);
+    const scale512 = Math.min(size512 / img.width, size512 / img.height);
+    const x512 = (512 - img.width * scale512) / 2;
+    const y512 = (512 - img.height * scale512) / 2;
+    
+    ctx.drawImage(img, x512, y512, img.width * scale512, img.height * scale512);
     
     const icon512 = canvas.toDataURL('image/png');
     
@@ -56,8 +66,15 @@ function generatePWAIcons() {
     // Actualizar manifest
     updateManifestIcons();
     
+    // Actualizar favicon dinámicamente
+    updateFavicon(icon192);
+    
     console.log('✅ Iconos PWA generados correctamente');
     showToast('✅ Logo de la app actualizado');
+  };
+  
+  img.onerror = function() {
+    console.error('❌ Error al cargar el logo');
   };
   
   img.src = logo;
@@ -137,9 +154,42 @@ function updateManifestIcons() {
   let manifestLink = document.querySelector('link[rel="manifest"]');
   if (manifestLink) {
     manifestLink.href = manifestURL;
+  } else {
+    manifestLink = document.createElement('link');
+    manifestLink.rel = 'manifest';
+    manifestLink.href = manifestURL;
+    document.head.appendChild(manifestLink);
   }
   
   console.log('✅ Manifest actualizado con nuevos iconos');
+}
+
+// Actualizar favicon en tiempo real
+function updateFavicon(iconUrl) {
+  // Actualizar favicon normal
+  let favicon = document.querySelector('link[rel="icon"]');
+  if (favicon) {
+    favicon.href = iconUrl;
+  }
+  
+  // Actualizar apple-touch-icon
+  let appleTouchIcon = document.querySelector('link[rel="apple-touch-icon"]');
+  if (appleTouchIcon) {
+    appleTouchIcon.href = iconUrl;
+  }
+  
+  console.log('✅ Favicon actualizado');
+}
+
+// Cargar iconos guardados al iniciar
+function loadSavedIcons() {
+  const icon192 = localStorage.getItem('pwa_icon_192');
+  
+  if (icon192) {
+    updateManifestIcons();
+    updateFavicon(icon192);
+    console.log('✅ Iconos PWA cargados desde localStorage');
+  }
 }
 
 // Generar iconos cuando se cambia el logo
@@ -148,5 +198,10 @@ function onLogoChange() {
     generatePWAIcons();
   }, 500);
 }
+
+// Cargar iconos al iniciar la app
+window.addEventListener('DOMContentLoaded', function() {
+  loadSavedIcons();
+});
 
 console.log('✅ pwa-icons.js cargado');

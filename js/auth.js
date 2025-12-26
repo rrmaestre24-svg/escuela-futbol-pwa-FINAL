@@ -147,8 +147,12 @@ document.getElementById('registerForm')?.addEventListener('submit', function(e) 
   
   // Completar registro
   const completeRegistration = (clubLogo, adminAvatar) => {
-    // Guardar configuración del club - MEJORADO
+    // Generar ID único para la escuela
+    const schoolId = generateId();
+    
+    // Guardar configuración del club CON schoolId
     updateSchoolSettings({
+      schoolId: schoolId,
       name: clubName,
       logo: clubLogo,
       email: clubEmail,
@@ -164,9 +168,10 @@ document.getElementById('registerForm')?.addEventListener('submit', function(e) 
       primaryColor: clubColor
     });
     
-    // Crear usuario admin
+    // Crear usuario admin principal
     const newUser = {
       id: generateId(),
+      schoolId: schoolId,
       email: adminEmail,
       password: adminPassword,
       name: adminName,
@@ -174,12 +179,20 @@ document.getElementById('registerForm')?.addEventListener('submit', function(e) 
       phone: adminPhone,
       avatar: adminAvatar,
       role: 'admin',
+      isMainAdmin: true,
       createdAt: getCurrentDate()
     };
     
     saveUser(newUser);
     
     showToast('✅ Club registrado exitosamente');
+    
+    // Generar iconos PWA con el logo del club
+    if (typeof generatePWAIcons === 'function') {
+      setTimeout(() => {
+        generatePWAIcons();
+      }, 500);
+    }
     
     // Auto-login
     const { password: _, ...userWithoutPassword } = newUser;
@@ -191,7 +204,6 @@ document.getElementById('registerForm')?.addEventListener('submit', function(e) 
       initApp();
     }, 1000);
   };
-  
   processClubData();
 });
 

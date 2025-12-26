@@ -79,16 +79,20 @@ document.getElementById('changeClubLogo')?.addEventListener('change', function(e
       showToast('❌ La imagen es muy grande. Máximo 2MB');
       return;
     }
-    imageToBase64(file, function(base64) {
+   imageToBase64(file, function(base64) {
       document.getElementById('clubLogo').src = base64;
       document.getElementById('headerLogo').src = base64;
       
       updateSchoolSettings({ logo: base64 });
       showToast('✅ Logo actualizado');
+      
+      // AGREGAR ESTA LÍNEA DENTRO DEL CALLBACK
+      if (typeof generatePWAIcons === 'function') {
+        generatePWAIcons();
+      }
     });
   }
 });
-
 // Guardar perfil de usuario
 document.getElementById('userProfileForm')?.addEventListener('submit', function(e) {
   e.preventDefault();
@@ -300,3 +304,175 @@ document.getElementById('changeClubLogo')?.addEventListener('change', function(e
   }
 });
 console.log('✅ settings.js cargado (CON GESTIÓN DE CONTRASEÑAS)');
+// ========================================
+// GESTIÓN DE USUARIOS DE LA ESCUELA
+// ========================================
+
+// Renderizar lista de usuarios de la escuela
+function renderSchoolUsers() {
+  const currentUser = getCurrentUser();
+  if (!currentUser) return;
+  
+  const schoolUsers = getSchoolUsers(currentUser.schoolId);
+  const container = document.getElementById('schoolUsersList');
+  
+  if (!container) return;
+  
+  container.innerHTML = schoolUsers.map(user => `
+    <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+      <div class="flex items-center gap-3">
+        <img src="${user.avatar || getDefaultAvatar()}" alt="${user.name}" class="w-10 h-10 rounded-full object-cover border-2 border-teal-500">
+        <div>
+          <p class="font-medium text-gray-800 dark:text-white">${user.name}</p>
+          <p class="text-xs text-gray-500 dark:text-gray-400">${user.email}</p>
+          ${user.isMainAdmin ? '<span class="text-xs bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-300 px-2 py-1 rounded mt-1 inline-block">Admin Principal</span>' : ''}
+        </div>
+      </div>
+      ${!user.isMainAdmin && currentUser.isMainAdmin ? `
+        <button onclick="deleteSchoolUser('${user.id}')" class="text-red-600 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20">
+          <i data-lucide="trash-2" class="w-4 h-4"></i>
+        </button>
+      ` : ''}
+    </div>
+  `).join('');
+  
+  // Mostrar contador
+  const counterDiv = document.getElementById('usersCounter');
+  if (counterDiv) {
+    counterDiv.innerHTML = `
+      <p class="text-sm text-gray-600 dark:text-gray-400">
+        <strong>${schoolUsers.length}</strong> de <strong>6</strong> usuarios
+      </p>
+    `;
+  }
+  
+  lucide.createIcons();
+}
+
+// Mostrar modal agregar usuario
+function showAddSchoolUserModal() {
+  const currentUser = getCurrentUser();
+  if (!currentUser) return;
+  
+  if (!currentUser.isMainAdmin) {
+    showToast('⚠️ Solo el administrador principal puede agregar usuarios');
+    return;
+  }
+  
+  if (!canAddMoreUsers(currentUser.schoolId)) {
+    showToast('⚠️ Has alcanzado el límite de 6 usuarios por escuela');
+    return;
+  }
+  
+  // Reset form
+  document.getElementById('addSchoolUserForm').reset();
+  document.getElementById('schoolUserAvatarPreview').src = getDefaultAvatar();
+  
+  document.getElementById('addSchoolUserModal').classList.remove('hidden');
+}
+
+// Cerrar modal
+function closeAddSchoolUserModal() {
+  document.getElementById('addSchoolUserModal').classList.add('hidden');
+}
+
+// Guardar nuevo usuario de la escuela
+function saveSchoolUser(userData) {
+  const currentUser = getCurrentUser();
+  if (!currentUser) return;
+  
+  // Verificar si el email ya existe
+  const users = getUsers();
+  if (users.find(u => u.email === userData.email)) {
+    showToast('❌ Este email ya está registrado');
+    return;
+  }
+  
+  const newUser = {
+    id: generateId(),
+    schoolId: currentUser.schoolId,
+    email: userData.email,
+    password: userData.password,
+    name: userData.name,
+    birthDate: userData.birthDate || '',
+    phone: userData.phone || '',
+    avatar: userData.avatar || getDefaultAvatar(),
+    role: 'admin',
+    isMainAdmin: false,
+    createdAt: getCurrentDate()
+  };
+  
+  saveUser(newUser);
+  showToast('✅ Usuario agregado correctamente');
+  closeAddSchoolUserModal();
+  renderSchoolUsers();
+}
+
+// Eliminar usuario de la escuela
+function deleteSchoolUser(userId) {
+  if (!confirmAction('¿Estás seguro de eliminar este usuario? Perderá acceso a la escuela.')) return;
+  
+  let users = getUsers();
+  users = users.filter(u => u.id !== userId);
+  localStorage.setItem('users', JSON.stringify(users));
+  
+  showToast('✅ Usuario eliminado');
+  renderSchoolUsers();
+}
+
+// Preview avatar del nuevo usuario
+document.getElementById('schoolUserAvatar')?.addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (file) {
+    if (!file.type.startsWith('image/')) {
+      showToast('❌ Por favor selecciona una imagen válida');
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      showToast('❌ La imagen es muy grande. Máximo 2MB');
+      return;
+    }
+    imageToBase64(file, function(base64) {
+      document.getElementById('schoolUserAvatarPreview').src = base64;
+    });
+  }
+});
+
+// Form submit para agregar usuario
+document.getElementById('addSchoolUserForm')?.addEventListener('submit', function(e) {
+  e.preventDefault();
+  
+  const avatarFile = document.getElementById('schoolUserAvatar').files[0];
+  const currentAvatar = document.getElementById('schoolUserAvatarPreview').src;
+  
+  const userData = {
+    name: document.getElementById('schoolUserName').value,
+    email: document.getElementById('schoolUserEmail').value,
+    phone: document.getElementById('schoolUserPhone').value,
+    password: document.getElementById('schoolUserPassword').value,
+    birthDate: document.getElementById('schoolUserBirthDate').value
+  };
+  
+  if (avatarFile) {
+    imageToBase64(avatarFile, function(base64) {
+      userData.avatar = base64;
+      saveSchoolUser(userData);
+    });
+  } else {
+    userData.avatar = currentAvatar;
+    saveSchoolUser(userData);
+  }
+});
+
+// Modificar loadSettings para cargar usuarios
+const originalLoadSettings = window.loadSettings;
+window.loadSettings = function() {
+  if (originalLoadSettings) originalLoadSettings();
+  
+  setTimeout(() => {
+    renderSchoolUsers();
+    document.getElementById('schoolUserAvatarPreview')?.setAttribute('src', getDefaultAvatar());
+  }, 100);
+};
+
+console.log('✅ Gestión de usuarios de escuela cargada');

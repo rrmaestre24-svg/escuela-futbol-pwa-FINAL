@@ -458,3 +458,48 @@ body {
 .animate-bounce {
   animation: bounce 2s infinite;
 }
+/* ========================================
+   BARRA DE DESPLAZAMIENTO PARA TODOS LOS SELECTS
+======================================== */
+
+/* Aplicar a todos los select de la app */
+select::-webkit-scrollbar {
+  width: 8px;
+}
+
+select::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 10px;
+}
+
+.dark select::-webkit-scrollbar-track {
+  background: #374151;
+}
+
+select::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #0d9488, #14b8a6);
+  border-radius: 10px;
+}
+
+select::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #0f766e, #0d9488);
+}
+
+/* Para Firefox */
+select {
+  scrollbar-width: thin;
+  scrollbar-color: #0d9488 #f1f5f9;
+}
+
+.dark select {
+  scrollbar-color: #0d9488 #374151;
+}
+
+/* Padding a todas las opciones */
+select option {
+  padding: 10px;
+}
+
+select option:hover {
+  background-color: rgba(13, 148, 136, 0.1);
+}

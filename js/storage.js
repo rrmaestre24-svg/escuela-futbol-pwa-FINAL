@@ -288,3 +288,92 @@ function clearAllData() {
 initStorage();
 
 console.log('✅ storage.js cargado (MEJORADO)');
+// ========================================
+// SISTEMA MULTI-USUARIO POR ESCUELA
+// ========================================
+
+// Guardar usuario vinculado a escuela
+function saveUserToSchool(user, schoolId) {
+  const users = getUsers();
+  user.schoolId = schoolId;
+  user.role = user.role || 'admin';
+  users.push(user);
+  localStorage.setItem('users', JSON.stringify(users));
+}
+
+// Obtener usuarios de una escuela
+function getSchoolUsers(schoolId) {
+  const users = getUsers();
+  return users.filter(u => u.schoolId === schoolId);
+}
+
+// Verificar límite de usuarios
+function canAddMoreUsers(schoolId) {
+  const schoolUsers = getSchoolUsers(schoolId);
+  return schoolUsers.length < 6; // 1 principal + 5 adicionales
+}
+
+// Obtener ID de la escuela actual
+function getCurrentSchoolId() {
+  const currentUser = getCurrentUser();
+  return currentUser ? currentUser.schoolId : null;
+}
+
+console.log('✅ Sistema multi-usuario cargado');
+// IMPORTAR DATOS DESDE JSON
+function importDataFromJSON(file) {
+  const reader = new FileReader();
+  
+  reader.onload = function(e) {
+    try {
+      const jsonData = e.target.result;
+      const data = JSON.parse(jsonData);
+      
+      // Validar que tenga la estructura correcta
+      if (!data.users && !data.players && !data.payments) {
+        showToast('❌ Archivo JSON inválido');
+        return;
+      }
+      
+      // Confirmar importación
+      if (!confirm('⚠️ ADVERTENCIA: Esto reemplazará TODOS los datos actuales.\n\n¿Estás seguro de continuar?')) {
+        return;
+      }
+      
+      // Importar datos
+      if (data.users) localStorage.setItem('users', JSON.stringify(data.users));
+      if (data.players) localStorage.setItem('players', JSON.stringify(data.players));
+      if (data.payments) localStorage.setItem('payments', JSON.stringify(data.payments));
+      if (data.calendarEvents) localStorage.setItem('calendarEvents', JSON.stringify(data.calendarEvents));
+      if (data.schoolSettings) localStorage.setItem('schoolSettings', JSON.stringify(data.schoolSettings));
+      
+      showToast('✅ Datos importados correctamente. Recargando...');
+      
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
+      
+    } catch (error) {
+      console.error('Error al importar datos:', error);
+      showToast('❌ Error al leer el archivo JSON');
+    }
+  };
+  
+  reader.readAsText(file);
+}
+
+// Abrir selector de archivos para importar
+function openImportDialog() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  
+  input.onchange = function(e) {
+    const file = e.target.files[0];
+    if (file) {
+      importDataFromJSON(file);
+    }
+  };
+  
+  input.click();
+}
