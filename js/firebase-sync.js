@@ -2,34 +2,9 @@
 // SINCRONIZACIÓN CON FIREBASE
 // ========================================
 
-// --- FUNCIONES AUXILIARES (obtienen datos de tu app) ---
-
-function getSchoolSettings() {
-  const settings = localStorage.getItem('schoolSettings');
-  return settings ? JSON.parse(settings) : {
-    name: 'MY CLUB',
-    logo: '',
-    primaryColor: '#ff0000',
-    foundedYear: 2013,
-    monthlyFee: 3232
-  };
-}
-
-function getAllPlayers() {
-  const players = localStorage.getItem('players');
-  return players ? JSON.parse(players) : [];
-}
-
-function saveSchoolSettings(settings) {
-  localStorage.setItem('schoolSettings', JSON.stringify(settings));
-}
-
-function saveAllPlayers(players) {
-  localStorage.setItem('players', JSON.stringify(players));
-}
-
-// --- SUBIR DATOS A FIREBASE ---
-
+/**
+ * Sube todos los datos locales a Firebase
+ */
 async function syncAllToFirebase() {
   if (!window.APP_STATE?.firebaseReady) {
     showToast('⚠️ Firebase no está listo. Espera unos segundos.');
@@ -37,18 +12,18 @@ async function syncAllToFirebase() {
   }
 
   try {
-    console.log('📤 Subiendo todos los datos a Firebase...');
-    showToast('📤 Subiendo datos a Firebase...');
+    console.log('📤 Sincronizando todos los datos a Firebase...');
+    showToast('📤 Subiendo datos...');
 
-    // Subir configuración del club
+    // Ejemplo: subir configuración del club
     const settings = getSchoolSettings();
     await window.firebase.setDoc(
       window.firebase.doc(window.firebase.db, "settings", "club"),
-      { ...settings, lastUpdated: new Date().toISOString() }
+      settings
     );
 
-    // Subir jugadores
-    const players = getAllPlayers();
+    // Ejemplo: subir jugadores
+    const players = getAllPlayers() || [];
     for (const player of players) {
       if (player.id) {
         await window.firebase.setDoc(
@@ -58,16 +33,17 @@ async function syncAllToFirebase() {
       }
     }
 
-    console.log('✅ Datos subidos correctamente a Firebase');
-    showToast('✅ ¡Datos sincronizados con Firebase!');
+    console.log('✅ Sincronización completada');
+    showToast('✅ Datos subidos a Firebase');
   } catch (error) {
-    console.error('❌ Error al subir datos:', error);
-    showToast('⚠️ Error al subir datos a Firebase');
+    console.error('❌ Error al sincronizar:', error);
+    showToast('⚠️ Error al subir datos');
   }
 }
 
-// --- DESCARGAR DATOS DE FIREBASE ---
-
+/**
+ * Descarga todos los datos desde Firebase
+ */
 async function downloadFromFirebase() {
   if (!window.APP_STATE?.firebaseReady) {
     showToast('⚠️ Firebase no está listo.');
@@ -93,19 +69,19 @@ async function downloadFromFirebase() {
     playersSnapshot.forEach(doc => {
       players.push({ id: doc.id, ...doc.data() });
     });
-    saveAllPlayers(players);
+    saveAllPlayers(players); // Debes implementar esta función
 
-    console.log('✅ Datos descargados y guardados localmente');
-    showToast('✅ Datos actualizados desde Firebase');
+    showToast('✅ Datos descargados y actualizados');
     location.reload(); // Opcional: recargar para ver cambios
   } catch (error) {
-    console.error('❌ Error al descargar datos:', error);
-    showToast('⚠️ Error al descargar de Firebase');
+    console.error('❌ Error al descargar:', error);
+    showToast('⚠️ Error al descargar datos');
   }
 }
 
-// --- VERIFICAR ACTUALIZACIONES ---
-
+/**
+ * Verifica si hay actualizaciones en Firebase
+ */
 async function checkForUpdates() {
   if (!window.APP_STATE?.firebaseReady) {
     showToast('⚠️ Firebase no está listo.');
@@ -116,6 +92,8 @@ async function checkForUpdates() {
     console.log('🔍 Buscando actualizaciones...');
     showToast('🔍 Buscando actualizaciones...');
 
+    // Aquí podrías comparar timestamps, versiones, etc.
+    // Ejemplo simple: mostrar última actualización
     const settingsRef = window.firebase.doc(window.firebase.db, "settings", "club");
     const docSnap = await window.firebase.getDoc(settingsRef);
     if (docSnap.exists()) {

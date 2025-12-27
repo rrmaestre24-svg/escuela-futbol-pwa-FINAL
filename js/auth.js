@@ -1,5 +1,5 @@
 // ========================================
-// SISTEMA DE AUTENTICACIÓN - MEJORADO CON CLUB ID
+// SISTEMA DE AUTENTICACIÓN - MEJORADO CON CLUB ID Y FIREBASE
 // ========================================
 
 // Mostrar tab de login
@@ -89,7 +89,7 @@ document.getElementById('loginForm')?.addEventListener('submit', function(e) {
   }
 });
 
-// Registro - MEJORADO CON CLUB ID
+// Registro - MEJORADO CON CLUB ID Y FIREBASE
 document.getElementById('registerForm')?.addEventListener('submit', function(e) {
   e.preventDefault();
   
@@ -160,7 +160,7 @@ document.getElementById('registerForm')?.addEventListener('submit', function(e) 
     const schoolId = generateId();
     
     // Guardar configuración del club CON schoolId y clubId
-    updateSchoolSettings({
+    const clubSettings = {
       schoolId: schoolId,
       name: clubName,
       clubId: clubId, // 👈 ¡CLUB ID INCLUIDO!
@@ -176,7 +176,9 @@ document.getElementById('registerForm')?.addEventListener('submit', function(e) 
       monthlyFee: monthlyFee,
       currency: clubCurrency,
       primaryColor: clubColor
-    });
+    };
+    
+    updateSchoolSettings(clubSettings);
     
     // Crear usuario admin principal
     const newUser = {
@@ -195,24 +197,34 @@ document.getElementById('registerForm')?.addEventListener('submit', function(e) 
     
     saveUser(newUser);
     
-    showToast('✅ Club registrado exitosamente');
-    
-    // Generar iconos PWA con el logo del club
-    if (typeof generatePWAIcons === 'function') {
-      setTimeout(() => {
+    // ✅ REGISTRAR AL CREADOR EN FIREBASE INMEDIATAMENTE
+    setTimeout(async () => {
+      if (typeof saveUserToClubInFirebase === 'function') {
+        try {
+          await saveUserToClubInFirebase(newUser);
+          console.log('✅ Creador del club registrado en Firebase');
+        } catch (error) {
+          console.error('⚠️ Error al registrar creador en Firebase:', error);
+        }
+      }
+      
+      showToast('✅ Club registrado exitosamente');
+      
+      // Generar iconos PWA con el logo del club
+      if (typeof generatePWAIcons === 'function') {
         generatePWAIcons();
-      }, 500);
-    }
-    
-    // Auto-login
-    const { password: _, ...userWithoutPassword } = newUser;
-    setCurrentUser(userWithoutPassword);
-    
-    setTimeout(() => {
-      document.getElementById('loginScreen').classList.add('hidden');
-      document.getElementById('appContainer').classList.remove('hidden');
-      initApp();
-    }, 1000);
+      }
+      
+      // Auto-login
+      const { password: _, ...userWithoutPassword } = newUser;
+      setCurrentUser(userWithoutPassword);
+      
+      setTimeout(() => {
+        document.getElementById('loginScreen').classList.add('hidden');
+        document.getElementById('appContainer').classList.remove('hidden');
+        initApp();
+      }, 1000);
+    }, 100);
   };
   processClubData();
 });
@@ -291,4 +303,4 @@ function forgotPassword() {
   }
 }
 
-console.log('✅ auth.js cargado (MEJORADO CON CLUB ID)');
+console.log('✅ auth.js cargado (MEJORADO CON CLUB ID + FIREBASE)');

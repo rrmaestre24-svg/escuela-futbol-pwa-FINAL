@@ -324,16 +324,17 @@
                 </div>
 
                 <!-- Cumpleaños Próximos -->
-                <div id="upcomingBirthdaysCard" class="hidden bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl p-4 shadow-lg text-white">
+                <!-- Cumpleaños Próximos -->
+                    <div id="upcomingBirthdaysCard" class="hidden bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl p-4 shadow-lg text-white">
                     <div class="flex items-center justify-between mb-3">
                         <div class="flex items-center gap-2">
-                            <i data-lucide="cake" class="w-6 h-6"></i>
-                            <h3 class="font-bold text-lg">Cumpleaños Próximos</h3>
+                        <i data-lucide="cake" class="w-6 h-6"></i>
+                        <h3 class="font-bold text-lg">Cumpleaños Próximos</h3>
                         </div>
                         <button onclick="navigateTo('birthdays')" class="text-sm underline">Ver todos</button>
                     </div>
-                    <div id="birthdaysByMonth" class="space-y-4"></div> 
-                </div>
+                    <div id="upcomingBirthdaysList" class="space-y-2"></div> <!-- 👈 ESTE ES EL CONTENEDOR QUE FALTA -->
+                    </div>
 
                 <!-- Próximos Eventos -->
                 <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
@@ -498,6 +499,7 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
 ========================================= -->
 <div id="settingsView" class="hidden p-4 space-y-4">
   <!-- Sección: Mi Perfil -->
+   <div id="clubSettingsSection"></div>
   <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
     <button onclick="toggleSection('profileSection')" class="w-full px-4 py-3 flex items-center justify-between bg-gray-50 dark:bg-gray-700 text-left font-medium">
       <span>👤 Mi Perfil</span>
@@ -1239,8 +1241,8 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
      
     <!-- Scripts en orden -->
     <script type="module" src="./js/app.js"></script>
-    
-
+    <script src="js/firebase-config.js"></script>
+    <script src="js/firebase-sync.js"></script>
     <script src="js/utils.js"></script>
     <script src="js/install.js"></script>
     <script src="js/cache.js"></script>
@@ -1259,8 +1261,7 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
     <script src="js/dashboard.js"></script>
     <script src="js/settings.js"></script>
     <script src="js/app.js"></script>
-    <script src="js/firebase-config.js"></script>
-    <script src="js/firebase-sync.js"></script>
+
 
     <script>
         // Inicializar Lucide Icons
