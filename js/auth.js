@@ -1,5 +1,5 @@
 // ========================================
-// SISTEMA DE AUTENTICACIÓN - MEJORADO
+// SISTEMA DE AUTENTICACIÓN - MEJORADO CON CLUB ID
 // ========================================
 
 // Mostrar tab de login
@@ -89,13 +89,22 @@ document.getElementById('loginForm')?.addEventListener('submit', function(e) {
   }
 });
 
-// Registro - MEJORADO
+// Registro - MEJORADO CON CLUB ID
 document.getElementById('registerForm')?.addEventListener('submit', function(e) {
   e.preventDefault();
   
   // Datos del club
   const clubLogoFile = document.getElementById('regClubLogo').files[0];
   const clubName = document.getElementById('regClubName').value;
+  const clubIdInput = document.getElementById('regClubId').value;
+  let clubId = clubIdInput.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_');
+  if (!clubId && clubName) {
+    clubId = clubName.toLowerCase().replace(/[^a-z0-9]/g, '_');
+  }
+  if (!clubId) {
+    showToast('⚠️ El ID del club es obligatorio');
+    return;
+  }
   const clubColor = document.getElementById('regClubColor').value;
   const clubCurrency = document.getElementById('regClubCurrency').value;
   const monthlyFee = parseFloat(document.getElementById('regMonthlyFee').value);
@@ -150,10 +159,11 @@ document.getElementById('registerForm')?.addEventListener('submit', function(e) 
     // Generar ID único para la escuela
     const schoolId = generateId();
     
-    // Guardar configuración del club CON schoolId
+    // Guardar configuración del club CON schoolId y clubId
     updateSchoolSettings({
       schoolId: schoolId,
       name: clubName,
+      clubId: clubId, // 👈 ¡CLUB ID INCLUIDO!
       logo: clubLogo,
       email: clubEmail,
       phone: clubPhone,
@@ -231,6 +241,7 @@ window.addEventListener('DOMContentLoaded', function() {
     document.getElementById('appContainer').classList.add('hidden');
   }
 });
+
 // NUEVO: Recuperar contraseña
 function forgotPassword() {
   const email = prompt('📧 Ingresa tu email registrado:');
@@ -280,4 +291,4 @@ function forgotPassword() {
   }
 }
 
-console.log('✅ auth.js cargado (MEJORADO)');
+console.log('✅ auth.js cargado (MEJORADO CON CLUB ID)');

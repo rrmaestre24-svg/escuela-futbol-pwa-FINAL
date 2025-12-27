@@ -105,6 +105,22 @@
         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre del Club *</label>
         <input type="text" id="regClubName" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white">
     </div>
+    <!-- Campo para Club ID -->
+<div>
+    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+        ID único del Club <span class="text-red-500">*</span>
+    </label>
+    <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">
+        Este ID identificará tu club en la nube. Ej: club_sanjuan, escuela_7
+    </p>
+    <input 
+        type="text" 
+        id="regClubId" 
+        name="clubId"
+        required
+        class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white"
+        placeholder="club_mi_escuela">
+</div>
     
     <div class="grid grid-cols-2 gap-4">
         <div>
@@ -314,9 +330,9 @@
                             <i data-lucide="cake" class="w-6 h-6"></i>
                             <h3 class="font-bold text-lg">Cumpleaños Próximos</h3>
                         </div>
-                        <button onclick="showBirthdaysView()" class="text-sm underline">Ver todos</button>
+                        <button onclick="navigateTo('birthdays')" class="text-sm underline">Ver todos</button>
                     </div>
-                    <div id="upcomingBirthdaysList" class="space-y-2"></div>
+                    <div id="birthdaysByMonth" class="space-y-4"></div> 
                 </div>
 
                 <!-- Próximos Eventos -->
@@ -340,13 +356,13 @@
                         </h3>
                         <button onclick="showNotificationsView()" class="text-sm text-teal-600 dark:text-teal-400">Ver todas</button>
                     </div>
-                    <div id="dashboardNotificationsList" class="space-y-2"></div>
+                    <div id="dashboardNotificationsList" class="space-y-4"></div>
                 </div>
 
-               <!-- Botón Contabilidad -->
-                    <button onclick="showAccountingView()" class="w-full bg-gradient-to-r from-teal-600 to-blue-600 text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 hover:shadow-xl transition-all transform hover:scale-105">
-                    <i data-lucide="trending-up" class="w-6 h-6"></i>
-                    Ver Contabilidad Completa
+              <!-- Botón Contabilidad -->
+                <button onclick="navigateTo('accounting')" class="w-full bg-gradient-to-r from-teal-600 to-blue-600 text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 hover:shadow-xl transition-all transform hover:scale-105">
+                <i data-lucide="trending-up" class="w-6 h-6"></i>
+                Ver Contabilidad Completa
                 </button>
             </div>
 
@@ -477,223 +493,242 @@
                 </div>
             </div>
 
-            <!-- ========================================
-                 VISTA: CONFIGURACIÓN
-            ========================================= -->
-            <div id="settingsView" class="hidden p-4 space-y-4">
-                <!-- Perfil Usuario -->
-                
-                    <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
-                        <h3 class="font-bold text-gray-800 dark:text-white mb-4">Mi Perfil</h3>
-                        <div class="flex items-center gap-4 mb-4">
-                            <img id="userAvatar" src="" alt="Avatar" class="w-20 h-20 rounded-full object-cover border-4 border-teal-500">
-                            <div>
-                                <input type="file" id="changeAvatar" accept="image/*" class="hidden">
-                                <button type="button" onclick="document.getElementById('changeAvatar').click()" class="text-sm text-teal-600 dark:text-teal-400 underline">Cambiar foto</button>
-                            </div>
-                        </div>
-                        <form id="userProfileForm" class="space-y-3">
-                            <input type="text" id="userName" placeholder="Nombre completo" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
-                            <input type="date" id="userBirthDate" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
-                            <input type="tel" id="userPhone" placeholder="Teléfono" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
-                            <button type="submit" class="w-full bg-teal-600 hover:bg-teal-700 text-white py-2 rounded-lg">Guardar Cambios</button>
-                        </form>
-                    </div>
-
-                    <!-- Seguridad y Contraseña - NUEVO -->
-                    <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
-                        <h3 class="font-bold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
-                            <i data-lucide="lock" class="w-5 h-5 text-red-600"></i>
-                            Seguridad y Contraseña
-                        </h3>
-                        
-                        <!-- Mostrar email del usuario -->
-                        <div class="mb-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                            <p class="text-sm text-gray-500 dark:text-gray-400">Email de acceso</p>
-                            <p id="userEmailDisplay" class="font-medium text-gray-800 dark:text-white"></p>
-                        </div>
-                        
-                        <form id="changePasswordForm" class="space-y-3">
-                            <!-- Contraseña Actual -->
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Contraseña Actual *</label>
-                                <div class="relative">
-                                    <input type="password" id="currentPassword" required class="w-full px-4 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500">
-                                    <button type="button" onclick="togglePasswordVisibility('currentPassword')" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
-                                        <i data-lucide="eye" class="w-5 h-5"></i>
-                                    </button>
-                                </div>
-                            </div>
-
-        <!-- Nueva Contraseña -->
+           <!-- ========================================
+VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
+========================================= -->
+<div id="settingsView" class="hidden p-4 space-y-4">
+  <!-- Sección: Mi Perfil -->
+  <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+    <button onclick="toggleSection('profileSection')" class="w-full px-4 py-3 flex items-center justify-between bg-gray-50 dark:bg-gray-700 text-left font-medium">
+      <span>👤 Mi Perfil</span>
+      <i data-lucide="chevron-down" class="w-5 h-5 text-gray-500 dark:text-gray-400"></i>
+    </button>
+    <div id="profileSection" class="p-4 border-t border-gray-200 dark:border-gray-700 hidden">
+      <div class="flex items-center gap-4 mb-4">
+        <img id="userAvatar" src="" alt="Avatar" class="w-20 h-20 rounded-full object-cover border-4 border-teal-500">
         <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nueva Contraseña *</label>
-            <div class="relative">
-                <input type="password" id="newPassword" required minlength="6" class="w-full px-4 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500">
-                <button type="button" onclick="togglePasswordVisibility('newPassword')" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
-                    <i data-lucide="eye" class="w-5 h-5"></i>
-                </button>
-            </div>
-            <!-- Indicador de seguridad -->
-            <div class="mt-2">
-                <div class="h-2 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
-                    <div id="passwordStrength" class="h-full transition-all duration-300" style="width: 0%"></div>
-                </div>
-                <p id="passwordStrengthText" class="text-xs text-gray-500 dark:text-gray-400 mt-1"></p>
-            </div>
-            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Mínimo 6 caracteres</p>
+          <input type="file" id="changeAvatar" accept="image/*" class="hidden">
+          <button type="button" onclick="document.getElementById('changeAvatar').click()" class="text-sm text-teal-600 dark:text-teal-400 underline">Cambiar foto</button>
         </div>
+      </div>
+      <form id="userProfileForm" class="space-y-3">
+        <input type="text" id="userName" placeholder="Nombre completo" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+        <input type="date" id="userBirthDate" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+        <input type="tel" id="userPhone" placeholder="Teléfono" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+        <button type="submit" class="w-full bg-teal-600 hover:bg-teal-700 text-white py-2 rounded-lg">Guardar Cambios</button>
+      </form>
+    </div>
+  </div>
 
-        <!-- Confirmar Nueva Contraseña -->
+  <!-- Sección: Seguridad y Contraseña -->
+  <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+    <button onclick="toggleSection('securitySection')" class="w-full px-4 py-3 flex items-center justify-between bg-gray-50 dark:bg-gray-700 text-left font-medium">
+      <span>🔒 Seguridad y Contraseña</span>
+      <i data-lucide="chevron-down" class="w-5 h-5 text-gray-500 dark:text-gray-400"></i>
+    </button>
+    <div id="securitySection" class="p-4 border-t border-gray-200 dark:border-gray-700 hidden">
+      <div class="mb-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+        <p class="text-sm text-gray-500 dark:text-gray-400">Email de acceso</p>
+        <p id="userEmailDisplay" class="font-medium text-gray-800 dark:text-white"></p>
+      </div>
+      <form id="changePasswordForm" class="space-y-3">
         <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Confirmar Nueva Contraseña *</label>
-            <div class="relative">
-                <input type="password" id="confirmPassword" required minlength="6" class="w-full px-4 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500">
-                <button type="button" onclick="togglePasswordVisibility('confirmPassword')" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
-                    <i data-lucide="eye" class="w-5 h-5"></i>
-                </button>
-            </div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Contraseña Actual *</label>
+          <div class="relative">
+            <input type="password" id="currentPassword" required class="w-full px-4 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500">
+            <button type="button" onclick="togglePasswordVisibility('currentPassword')" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
+              <i data-lucide="eye" class="w-5 h-5"></i>
+            </button>
+          </div>
         </div>
-
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nueva Contraseña *</label>
+          <div class="relative">
+            <input type="password" id="newPassword" required minlength="6" class="w-full px-4 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500">
+            <button type="button" onclick="togglePasswordVisibility('newPassword')" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
+              <i data-lucide="eye" class="w-5 h-5"></i>
+            </button>
+          </div>
+          <div class="mt-2">
+            <div class="h-2 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
+              <div id="passwordStrength" class="h-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+            <p id="passwordStrengthText" class="text-xs text-gray-500 dark:text-gray-400 mt-1"></p>
+          </div>
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Mínimo 6 caracteres</p>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Confirmar Nueva Contraseña *</label>
+          <div class="relative">
+            <input type="password" id="confirmPassword" required minlength="6" class="w-full px-4 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500">
+            <button type="button" onclick="togglePasswordVisibility('confirmPassword')" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
+              <i data-lucide="eye" class="w-5 h-5"></i>
+            </button>
+          </div>
+        </div>
         <button type="submit" class="w-full bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg flex items-center justify-center gap-2">
-            <i data-lucide="key" class="w-5 h-5"></i>
-            Cambiar Contraseña
+          <i data-lucide="key" class="w-5 h-5"></i>
+          Cambiar Contraseña
         </button>
-    </form>
-</div>
-
-                <!-- Configuración del Club -->
- <!-- Gestión de Usuarios de la Escuela -->
-<div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
-  <div class="flex items-center justify-between mb-4">
-    <h3 class="font-bold text-gray-800 dark:text-white flex items-center gap-2">
-      <i data-lucide="users" class="w-5 h-5 text-blue-600"></i>
-      Usuarios de la Escuela
-    </h3>
-    <div id="usersCounter"></div>
+      </form>
+    </div>
   </div>
-  
-  <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
-    Puedes agregar hasta 5 usuarios adicionales que tendrán acceso completo a toda la información de la escuela.
-  </p>
-  
-  <div id="schoolUsersList" class="space-y-2 mb-4">
-    <!-- Aquí se cargan los usuarios dinámicamente -->
-  </div>
-  
-  <button onclick="showAddSchoolUserModal()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg flex items-center justify-center gap-2 transition-colors">
-    <i data-lucide="user-plus" class="w-5 h-5"></i>
-    Agregar Usuario
-  </button>
-</div>
-                
 
-<div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
-    <h3 class="font-bold text-gray-800 dark:text-white mb-4">Datos del Club</h3>
-    <div class="flex items-center gap-4 mb-4">
+  <!-- Sección: Datos del Club -->
+  <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+    <button onclick="toggleSection('clubSection')" class="w-full px-4 py-3 flex items-center justify-between bg-gray-50 dark:bg-gray-700 text-left font-medium">
+      <span>⚽ Datos del Club</span>
+      <i data-lucide="chevron-down" class="w-5 h-5 text-gray-500 dark:text-gray-400"></i>
+    </button>
+    <div id="clubSection" class="p-4 border-t border-gray-200 dark:border-gray-700 hidden">
+      <div class="flex items-center gap-4 mb-4">
         <img id="clubLogo" src="" alt="Logo" class="w-20 h-20 rounded-lg object-cover border-2 border-gray-300">
         <div>
-            <input type="file" id="changeClubLogo" accept="image/*" class="hidden">
-            <button onclick="document.getElementById('changeClubLogo').click()" class="text-sm text-teal-600 dark:text-teal-400 underline">Cambiar logo</button>
-            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Máximo 2MB</p>
+          <input type="file" id="changeClubLogo" accept="image/*" class="hidden">
+          <button onclick="document.getElementById('changeClubLogo').click()" class="text-sm text-teal-600 dark:text-teal-400 underline">Cambiar logo</button>
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Máximo 2MB</p>
         </div>
-    </div>
-    <form id="clubSettingsForm" class="space-y-3">
+      </div>
+      <form id="clubSettingsForm" class="space-y-3">
         <input type="text" id="clubName" placeholder="Nombre del club" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
-        
-        <div class="grid grid-cols-2 gap-3">
-            <input type="email" id="clubEmail" placeholder="Email del club" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
-            <input type="tel" id="clubPhone" placeholder="Teléfono" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+        <!-- Campo para Club ID -->
+        <div class="mb-4">
+          <label class="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">
+            ID único del club <span class="text-red-500">*</span>
+          </label>
+          <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">
+            Este ID identifica tu club en la nube. No se puede cambiar.
+          </p>
+          <input
+            type="text"
+            id="clubIdInput"
+            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white"
+            placeholder="club_mi_escuela"
+            readonly>
         </div>
-        
+        <div class="grid grid-cols-2 gap-3">
+          <input type="email" id="clubEmail" placeholder="Email del club" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+          <input type="tel" id="clubPhone" placeholder="Teléfono" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+        </div>
         <input type="text" id="clubAddress" placeholder="Dirección" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
-        
         <div class="grid grid-cols-2 gap-3">
-            <input type="text" id="clubCity" placeholder="Ciudad" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
-            <input type="text" id="clubCountry" placeholder="País" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+          <input type="text" id="clubCity" placeholder="Ciudad" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+          <input type="text" id="clubCountry" placeholder="País" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
         </div>
-        
         <input type="url" id="clubWebsite" placeholder="Sitio web" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
-        
         <input type="text" id="clubSocial" placeholder="Redes sociales (@usuario)" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
-        
         <div class="grid grid-cols-2 gap-3">
-            <input type="number" id="clubFoundedYear" placeholder="Año de fundación" min="1900" max="2024" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
-            <input type="number" id="clubMonthlyFee" placeholder="Cuota mensual" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+          <input type="number" id="clubFoundedYear" placeholder="Año de fundación" min="1900" max="2024" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+          <input type="number" id="clubMonthlyFee" placeholder="Cuota mensual" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
         </div>
-        <div class="grid grid-cols-2 gap-3">
-    <input type="number" id="clubFoundedYear" placeholder="Año de fundación" min="1900" max="2024" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
-    <input type="number" id="clubMonthlyFee" placeholder="Cuota mensual" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
-</div>
-
-        <!-- AGREGAR ESTA SECCIÓN COMPLETA -->
+        <!-- Color Primario -->
         <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Color Primario del Club</label>
-            <div class="flex gap-3 items-center">
-                <input type="color" id="clubPrimaryColor" class="w-20 h-10 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer">
-                <div id="colorPreview" class="flex-1 h-10 rounded-lg border-2 border-gray-300 dark:border-gray-600"></div>
-            </div>
-            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Este color personalizará toda la aplicación</p>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Color Primario del Club</label>
+          <div class="flex gap-3 items-center">
+            <input type="color" id="clubPrimaryColor" class="w-20 h-10 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer">
+            <div id="colorPreview" class="flex-1 h-10 rounded-lg border-2 border-gray-300 dark:border-gray-600"></div>
+          </div>
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Este color personalizará toda la aplicación</p>
         </div>
-        <!-- FIN DE LA SECCIÓN A AGREGAR -->
-                <button type="submit" class="w-full bg-teal-600 hover:bg-teal-700 text-white py-2 rounded-lg">Guardar Cambios</button>
-            </form>
-        </div>
+        <button type="submit" class="w-full bg-teal-600 hover:bg-teal-700 text-white py-2 rounded-lg">Guardar Cambios</button>
+      </form>
+    </div>
+  </div>
 
-                <!-- Opciones -->
-                <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm space-y-3">
-                    <div class="flex items-center justify-between">
-                        <span class="text-gray-800 dark:text-white">Modo Oscuro</span>
-                        <button onclick="toggleDarkMode()" id="darkModeToggle" class="w-12 h-6 bg-gray-300 dark:bg-teal-600 rounded-full relative transition-colors">
-                            <div class="w-5 h-5 bg-white rounded-full absolute top-0.5 left-0.5 dark:left-6 transition-all"></div>
-                        </button>
-                    </div>
-                    
-                    <button onclick="clearAppCache()" class="w-full border border-blue-600 text-blue-600 dark:text-blue-400 py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
-                        <i data-lucide="refresh-cw" class="w-5 h-5"></i>
-                        Limpiar Caché y Actualizar
-                    </button>
-                    
-                    <button onclick="exportData()" class="w-full border border-teal-600 text-teal-600 dark:text-teal-400 py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors">
-                        <i data-lucide="download" class="w-5 h-5"></i>
-                        Exportar Datos (JSON)
-                    </button>
-                    <button onclick="openImportDialog()" class="w-full border border-green-600 text-green-600 dark:text-green-400 py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors">
-                <i data-lucide="upload" class="w-5 h-5"></i>
-                Importar Datos (JSON)
-            </button>
-            
-                        <!-- Botones de sincronización -->
-                <button type="button" class="w-full bg-teal-600 hover:bg-teal-700 text-white py-2 rounded-lg"
-                        onclick="syncAllToFirebase()">
-                Subir a Firebase
-                </button>
-                <!-- Botón de sincronización manual -->
-                <div class="mt-6">
-                <h3 class="font-bold text-gray-800 dark:text-white mb-3">Sincronización en la nube</h3>
-                <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                    Descarga los datos más recientes desde Firebase para ver los cambios hechos desde otros dispositivos.
-                </p>
-                <button 
-                    onclick="downloadFromFirebase()" 
-                    class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors">
-                    <span>🔄</span> Sincronizar con la nube
-                </button>
-                </div>
-                    
-                    
-                    <div class="border-t border-gray-300 dark:border-gray-600 pt-3 mt-3">
-                        <button onclick="logout()" class="w-full bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg flex items-center justify-center gap-2 transition-colors">
-                            <i data-lucide="log-out" class="w-5 h-5"></i>
-                            Cerrar Sesión
-                        </button>
-                        
-                        <button onclick="clearAllData()" class="w-full bg-gray-700 hover:bg-gray-800 text-white py-2 rounded-lg flex items-center justify-center gap-2 mt-3 transition-colors">
-                            <i data-lucide="trash-2" class="w-5 h-5"></i>
-                            Borrar Todos los Datos
-                        </button>
-                    </div>
-                </div>
+  <!-- Sección: Gestión de Usuarios -->
+  <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+    <button onclick="toggleSection('usersSection')" class="w-full px-4 py-3 flex items-center justify-between bg-gray-50 dark:bg-gray-700 text-left font-medium">
+      <span>👥 Gestión de Usuarios</span>
+      <i data-lucide="chevron-down" class="w-5 h-5 text-gray-500 dark:text-gray-400"></i>
+    </button>
+    <div id="usersSection" class="p-4 border-t border-gray-200 dark:border-gray-700 hidden">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="font-bold text-gray-800 dark:text-white flex items-center gap-2">
+          <i data-lucide="users" class="w-5 h-5 text-blue-600"></i>
+          Usuarios de la Escuela
+        </h3>
+        <div id="usersCounter"></div>
+      </div>
+      <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+        Puedes agregar hasta 5 usuarios adicionales que tendrán acceso completo a toda la información de la escuela.
+      </p>
+      <div id="schoolUsersList" class="space-y-2 mb-4">
+        <!-- Aquí se cargan los usuarios dinámicamente -->
+      </div>
+      <button onclick="showAddSchoolUserModal()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg flex items-center justify-center gap-2 transition-colors">
+        <i data-lucide="user-plus" class="w-5 h-5"></i>
+        Agregar Usuario
+      </button>
+    </div>
+  </div>
+
+  <!-- Sección: Personalización -->
+  <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+    <button onclick="toggleSection('personalizationSection')" class="w-full px-4 py-3 flex items-center justify-between bg-gray-50 dark:bg-gray-700 text-left font-medium">
+      <span>🎨 Personalización</span>
+      <i data-lucide="chevron-down" class="w-5 h-5 text-gray-500 dark:text-gray-400"></i>
+    </button>
+    <div id="personalizationSection" class="p-4 border-t border-gray-200 dark:border-gray-700 hidden">
+      <div class="flex items-center justify-between mb-4">
+        <span class="text-gray-800 dark:text-white">Modo Oscuro</span>
+        <button onclick="toggleDarkMode()" id="darkModeToggle" class="w-12 h-6 bg-gray-300 dark:bg-teal-600 rounded-full relative transition-colors">
+          <div class="w-5 h-5 bg-white rounded-full absolute top-0.5 left-0.5 dark:left-6 transition-all"></div>
+        </button>
+      </div>
+      <div class="space-y-2">
+        <button onclick="clearAppCache()" class="w-full border border-blue-600 text-blue-600 dark:text-blue-400 py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
+          <i data-lucide="refresh-cw" class="w-5 h-5"></i>
+          Limpiar Caché y Actualizar
+        </button>
+        <button onclick="exportData()" class="w-full border border-teal-600 text-teal-600 dark:text-teal-400 py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors">
+          <i data-lucide="download" class="w-5 h-5"></i>
+          Exportar Datos (JSON)
+        </button>
+        <button onclick="openImportDialog()" class="w-full border border-green-600 text-green-600 dark:text-green-400 py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors">
+          <i data-lucide="upload" class="w-5 h-5"></i>
+          Importar Datos (JSON)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sección: Sincronización y Cierre -->
+  <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+    <button onclick="toggleSection('syncSection')" class="w-full px-4 py-3 flex items-center justify-between bg-gray-50 dark:bg-gray-700 text-left font-medium">
+      <span>☁️ Sincronización y Cierre</span>
+      <i data-lucide="chevron-down" class="w-5 h-5 text-gray-500 dark:text-gray-400"></i>
+    </button>
+    <div id="syncSection" class="p-4 border-t border-gray-200 dark:border-gray-700 hidden">
+      <div class="mb-4">
+        <h4 class="font-bold text-gray-800 dark:text-white mb-2">Subir a Firebase</h4>
+        <p class="text-sm text-gray-600 dark:text-gray-400">Guarda tus datos en la nube.</p>
+        <button type="button" class="w-full bg-teal-600 hover:bg-teal-700 text-white py-2 rounded-lg"
+        onclick="syncAllToFirebase()">
+          Subir a Firebase
+        </button>
+      </div>
+      <div class="mb-4">
+        <h4 class="font-bold text-gray-800 dark:text-white mb-2">Sincronizar con la nube</h4>
+        <p class="text-sm text-gray-600 dark:text-gray-400">Descarga los datos más recientes desde Firebase.</p>
+        <button
+        onclick="downloadFromFirebase()"
+        class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg flex items-center justify-center gap-2 transition-colors">
+          <span>🔄</span> Sincronizar con la nube
+        </button>
+      </div>
+      <div class="border-t border-gray-300 dark:border-gray-600 pt-3 mt-3">
+        <button onclick="logout()" class="w-full bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg flex items-center justify-center gap-2 transition-colors">
+          <i data-lucide="log-out" class="w-5 h-5"></i>
+          Cerrar Sesión
+        </button>
+        <button onclick="clearAllData()" class="w-full bg-gray-700 hover:bg-gray-800 text-white py-2 rounded-lg flex items-center justify-center gap-2 mt-3 transition-colors">
+          <i data-lucide="trash-2" class="w-5 h-5"></i>
+          Borrar Todos los Datos
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
 
             <!-- ========================================
                  VISTA: CUMPLEAÑOS
@@ -721,80 +756,72 @@
                 </div>
             </div>
 
-            <!-- ========================================
-                 VISTA: CONTABILIDAD
+           <!-- ========================================  
+                    vista de contabilidad
             ========================================= -->
             <div id="accountingView" class="hidden p-4 space-y-4">
-                <!-- Resumen -->
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div class="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-4 text-white shadow-lg">
-                        <p class="text-xs opacity-90">Total Ingresos</p>
-                        <p id="accTotalIncome" class="text-2xl font-bold mt-1">$0</p>
-                    </div>
-                    <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-4 text-white shadow-lg">
-                        <p class="text-xs opacity-90">Este Mes</p>
-                        <p id="accMonthIncome" class="text-2xl font-bold mt-1">$0</p>
-                    </div>
-                    <div class="bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-xl p-4 text-white shadow-lg">
-                        <p class="text-xs opacity-90">Por Cobrar</p>
-                        <p id="accPending" class="text-2xl font-bold mt-1">$0</p>
-                    </div>
-                    <div class="bg-gradient-to-br from-teal-500 to-teal-600 rounded-xl p-4 text-white shadow-lg">
-                        <p class="text-xs opacity-90">Pagos Realizados</p>
-                        <p id="accPaidCount" class="text-2xl font-bold mt-1">0</p>
-                    </div>
+            <!-- Resumen -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-4 text-white shadow-lg">
+                <p class="text-xs opacity-90">Total Ingresos</p>
+                <p id="accTotalIncome" class="text-2xl font-bold mt-1">$0</p>
                 </div>
-
-                <!-- Gráficos -->
-                <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
-                    <h4 class="font-bold text-gray-800 dark:text-white mb-4">Ingresos por Mes (Últimos 12 meses)</h4>
-                    <canvas id="incomeByMonthChart"></canvas>
+                <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-4 text-white shadow-lg">
+                <p class="text-xs opacity-90">Este Mes</p>
+                <p id="accMonthIncome" class="text-2xl font-bold mt-1">$0</p>
                 </div>
-
-                <div class="grid md:grid-cols-2 gap-4">
-                    <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
-                        <h4 class="font-bold text-gray-800 dark:text-white mb-4">Ingresos por Categoría</h4>
-                        <canvas id="incomeByCategoryChart"></canvas>
-                    </div>
-                    <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
-                        <h4 class="font-bold text-gray-800 dark:text-white mb-4">Ingresos por Tipo</h4>
-                        <canvas id="incomeByTypeChart"></canvas>
-                    </div>
+                <div class="bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-xl p-4 text-white shadow-lg">
+                <p class="text-xs opacity-90">Por Cobrar</p>
+                <p id="accPending" class="text-2xl font-bold mt-1">$0</p>
                 </div>
-
-                <!-- Tabla de jugadores -->
-                <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
-                    <h4 class="font-bold text-gray-800 dark:text-white mb-4">Estado por Jugador</h4>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-sm">
-                            <thead>
-                                <tr class="border-b border-gray-200 dark:border-gray-700">
-                                    <th class="text-left py-2 text-gray-600 dark:text-gray-300">Jugador</th>
-                                    <th class="text-left py-2 text-gray-600 dark:text-gray-300">Categoría</th>
-                                    <th class="text-right py-2 text-gray-600 dark:text-gray-300">Pagado</th>
-                                    <th class="text-right py-2 text-gray-600 dark:text-gray-300">Pendiente</th>
-                                    <th class="text-center py-2 text-gray-600 dark:text-gray-300">Cumplimiento</th>
-                                    <th class="text-center py-2 text-gray-600 dark:text-gray-300">Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody id="accountingPlayersTable"></tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <!-- Botones de acción -->
-                <div class="grid md:grid-cols-2 gap-4">
-                    <button onclick="generateFullReport()" class="bg-teal-600 hover:bg-teal-700 text-white py-3 rounded-lg flex items-center justify-center gap-2">
-                        <i data-lucide="file-text" class="w-5 h-5"></i>
-                        Reporte Completo PDF
-                    </button>
-                    <button onclick="exportCSV()" class="bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg flex items-center justify-center gap-2">
-                        <i data-lucide="download" class="w-5 h-5"></i>
-                        Exportar CSV
-                    </button>
+                <div class="bg-gradient-to-br from-teal-500 to-teal-600 rounded-xl p-4 text-white shadow-lg">
+                <p class="text-xs opacity-90">Pagos Realizados</p>
+                <p id="accPaidCount" class="text-2xl font-bold mt-1">0</p>
                 </div>
             </div>
-
+            <!-- Gráficos -->
+            <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+                <h4 class="font-bold text-gray-800 dark:text-white mb-4">Ingresos por Mes (Últimos 12 meses)</h4>
+                <canvas id="incomeByMonthChart"></canvas>
+            </div>
+            <!-- Tabla de jugadores -->
+            <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+                <h4 class="font-bold text-gray-800 dark:text-white mb-4">Estado por Jugador</h4>
+                <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                    <tr class="border-b border-gray-200 dark:border-gray-700">
+                        <th class="text-left py-2 text-gray-600 dark:text-gray-300">Jugador</th>
+                        <th class="text-left py-2 text-gray-600 dark:text-gray-300">Categoría</th>
+                        <th class="text-right py-2 text-gray-600 dark:text-gray-300">Pagado</th>
+                        <th class="text-right py-2 text-gray-600 dark:text-gray-300">Pendiente</th>
+                        <th class="text-center py-2 text-gray-600 dark:text-gray-300">Cumplimiento</th>
+                        <th class="text-center py-2 text-gray-600 dark:text-gray-300">Acciones</th>
+                    </tr>
+                    </thead>
+                    <tbody id="accountingPlayersTable">
+                    <tr>
+                        <td colspan="6" class="text-center py-8 text-gray-500">
+                        Cargando datos...
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+                </div>
+            </div>
+            <!-- Botones de acción -->
+            <div class="grid md:grid-cols-2 gap-4">
+                <button onclick="generateFullReport()" class="bg-teal-600 hover:bg-teal-700 text-white py-3 rounded-lg flex items-center justify-center gap-2">
+                <i data-lucide="file-text" class="w-5 h-5"></i>
+                Reporte Completo PDF
+                </button>
+                <button onclick="exportCSV()" class="bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg flex items-center justify-center gap-2">
+                <i data-lucide="download" class="w-5 h-5"></i>
+                Exportar CSV
+                </button>
+            </div>
+            </div>
+                    
         </main>
 
         <!-- Bottom Navigation -->

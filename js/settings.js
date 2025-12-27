@@ -1,5 +1,5 @@
 // ========================================
-// CONFIGURACIÓN - CON GESTIÓN DE CONTRASEÑAS
+// CONFIGURACIÓN - CON GESTIÓN DE CONTRASEÑAS Y CLUB ID (SOLO LECTURA)
 // ========================================
 
 // Cargar configuración al abrir vista
@@ -34,6 +34,35 @@ function loadSettings() {
   document.getElementById('clubFoundedYear').value = settings.foundedYear || '';
   document.getElementById('clubMonthlyFee').value = settings.monthlyFee || '';
   
+  // 👇 Cargar clubId y convertir a solo lectura si ya existe
+  let clubId = settings.clubId;
+  if (!clubId && settings.name) {
+    clubId = settings.name.toLowerCase().replace(/[^a-z0-9]/g, '_');
+  }
+
+  const clubIdInput = document.getElementById('clubIdInput');
+  if (clubIdInput) {
+    if (clubId) {
+      // Reemplazar input por un div de solo lectura
+      const readonlyDiv = document.createElement('div');
+      readonlyDiv.className = 'w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 cursor-not-allowed';
+      readonlyDiv.textContent = clubId;
+      readonlyDiv.id = 'clubIdDisplay';
+      readonlyDiv.title = 'ID único del club (no editable)';
+      clubIdInput.parentNode.replaceChild(readonlyDiv, clubIdInput);
+
+      // Añadir mensaje informativo
+      const infoMsg = document.createElement('p');
+      infoMsg.className = 'text-xs text-gray-500 dark:text-gray-400 mt-1';
+      infoMsg.textContent = 'Este ID identifica tu club en la nube. No se puede cambiar.';
+      readonlyDiv.parentNode.appendChild(infoMsg);
+    } else {
+      // Si por algún motivo no hay clubId, dejarlo como fallback
+      clubIdInput.value = 'my_club';
+      clubIdInput.disabled = true;
+    }
+  }
+
   // Color primario
   const colorInput = document.getElementById('clubPrimaryColor');
   if (colorInput) {
@@ -79,20 +108,20 @@ document.getElementById('changeClubLogo')?.addEventListener('change', function(e
       showToast('❌ La imagen es muy grande. Máximo 2MB');
       return;
     }
-   imageToBase64(file, function(base64) {
+    imageToBase64(file, function(base64) {
       document.getElementById('clubLogo').src = base64;
       document.getElementById('headerLogo').src = base64;
       
       updateSchoolSettings({ logo: base64 });
       showToast('✅ Logo actualizado');
       
-      // AGREGAR ESTA LÍNEA DENTRO DEL CALLBACK
       if (typeof generatePWAIcons === 'function') {
         generatePWAIcons();
       }
     });
   }
 });
+
 // Guardar perfil de usuario
 document.getElementById('userProfileForm')?.addEventListener('submit', function(e) {
   e.preventDefault();
@@ -231,7 +260,7 @@ document.getElementById('newPassword')?.addEventListener('input', function(e) {
   strengthText.textContent = text;
 });
 
-// Guardar configuración del club - MEJORADO CON COLOR
+// Guardar configuración del club - SIN permitir cambiar clubId
 document.getElementById('clubSettingsForm')?.addEventListener('submit', function(e) {
   e.preventDefault();
   
@@ -248,7 +277,14 @@ document.getElementById('clubSettingsForm')?.addEventListener('submit', function
     monthlyFee: parseFloat(document.getElementById('clubMonthlyFee').value)
   };
   
-  // Agregar color primario si existe el campo
+  // Preservar clubId existente (¡nunca se sobrescribe!)
+  const existing = getSchoolSettings();
+  if (existing.clubId) {
+    settings.clubId = existing.clubId;
+  }
+  // Si no existe (caso raro), se generaría en loadSettings, pero no aquí
+
+  // Color primario
   const colorInput = document.getElementById('clubPrimaryColor');
   if (colorInput) {
     settings.primaryColor = colorInput.value;
@@ -256,13 +292,11 @@ document.getElementById('clubSettingsForm')?.addEventListener('submit', function
   
   updateSchoolSettings(settings);
   
-  // Aplicar nuevo color inmediatamente
   if (typeof applyPrimaryColor === 'function') {
     applyPrimaryColor();
   }
   
   document.getElementById('headerClubName').textContent = settings.name;
-  
   showToast('✅ Configuración del club actualizada');
 });
 
@@ -277,33 +311,7 @@ document.getElementById('clubPrimaryColor')?.addEventListener('input', function(
 function exportData() {
   exportAllData();
 }
-// Cambiar logo del club - MEJORADO
-document.getElementById('changeClubLogo')?.addEventListener('change', function(e) {
-  const file = e.target.files[0];
-  if (file) {
-    if (!file.type.startsWith('image/')) {
-      showToast('❌ Por favor selecciona una imagen válida');
-      return;
-    }
-    if (file.size > 2 * 1024 * 1024) {
-      showToast('❌ La imagen es muy grande. Máximo 2MB');
-      return;
-    }
-    imageToBase64(file, function(base64) {
-      document.getElementById('clubLogo').src = base64;
-      document.getElementById('headerLogo').src = base64;
-      
-      updateSchoolSettings({ logo: base64 });
-      showToast('✅ Logo actualizado');
-      
-      // AGREGAR ESTA LÍNEA
-      if (typeof generatePWAIcons === 'function') {
-        generatePWAIcons();
-      }
-    });
-  }
-});
-console.log('✅ settings.js cargado (CON GESTIÓN DE CONTRASEÑAS)');
+
 // ========================================
 // GESTIÓN DE USUARIOS DE LA ESCUELA
 // ========================================
@@ -336,7 +344,6 @@ function renderSchoolUsers() {
     </div>
   `).join('');
   
-  // Mostrar contador
   const counterDiv = document.getElementById('usersCounter');
   if (counterDiv) {
     counterDiv.innerHTML = `
@@ -364,10 +371,8 @@ function showAddSchoolUserModal() {
     return;
   }
   
-  // Reset form
   document.getElementById('addSchoolUserForm').reset();
   document.getElementById('schoolUserAvatarPreview').src = getDefaultAvatar();
-  
   document.getElementById('addSchoolUserModal').classList.remove('hidden');
 }
 
@@ -381,7 +386,6 @@ function saveSchoolUser(userData) {
   const currentUser = getCurrentUser();
   if (!currentUser) return;
   
-  // Verificar si el email ya existe
   const users = getUsers();
   if (users.find(u => u.email === userData.email)) {
     showToast('❌ Este email ya está registrado');
@@ -468,11 +472,26 @@ document.getElementById('addSchoolUserForm')?.addEventListener('submit', functio
 const originalLoadSettings = window.loadSettings;
 window.loadSettings = function() {
   if (originalLoadSettings) originalLoadSettings();
-  
   setTimeout(() => {
     renderSchoolUsers();
     document.getElementById('schoolUserAvatarPreview')?.setAttribute('src', getDefaultAvatar());
   }, 100);
 };
 
-console.log('✅ Gestión de usuarios de escuela cargada');
+console.log('✅ settings.js cargado (CLUB ID SOLO LECTURA + GESTIÓN COMPLETA)');
+// Toggle sección plegable
+function toggleSection(sectionId) {
+  const section = document.getElementById(sectionId);
+  const icon = section.previousElementSibling.querySelector('i');
+  
+  // Alternar la sección actual
+  section.classList.toggle('hidden');
+  if (section.classList.contains('hidden')) {
+    icon.setAttribute('data-lucide', 'chevron-down');
+  } else {
+    icon.setAttribute('data-lucide', 'chevron-up');
+  }
+  
+  // Recrear iconos
+  lucide.createIcons();
+}

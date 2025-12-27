@@ -22,7 +22,10 @@ function navigateTo(view) {
   document.getElementById('accountingView').classList.add('hidden');
   
   // Mostrar vista seleccionada
-  document.getElementById(`${view}View`).classList.remove('hidden');
+  const viewElement = document.getElementById(`${view}View`);
+  if (viewElement) {
+    viewElement.classList.remove('hidden');
+  }
   
   // Actualizar navegación activa
   document.querySelectorAll('.nav-item').forEach(item => {
@@ -34,29 +37,37 @@ function navigateTo(view) {
     navItem.classList.add('active');
   }
   
-  // Actualizar título del header
-  const titles = {
-    'dashboard': 'Dashboard',
-    'players': 'Jugadores',
-    'payments': 'Pagos',
-    'calendar': 'Calendario',
-    'settings': 'Configuración'
-  };
+// Actualizar título del header
+const titles = {
+  'dashboard': 'Dashboard',
+  'players': 'Jugadores',
+  'payments': 'Pagos',
+  'calendar': 'Calendario',
+  'settings': 'Configuración',
+  'accounting': 'Contabilidad',
+  'birthdays': 'Cumpleaños',
+  'notifications': 'Notificaciones'
+};
   
   document.getElementById('headerViewName').textContent = titles[view] || 'MY CLUB';
-  
-  // Cargar datos específicos de cada vista
-  if (view === 'dashboard') {
-    updateDashboard();
-  } else if (view === 'players') {
-    renderPlayersList();
-  } else if (view === 'payments') {
-    showPaymentTab('monthly');
-  } else if (view === 'calendar') {
-    renderCalendar();
-  } else if (view === 'settings') {
-    loadSettings();
-  }
+// Cargar datos específicos de cada vista
+if (view === 'dashboard') {
+  updateDashboard();
+} else if (view === 'players') {
+  renderPlayersList();
+} else if (view === 'payments') {
+  showPaymentTab('monthly');
+} else if (view === 'calendar') {
+  renderCalendar();
+} else if (view === 'settings') {
+  loadSettings();
+} else if (view === 'birthdays') {
+  renderBirthdays();
+} else if (view === 'notifications') {
+  renderNotifications();
+} else if (view === 'accounting') {
+  renderAccounting();
+}
   
   // Scroll al inicio
   window.scrollTo(0, 0);
