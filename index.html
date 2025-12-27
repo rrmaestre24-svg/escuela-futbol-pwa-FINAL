@@ -231,16 +231,23 @@
                 <div class="flex items-center gap-2">
             <!-- Botón de Instalación (solo visible si se puede instalar) -->
             <div class="flex items-center gap-2">
-    <!-- Botón de Instalación (solo visible si se puede instalar) -->
-    <button id="installButton" class="hidden p-2 rounded-lg bg-teal-600 hover:bg-teal-700 text-white transition-colors animate-pulse" onclick="installPWA()" title="Instalar aplicación">
-        <i data-lucide="download" class="w-5 h-5"></i>
-    </button>
-    
-    <button onclick="toggleDarkMode()" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-        <i data-lucide="moon" class="w-5 h-5 text-gray-600 dark:text-gray-300"></i>
-    </button>
-    <button onclick="showNotificationsView()" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors relative">
-        </header>
+            <!-- Botón de Instalación (solo visible si se puede instalar) -->
+            <button id="installButton" class="hidden p-2 rounded-lg bg-teal-600 hover:bg-teal-700 text-white transition-colors animate-pulse" onclick="installPWA()" title="Instalar aplicación">
+                <i data-lucide="download" class="w-5 h-5"></i>
+            </button>
+            
+            <button onclick="toggleDarkMode()" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                <i data-lucide="moon" class="w-5 h-5 text-gray-600 dark:text-gray-300"></i>
+            </button>
+            <button onclick="showNotificationsView()" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors relative">
+            <!-- Ejemplo: en el menú de navegación -->
+        <li class="nav-item" data-nav="notifications">
+        <button class="nav-link flex items-center gap-2">
+            <i data-lucide="bell" class="w-5 h-5"></i>
+            <span id="notificationBadge" class="hidden bg-red-500 text-white text-xs rounded-full px-2 py-1">0</span>
+        </button>
+        </li>  
+    </header>
 
         <!-- Main Content -->
         <main class="pt-16 pb-20 min-h-screen">
@@ -629,9 +636,6 @@
             <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Este color personalizará toda la aplicación</p>
         </div>
         <!-- FIN DE LA SECCIÓN A AGREGAR -->
-
-        <button type="submit" class="w-full bg-teal-600 hover:bg-teal-700 text-white py-2 rounded-lg">Guardar Cambios</button>
-                
                 <button type="submit" class="w-full bg-teal-600 hover:bg-teal-700 text-white py-2 rounded-lg">Guardar Cambios</button>
             </form>
         </div>
@@ -658,24 +662,25 @@
                 <i data-lucide="upload" class="w-5 h-5"></i>
                 Importar Datos (JSON)
             </button>
-            <div class="border-t border-gray-300 dark:border-gray-600 pt-3 mt-3">
-                    <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">🔥 Sincronización con Firebase</p>
-                    
-                    <button onclick="syncAllToFirebase()" class="w-full border border-blue-600 text-blue-600 dark:text-blue-400 py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors mb-2">
-                        <i data-lucide="cloud-upload" class="w-5 h-5"></i>
-                        Subir a Firebase
-                    </button>
-
-                    <button onclick="syncAllFromFirebase()" class="w-full border border-purple-600 text-purple-600 dark:text-purple-400 py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors">
-                        <i data-lucide="cloud-download" class="w-5 h-5"></i>
-                        Descargar de Firebase
-                    </button>
+            
+                        <!-- Botones de sincronización -->
+                <button type="button" class="w-full bg-teal-600 hover:bg-teal-700 text-white py-2 rounded-lg"
+                        onclick="syncAllToFirebase()">
+                Subir a Firebase
+                </button>
+                <!-- Botón de sincronización manual -->
+                <div class="mt-6">
+                <h3 class="font-bold text-gray-800 dark:text-white mb-3">Sincronización en la nube</h3>
+                <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                    Descarga los datos más recientes desde Firebase para ver los cambios hechos desde otros dispositivos.
+                </p>
+                <button 
+                    onclick="downloadFromFirebase()" 
+                    class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors">
+                    <span>🔄</span> Sincronizar con la nube
+                </button>
                 </div>
                     
-                    <button onclick="checkForUpdates()" class="w-full border border-purple-600 text-purple-600 dark:text-purple-400 py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors">
-                        <i data-lucide="cloud-download" class="w-5 h-5"></i>
-                        Buscar Actualizaciones
-                    </button>
                     
                     <div class="border-t border-gray-300 dark:border-gray-600 pt-3 mt-3">
                         <button onclick="logout()" class="w-full bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg flex items-center justify-center gap-2 transition-colors">
@@ -1206,8 +1211,9 @@
     <div id="toast" class="hidden fixed bottom-24 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-slide-up"></div>
      
     <!-- Scripts en orden -->
-    <script src="js/firebase-config.js" type="module"></script>
-    <script src="js/firebase-sync.js"></script>
+    <script type="module" src="./js/app.js"></script>
+    
+
     <script src="js/utils.js"></script>
     <script src="js/install.js"></script>
     <script src="js/cache.js"></script>
@@ -1226,6 +1232,8 @@
     <script src="js/dashboard.js"></script>
     <script src="js/settings.js"></script>
     <script src="js/app.js"></script>
+    <script src="js/firebase-config.js"></script>
+    <script src="js/firebase-sync.js"></script>
 
     <script>
         // Inicializar Lucide Icons

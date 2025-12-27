@@ -1,14 +1,25 @@
-# Credenciales de Firebase
+# Credenciales de Firebase (NO subir a GitHub)
 js/firebase-config.js
 
 # Archivos del sistema
 .DS_Store
 Thumbs.db
+desktop.ini
 
 # Editores
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
 
-# Otros
-node_modules/
+# Logs
 *.log
+npm-debug.log*
+
+# Node modules (si usas npm en el futuro)
+node_modules/
+
+# Archivos temporales
+.cache/
+.temp/

@@ -7,6 +7,11 @@ function updateNotifications() {
   const notifications = getPaymentNotifications();
   const badge = document.getElementById('notificationBadge');
   
+  if (!badge) {
+    console.warn('⚠️ Elemento #notificationBadge no encontrado. Saltando actualización.');
+    return;
+  }
+
   if (notifications.length > 0) {
     badge.textContent = notifications.length;
     badge.classList.remove('hidden');

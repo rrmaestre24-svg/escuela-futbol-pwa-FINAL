@@ -74,10 +74,16 @@ self.addEventListener('message', event => {
   }
 });
 
-// Estrategia: Network First, fallback a Cache
+// Estrategia: Network First, fallback a Cache (solo para GET)
 self.addEventListener('fetch', event => {
   // Ignorar chrome-extension y otras URLs no HTTP
   if (!event.request.url.startsWith('http')) {
+    return;
+  }
+
+  // Solo cachear solicitudes GET
+  if (event.request.method !== 'GET') {
+    event.respondWith(fetch(event.request));
     return;
   }
 

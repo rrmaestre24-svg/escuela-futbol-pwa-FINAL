@@ -1,3 +1,10 @@
+// Estado global de la app
+window.APP_STATE = {
+  firebaseReady: false,
+  currentUser: null
+};
+
+
 // ========================================
 // APLICACIÓN PRINCIPAL
 // ========================================
@@ -140,13 +147,17 @@ async function initApp() {
   
   // Inicializar Firebase PRIMERO
   if (typeof initFirebase === 'function') {
-    const firebaseReady = await initFirebase();
-    if (firebaseReady) {
-      console.log('✅ Firebase listo para usar');
+    try {
+      const firebaseReady = await initFirebase();
+      if (firebaseReady) {
+        console.log('✅ Firebase listo para usar');
+        window.APP_STATE.firebaseReady = true;
+      }
+    } catch (error) {
+      console.log('⚠️ Firebase no disponible:', error);
     }
   }
-  
-  // Aplicar modo oscuro
+  // Aplicar modo oscuro PRIMERO
   applyDarkMode();
   
   // Cargar datos del club en el header
