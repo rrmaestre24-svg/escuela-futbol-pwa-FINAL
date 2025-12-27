@@ -9,16 +9,17 @@ function loadSettings() {
   
   // Datos del usuario (todos los usuarios)
   if (currentUser) {
-    document.getElementById('userAvatar').src = currentUser.avatar || getDefaultAvatar();
-    document.getElementById('userName').value = currentUser.name || '';
-    document.getElementById('userBirthDate').value = currentUser.birthDate || '';
-    document.getElementById('userPhone').value = currentUser.phone || '';
-    
-    // Mostrar email (no editable por seguridad)
+    const userAvatar = document.getElementById('userAvatar');
+    const userName = document.getElementById('userName');
+    const userBirthDate = document.getElementById('userBirthDate');
+    const userPhone = document.getElementById('userPhone');
     const emailDisplay = document.getElementById('userEmailDisplay');
-    if (emailDisplay) {
-      emailDisplay.textContent = currentUser.email || '';
-    }
+    
+    if (userAvatar) userAvatar.src = currentUser.avatar || getDefaultAvatar();
+    if (userName) userName.value = currentUser.name || '';
+    if (userBirthDate) userBirthDate.value = currentUser.birthDate || '';
+    if (userPhone) userPhone.value = currentUser.phone || '';
+    if (emailDisplay) emailDisplay.textContent = currentUser.email || '';
   }
   
   // 👥 RESTRICCIÓN: Solo el admin principal ve/edita la configuración del club
@@ -30,18 +31,32 @@ function loadSettings() {
     if (clubSection) clubSection.classList.remove('hidden');
     if (restrictedMsg) restrictedMsg.classList.add('hidden');
     
-    // Cargar datos del club
-    document.getElementById('clubLogo').src = settings.logo || getDefaultLogo();
-    document.getElementById('clubName').value = settings.name || '';
-    document.getElementById('clubEmail').value = settings.email || '';
-    document.getElementById('clubPhone').value = settings.phone || '';
-    document.getElementById('clubAddress').value = settings.address || '';
-    document.getElementById('clubCity').value = settings.city || '';
-    document.getElementById('clubCountry').value = settings.country || '';
-    document.getElementById('clubWebsite').value = settings.website || '';
-    document.getElementById('clubSocial').value = settings.socialMedia || '';
-    document.getElementById('clubFoundedYear').value = settings.foundedYear || '';
-    document.getElementById('clubMonthlyFee').value = settings.monthlyFee || '';
+    // Cargar datos del club con validación
+    const clubElements = {
+      clubLogo: document.getElementById('clubLogo'),
+      clubName: document.getElementById('clubName'),
+      clubEmail: document.getElementById('clubEmail'),
+      clubPhone: document.getElementById('clubPhone'),
+      clubAddress: document.getElementById('clubAddress'),
+      clubCity: document.getElementById('clubCity'),
+      clubCountry: document.getElementById('clubCountry'),
+      clubWebsite: document.getElementById('clubWebsite'),
+      clubSocial: document.getElementById('clubSocial'),
+      clubFoundedYear: document.getElementById('clubFoundedYear'),
+      clubMonthlyFee: document.getElementById('clubMonthlyFee')
+    };
+    
+    if (clubElements.clubLogo) clubElements.clubLogo.src = settings.logo || getDefaultLogo();
+    if (clubElements.clubName) clubElements.clubName.value = settings.name || '';
+    if (clubElements.clubEmail) clubElements.clubEmail.value = settings.email || '';
+    if (clubElements.clubPhone) clubElements.clubPhone.value = settings.phone || '';
+    if (clubElements.clubAddress) clubElements.clubAddress.value = settings.address || '';
+    if (clubElements.clubCity) clubElements.clubCity.value = settings.city || '';
+    if (clubElements.clubCountry) clubElements.clubCountry.value = settings.country || '';
+    if (clubElements.clubWebsite) clubElements.clubWebsite.value = settings.website || '';
+    if (clubElements.clubSocial) clubElements.clubSocial.value = settings.socialMedia || '';
+    if (clubElements.clubFoundedYear) clubElements.clubFoundedYear.value = settings.foundedYear || '';
+    if (clubElements.clubMonthlyFee) clubElements.clubMonthlyFee.value = settings.monthlyFee || '';
     
     // 👇 Cargar clubId y convertir a solo lectura si ya existe
     let clubId = settings.clubId;
@@ -75,7 +90,9 @@ function loadSettings() {
     const colorInput = document.getElementById('clubPrimaryColor');
     if (colorInput) {
       colorInput.value = settings.primaryColor || '#0d9488';
-      previewPrimaryColor(settings.primaryColor || '#0d9488');
+      if (typeof previewPrimaryColor === 'function') {
+        previewPrimaryColor(settings.primaryColor || '#0d9488');
+      }
     }
   } else {
     // Otros administradores: ocultar sección del club y mostrar mensaje
@@ -86,7 +103,10 @@ function loadSettings() {
   // Cargar lista de usuarios (todos los usuarios)
   setTimeout(() => {
     renderSchoolUsers();
-    document.getElementById('schoolUserAvatarPreview')?.setAttribute('src', getDefaultAvatar());
+    const avatarPreview = document.getElementById('schoolUserAvatarPreview');
+    if (avatarPreview) {
+      avatarPreview.src = getDefaultAvatar();
+    }
   }, 100);
 }
 
@@ -103,7 +123,8 @@ document.getElementById('changeAvatar')?.addEventListener('change', function(e) 
       return;
     }
     imageToBase64(file, function(base64) {
-      document.getElementById('userAvatar').src = base64;
+      const userAvatar = document.getElementById('userAvatar');
+      if (userAvatar) userAvatar.src = base64;
       
       const currentUser = getCurrentUser();
       if (currentUser) {
@@ -128,8 +149,11 @@ document.getElementById('changeClubLogo')?.addEventListener('change', function(e
       return;
     }
     imageToBase64(file, function(base64) {
-      document.getElementById('clubLogo').src = base64;
-      document.getElementById('headerLogo').src = base64;
+      const clubLogo = document.getElementById('clubLogo');
+      const headerLogo = document.getElementById('headerLogo');
+      
+      if (clubLogo) clubLogo.src = base64;
+      if (headerLogo) headerLogo.src = base64;
       
       updateSchoolSettings({ logo: base64 });
       showToast('✅ Logo actualizado');
@@ -148,10 +172,14 @@ document.getElementById('userProfileForm')?.addEventListener('submit', function(
   const currentUser = getCurrentUser();
   if (!currentUser) return;
   
+  const userName = document.getElementById('userName');
+  const userBirthDate = document.getElementById('userBirthDate');
+  const userPhone = document.getElementById('userPhone');
+  
   const userData = {
-    name: document.getElementById('userName').value,
-    birthDate: document.getElementById('userBirthDate').value,
-    phone: document.getElementById('userPhone').value
+    name: userName ? userName.value : '',
+    birthDate: userBirthDate ? userBirthDate.value : '',
+    phone: userPhone ? userPhone.value : ''
   };
   
   updateUser(currentUser.id, userData);
@@ -170,9 +198,18 @@ document.getElementById('changePasswordForm')?.addEventListener('submit', functi
     return;
   }
   
-  const currentPassword = document.getElementById('currentPassword').value;
-  const newPassword = document.getElementById('newPassword').value;
-  const confirmPassword = document.getElementById('confirmPassword').value;
+  const currentPasswordInput = document.getElementById('currentPassword');
+  const newPasswordInput = document.getElementById('newPassword');
+  const confirmPasswordInput = document.getElementById('confirmPassword');
+  
+  if (!currentPasswordInput || !newPasswordInput || !confirmPasswordInput) {
+    showToast('❌ Error en el formulario');
+    return;
+  }
+  
+  const currentPassword = currentPasswordInput.value;
+  const newPassword = newPasswordInput.value;
+  const confirmPassword = confirmPasswordInput.value;
   
   // Validar contraseña actual
   const users = getUsers();
@@ -185,7 +222,7 @@ document.getElementById('changePasswordForm')?.addEventListener('submit', functi
   
   if (user.password !== currentPassword) {
     showToast('❌ La contraseña actual es incorrecta');
-    document.getElementById('currentPassword').classList.add('border-red-500');
+    currentPasswordInput.classList.add('border-red-500');
     return;
   }
   
@@ -197,7 +234,7 @@ document.getElementById('changePasswordForm')?.addEventListener('submit', functi
   
   if (newPassword !== confirmPassword) {
     showToast('❌ Las contraseñas no coinciden');
-    document.getElementById('confirmPassword').classList.add('border-red-500');
+    confirmPasswordInput.classList.add('border-red-500');
     return;
   }
   
@@ -210,28 +247,35 @@ document.getElementById('changePasswordForm')?.addEventListener('submit', functi
   updateUser(currentUser.id, { password: newPassword });
   
   // Limpiar formulario
-  document.getElementById('changePasswordForm').reset();
+  const changePasswordForm = document.getElementById('changePasswordForm');
+  if (changePasswordForm) changePasswordForm.reset();
   
   showToast('✅ Contraseña cambiada correctamente');
   
-  console.log('🔐 Contraseña actualizada para:', currentUser.email);
+  console.log('🔒 Contraseña actualizada para:', currentUser.email);
 });
 
 // NUEVO: Mostrar/Ocultar contraseña
 function togglePasswordVisibility(inputId) {
   const input = document.getElementById(inputId);
+  if (!input) return;
+  
   const button = input.nextElementSibling;
+  if (!button) return;
+  
   const icon = button.querySelector('[data-lucide]');
   
   if (input.type === 'password') {
     input.type = 'text';
-    icon.setAttribute('data-lucide', 'eye-off');
+    if (icon) icon.setAttribute('data-lucide', 'eye-off');
   } else {
     input.type = 'password';
-    icon.setAttribute('data-lucide', 'eye');
+    if (icon) icon.setAttribute('data-lucide', 'eye');
   }
   
-  lucide.createIcons();
+  if (typeof lucide !== 'undefined' && lucide.createIcons) {
+    lucide.createIcons();
+  }
 }
 
 // NUEVO: Indicador de seguridad de contraseña
@@ -289,17 +333,28 @@ document.getElementById('clubSettingsForm')?.addEventListener('submit', function
     return;
   }
   
+  const clubName = document.getElementById('clubName');
+  const clubEmail = document.getElementById('clubEmail');
+  const clubPhone = document.getElementById('clubPhone');
+  const clubAddress = document.getElementById('clubAddress');
+  const clubCity = document.getElementById('clubCity');
+  const clubCountry = document.getElementById('clubCountry');
+  const clubWebsite = document.getElementById('clubWebsite');
+  const clubSocial = document.getElementById('clubSocial');
+  const clubFoundedYear = document.getElementById('clubFoundedYear');
+  const clubMonthlyFee = document.getElementById('clubMonthlyFee');
+  
   const settings = {
-    name: document.getElementById('clubName').value,
-    email: document.getElementById('clubEmail').value,
-    phone: document.getElementById('clubPhone').value,
-    address: document.getElementById('clubAddress').value,
-    city: document.getElementById('clubCity').value,
-    country: document.getElementById('clubCountry').value,
-    website: document.getElementById('clubWebsite').value,
-    socialMedia: document.getElementById('clubSocial').value,
-    foundedYear: document.getElementById('clubFoundedYear').value,
-    monthlyFee: parseFloat(document.getElementById('clubMonthlyFee').value)
+    name: clubName ? clubName.value : '',
+    email: clubEmail ? clubEmail.value : '',
+    phone: clubPhone ? clubPhone.value : '',
+    address: clubAddress ? clubAddress.value : '',
+    city: clubCity ? clubCity.value : '',
+    country: clubCountry ? clubCountry.value : '',
+    website: clubWebsite ? clubWebsite.value : '',
+    socialMedia: clubSocial ? clubSocial.value : '',
+    foundedYear: clubFoundedYear ? clubFoundedYear.value : '',
+    monthlyFee: clubMonthlyFee ? parseFloat(clubMonthlyFee.value) : 0
   };
   
   // Preservar clubId existente (¡nunca se sobrescribe!)
@@ -320,12 +375,14 @@ document.getElementById('clubSettingsForm')?.addEventListener('submit', function
     applyPrimaryColor();
   }
   
-  document.getElementById('headerClubName').textContent = settings.name;
+  const headerClubName = document.getElementById('headerClubName');
+  if (headerClubName) headerClubName.textContent = settings.name;
+  
   showToast('✅ Configuración del club actualizada');
 });
 
 // Preview de color en tiempo real
-document.getElementById('clubPrimaryAddress')?.addEventListener('input', function(e) {
+document.getElementById('clubPrimaryColor')?.addEventListener('input', function(e) {
   if (typeof previewPrimaryColor === 'function') {
     previewPrimaryColor(e.target.value);
   }
@@ -348,7 +405,10 @@ function renderSchoolUsers() {
   const schoolUsers = getSchoolUsers(currentUser.schoolId);
   const container = document.getElementById('schoolUsersList');
   
-  if (!container) return;
+  if (!container) {
+    console.warn('⚠️ Elemento schoolUsersList no encontrado');
+    return;
+  }
   
   container.innerHTML = schoolUsers.map(user => `
     <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
@@ -377,7 +437,15 @@ function renderSchoolUsers() {
     `;
   }
   
-  lucide.createIcons();
+  if (typeof lucide !== 'undefined' && lucide.createIcons) {
+    setTimeout(() => {
+      try {
+        lucide.createIcons();
+      } catch (error) {
+        console.warn('⚠️ Error al crear iconos:', error);
+      }
+    }, 100);
+  }
 }
 
 // Mostrar modal agregar usuario
@@ -395,14 +463,19 @@ function showAddSchoolUserModal() {
     return;
   }
   
-  document.getElementById('addSchoolUserForm').reset();
-  document.getElementById('schoolUserAvatarPreview').src = getDefaultAvatar();
-  document.getElementById('addSchoolUserModal').classList.remove('hidden');
+  const addSchoolUserForm = document.getElementById('addSchoolUserForm');
+  const schoolUserAvatarPreview = document.getElementById('schoolUserAvatarPreview');
+  const addSchoolUserModal = document.getElementById('addSchoolUserModal');
+  
+  if (addSchoolUserForm) addSchoolUserForm.reset();
+  if (schoolUserAvatarPreview) schoolUserAvatarPreview.src = getDefaultAvatar();
+  if (addSchoolUserModal) addSchoolUserModal.classList.remove('hidden');
 }
 
 // Cerrar modal
 function closeAddSchoolUserModal() {
-  document.getElementById('addSchoolUserModal').classList.add('hidden');
+  const addSchoolUserModal = document.getElementById('addSchoolUserModal');
+  if (addSchoolUserModal) addSchoolUserModal.classList.add('hidden');
 }
 
 // Guardar nuevo usuario de la escuela
@@ -432,14 +505,11 @@ function saveSchoolUser(userData) {
   
   saveUser(newUser);
 
-// ✅ GUARDAR SOLO EL NUEVO USUARIO EN FIREBASE (más seguro)
-if (typeof saveUserToClubInFirebase === 'function') {
-  saveUserToClubInFirebase(newUser);
-}
+  // ✅ GUARDAR SOLO EL NUEVO USUARIO EN FIREBASE (más seguro)
+  if (typeof saveUserToClubInFirebase === 'function') {
+    saveUserToClubInFirebase(newUser);
+  }
 
-showToast('✅ Usuario agregado correctamente');
-closeAddSchoolUserModal();
-renderSchoolUsers();
   showToast('✅ Usuario agregado correctamente');
   closeAddSchoolUserModal();
   renderSchoolUsers();
@@ -475,7 +545,8 @@ document.getElementById('schoolUserAvatar')?.addEventListener('change', function
       return;
     }
     imageToBase64(file, function(base64) {
-      document.getElementById('schoolUserAvatarPreview').src = base64;
+      const schoolUserAvatarPreview = document.getElementById('schoolUserAvatarPreview');
+      if (schoolUserAvatarPreview) schoolUserAvatarPreview.src = base64;
     });
   }
 });
@@ -484,15 +555,23 @@ document.getElementById('schoolUserAvatar')?.addEventListener('change', function
 document.getElementById('addSchoolUserForm')?.addEventListener('submit', function(e) {
   e.preventDefault();
   
-  const avatarFile = document.getElementById('schoolUserAvatar').files[0];
-  const currentAvatar = document.getElementById('schoolUserAvatarPreview').src;
+  const schoolUserAvatar = document.getElementById('schoolUserAvatar');
+  const schoolUserAvatarPreview = document.getElementById('schoolUserAvatarPreview');
+  const schoolUserName = document.getElementById('schoolUserName');
+  const schoolUserEmail = document.getElementById('schoolUserEmail');
+  const schoolUserPhone = document.getElementById('schoolUserPhone');
+  const schoolUserPassword = document.getElementById('schoolUserPassword');
+  const schoolUserBirthDate = document.getElementById('schoolUserBirthDate');
+  
+  const avatarFile = schoolUserAvatar ? schoolUserAvatar.files[0] : null;
+  const currentAvatar = schoolUserAvatarPreview ? schoolUserAvatarPreview.src : getDefaultAvatar();
   
   const userData = {
-    name: document.getElementById('schoolUserName').value,
-    email: document.getElementById('schoolUserEmail').value,
-    phone: document.getElementById('schoolUserPhone').value,
-    password: document.getElementById('schoolUserPassword').value,
-    birthDate: document.getElementById('schoolUserBirthDate').value
+    name: schoolUserName ? schoolUserName.value : '',
+    email: schoolUserEmail ? schoolUserEmail.value : '',
+    phone: schoolUserPhone ? schoolUserPhone.value : '',
+    password: schoolUserPassword ? schoolUserPassword.value : '',
+    birthDate: schoolUserBirthDate ? schoolUserBirthDate.value : ''
   };
   
   if (avatarFile) {
@@ -509,18 +588,40 @@ document.getElementById('addSchoolUserForm')?.addEventListener('submit', functio
 // Toggle sección plegable
 function toggleSection(sectionId) {
   const section = document.getElementById(sectionId);
-  const icon = section.previousElementSibling.querySelector('i');
+  if (!section) {
+    console.warn('⚠️ Sección no encontrada:', sectionId);
+    return;
+  }
+  
+  const prevElement = section.previousElementSibling;
+  if (!prevElement) {
+    console.warn('⚠️ Elemento previo no encontrado para:', sectionId);
+    return;
+  }
+  
+  const icon = prevElement.querySelector('i');
   
   // Alternar la sección actual
   section.classList.toggle('hidden');
-  if (section.classList.contains('hidden')) {
-    icon.setAttribute('data-lucide', 'chevron-down');
-  } else {
-    icon.setAttribute('data-lucide', 'chevron-up');
-  }
   
-  // Recrear iconos
-  lucide.createIcons();
+  if (icon) {
+    if (section.classList.contains('hidden')) {
+      icon.setAttribute('data-lucide', 'chevron-down');
+    } else {
+      icon.setAttribute('data-lucide', 'chevron-up');
+    }
+    
+    // Recrear iconos
+    if (typeof lucide !== 'undefined' && lucide.createIcons) {
+      setTimeout(() => {
+        try {
+          lucide.createIcons();
+        } catch (error) {
+          console.warn('⚠️ Error al crear iconos:', error);
+        }
+      }, 50);
+    }
+  }
 }
 
 console.log('✅ settings.js cargado (PERMISOS POR ROL + CLUB ID SOLO LECTURA + SINCRONIZACIÓN AUTOMÁTICA)');

@@ -1,5 +1,5 @@
 // ========================================
-// SISTEMA DE AUTENTICACIÓN - MEJORADO CON CLUB ID Y FIREBASE
+// SISTEMA DE AUTENTICACIÓN - CON FIREBASE AUTHENTICATION
 // ========================================
 
 // Mostrar tab de login
@@ -62,17 +62,57 @@ document.getElementById('regAdminAvatar')?.addEventListener('change', function(e
   }
 });
 
-// Login
-document.getElementById('loginForm')?.addEventListener('submit', function(e) {
+// Login - CON FIREBASE AUTHENTICATION
+document.getElementById('loginForm')?.addEventListener('submit', async function(e) {
   e.preventDefault();
   
   const email = document.getElementById('loginEmail').value;
   const password = document.getElementById('loginPassword').value;
   
+  // Buscar usuario local
   const users = getUsers();
   const user = users.find(u => u.email === email && u.password === password);
   
   if (user) {
+    // 🔐 INTENTAR AUTENTICAR EN FIREBASE
+    if (window.APP_STATE?.firebaseReady && window.firebase?.auth) {
+      try {
+        console.log('🔐 Autenticando en Firebase...');
+        
+        // Intentar login en Firebase
+        const userCredential = await window.firebase.signInWithEmailAndPassword(
+          window.firebase.auth,
+          email,
+          password
+        );
+        
+        console.log('✅ Autenticado en Firebase:', userCredential.user.uid);
+        window.APP_STATE.currentUser = userCredential.user;
+        
+      } catch (authError) {
+        // Si no existe en Firebase, crearlo
+        if (authError.code === 'auth/user-not-found' || authError.code === 'auth/invalid-credential') {
+          console.log('⚠️ Usuario no existe en Firebase, creando...');
+          
+          try {
+            const newUserCredential = await window.firebase.createUserWithEmailAndPassword(
+              window.firebase.auth,
+              email,
+              password
+            );
+            
+            console.log('✅ Usuario creado en Firebase:', newUserCredential.user.uid);
+            window.APP_STATE.currentUser = newUserCredential.user;
+            
+          } catch (createError) {
+            console.error('❌ Error al crear usuario en Firebase:', createError);
+          }
+        } else {
+          console.error('❌ Error de autenticación Firebase:', authError);
+        }
+      }
+    }
+    
     // Eliminar password del objeto de sesión
     const { password: _, ...userWithoutPassword } = user;
     setCurrentUser(userWithoutPassword);
@@ -89,8 +129,8 @@ document.getElementById('loginForm')?.addEventListener('submit', function(e) {
   }
 });
 
-// Registro - MEJORADO CON CLUB ID Y FIREBASE
-document.getElementById('registerForm')?.addEventListener('submit', function(e) {
+// Registro - CON FIREBASE AUTHENTICATION AUTOMÁTICO
+document.getElementById('registerForm')?.addEventListener('submit', async function(e) {
   e.preventDefault();
   
   // Datos del club
@@ -125,6 +165,12 @@ document.getElementById('registerForm')?.addEventListener('submit', function(e) 
   const adminEmail = document.getElementById('regAdminEmail').value;
   const adminPassword = document.getElementById('regAdminPassword').value;
   
+  // Validar contraseña
+  if (adminPassword.length < 6) {
+    showToast('❌ La contraseña debe tener al menos 6 caracteres');
+    return;
+  }
+  
   // Validar email único
   const users = getUsers();
   if (users.find(u => u.email === adminEmail)) {
@@ -155,7 +201,7 @@ document.getElementById('registerForm')?.addEventListener('submit', function(e) 
   };
   
   // Completar registro
-  const completeRegistration = (clubLogo, adminAvatar) => {
+  const completeRegistration = async (clubLogo, adminAvatar) => {
     // Generar ID único para la escuela
     const schoolId = generateId();
     
@@ -163,7 +209,7 @@ document.getElementById('registerForm')?.addEventListener('submit', function(e) 
     const clubSettings = {
       schoolId: schoolId,
       name: clubName,
-      clubId: clubId, // 👈 ¡CLUB ID INCLUIDO!
+      clubId: clubId,
       logo: clubLogo,
       email: clubEmail,
       phone: clubPhone,
@@ -195,45 +241,135 @@ document.getElementById('registerForm')?.addEventListener('submit', function(e) 
       createdAt: getCurrentDate()
     };
     
+    // Guardar localmente primero
     saveUser(newUser);
     
-    // ✅ REGISTRAR AL CREADOR EN FIREBASE INMEDIATAMENTE
-    setTimeout(async () => {
-      if (typeof saveUserToClubInFirebase === 'function') {
+    // 🔥 CREAR USUARIO EN FIREBASE AUTHENTICATION
+    if (window.APP_STATE?.firebaseReady && window.firebase?.auth) {
+      try {
+        console.log('🔥 Creando usuario en Firebase Authentication...');
+        
+        const userCredential = await window.firebase.createUserWithEmailAndPassword(
+          window.firebase.auth,
+          adminEmail,
+          adminPassword
+        );
+        
+        console.log('✅ Usuario creado en Firebase Auth');
+        console.log('🆔 Firebase UID:', userCredential.user.uid);
+        
+        window.APP_STATE.currentUser = userCredential.user;
+        
+        // Guardar datos del usuario en Firestore
         try {
-          await saveUserToClubInFirebase(newUser);
-          console.log('✅ Creador del club registrado en Firebase');
-        } catch (error) {
-          console.error('⚠️ Error al registrar creador en Firebase:', error);
+          await window.firebase.setDoc(
+            window.firebase.doc(window.firebase.db, `clubs/${clubId}/users`, newUser.id),
+            {
+              id: newUser.id,
+              email: newUser.email,
+              name: newUser.name,
+              isMainAdmin: true,
+              role: 'admin',
+              avatar: newUser.avatar || '',
+              createdAt: new Date().toISOString(),
+              firebaseUid: userCredential.user.uid
+            }
+          );
+          
+          console.log('✅ Datos del usuario guardados en Firestore');
+          
+          // Guardar configuración del club en Firestore
+          await window.firebase.setDoc(
+            window.firebase.doc(window.firebase.db, "settings", "club"),
+            {
+              ...clubSettings,
+              createdAt: new Date().toISOString(),
+              createdBy: userCredential.user.uid,
+              isInitialized: true
+            }
+          );
+          
+          console.log('✅ Configuración del club guardada en Firebase');
+          
+          showToast('✅ Club y usuario creados en Firebase correctamente');
+          
+        } catch (firestoreError) {
+          console.error('❌ Error al guardar en Firestore:', firestoreError);
+          showToast('⚠️ Usuario creado pero error al guardar datos adicionales');
+        }
+        
+      } catch (authError) {
+        console.error('❌ Error al crear usuario en Firebase:', authError);
+        
+        if (authError.code === 'auth/email-already-in-use') {
+          showToast('⚠️ Email ya existe en Firebase, intentando login...');
+          
+          try {
+            const loginCredential = await window.firebase.signInWithEmailAndPassword(
+              window.firebase.auth,
+              adminEmail,
+              adminPassword
+            );
+            
+            console.log('✅ Login exitoso con cuenta existente');
+            window.APP_STATE.currentUser = loginCredential.user;
+            
+          } catch (loginError) {
+            console.error('❌ Error al hacer login:', loginError);
+          }
+        } else if (authError.code === 'auth/weak-password') {
+          showToast('❌ La contraseña es muy débil (mínimo 6 caracteres)');
+          return;
+        } else if (authError.code === 'auth/invalid-email') {
+          showToast('❌ Email inválido');
+          return;
+        } else {
+          showToast('⚠️ Club creado localmente, sincroniza más tarde');
         }
       }
-      
-      showToast('✅ Club registrado exitosamente');
-      
-      // Generar iconos PWA con el logo del club
-      if (typeof generatePWAIcons === 'function') {
-        generatePWAIcons();
-      }
-      
-      // Auto-login
-      const { password: _, ...userWithoutPassword } = newUser;
-      setCurrentUser(userWithoutPassword);
-      
-      setTimeout(() => {
-        document.getElementById('loginScreen').classList.add('hidden');
-        document.getElementById('appContainer').classList.remove('hidden');
-        initApp();
-      }, 1000);
-    }, 100);
+    } else {
+      console.log('⚠️ Firebase no disponible, guardado solo localmente');
+      showToast('⚠️ Club creado localmente (Firebase no disponible)');
+    }
+    
+    showToast('✅ Club registrado exitosamente');
+    
+    // Generar iconos PWA con el logo del club
+    if (typeof generatePWAIcons === 'function') {
+      generatePWAIcons();
+    }
+    
+    // Auto-login
+    const { password: _, ...userWithoutPassword } = newUser;
+    setCurrentUser(userWithoutPassword);
+    
+    setTimeout(() => {
+      document.getElementById('loginScreen').classList.add('hidden');
+      document.getElementById('appContainer').classList.remove('hidden');
+      initApp();
+    }, 1000);
   };
+  
   processClubData();
 });
 
-// Logout
-function logout() {
+// Logout - CON FIREBASE
+async function logout() {
   if (confirmAction('¿Estás seguro de cerrar sesión?')) {
+    // Cerrar sesión en Firebase
+    if (window.firebase?.auth) {
+      try {
+        await window.firebase.signOut(window.firebase.auth);
+        console.log('✅ Sesión de Firebase cerrada');
+      } catch (error) {
+        console.error('❌ Error al cerrar sesión de Firebase:', error);
+      }
+    }
+    
+    // Limpiar sesión local
     clearCurrentUser();
     showToast('👋 Sesión cerrada');
+    
     setTimeout(() => {
       window.location.reload();
     }, 1000);
@@ -278,7 +414,7 @@ function forgotPassword() {
   
   if (confirmReset) {
     const newPassword = prompt(
-      '🔐 Ingresa tu nueva contraseña:\n' +
+      '🔒 Ingresa tu nueva contraseña:\n' +
       '(Mínimo 6 caracteres)'
     );
     
@@ -287,7 +423,7 @@ function forgotPassword() {
       return;
     }
     
-    const confirmNewPassword = prompt('🔐 Confirma tu nueva contraseña:');
+    const confirmNewPassword = prompt('🔒 Confirma tu nueva contraseña:');
     
     if (newPassword !== confirmNewPassword) {
       showToast('❌ Las contraseñas no coinciden');
@@ -299,8 +435,8 @@ function forgotPassword() {
     
     showToast('✅ Contraseña restablecida correctamente. Ya puedes iniciar sesión.');
     
-    console.log('🔐 Contraseña restablecida para:', user.email);
+    console.log('🔒 Contraseña restablecida para:', user.email);
   }
 }
 
-console.log('✅ auth.js cargado (MEJORADO CON CLUB ID + FIREBASE)');
+console.log('✅ auth.js cargado (CON FIREBASE AUTHENTICATION AUTOMÁTICO)');

@@ -318,8 +318,19 @@ function getCurrentSchoolId() {
   const currentUser = getCurrentUser();
   return currentUser ? currentUser.schoolId : null;
 }
+// ... todo tu código anterior ...
+
+// Alias para compatibilidad con Firebase
+function getAllPlayers() {
+  return getPlayers();
+}
+
+function saveAllPlayers(players) {
+  localStorage.setItem('players', JSON.stringify(players));
+}
 
 console.log('✅ Sistema multi-usuario cargado');
+
 // IMPORTAR DATOS DESDE JSON
 function importDataFromJSON(file) {
   const reader = new FileReader();
@@ -377,3 +388,5 @@ function openImportDialog() {
   
   input.click();
 }
+
+
