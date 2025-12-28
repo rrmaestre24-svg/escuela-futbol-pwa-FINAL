@@ -327,6 +327,20 @@ function getAllPlayers() {
 
 function saveAllPlayers(players) {
   localStorage.setItem('players', JSON.stringify(players));
+
+}
+
+// Alias para compatibilidad con Firebase
+function getAllPlayers() {
+  return getPlayers();
+}
+
+function saveAllPlayers(players) {
+  localStorage.setItem('players', JSON.stringify(players));
+}
+
+function saveSchoolSettings(settings) {
+  updateSchoolSettings(settings);
 }
 
 console.log('✅ Sistema multi-usuario cargado');

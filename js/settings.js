@@ -1,5 +1,5 @@
 // ========================================
-// CONFIGURACIÓN - CON GESTIÓN DE CONTRASEÑAS Y CLUB ID (SOLO LECTURA)
+// CONFIGURACIÓN - CON FIREBASE AUTHENTICATION PARA NUEVOS USUARIOS
 // ========================================
 
 // Cargar configuración al abrir vista
@@ -478,8 +478,8 @@ function closeAddSchoolUserModal() {
   if (addSchoolUserModal) addSchoolUserModal.classList.add('hidden');
 }
 
-// Guardar nuevo usuario de la escuela
-function saveSchoolUser(userData) {
+// 🔥 Guardar nuevo usuario de la escuela - CON FIREBASE AUTHENTICATION
+async function saveSchoolUser(userData) {
   const currentUser = getCurrentUser();
   if (!currentUser) return;
   
@@ -503,11 +503,82 @@ function saveSchoolUser(userData) {
     createdAt: getCurrentDate()
   };
   
+  // Guardar localmente
   saveUser(newUser);
 
-  // ✅ GUARDAR SOLO EL NUEVO USUARIO EN FIREBASE (más seguro)
-  if (typeof saveUserToClubInFirebase === 'function') {
-    saveUserToClubInFirebase(newUser);
+  // 🔥 CREAR EN FIREBASE AUTHENTICATION
+  if (window.APP_STATE?.firebaseReady && window.firebase?.auth) {
+    try {
+      console.log('🔥 Creando usuario en Firebase Authentication...');
+      showToast('🔥 Creando cuenta en Firebase...');
+      
+      // Guardar email y password del admin actual
+      const adminEmail = currentUser.email;
+      const adminPassword = currentUser.password;
+      
+      // Crear el nuevo usuario en Firebase Auth
+      const userCredential = await window.firebase.createUserWithEmailAndPassword(
+        window.firebase.auth,
+        userData.email,
+        userData.password
+      );
+      
+      console.log('✅ Usuario creado en Firebase Auth:', userCredential.user.uid);
+      
+      // Guardar en Firestore
+      const settings = getSchoolSettings();
+      const clubId = settings.clubId || 'default_club';
+      
+      await window.firebase.setDoc(
+        window.firebase.doc(window.firebase.db, `clubs/${clubId}/users`, newUser.id),
+        {
+          id: newUser.id,
+          email: newUser.email,
+          name: newUser.name,
+          isMainAdmin: false,
+          role: 'admin',
+          avatar: newUser.avatar || '',
+          phone: newUser.phone || '',
+          birthDate: newUser.birthDate || '',
+          createdAt: new Date().toISOString(),
+          firebaseUid: userCredential.user.uid
+        }
+      );
+      
+      console.log('✅ Usuario guardado en Firestore');
+      
+      // 🔐 IMPORTANTE: Cerrar sesión del nuevo usuario y restaurar la del admin
+      await window.firebase.signOut(window.firebase.auth);
+      console.log('🔄 Sesión del nuevo usuario cerrada');
+      
+      // Re-autenticar al admin
+      if (adminEmail && adminPassword) {
+        await window.firebase.signInWithEmailAndPassword(
+          window.firebase.auth,
+          adminEmail,
+          adminPassword
+        );
+        console.log('✅ Sesión del admin restaurada');
+      }
+      
+      showToast('✅ Usuario creado correctamente en Firebase');
+      
+    } catch (error) {
+      console.error('❌ Error al crear usuario en Firebase:', error);
+      
+      if (error.code === 'auth/email-already-in-use') {
+        showToast('⚠️ Email ya existe en Firebase, pero guardado localmente');
+      } else if (error.code === 'auth/weak-password') {
+        showToast('❌ La contraseña debe tener al menos 6 caracteres');
+      } else if (error.code === 'auth/invalid-email') {
+        showToast('❌ Email inválido');
+      } else {
+        showToast('⚠️ Usuario guardado localmente, sincroniza más tarde');
+      }
+    }
+  } else {
+    console.log('⚠️ Firebase no disponible, guardado solo localmente');
+    showToast('⚠️ Firebase no disponible, usuario guardado localmente');
   }
 
   showToast('✅ Usuario agregado correctamente');
@@ -624,4 +695,4 @@ function toggleSection(sectionId) {
   }
 }
 
-console.log('✅ settings.js cargado (PERMISOS POR ROL + CLUB ID SOLO LECTURA + SINCRONIZACIÓN AUTOMÁTICA)');
+console.log('✅ settings.js cargado (CON FIREBASE AUTHENTICATION PARA NUEVOS USUARIOS)');
