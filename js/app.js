@@ -166,8 +166,10 @@ async function initApp() {
       }
     } catch (error) {
       console.log('⚠️ Firebase no disponible:', error);
+      displayClubIdInDashboard();
     }
   }
+  
   // Aplicar modo oscuro PRIMERO
   applyDarkMode();
   
