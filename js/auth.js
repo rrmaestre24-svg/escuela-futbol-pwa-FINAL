@@ -158,17 +158,23 @@ document.getElementById('loginForm')?.addEventListener('submit', async function(
       
       // 📥 DESCARGAR TODOS LOS DATOS
       const downloaded = await downloadAllClubData();
-      
+
       if (downloaded) {
-        // Buscar el usuario ahora que ya descargamos los datos
+        // ✅ Asegurarse de que `schoolSettings` está disponible
+        const settings = getSchoolSettings();
+        const clubId = settings.clubId;
+        
+        if (!clubId) {
+          showToast('⚠️ Error: clubId no encontrado');
+          return;
+        }
+
+        // Buscar el usuario en la lista descargada
         const users = getUsers();
         const user = users.find(u => u.email === email);
         
         if (user) {
-          // Actualizar contraseña local
-          updateUser(user.id, { password: password });
-          
-          // Guardar sesión
+          updateUser(user.id, { password: password }); // sincronizar pass local
           const { password: _, ...userWithoutPassword } = user;
           setCurrentUser(userWithoutPassword);
           
@@ -179,8 +185,7 @@ document.getElementById('loginForm')?.addEventListener('submit', async function(
             document.getElementById('appContainer').classList.remove('hidden');
             initApp();
           }, 500);
-          
-          return; // ✅ LOGIN EXITOSO
+          return;
         }
       }
       
