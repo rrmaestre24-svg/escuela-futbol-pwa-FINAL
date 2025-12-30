@@ -44,13 +44,18 @@ function updateDashboardBirthdays() {
   const card = document.getElementById('upcomingBirthdaysCard');
   const list = document.getElementById('upcomingBirthdaysList');
   
+  // ✅ VERIFICAR QUE LOS ELEMENTOS EXISTAN
+  if (!card || !list) {
+    console.warn('⚠️ Elementos de cumpleaños no encontrados en el DOM');
+    return;
+  }
+  
   if (upcoming.length === 0) {
     card.classList.add('hidden');
     return;
   }
   
   card.classList.remove('hidden');
-  
   list.innerHTML = upcoming.map(birthday => {
     const age = calculateAge(birthday.birthDate);
     const isTodayBirthday = birthday.daysUntil === 0;

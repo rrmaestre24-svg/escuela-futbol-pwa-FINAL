@@ -1,5 +1,5 @@
 // ========================================
-// SINCRONIZACIÓN CON FIREBASE - CORREGIDO
+// SINCRONIZACIÓN CON FIREBASE - CORREGIDO CON CLUB ID
 // ========================================
 
 /**
@@ -21,7 +21,7 @@ function checkFirebaseReady() {
 }
 
 /**
- * Sube todos los datos locales a Firebase
+ * Sube todos los datos locales a Firebase - CORREGIDO CON CLUB ID
  */
 async function syncAllToFirebase() {
   if (!checkFirebaseReady()) return;
@@ -30,47 +30,68 @@ async function syncAllToFirebase() {
     console.log('📤 Sincronizando todos los datos a Firebase...');
     showToast('📤 Subiendo datos...');
 
-    // Obtener configuración del club
     const settings = getSchoolSettings();
     const clubId = settings.clubId || 'default_club';
-
-    // 1️⃣ Subir configuración del club
-    try {
-      await window.firebase.setDoc(
-        window.firebase.doc(window.firebase.db, "settings", "club"),
-        {
-          ...settings,
-          lastUpdated: new Date().toISOString(),
-          updatedBy: window.firebase.auth.currentUser.uid
-        }
-      );
-      console.log('✅ Configuración subida');
-    } catch (error) {
-      console.error('❌ Error al subir configuración:', error);
-    }
-
-    // 2️⃣ Subir jugadores
-    const players = getAllPlayers() || [];
-    let uploadedPlayers = 0;
     
+    // 1️⃣ Configuración del club
+    await window.firebase.setDoc(
+      window.firebase.doc(window.firebase.db, `clubs/${clubId}/settings`, "main"),
+      { ...settings, lastUpdated: new Date().toISOString() }
+    );
+
+    // 2️⃣ Jugadores
+    const players = getAllPlayers() || [];
     for (const player of players) {
       if (player.id) {
-        try {
-          await window.firebase.setDoc(
-            window.firebase.doc(window.firebase.db, "players", player.id),
-            {
-              ...player,
-              clubId: clubId,
-              lastUpdated: new Date().toISOString()
-            }
-          );
-          uploadedPlayers++;
-        } catch (error) {
-          console.error(`❌ Error al subir jugador ${player.id}:`, error);
-        }
+        await window.firebase.setDoc(
+          window.firebase.doc(window.firebase.db, `clubs/${clubId}/players`, player.id),
+          player
+        );
       }
     }
-    console.log(`✅ ${uploadedPlayers}/${players.length} jugadores subidos`);
+
+    // 3️⃣ Pagos
+    const payments = getPayments() || [];
+    for (const payment of payments) {
+      if (payment.id) {
+        await window.firebase.setDoc(
+          window.firebase.doc(window.firebase.db, `clubs/${clubId}/payments`, payment.id),
+          payment
+        );
+      }
+    }
+
+    // 4️⃣ Eventos
+    const events = getCalendarEvents() || [];
+    for (const event of events) {
+      if (event.id) {
+        await window.firebase.setDoc(
+          window.firebase.doc(window.firebase.db, `clubs/${clubId}/events`, event.id),
+          event
+        );
+      }
+    }
+
+    // 5️⃣ Usuarios
+    const users = getUsers() || [];
+    for (const user of users) {
+      if (user.id) {
+        await window.firebase.setDoc(
+          window.firebase.doc(window.firebase.db, `clubs/${clubId}/users`, user.id),
+          {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            isMainAdmin: user.isMainAdmin || false,
+            role: 'admin',
+            avatar: user.avatar || '',
+            phone: user.phone || '',
+            birthDate: user.birthDate || '',
+            createdAt: user.createdAt || new Date().toISOString()
+          }
+        );
+      }
+    }
 
     console.log('✅ Sincronización completada');
     showToast('✅ Datos subidos a Firebase');
@@ -81,7 +102,7 @@ async function syncAllToFirebase() {
 }
 
 /**
- * Descarga todos los datos desde Firebase
+ * Descarga todos los datos desde Firebase - CORREGIDO CON CLUB ID
  */
 async function downloadFromFirebase() {
   if (!checkFirebaseReady()) return;
@@ -90,30 +111,51 @@ async function downloadFromFirebase() {
     console.log('📥 Descargando datos desde Firebase...');
     showToast('📥 Descargando datos...');
 
-    // Descargar configuración
-    const settingsRef = window.firebase.doc(window.firebase.db, "settings", "club");
-    const settingsSnap = await window.firebase.getDoc(settingsRef);
+    const settings = getSchoolSettings();
+    const clubId = settings.clubId || 'default_club';
+
+    // 1️⃣ Configuración
+    const settingsSnap = await window.firebase.getDoc(
+      window.firebase.doc(window.firebase.db, `clubs/${clubId}/settings`, "main")
+    );
     if (settingsSnap.exists()) {
       saveSchoolSettings(settingsSnap.data());
-      console.log('✅ Configuración descargada');
     }
 
-    // Descargar jugadores
+    // 2️⃣ Jugadores
     const playersSnapshot = await window.firebase.getDocs(
-      window.firebase.collection(window.firebase.db, "players")
+      window.firebase.collection(window.firebase.db, `clubs/${clubId}/players`)
     );
     const players = [];
-    playersSnapshot.forEach(doc => {
-      players.push({ id: doc.id, ...doc.data() });
-    });
-    
-    if (players.length > 0) {
-      localStorage.setItem('players', JSON.stringify(players));
-      console.log(`✅ ${players.length} jugadores descargados`);
-    }
+    playersSnapshot.forEach(doc => players.push(doc.data()));
+    localStorage.setItem('players', JSON.stringify(players));
+
+    // 3️⃣ Pagos
+    const paymentsSnapshot = await window.firebase.getDocs(
+      window.firebase.collection(window.firebase.db, `clubs/${clubId}/payments`)
+    );
+    const payments = [];
+    paymentsSnapshot.forEach(doc => payments.push(doc.data()));
+    localStorage.setItem('payments', JSON.stringify(payments));
+
+    // 4️⃣ Eventos
+    const eventsSnapshot = await window.firebase.getDocs(
+      window.firebase.collection(window.firebase.db, `clubs/${clubId}/events`)
+    );
+    const events = [];
+    eventsSnapshot.forEach(doc => events.push(doc.data()));
+    localStorage.setItem('events', JSON.stringify(events));
+
+    // 5️⃣ Usuarios
+    const usersSnapshot = await window.firebase.getDocs(
+      window.firebase.collection(window.firebase.db, `clubs/${clubId}/users`)
+    );
+    const users = [];
+    usersSnapshot.forEach(doc => users.push(doc.data()));
+    localStorage.setItem('users', JSON.stringify(users));
 
     showToast('✅ Datos descargados y actualizados');
-    location.reload(); // Opcional: recargar para ver cambios
+    location.reload();
   } catch (error) {
     console.error('❌ Error al descargar:', error);
     showToast('⚠️ Error al descargar datos');
@@ -130,9 +172,10 @@ async function checkForUpdates() {
     console.log('🔍 Buscando actualizaciones...');
     showToast('🔍 Buscando actualizaciones...');
 
-    // Aquí podrías comparar timestamps, versiones, etc.
-    // Ejemplo simple: mostrar última actualización
-    const settingsRef = window.firebase.doc(window.firebase.db, "settings", "club");
+    const settings = getSchoolSettings();
+    const clubId = settings.clubId || 'default_club';
+    
+    const settingsRef = window.firebase.doc(window.firebase.db, `clubs/${clubId}/settings`, "main");
     const docSnap = await window.firebase.getDoc(settingsRef);
     if (docSnap.exists()) {
       const lastUpdate = docSnap.data().lastUpdated || 'desconocida';
@@ -147,7 +190,7 @@ async function checkForUpdates() {
 }
 
 /**
- * 💾 Guardar un usuario específico en Firebase
+ * Guardar usuario en el club en Firebase
  */
 async function saveUserToClubInFirebase(user) {
   if (!checkFirebaseReady()) return false;
@@ -185,7 +228,9 @@ async function saveUserToClubInFirebase(user) {
   }
 }
 
-// Guardar usuario en el club en Firebase (con clubId explícito)
+/**
+ * Guardar usuario en el club en Firebase (con clubId explícito)
+ */
 async function saveUserToClubInFirebaseWithClubId(user, clubId) {
   if (!checkFirebaseReady()) return;
   
@@ -217,4 +262,4 @@ async function saveUserToClubInFirebaseWithClubId(user, clubId) {
   }
 }
 
-console.log('✅ firebase-sync.js cargado');
+console.log('✅ firebase-sync.js cargado (CORREGIDO CON CLUB ID)');
