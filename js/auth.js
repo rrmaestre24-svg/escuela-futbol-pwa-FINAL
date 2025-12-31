@@ -941,40 +941,227 @@ window.addEventListener('DOMContentLoaded', function() {
   }
 });
 
-// Recuperar contraseña
-function forgotPassword() {
-  const email = prompt('📧 Ingresa tu email:');
-  if (!email) return;
+// ========================================
+// RECUPERACIÓN DE CONTRASEÑA CON FIREBASE
+// Reemplaza la función forgotPassword() en auth.js
+// ========================================
+
+// ✅ FUNCIÓN MEJORADA: Recuperar contraseña con email de Firebase
+async function forgotPassword() {
+  // Crear modal para ingresar email
+  const modal = document.createElement('div');
+  modal.id = 'resetPasswordModal';
+  modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
+  modal.innerHTML = `
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6 animate-fade-in">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-xl font-bold text-gray-900 dark:text-white">
+          🔐 Recuperar Contraseña
+        </h3>
+        <button 
+          onclick="closeResetModal()" 
+          class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+        >
+          <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </button>
+      </div>
+
+      <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+        Ingresa tu email y te enviaremos un enlace para restablecer tu contraseña.
+      </p>
+
+      <form id="resetPasswordForm" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            📧 Email
+          </label>
+          <input 
+            type="email" 
+            id="resetEmail" 
+            required
+            placeholder="tu@email.com"
+            class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white"
+          >
+        </div>
+
+        <div id="resetMessage" class="hidden"></div>
+
+        <div class="flex gap-3">
+          <button 
+            type="button" 
+            onclick="closeResetModal()" 
+            class="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+          >
+            Cancelar
+          </button>
+          <button 
+            type="submit" 
+            id="resetSubmitBtn"
+            class="flex-1 bg-teal-600 hover:bg-teal-700 text-white font-medium py-2 rounded-lg transition-colors"
+          >
+            Enviar Enlace
+          </button>
+        </div>
+      </form>
+    </div>
+  `;
   
-  const users = getUsers();
-  const user = users.find(u => u.email === email);
+  document.body.appendChild(modal);
+
+  // Agregar estilos para animación
+  if (!document.getElementById('resetPasswordStyles')) {
+    const style = document.createElement('style');
+    style.id = 'resetPasswordStyles';
+    style.textContent = `
+      @keyframes fade-in {
+        from {
+          opacity: 0;
+          transform: scale(0.95);
+        }
+        to {
+          opacity: 1;
+          transform: scale(1);
+        }
+      }
+      .animate-fade-in {
+        animation: fade-in 0.3s ease-out;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  // Manejar envío del formulario
+  document.getElementById('resetPasswordForm').addEventListener('submit', handlePasswordReset);
   
-  if (!user) {
-    showToast('❌ Email no encontrado');
+  // Focus en el input
+  setTimeout(() => {
+    document.getElementById('resetEmail').focus();
+  }, 100);
+}
+
+// ✅ FUNCIÓN: Manejar el envío de email de recuperación
+async function handlePasswordReset(e) {
+  e.preventDefault();
+  
+  const email = document.getElementById('resetEmail').value.trim();
+  const submitBtn = document.getElementById('resetSubmitBtn');
+  const messageDiv = document.getElementById('resetMessage');
+  
+  if (!email) {
+    showResetMessage('❌ Por favor ingresa tu email', 'error');
     return;
   }
-  
-  const confirmReset = confirm(`✅ Usuario: ${user.name}\n📱 Teléfono: ${user.phone}\n\n¿Restablecer contraseña?`);
-  
-  if (confirmReset) {
-    const newPassword = prompt('🔑 Nueva contraseña (mínimo 6 caracteres):');
+
+  // Validar formato de email
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    showResetMessage('❌ Email no válido', 'error');
+    return;
+  }
+
+  // Verificar que Firebase esté listo
+  if (!window.firebase?.auth) {
+    showResetMessage('❌ Error de conexión. Recarga la página.', 'error');
+    return;
+  }
+
+  // Deshabilitar botón
+  submitBtn.disabled = true;
+  submitBtn.textContent = '⏳ Enviando...';
+
+  try {
+    console.log('📧 Enviando email de recuperación a:', email);
     
-    if (!newPassword || newPassword.length < 6) {
-      showToast('❌ Contraseña inválida');
-      return;
+    // 🔥 MÉTODO DE FIREBASE: Enviar email de recuperación
+    await window.firebase.sendPasswordResetEmail(
+      window.firebase.auth,
+      email
+    );
+
+    console.log('✅ Email de recuperación enviado');
+    
+    // Mostrar mensaje de éxito
+    showResetMessage(
+      `✅ ¡Email enviado! Revisa tu bandeja de entrada (${email}) y sigue las instrucciones para restablecer tu contraseña.`,
+      'success'
+    );
+
+    // Ocultar formulario y mostrar solo mensaje
+    document.getElementById('resetPasswordForm').querySelector('div').classList.add('hidden');
+    submitBtn.classList.add('hidden');
+    
+    // Cambiar botón cancelar a "Cerrar"
+    const cancelBtn = document.querySelector('#resetPasswordForm button[type="button"]');
+    cancelBtn.textContent = 'Cerrar';
+    cancelBtn.classList.remove('flex-1');
+    cancelBtn.classList.add('w-full');
+    
+    // Cerrar automáticamente después de 5 segundos
+    setTimeout(() => {
+      closeResetModal();
+    }, 5000);
+
+  } catch (error) {
+    console.error('❌ Error al enviar email:', error);
+    
+    let errorMessage = '❌ Error al enviar el email. ';
+    
+    // Mensajes específicos según el error
+    switch (error.code) {
+      case 'auth/user-not-found':
+        errorMessage += 'No existe una cuenta con ese email.';
+        break;
+      case 'auth/invalid-email':
+        errorMessage += 'Email no válido.';
+        break;
+      case 'auth/too-many-requests':
+        errorMessage += 'Demasiados intentos. Intenta más tarde.';
+        break;
+      case 'auth/network-request-failed':
+        errorMessage += 'Error de conexión. Verifica tu internet.';
+        break;
+      default:
+        errorMessage += error.message;
     }
     
-    const confirmNewPassword = prompt('🔑 Confirma la contraseña:');
+    showResetMessage(errorMessage, 'error');
     
-    if (newPassword !== confirmNewPassword) {
-      showToast('❌ Las contraseñas no coinciden');
-      return;
-    }
-    
-    updateUser(user.id, { password: newPassword });
-    showToast('✅ Contraseña restablecida');
+    // Rehabilitar botón
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Enviar Enlace';
   }
 }
 
-console.log('✅ auth.js cargado (VERSIÓN CORREGIDA Y SIMPLIFICADA)');
-console.log('📧 Sistema simplificado: solo se usa el email del admin principal');
+// ✅ FUNCIÓN: Mostrar mensajes en el modal
+function showResetMessage(message, type) {
+  const messageDiv = document.getElementById('resetMessage');
+  
+  if (type === 'success') {
+    messageDiv.className = 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 text-sm text-green-800 dark:text-green-300';
+  } else {
+    messageDiv.className = 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 text-sm text-red-800 dark:text-red-300';
+  }
+  
+  messageDiv.textContent = message;
+  messageDiv.classList.remove('hidden');
+}
+
+// ✅ FUNCIÓN: Cerrar modal
+function closeResetModal() {
+  const modal = document.getElementById('resetPasswordModal');
+  if (modal) {
+    modal.remove();
+  }
+}
+
+// ✅ Cerrar modal al hacer clic fuera
+document.addEventListener('click', function(e) {
+  const modal = document.getElementById('resetPasswordModal');
+  if (modal && e.target === modal) {
+    closeResetModal();
+  }
+});
+
+console.log('✅ Sistema de recuperación de contraseña cargado');
