@@ -1,5 +1,5 @@
 // ========================================
-// GESTIÓN DE LOCALSTORAGE - MEJORADO
+// GESTIÓN DE LOCALSTORAGE - CON SINCRONIZACIÓN AUTOMÁTICA
 // ========================================
 
 // Inicializar estructura de datos
@@ -77,7 +77,10 @@ function clearCurrentUser() {
   localStorage.removeItem('currentUser');
 }
 
-// JUGADORES
+// ========================================
+// JUGADORES - CON SINCRONIZACIÓN AUTOMÁTICA
+// ========================================
+
 function getPlayers() {
   return JSON.parse(localStorage.getItem('players') || '[]');
 }
@@ -91,6 +94,13 @@ function savePlayer(player) {
   const players = getPlayers();
   players.push(player);
   localStorage.setItem('players', JSON.stringify(players));
+  
+  // ⭐ SINCRONIZACIÓN AUTOMÁTICA
+  if (typeof savePlayerToFirebase === 'function') {
+    savePlayerToFirebase(player).catch(err => 
+      console.warn('⚠️ No se pudo sincronizar jugador con Firebase:', err)
+    );
+  }
 }
 
 function updatePlayer(playerId, playerData) {
@@ -99,6 +109,13 @@ function updatePlayer(playerId, playerData) {
   if (index !== -1) {
     players[index] = { ...players[index], ...playerData };
     localStorage.setItem('players', JSON.stringify(players));
+    
+    // ⭐ SINCRONIZACIÓN AUTOMÁTICA
+    if (typeof savePlayerToFirebase === 'function') {
+      savePlayerToFirebase(players[index]).catch(err => 
+        console.warn('⚠️ No se pudo sincronizar jugador con Firebase:', err)
+      );
+    }
   }
 }
 
@@ -111,13 +128,23 @@ function deletePlayer(playerId) {
   let payments = getPayments();
   payments = payments.filter(p => p.playerId !== playerId);
   localStorage.setItem('payments', JSON.stringify(payments));
+  
+  // ⭐ SINCRONIZACIÓN AUTOMÁTICA
+  if (typeof deletePlayerFromFirebase === 'function') {
+    deletePlayerFromFirebase(playerId).catch(err => 
+      console.warn('⚠️ No se pudo eliminar jugador de Firebase:', err)
+    );
+  }
 }
 
 function getActivePlayers() {
   return getPlayers().filter(p => p.status === 'Activo');
 }
 
-// PAGOS
+// ========================================
+// PAGOS - CON SINCRONIZACIÓN AUTOMÁTICA
+// ========================================
+
 function getPayments() {
   return JSON.parse(localStorage.getItem('payments') || '[]');
 }
@@ -131,6 +158,13 @@ function savePayment(payment) {
   const payments = getPayments();
   payments.push(payment);
   localStorage.setItem('payments', JSON.stringify(payments));
+  
+  // ⭐ SINCRONIZACIÓN AUTOMÁTICA
+  if (typeof savePaymentToFirebase === 'function') {
+    savePaymentToFirebase(payment).catch(err => 
+      console.warn('⚠️ No se pudo sincronizar pago con Firebase:', err)
+    );
+  }
 }
 
 function updatePayment(paymentId, paymentData) {
@@ -139,6 +173,13 @@ function updatePayment(paymentId, paymentData) {
   if (index !== -1) {
     payments[index] = { ...payments[index], ...paymentData };
     localStorage.setItem('payments', JSON.stringify(payments));
+    
+    // ⭐ SINCRONIZACIÓN AUTOMÁTICA
+    if (typeof savePaymentToFirebase === 'function') {
+      savePaymentToFirebase(payments[index]).catch(err => 
+        console.warn('⚠️ No se pudo sincronizar pago con Firebase:', err)
+      );
+    }
   }
 }
 
@@ -146,6 +187,13 @@ function deletePayment(paymentId) {
   let payments = getPayments();
   payments = payments.filter(p => p.id !== paymentId);
   localStorage.setItem('payments', JSON.stringify(payments));
+  
+  // ⭐ SINCRONIZACIÓN AUTOMÁTICA
+  if (typeof deletePaymentFromFirebase === 'function') {
+    deletePaymentFromFirebase(paymentId).catch(err => 
+      console.warn('⚠️ No se pudo eliminar pago de Firebase:', err)
+    );
+  }
 }
 
 function getPaymentsByPlayer(playerId) {
@@ -160,7 +208,10 @@ function getPaidPayments() {
   return getPayments().filter(p => p.status === 'Pagado');
 }
 
-// EVENTOS DEL CALENDARIO
+// ========================================
+// EVENTOS DEL CALENDARIO - CON SINCRONIZACIÓN AUTOMÁTICA
+// ========================================
+
 function getCalendarEvents() {
   return JSON.parse(localStorage.getItem('calendarEvents') || '[]');
 }
@@ -174,6 +225,13 @@ function saveEvent(event) {
   const events = getCalendarEvents();
   events.push(event);
   localStorage.setItem('calendarEvents', JSON.stringify(events));
+  
+  // ⭐ SINCRONIZACIÓN AUTOMÁTICA
+  if (typeof saveEventToFirebase === 'function') {
+    saveEventToFirebase(event).catch(err => 
+      console.warn('⚠️ No se pudo sincronizar evento con Firebase:', err)
+    );
+  }
 }
 
 function updateEvent(eventId, eventData) {
@@ -182,6 +240,13 @@ function updateEvent(eventId, eventData) {
   if (index !== -1) {
     events[index] = { ...events[index], ...eventData };
     localStorage.setItem('calendarEvents', JSON.stringify(events));
+    
+    // ⭐ SINCRONIZACIÓN AUTOMÁTICA
+    if (typeof saveEventToFirebase === 'function') {
+      saveEventToFirebase(events[index]).catch(err => 
+        console.warn('⚠️ No se pudo sincronizar evento con Firebase:', err)
+      );
+    }
   }
 }
 
@@ -189,6 +254,13 @@ function deleteEvent(eventId) {
   let events = getCalendarEvents();
   events = events.filter(e => e.id !== eventId);
   localStorage.setItem('calendarEvents', JSON.stringify(events));
+  
+  // ⭐ SINCRONIZACIÓN AUTOMÁTICA
+  if (typeof deleteEventFromFirebase === 'function') {
+    deleteEventFromFirebase(eventId).catch(err => 
+      console.warn('⚠️ No se pudo eliminar evento de Firebase:', err)
+    );
+  }
 }
 
 function getEventsByDate(date) {
@@ -205,7 +277,10 @@ function getUpcomingEvents(limit = 10) {
     .slice(0, limit);
 }
 
-// CONFIGURACIÓN DEL CLUB
+// ========================================
+// CONFIGURACIÓN DEL CLUB - CON SINCRONIZACIÓN AUTOMÁTICA
+// ========================================
+
 function getSchoolSettings() {
   return JSON.parse(localStorage.getItem('schoolSettings') || '{}');
 }
@@ -214,6 +289,18 @@ function updateSchoolSettings(settings) {
   const current = getSchoolSettings();
   const updated = { ...current, ...settings };
   localStorage.setItem('schoolSettings', JSON.stringify(updated));
+  
+  // ⭐ SINCRONIZACIÓN AUTOMÁTICA
+  if (typeof syncAllToFirebase === 'function' && window.APP_STATE?.firebaseReady) {
+    // Solo sincronizar settings, no todo
+    const clubId = localStorage.getItem('clubId');
+    if (clubId && window.firebase?.db) {
+      window.firebase.setDoc(
+        window.firebase.doc(window.firebase.db, `clubs/${clubId}/settings`, "main"),
+        { ...updated, lastUpdated: new Date().toISOString() }
+      ).catch(err => console.warn('⚠️ No se pudo sincronizar configuración:', err));
+    }
+  }
 }
 
 // MODO OSCURO
@@ -284,10 +371,6 @@ function clearAllData() {
   }
 }
 
-// Inicializar al cargar
-initStorage();
-
-console.log('✅ storage.js cargado (MEJORADO)');
 // ========================================
 // SISTEMA MULTI-USUARIO POR ESCUELA
 // ========================================
@@ -318,17 +401,6 @@ function getCurrentSchoolId() {
   const currentUser = getCurrentUser();
   return currentUser ? currentUser.schoolId : null;
 }
-// ... todo tu código anterior ...
-
-// Alias para compatibilidad con Firebase
-function getAllPlayers() {
-  return getPlayers();
-}
-
-function saveAllPlayers(players) {
-  localStorage.setItem('players', JSON.stringify(players));
-
-}
 
 // Alias para compatibilidad con Firebase
 function getAllPlayers() {
@@ -342,8 +414,6 @@ function saveAllPlayers(players) {
 function saveSchoolSettings(settings) {
   updateSchoolSettings(settings);
 }
-
-console.log('✅ Sistema multi-usuario cargado');
 
 // IMPORTAR DATOS DESDE JSON
 function importDataFromJSON(file) {
@@ -403,4 +473,7 @@ function openImportDialog() {
   input.click();
 }
 
+// Inicializar al cargar
+initStorage();
 
+console.log('✅ storage.js cargado (CON SINCRONIZACIÓN AUTOMÁTICA)');
