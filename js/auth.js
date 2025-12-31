@@ -1,6 +1,7 @@
 // ========================================
 // SISTEMA DE AUTENTICACIÓN - MULTI-DISPOSITIVO 100% FUNCIONAL
 // CON LOGIN POR CLUB ID OPCIONAL
+// VERSIÓN CORREGIDA Y SIMPLIFICADA
 // ========================================
 
 // ✅ FUNCIÓN AUXILIAR: Esperar a que Firebase esté listo
@@ -284,7 +285,7 @@ document.getElementById('loginForm')?.addEventListener('submit', async function(
     return;
   }
   
-  console.log('🔐 Iniciando login para:', email);
+  console.log('🔍 Iniciando login para:', email);
   if (clubIdInput) {
     console.log('⚡ Club ID proporcionado:', clubIdInput, '(login rápido)');
   } else {
@@ -300,7 +301,7 @@ document.getElementById('loginForm')?.addEventListener('submit', async function(
   }
   
   try {
-    showToast('🔐 Verificando credenciales...');
+    showToast('🔍 Verificando credenciales...');
     
     // 1️⃣ Autenticar con Firebase
     const userCredential = await window.firebase.signInWithEmailAndPassword(
@@ -411,18 +412,23 @@ document.getElementById('loginForm')?.addEventListener('submit', async function(
   }
 });
 
-// ✅✅✅ REGISTRO - CON MAPEO AUTOMÁTICO Y MODAL DE CLUB ID ✅✅✅
+// ✅✅✅ REGISTRO SIMPLIFICADO - SIN EMAIL DE CLUB ✅✅✅
 document.getElementById('registerForm')?.addEventListener('submit', async function(e) {
   e.preventDefault();
   
+  // ========================================
+  // DATOS DEL CLUB
+  // ========================================
   const clubLogoFile = document.getElementById('regClubLogo').files[0];
   const clubName = document.getElementById('regClubName').value.trim();
   const clubIdInput = document.getElementById('regClubId').value.trim();
-  let clubId = clubIdInput.toLowerCase().replace(/[^a-z0-9_]/g, '_');
   
+  // Generar clubId automáticamente si no se proporciona
+  let clubId = clubIdInput.toLowerCase().replace(/[^a-z0-9_]/g, '_');
   if (!clubId && clubName) {
     clubId = clubName.toLowerCase().replace(/[^a-z0-9]/g, '_');
   }
+  
   if (!clubId) {
     showToast('⚠️ El ID del club es obligatorio');
     return;
@@ -431,24 +437,37 @@ document.getElementById('registerForm')?.addEventListener('submit', async functi
   const clubColor = document.getElementById('regClubColor').value;
   const clubCurrency = document.getElementById('regClubCurrency').value;
   const monthlyFee = parseFloat(document.getElementById('regMonthlyFee').value) || 0;
-  const clubEmail = document.getElementById('regClubEmail').value.trim();
-  const clubPhone = document.getElementById('regClubPhone').value.trim();
-  const clubAddress = document.getElementById('regClubAddress').value.trim();
-  const clubCity = document.getElementById('regClubCity').value.trim();
-  const clubCountry = document.getElementById('regClubCountry').value.trim();
-  const clubWebsite = document.getElementById('regClubWebsite').value.trim();
-  const clubSocial = document.getElementById('regClubSocial').value.trim();
-  const clubFoundedYear = document.getElementById('regClubFoundedYear').value.trim();
   
+  // ⭐ NUEVO: Email del club será el mismo que el del admin
+  // Ya no necesitamos campo separado
+  const clubPhone = document.getElementById('regClubPhone')?.value.trim() || '';
+  const clubAddress = document.getElementById('regClubAddress')?.value.trim() || '';
+  const clubCity = document.getElementById('regClubCity')?.value.trim() || '';
+  const clubCountry = document.getElementById('regClubCountry')?.value.trim() || '';
+  const clubWebsite = document.getElementById('regClubWebsite')?.value.trim() || '';
+  const clubSocial = document.getElementById('regClubSocial')?.value.trim() || '';
+  const clubFoundedYear = document.getElementById('regClubFoundedYear')?.value.trim() || '';
+  
+  // ========================================
+  // DATOS DEL ADMINISTRADOR PRINCIPAL
+  // ========================================
   const adminAvatarFile = document.getElementById('regAdminAvatar').files[0];
   const adminName = document.getElementById('regAdminName').value.trim();
-  const adminBirthDate = document.getElementById('regAdminBirthDate').value;
-  const adminPhone = document.getElementById('regAdminPhone').value.trim();
+  const adminBirthDate = document.getElementById('regAdminBirthDate')?.value || '';
+  const adminPhone = document.getElementById('regAdminPhone')?.value.trim() || '';
   const adminEmail = document.getElementById('regAdminEmail').value.trim();
   const adminPassword = document.getElementById('regAdminPassword').value;
   
+  // ========================================
+  // VALIDACIONES
+  // ========================================
+  if (!clubName) {
+    showToast('❌ El nombre del club es obligatorio');
+    return;
+  }
+  
   if (!adminName || !adminEmail || !adminPassword) {
-    showToast('❌ Por favor completa todos los campos obligatorios');
+    showToast('❌ Por favor completa los datos del administrador');
     return;
   }
   
@@ -457,12 +476,16 @@ document.getElementById('registerForm')?.addEventListener('submit', async functi
     return;
   }
   
+  // Validar que el email no esté registrado localmente
   const users = getUsers();
   if (users.find(u => u.email === adminEmail)) {
     showToast('❌ Este email ya está registrado');
     return;
   }
   
+  // ========================================
+  // PROCESAR IMÁGENES
+  // ========================================
   const processClubData = () => {
     if (clubLogoFile) {
       imageToBase64(clubLogoFile, function(clubLogo) {
@@ -483,14 +506,18 @@ document.getElementById('registerForm')?.addEventListener('submit', async functi
     }
   };
   
-  // ✅✅✅ REGISTRO COMPLETO CON MAPEO Y MODAL ✅✅✅
+  // ========================================
+  // FUNCIÓN PRINCIPAL DE REGISTRO
+  // ========================================
   const completeRegistration = async (clubLogo, adminAvatar) => {
+    
+    // Configuración del club (usando email del admin)
     const clubSettings = {
       schoolId: clubId,
       name: clubName,
       clubId: clubId,
       logo: clubLogo,
-      email: clubEmail,
+      email: adminEmail, // ⭐ AHORA USA EL EMAIL DEL ADMIN
       phone: clubPhone,
       address: clubAddress,
       city: clubCity,
@@ -513,27 +540,71 @@ document.getElementById('registerForm')?.addEventListener('submit', async functi
       return;
     }
     
+    let firebaseUid = null;
+    let userCreatedInAuth = false;
+    
     try {
       console.log('🔥 Creando club:', clubId);
       showToast('🔥 Creando tu club...');
       
-      // 1️⃣ Crear usuario en Firebase Auth
-      const userCredential = await window.firebase.createUserWithEmailAndPassword(
-        window.firebase.auth,
-        adminEmail,
-        adminPassword
-      );
+      // ========================================
+      // PASO 1: CREAR USUARIO EN AUTHENTICATION
+      // ========================================
+      console.log('🔐 Paso 1/6: Creando usuario en Authentication...');
+      showToast('🔐 Creando administrador...');
       
-      window.APP_STATE.currentUser = userCredential.user;
-      const firebaseUid = userCredential.user.uid;
-      console.log('✅ Usuario creado con UID:', firebaseUid);
+      try {
+        const userCredential = await window.firebase.createUserWithEmailAndPassword(
+          window.firebase.auth,
+          adminEmail,
+          adminPassword
+        );
+        
+        window.APP_STATE.currentUser = userCredential.user;
+        firebaseUid = userCredential.user.uid;
+        userCreatedInAuth = true;
+        
+        console.log('✅ Usuario creado en Auth con UID:', firebaseUid);
+        console.log('📧 Email usado:', adminEmail);
+        console.log('🔑 Contraseña configurada correctamente');
+        
+      } catch (authError) {
+        console.error('❌ ERROR en Authentication:', authError);
+        
+        if (authError.code === 'auth/email-already-in-use') {
+          showToast('❌ Este email ya está registrado');
+          return;
+        } else if (authError.code === 'auth/weak-password') {
+          showToast('❌ Contraseña muy débil (mínimo 6 caracteres)');
+          return;
+        } else if (authError.code === 'auth/invalid-email') {
+          showToast('❌ Email inválido');
+          return;
+        } else {
+          showToast('❌ Error: ' + authError.message);
+          return;
+        }
+      }
       
-      // 2️⃣ Crear usuario local
+      // Validar que se creó el usuario
+      if (!userCreatedInAuth || !firebaseUid) {
+        console.error('❌ REGISTRO ABORTADO: No se pudo crear usuario');
+        showToast('❌ No se pudo crear el usuario. Intenta de nuevo.');
+        return;
+      }
+      
+      console.log('✅ Usuario confirmado, continuando con registro...');
+      
+      // ========================================
+      // PASO 2: GUARDAR USUARIO LOCALMENTE
+      // ========================================
+      console.log('💾 Paso 2/6: Guardando usuario localmente...');
+      
       const newUser = {
         id: firebaseUid,
         schoolId: clubId,
         email: adminEmail,
-        password: adminPassword,
+        password: adminPassword, // Se guarda localmente para facilitar futuro login
         name: adminName,
         birthDate: adminBirthDate,
         phone: adminPhone,
@@ -546,24 +617,34 @@ document.getElementById('registerForm')?.addEventListener('submit', async functi
       saveUser(newUser);
       console.log('✅ Usuario guardado localmente');
       
-      // 3️⃣ Guardar usuario en Firestore
+      // ========================================
+      // PASO 3: GUARDAR USUARIO EN FIRESTORE
+      // ========================================
+      console.log('🔥 Paso 3/6: Guardando usuario en Firestore...');
+      showToast('💾 Guardando perfil...');
+      
       await window.firebase.setDoc(
         window.firebase.doc(window.firebase.db, `clubs/${clubId}/users`, firebaseUid),
         {
           id: firebaseUid,
-          email: newUser.email,
-          name: newUser.name,
+          email: adminEmail,
+          name: adminName,
           isMainAdmin: true,
           role: 'admin',
-          avatar: newUser.avatar || '',
-          phone: newUser.phone || '',
-          birthDate: newUser.birthDate || '',
+          avatar: adminAvatar || '',
+          phone: adminPhone || '',
+          birthDate: adminBirthDate || '',
           createdAt: new Date().toISOString()
         }
       );
       console.log('✅ Usuario guardado en Firestore');
       
-      // 4️⃣ Guardar configuración del club
+      // ========================================
+      // PASO 4: GUARDAR CONFIGURACIÓN DEL CLUB
+      // ========================================
+      console.log('⚙️ Paso 4/6: Guardando configuración del club...');
+      showToast('⚙️ Configurando club...');
+      
       await window.firebase.setDoc(
         window.firebase.doc(window.firebase.db, `clubs/${clubId}/settings`, "main"),
         {
@@ -573,49 +654,89 @@ document.getElementById('registerForm')?.addEventListener('submit', async functi
           isInitialized: true
         }
       );
-      console.log('✅ Configuración guardada');
+      console.log('✅ Configuración del club guardada');
       
-      // 5️⃣ ⭐ CRÍTICO: Guardar mapeo email → clubId ⭐
+      // ========================================
+      // PASO 5: GUARDAR MAPEO EMAIL → CLUBID
+      // ========================================
+      console.log('🗺️ Paso 5/6: Guardando mapeo para login multi-dispositivo...');
+      showToast('🔗 Configurando acceso...');
+      
       const mappingSaved = await saveUserClubMapping(adminEmail, clubId, firebaseUid);
-      if (mappingSaved) {
-        console.log('✅ Mapeo guardado - Login multi-dispositivo habilitado');
+      
+      if (!mappingSaved) {
+        console.warn('⚠️ Mapeo no guardado - puede afectar login multi-dispositivo');
       } else {
-        console.warn('⚠️ Mapeo no guardado - puede afectar login en otros dispositivos');
+        console.log('✅ Mapeo guardado correctamente');
       }
       
+      // ========================================
+      // PASO 6: FINALIZACIÓN
+      // ========================================
+      console.log('🎉 Paso 6/6: Finalizando registro...');
       showToast('✅ Club creado exitosamente');
       
-      // 6️⃣ Guardar datos locales
+      // Guardar configuración localmente
       localStorage.setItem('clubId', clubId);
       updateSchoolSettings(clubSettings);
       
-      // 7️⃣ Establecer sesión
+      // Establecer sesión actual
       const { password: _, ...userWithoutPassword } = newUser;
       setCurrentUser(userWithoutPassword);
       
-      // 8️⃣ Generar iconos PWA si está disponible
+      // Generar iconos PWA
       if (typeof generatePWAIcons === 'function') {
         generatePWAIcons();
       }
       
-      // 9️⃣ ⭐ MOSTRAR MODAL CON CLUB ID ⭐
+      // Mostrar modal con Club ID
       showClubIdToUser(clubId, clubName);
       
-    } catch (error) {
-      console.error('❌ Error al crear club:', error);
+      // ========================================
+      // RESUMEN EN CONSOLA
+      // ========================================
+      console.log('✅ ========================================');
+      console.log('✅ REGISTRO COMPLETADO EXITOSAMENTE');
+      console.log('✅ ========================================');
+      console.log('📋 Resumen del registro:');
+      console.log('   • UID:', firebaseUid);
+      console.log('   • Email:', adminEmail);
+      console.log('   • Club ID:', clubId);
+      console.log('   • Usuario en Auth: ✅');
+      console.log('   • Usuario en Firestore: ✅');
+      console.log('   • Configuración guardada: ✅');
+      console.log('   • Mapeo guardado:', mappingSaved ? '✅' : '⚠️');
+      console.log('========================================');
+      console.log('💡 Para login futuro, usa:');
+      console.log('   Email:', adminEmail);
+      console.log('   Contraseña: (la que configuraste)');
+      console.log('   Club ID:', clubId, '(opcional)');
+      console.log('========================================');
       
-      if (error.code === 'auth/email-already-in-use') {
-        showToast('❌ Este email ya está registrado');
-      } else if (error.code === 'auth/weak-password') {
-        showToast('❌ La contraseña es muy débil');
-      } else if (error.code === 'auth/invalid-email') {
-        showToast('❌ Email inválido');
-      } else {
-        showToast('❌ Error: ' + error.message);
+    } catch (error) {
+      console.error('❌ ========================================');
+      console.error('❌ ERROR DURANTE EL REGISTRO');
+      console.error('❌ ========================================');
+      console.error('Error completo:', error);
+      console.error('Código:', error.code);
+      console.error('Mensaje:', error.message);
+      console.error('Usuario creado en Auth:', userCreatedInAuth);
+      console.error('UID:', firebaseUid);
+      console.error('========================================');
+      
+      showToast('❌ Error: ' + error.message);
+      
+      // Si el usuario se creó en Auth pero hubo error después
+      if (userCreatedInAuth && firebaseUid) {
+        console.log('⚠️ El usuario fue creado en Authentication.');
+        console.log('💡 Puedes intentar hacer login con:');
+        console.log('   Email:', adminEmail);
+        showToast('⚠️ El usuario fue creado. Intenta hacer login.');
       }
     }
   };
   
+  // Iniciar proceso
   processClubData();
 });
 
@@ -836,14 +957,14 @@ function forgotPassword() {
   const confirmReset = confirm(`✅ Usuario: ${user.name}\n📱 Teléfono: ${user.phone}\n\n¿Restablecer contraseña?`);
   
   if (confirmReset) {
-    const newPassword = prompt('🔒 Nueva contraseña (mínimo 6 caracteres):');
+    const newPassword = prompt('🔑 Nueva contraseña (mínimo 6 caracteres):');
     
     if (!newPassword || newPassword.length < 6) {
       showToast('❌ Contraseña inválida');
       return;
     }
     
-    const confirmNewPassword = prompt('🔒 Confirma la contraseña:');
+    const confirmNewPassword = prompt('🔑 Confirma la contraseña:');
     
     if (newPassword !== confirmNewPassword) {
       showToast('❌ Las contraseñas no coinciden');
@@ -855,4 +976,5 @@ function forgotPassword() {
   }
 }
 
-console.log('✅ auth.js cargado (MULTI-DISPOSITIVO + CLUB ID OPCIONAL)');
+console.log('✅ auth.js cargado (VERSIÓN CORREGIDA Y SIMPLIFICADA)');
+console.log('📧 Sistema simplificado: solo se usa el email del admin principal');

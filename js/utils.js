@@ -237,3 +237,147 @@ function arrayToCSV(array) {
 }
 
 console.log('✅ utils.js cargado');
+// ========================================
+// DIAGNÓSTICO RE-LOGIN
+// Copiar y pegar en consola (F12) ANTES de intentar hacer login
+// ========================================
+
+console.clear();
+console.log('%c🔍 DIAGNÓSTICO RE-LOGIN', 'background: #0d9488; color: white; font-size: 16px; padding: 10px; border-radius: 5px;');
+console.log('═══════════════════════════════════════\n');
+
+// 1. Verificar HTML
+console.log('📋 1. VERIFICACIÓN HTML:');
+console.log('───────────────────────────────────────');
+const loginClubIdInput = document.getElementById('loginClubId');
+const loginEmailInput = document.getElementById('loginEmail');
+const loginPasswordInput = document.getElementById('loginPassword');
+
+console.log('Campo loginClubId:', loginClubIdInput ? '✅ Existe' : '❌ NO EXISTE');
+console.log('Campo loginEmail:', loginEmailInput ? '✅ Existe' : '❌ NO EXISTE');
+console.log('Campo loginPassword:', loginPasswordInput ? '✅ Existe' : '❌ NO EXISTE');
+console.log('\n');
+
+// 2. Verificar localStorage
+console.log('💾 2. DATOS EN LOCALSTORAGE:');
+console.log('───────────────────────────────────────');
+const clubId = localStorage.getItem('clubId');
+const currentUser = localStorage.getItem('currentUser');
+const users = localStorage.getItem('users');
+
+console.log('clubId:', clubId || '❌ NO EXISTE');
+console.log('currentUser:', currentUser ? '✅ Existe' : '❌ NO EXISTE');
+
+if (currentUser) {
+  try {
+    const user = JSON.parse(currentUser);
+    console.log('  - Email:', user.email);
+    console.log('  - Nombre:', user.name);
+    console.log('  - schoolId:', user.schoolId);
+  } catch (e) {
+    console.log('  ❌ Error al parsear currentUser');
+  }
+}
+
+if (users) {
+  try {
+    const usersList = JSON.parse(users);
+    console.log('users:', `✅ ${usersList.length} usuario(s)`);
+    usersList.forEach(u => {
+      console.log(`  - ${u.email} (schoolId: ${u.schoolId})`);
+    });
+  } catch (e) {
+    console.log('  ❌ Error al parsear users');
+  }
+}
+console.log('\n');
+
+// 3. Verificar Firebase
+console.log('🔥 3. ESTADO DE FIREBASE:');
+console.log('───────────────────────────────────────');
+console.log('APP_STATE existe:', typeof window.APP_STATE);
+console.log('APP_STATE.firebaseReady:', window.APP_STATE?.firebaseReady);
+console.log('window.firebase:', typeof window.firebase);
+console.log('firebase.auth:', window.firebase?.auth ? '✅ Disponible' : '❌ NO DISPONIBLE');
+console.log('firebase.db:', window.firebase?.db ? '✅ Disponible' : '❌ NO DISPONIBLE');
+
+if (window.firebase?.auth?.currentUser) {
+  console.log('Firebase currentUser:', {
+    uid: window.firebase.auth.currentUser.uid,
+    email: window.firebase.auth.currentUser.email
+  });
+} else {
+  console.log('Firebase currentUser: ❌ No hay sesión');
+}
+console.log('\n');
+
+// 4. Verificar funciones
+console.log('⚙️ 4. FUNCIONES NECESARIAS:');
+console.log('───────────────────────────────────────');
+const functions = [
+  'waitForFirebase',
+  'getClubIdForUser',
+  'downloadAllClubData',
+  'saveUserClubMapping',
+  'getUsers',
+  'getCurrentUser',
+  'imageToBase64'
+];
+
+functions.forEach(fn => {
+  const exists = typeof window[fn] === 'function';
+  console.log(`${exists ? '✅' : '❌'} ${fn}()`);
+});
+console.log('\n');
+
+// 5. Simular lectura de campos
+console.log('🎯 5. SIMULACIÓN DE LOGIN:');
+console.log('───────────────────────────────────────');
+if (loginClubIdInput && loginEmailInput && loginPasswordInput) {
+  console.log('Valores actuales en los campos:');
+  console.log('  clubId:', loginClubIdInput.value || '(vacío)');
+  console.log('  email:', loginEmailInput.value || '(vacío)');
+  console.log('  password:', loginPasswordInput.value ? '***' : '(vacío)');
+} else {
+  console.log('❌ No se pueden leer los campos (no existen)');
+}
+console.log('\n');
+
+// 6. Diagnóstico
+console.log('🎯 6. DIAGNÓSTICO:');
+console.log('───────────────────────────────────────');
+
+if (!window.APP_STATE?.firebaseReady) {
+  console.log('⚠️ PROBLEMA: Firebase NO está inicializado');
+  console.log('');
+  console.log('SOLUCIÓN:');
+  console.log('1. Espera 5 segundos y vuelve a intentar');
+  console.log('2. Si persiste, ejecuta: initFirebase()');
+  console.log('3. Recarga la página si es necesario');
+} else if (!clubId) {
+  console.log('⚠️ PROBLEMA: clubId NO está en localStorage');
+  console.log('');
+  console.log('SOLUCIÓN:');
+  console.log('1. Ingresa el clubId manualmente en el campo');
+  console.log('2. O registra el club de nuevo');
+} else if (!loginClubIdInput) {
+  console.log('❌ PROBLEMA GRAVE: Campo loginClubId NO existe en HTML');
+  console.log('');
+  console.log('SOLUCIÓN:');
+  console.log('Verifica que el index.html tenga:');
+  console.log('<input type="text" id="loginClubId" ...>');
+} else {
+  console.log('✅ TODO PARECE CORRECTO');
+  console.log('');
+  console.log('Ahora intenta hacer login y mira qué error aparece en la consola');
+}
+
+console.log('\n═══════════════════════════════════════');
+console.log('🔍 DIAGNÓSTICO COMPLETADO\n');
+
+// Instrucciones
+console.log('%c💡 SIGUIENTE PASO:', 'background: #3b82f6; color: white; font-size: 14px; padding: 5px;');
+console.log('1. Ingresa tus datos en el formulario de login');
+console.log('2. Click en "Entrar"');
+console.log('3. Observa qué errores aparecen aquí en la consola');
+console.log('4. Copia el error COMPLETO y envíamelo\n');
