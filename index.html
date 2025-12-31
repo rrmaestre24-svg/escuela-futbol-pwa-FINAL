@@ -709,7 +709,7 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
   <!-- Sección: Personalización -->
   <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
     <button onclick="toggleSection('personalizationSection')" class="w-full px-4 py-3 flex items-center justify-between bg-gray-50 dark:bg-gray-700 text-left font-medium">
-      <span>🎨 Personalización</span>
+      <span>🎨 Recursos Locales </span>
       <i data-lucide="chevron-down" class="w-5 h-5 text-gray-500 dark:text-gray-400"></i>
     </button>
     <div id="personalizationSection" class="p-4 border-t border-gray-200 dark:border-gray-700 hidden">
@@ -722,7 +722,7 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
       <div class="space-y-2">
         <button onclick="clearAppCache()" class="w-full border border-blue-600 text-blue-600 dark:text-blue-400 py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
           <i data-lucide="refresh-cw" class="w-5 h-5"></i>
-          Limpiar Caché y Actualizar
+          Descargar Actualizacion
         </button>
         <button onclick="exportData()" class="w-full border border-teal-600 text-teal-600 dark:text-teal-400 py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors">
           <i data-lucide="download" class="w-5 h-5"></i>
@@ -748,7 +748,7 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
         <p class="text-sm text-gray-600 dark:text-gray-400">Guarda tus datos en la nube.</p>
         <button type="button" class="w-full bg-teal-600 hover:bg-teal-700 text-white py-2 rounded-lg"
         onclick="syncAllToFirebase()">
-          Subir a Firebase
+          Subir datos
         </button>
       </div>
       <div class="mb-4">
@@ -757,7 +757,7 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
         <button
         onclick="downloadFromFirebase()"
         class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg flex items-center justify-center gap-2 transition-colors">
-          <span>🔄</span> Sincronizar con la nube
+          <span></span>Descargar datos
         </button>
       </div>
       <div class="border-t border-gray-300 dark:border-gray-600 pt-3 mt-3">
@@ -1286,6 +1286,7 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
     <script src="js/firebase-config.js"></script>
     <script src="js/firebase-sync.js"></script>
     <script src="js/utils.js"></script>
+    <script src="js/phone-utils.js"></script>
     <script src="js/install.js"></script>
     <script src="js/cache.js"></script>
     <script src="js/theme.js"></script>

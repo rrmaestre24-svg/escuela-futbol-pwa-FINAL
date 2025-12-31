@@ -1,5 +1,6 @@
 // ========================================
 // GESTIÓN DE JUGADORES - MEJORADO CON ESTADO ACTIVO/INACTIVO
+// ✅ CON NORMALIZACIÓN DE TELÉFONOS
 // ========================================
 
 let currentEditingPlayerId = null;
@@ -75,7 +76,7 @@ document.getElementById('playerAvatar')?.addEventListener('change', function(e) 
   }
 });
 
-// Guardar jugador - MEJORADO
+// Guardar jugador - MEJORADO CON NORMALIZACIÓN DE TELÉFONOS
 document.getElementById('playerForm')?.addEventListener('submit', function(e) {
   e.preventDefault();
   
@@ -91,9 +92,9 @@ document.getElementById('playerForm')?.addEventListener('submit', function(e) {
     jerseyNumber: document.getElementById('playerJerseyNumber').value,
     uniformSize: document.getElementById('playerUniformSize').value,
     email: document.getElementById('playerEmail').value,
-    phone: document.getElementById('playerPhone').value,
+    phone: normalizePhone(document.getElementById('playerPhone').value), // ⭐ NORMALIZAR AQUÍ
     address: document.getElementById('playerAddress').value,
-    emergencyContact: document.getElementById('playerEmergencyContact').value,
+    emergencyContact: normalizePhone(document.getElementById('playerEmergencyContact').value), // ⭐ NORMALIZAR AQUÍ
     medicalInfo: {
       bloodType: document.getElementById('playerBloodType').value,
       allergies: document.getElementById('playerAllergies').value,
@@ -191,7 +192,7 @@ function filterByStatus(status) {
   });
 }
 
-// Renderizar lista de jugadores - MEJORADO CON FILTRO DE ESTADO
+// Renderizar lista de jugadores - MEJORADO CON TELÉFONOS FORMATEADOS
 function renderPlayersList() {
   const players = getPlayers();
   const searchTerm = document.getElementById('playerSearch')?.value || '';
@@ -262,9 +263,9 @@ function renderPlayersList() {
               </button>
             </div>
             <div class="mt-2 flex flex-wrap gap-2">
-              <a href="https://wa.me/${cleanPhone(player.phone)}" target="_blank" class="text-sm text-teal-600 dark:text-teal-400 flex items-center gap-1 hover:underline">
+              <a href="${getWhatsAppLink(player.phone)}" target="_blank" class="text-sm text-teal-600 dark:text-teal-400 flex items-center gap-1 hover:underline">
                 <i data-lucide="phone" class="w-4 h-4"></i>
-                ${player.phone}
+                ${formatPhoneDisplay(player.phone)}
               </a>
               ${player.email ? `
                 <span class="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1">
@@ -298,7 +299,7 @@ function renderPlayersList() {
 // Buscar jugadores en tiempo real
 document.getElementById('playerSearch')?.addEventListener('input', renderPlayersList);
 
-// Mostrar detalles del jugador - MEJORADO
+// Mostrar detalles del jugador - MEJORADO CON TELÉFONOS FORMATEADOS
 function showPlayerDetails(playerId) {
   const player = getPlayerById(playerId);
   if (!player) {
@@ -349,12 +350,12 @@ function showPlayerDetails(playerId) {
           </div>
           <div class="flex justify-between">
             <span class="text-gray-500 dark:text-gray-400">Teléfono:</span>
-            <a href="https://wa.me/${cleanPhone(player.phone)}" target="_blank" class="text-teal-600 dark:text-teal-400 font-medium hover:underline">${player.phone}</a>
+            <a href="${getWhatsAppLink(player.phone)}" target="_blank" class="text-teal-600 dark:text-teal-400 font-medium hover:underline">${formatPhoneDisplay(player.phone)}</a>
           </div>
           ${player.emergencyContact ? `
             <div class="flex justify-between">
               <span class="text-gray-500 dark:text-gray-400">Contacto emergencia:</span>
-              <span class="text-gray-800 dark:text-white font-medium">${player.emergencyContact}</span>
+              <a href="${getWhatsAppLink(player.emergencyContact)}" target="_blank" class="text-teal-600 dark:text-teal-400 font-medium hover:underline">${formatPhoneDisplay(player.emergencyContact)}</a>
             </div>
           ` : ''}
           ${player.email ? `
@@ -484,4 +485,4 @@ function deletePlayerConfirm(playerId) {
   }
 }
 
-console.log('✅ players.js cargado (CON GESTIÓN DE ESTADO ACTIVO/INACTIVO)');
+console.log('✅ players.js cargado (CON NORMALIZACIÓN DE TELÉFONOS)');

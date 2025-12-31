@@ -2,6 +2,7 @@
 // SISTEMA DE AUTENTICACIÓN - MULTI-DISPOSITIVO 100% FUNCIONAL
 // CON LOGIN POR CLUB ID OPCIONAL
 // VERSIÓN CORREGIDA Y SIMPLIFICADA
+// ✅ CON NORMALIZACIÓN DE TELÉFONOS
 // ========================================
 
 // ✅ FUNCIÓN AUXILIAR: Esperar a que Firebase esté listo
@@ -412,7 +413,7 @@ document.getElementById('loginForm')?.addEventListener('submit', async function(
   }
 });
 
-// ✅✅✅ REGISTRO SIMPLIFICADO - SIN EMAIL DE CLUB ✅✅✅
+// ✅✅✅ REGISTRO SIMPLIFICADO - CON NORMALIZACIÓN DE TELÉFONOS ✅✅✅
 document.getElementById('registerForm')?.addEventListener('submit', async function(e) {
   e.preventDefault();
   
@@ -438,9 +439,8 @@ document.getElementById('registerForm')?.addEventListener('submit', async functi
   const clubCurrency = document.getElementById('regClubCurrency').value;
   const monthlyFee = parseFloat(document.getElementById('regMonthlyFee').value) || 0;
   
-  // ⭐ NUEVO: Email del club será el mismo que el del admin
-  // Ya no necesitamos campo separado
-  const clubPhone = document.getElementById('regClubPhone')?.value.trim() || '';
+  // ⭐ NORMALIZACIÓN DE TELÉFONOS DEL CLUB
+  const clubPhone = normalizePhone(document.getElementById('regClubPhone')?.value.trim() || '');
   const clubAddress = document.getElementById('regClubAddress')?.value.trim() || '';
   const clubCity = document.getElementById('regClubCity')?.value.trim() || '';
   const clubCountry = document.getElementById('regClubCountry')?.value.trim() || '';
@@ -454,7 +454,9 @@ document.getElementById('registerForm')?.addEventListener('submit', async functi
   const adminAvatarFile = document.getElementById('regAdminAvatar').files[0];
   const adminName = document.getElementById('regAdminName').value.trim();
   const adminBirthDate = document.getElementById('regAdminBirthDate')?.value || '';
-  const adminPhone = document.getElementById('regAdminPhone')?.value.trim() || '';
+  
+  // ⭐ NORMALIZACIÓN DE TELÉFONO DEL ADMIN
+  const adminPhone = normalizePhone(document.getElementById('regAdminPhone')?.value.trim() || '');
   const adminEmail = document.getElementById('regAdminEmail').value.trim();
   const adminPassword = document.getElementById('regAdminPassword').value;
   
@@ -517,8 +519,8 @@ document.getElementById('registerForm')?.addEventListener('submit', async functi
       name: clubName,
       clubId: clubId,
       logo: clubLogo,
-      email: adminEmail, // ⭐ AHORA USA EL EMAIL DEL ADMIN
-      phone: clubPhone,
+      email: adminEmail,
+      phone: clubPhone, // ⭐ YA NORMALIZADO
       address: clubAddress,
       city: clubCity,
       country: clubCountry,
@@ -550,8 +552,8 @@ document.getElementById('registerForm')?.addEventListener('submit', async functi
       // ========================================
       // PASO 1: CREAR USUARIO EN AUTHENTICATION
       // ========================================
-      console.log('🔐 Paso 1/6: Creando usuario en Authentication...');
-      showToast('🔐 Creando administrador...');
+      console.log('📝 Paso 1/6: Creando usuario en Authentication...');
+      showToast('📝 Creando administrador...');
       
       try {
         const userCredential = await window.firebase.createUserWithEmailAndPassword(
@@ -604,10 +606,10 @@ document.getElementById('registerForm')?.addEventListener('submit', async functi
         id: firebaseUid,
         schoolId: clubId,
         email: adminEmail,
-        password: adminPassword, // Se guarda localmente para facilitar futuro login
+        password: adminPassword,
         name: adminName,
         birthDate: adminBirthDate,
-        phone: adminPhone,
+        phone: adminPhone, // ⭐ YA NORMALIZADO
         avatar: adminAvatar,
         role: 'admin',
         isMainAdmin: true,
@@ -632,7 +634,7 @@ document.getElementById('registerForm')?.addEventListener('submit', async functi
           isMainAdmin: true,
           role: 'admin',
           avatar: adminAvatar || '',
-          phone: adminPhone || '',
+          phone: adminPhone || '', // ⭐ YA NORMALIZADO
           birthDate: adminBirthDate || '',
           createdAt: new Date().toISOString()
         }
@@ -702,15 +704,12 @@ document.getElementById('registerForm')?.addEventListener('submit', async functi
       console.log('   • UID:', firebaseUid);
       console.log('   • Email:', adminEmail);
       console.log('   • Club ID:', clubId);
+      console.log('   • Teléfono Admin:', adminPhone);
+      console.log('   • Teléfono Club:', clubPhone);
       console.log('   • Usuario en Auth: ✅');
       console.log('   • Usuario en Firestore: ✅');
       console.log('   • Configuración guardada: ✅');
       console.log('   • Mapeo guardado:', mappingSaved ? '✅' : '⚠️');
-      console.log('========================================');
-      console.log('💡 Para login futuro, usa:');
-      console.log('   Email:', adminEmail);
-      console.log('   Contraseña: (la que configuraste)');
-      console.log('   Club ID:', clubId, '(opcional)');
       console.log('========================================');
       
     } catch (error) {
@@ -914,7 +913,6 @@ async function logout() {
       }
       
       clearCurrentUser();
-      // Mantener clubId para facilitar re-login
       showToast('👋 Sesión cerrada');
       
       setTimeout(() => {
@@ -943,12 +941,10 @@ window.addEventListener('DOMContentLoaded', function() {
 
 // ========================================
 // RECUPERACIÓN DE CONTRASEÑA CON FIREBASE
-// Reemplaza la función forgotPassword() en auth.js
 // ========================================
 
 // ✅ FUNCIÓN MEJORADA: Recuperar contraseña con email de Firebase
 async function forgotPassword() {
-  // Crear modal para ingresar email
   const modal = document.createElement('div');
   modal.id = 'resetPasswordModal';
   modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
@@ -1010,7 +1006,6 @@ async function forgotPassword() {
   
   document.body.appendChild(modal);
 
-  // Agregar estilos para animación
   if (!document.getElementById('resetPasswordStyles')) {
     const style = document.createElement('style');
     style.id = 'resetPasswordStyles';
@@ -1032,16 +1027,13 @@ async function forgotPassword() {
     document.head.appendChild(style);
   }
 
-  // Manejar envío del formulario
   document.getElementById('resetPasswordForm').addEventListener('submit', handlePasswordReset);
   
-  // Focus en el input
   setTimeout(() => {
     document.getElementById('resetEmail').focus();
   }, 100);
 }
 
-// ✅ FUNCIÓN: Manejar el envío de email de recuperación
 async function handlePasswordReset(e) {
   e.preventDefault();
   
@@ -1054,61 +1046,46 @@ async function handlePasswordReset(e) {
     return;
   }
 
-  // Validar formato de email
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) {
     showResetMessage('❌ Email no válido', 'error');
     return;
   }
 
-  // Verificar que Firebase esté listo
   if (!window.firebase?.auth) {
     showResetMessage('❌ Error de conexión. Recarga la página.', 'error');
     return;
   }
 
-  // Deshabilitar botón
   submitBtn.disabled = true;
   submitBtn.textContent = '⏳ Enviando...';
 
   try {
-    console.log('📧 Enviando email de recuperación a:', email);
-    
-    // 🔥 MÉTODO DE FIREBASE: Enviar email de recuperación
     await window.firebase.sendPasswordResetEmail(
       window.firebase.auth,
       email
     );
-
-    console.log('✅ Email de recuperación enviado');
     
-    // Mostrar mensaje de éxito
     showResetMessage(
       `✅ ¡Email enviado! Revisa tu bandeja de entrada (${email}) y sigue las instrucciones para restablecer tu contraseña.`,
       'success'
     );
 
-    // Ocultar formulario y mostrar solo mensaje
     document.getElementById('resetPasswordForm').querySelector('div').classList.add('hidden');
     submitBtn.classList.add('hidden');
     
-    // Cambiar botón cancelar a "Cerrar"
     const cancelBtn = document.querySelector('#resetPasswordForm button[type="button"]');
     cancelBtn.textContent = 'Cerrar';
     cancelBtn.classList.remove('flex-1');
     cancelBtn.classList.add('w-full');
     
-    // Cerrar automáticamente después de 5 segundos
     setTimeout(() => {
       closeResetModal();
     }, 5000);
 
   } catch (error) {
-    console.error('❌ Error al enviar email:', error);
-    
     let errorMessage = '❌ Error al enviar el email. ';
     
-    // Mensajes específicos según el error
     switch (error.code) {
       case 'auth/user-not-found':
         errorMessage += 'No existe una cuenta con ese email.';
@@ -1128,13 +1105,11 @@ async function handlePasswordReset(e) {
     
     showResetMessage(errorMessage, 'error');
     
-    // Rehabilitar botón
     submitBtn.disabled = false;
     submitBtn.textContent = 'Enviar Enlace';
   }
 }
 
-// ✅ FUNCIÓN: Mostrar mensajes en el modal
 function showResetMessage(message, type) {
   const messageDiv = document.getElementById('resetMessage');
   
@@ -1148,7 +1123,6 @@ function showResetMessage(message, type) {
   messageDiv.classList.remove('hidden');
 }
 
-// ✅ FUNCIÓN: Cerrar modal
 function closeResetModal() {
   const modal = document.getElementById('resetPasswordModal');
   if (modal) {
@@ -1156,7 +1130,6 @@ function closeResetModal() {
   }
 }
 
-// ✅ Cerrar modal al hacer clic fuera
 document.addEventListener('click', function(e) {
   const modal = document.getElementById('resetPasswordModal');
   if (modal && e.target === modal) {
@@ -1164,4 +1137,4 @@ document.addEventListener('click', function(e) {
   }
 });
 
-console.log('✅ Sistema de recuperación de contraseña cargado');
+console.log('✅ auth.js cargado (CON NORMALIZACIÓN DE TELÉFONOS)');
