@@ -1,8 +1,9 @@
 // ========================================
-// GESTIÓN DE JUGADORES - MEJORADO
+// GESTIÓN DE JUGADORES - MEJORADO CON ESTADO ACTIVO/INACTIVO
 // ========================================
 
 let currentEditingPlayerId = null;
+let currentStatusFilter = 'todos'; // 'todos', 'activo', 'inactivo'
 
 // Mostrar modal agregar jugador
 function showAddPlayerModal() {
@@ -132,12 +133,79 @@ document.getElementById('playerForm')?.addEventListener('submit', function(e) {
   }
 });
 
-// Renderizar lista de jugadores
+// ⭐ NUEVA FUNCIÓN: Cambiar estado del jugador
+async function togglePlayerStatus(playerId) {
+  const player = getPlayerById(playerId);
+  if (!player) {
+    showToast('❌ Jugador no encontrado');
+    return;
+  }
+  
+  // Cambiar estado
+  const newStatus = player.status === 'Activo' ? 'Inactivo' : 'Activo';
+  
+  // Actualizar localmente
+  updatePlayer(playerId, { status: newStatus });
+  
+  // Sincronizar con Firebase si está disponible
+  if (window.APP_STATE?.firebaseReady && window.firebase?.db) {
+    try {
+      const settings = getSchoolSettings();
+      const clubId = settings.clubId || localStorage.getItem('clubId');
+      
+      if (clubId) {
+        await window.firebase.setDoc(
+          window.firebase.doc(window.firebase.db, `clubs/${clubId}/players`, playerId),
+          { status: newStatus },
+          { merge: true }
+        );
+        console.log('✅ Estado sincronizado con Firebase');
+      }
+    } catch (error) {
+      console.error('⚠️ Error al sincronizar estado:', error);
+    }
+  }
+  
+  // Mensaje y re-renderizar
+  const statusIcon = newStatus === 'Activo' ? '✅' : '⚠️';
+  showToast(`${statusIcon} ${player.name} marcado como ${newStatus}`);
+  renderPlayersList();
+  updateDashboard();
+}
+
+// ⭐ NUEVA FUNCIÓN: Filtrar por estado
+function filterByStatus(status) {
+  currentStatusFilter = status;
+  renderPlayersList();
+  
+  // Actualizar botones de filtro
+  const buttons = document.querySelectorAll('[data-status-filter]');
+  buttons.forEach(btn => {
+    if (btn.dataset.statusFilter === status) {
+      btn.classList.add('bg-teal-600', 'text-white');
+      btn.classList.remove('bg-gray-200', 'dark:bg-gray-700', 'text-gray-700', 'dark:text-gray-300');
+    } else {
+      btn.classList.remove('bg-teal-600', 'text-white');
+      btn.classList.add('bg-gray-200', 'dark:bg-gray-700', 'text-gray-700', 'dark:text-gray-300');
+    }
+  });
+}
+
+// Renderizar lista de jugadores - MEJORADO CON FILTRO DE ESTADO
 function renderPlayersList() {
   const players = getPlayers();
   const searchTerm = document.getElementById('playerSearch')?.value || '';
   
-  const filtered = filterBySearch(players, searchTerm, ['name', 'category', 'phone', 'email', 'position', 'jerseyNumber']);
+  // Filtrar por búsqueda
+  let filtered = filterBySearch(players, searchTerm, ['name', 'category', 'phone', 'email', 'position', 'jerseyNumber']);
+  
+  // Filtrar por estado
+  if (currentStatusFilter === 'activo') {
+    filtered = filtered.filter(p => p.status === 'Activo');
+  } else if (currentStatusFilter === 'inactivo') {
+    filtered = filtered.filter(p => p.status === 'Inactivo' || !p.status);
+  }
+  
   const sorted = sortBy(filtered, 'name', 'asc');
   
   const container = document.getElementById('playersList');
@@ -146,7 +214,16 @@ function renderPlayersList() {
     container.innerHTML = `
       <div class="empty-state">
         <div class="empty-state-icon">👤</div>
-        <p class="text-gray-500 dark:text-gray-400">No hay jugadores registrados</p>
+        <p class="text-gray-500 dark:text-gray-400">
+          ${currentStatusFilter === 'todos' 
+            ? 'No hay jugadores registrados' 
+            : `No hay jugadores ${currentStatusFilter === 'activo' ? 'activos' : 'inactivos'}`}
+        </p>
+        ${currentStatusFilter !== 'todos' ? `
+          <button onclick="filterByStatus('todos')" class="mt-2 text-sm text-teal-600 dark:text-teal-400 underline">
+            Ver todos los jugadores
+          </button>
+        ` : ''}
       </div>
     `;
     return;
@@ -154,16 +231,20 @@ function renderPlayersList() {
   
   container.innerHTML = sorted.map(player => {
     const age = calculateAge(player.birthDate);
-    const statusColor = player.status === 'Activo' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
+    const isActive = player.status === 'Activo';
+    const statusColor = isActive 
+      ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-800' 
+      : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-800';
+    const statusIcon = isActive ? '✓' : '✗';
     
     return `
-      <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm card-hover animate-slide-in">
+      <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm card-hover animate-slide-in ${!isActive ? 'opacity-75' : ''}">
         <div class="flex items-start gap-3">
-          <img src="${player.avatar || getDefaultAvatar()}" alt="${player.name}" class="w-16 h-16 rounded-full object-cover border-2 border-teal-500">
+          <img src="${player.avatar || getDefaultAvatar()}" alt="${player.name}" class="w-16 h-16 rounded-full object-cover border-2 ${isActive ? 'border-teal-500' : 'border-gray-400'}">
           <div class="flex-1 min-w-0">
             <div class="flex items-start justify-between gap-2">
               <div class="flex-1 min-w-0">
-                <h3 class="font-bold text-gray-800 dark:text-white truncate">${player.name}</h3>
+                <h3 class="font-bold text-gray-800 dark:text-white truncate ${!isActive ? 'line-through opacity-60' : ''}">${player.name}</h3>
                 <p class="text-sm text-gray-500 dark:text-gray-400">${player.category} • ${age} años</p>
                 ${player.position || player.jerseyNumber ? `
                   <p class="text-xs text-teal-600 dark:text-teal-400">
@@ -171,7 +252,14 @@ function renderPlayersList() {
                   </p>
                 ` : ''}
               </div>
-              <span class="badge ${statusColor} text-xs">${player.status}</span>
+              <button 
+                onclick="togglePlayerStatus('${player.id}')" 
+                class="badge ${statusColor} text-xs cursor-pointer transition-all transform hover:scale-105 active:scale-95 flex items-center gap-1"
+                title="Click para cambiar estado"
+              >
+                <span>${statusIcon}</span>
+                <span>${player.status || 'Activo'}</span>
+              </button>
             </div>
             <div class="mt-2 flex flex-wrap gap-2">
               <a href="https://wa.me/${cleanPhone(player.phone)}" target="_blank" class="text-sm text-teal-600 dark:text-teal-400 flex items-center gap-1 hover:underline">
@@ -225,6 +313,9 @@ function showPlayerDetails(playerId) {
   const totalPaid = paid.reduce((sum, p) => sum + p.amount, 0);
   const totalPending = pending.reduce((sum, p) => sum + p.amount, 0);
   
+  const isActive = player.status === 'Activo';
+  const statusClass = isActive ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
+  
   const content = `
     <div class="space-y-4">
       <!-- Avatar y datos básicos -->
@@ -237,7 +328,12 @@ function showPlayerDetails(playerId) {
             ${player.position ? player.position : ''} ${player.jerseyNumber ? '• Dorsal #' + player.jerseyNumber : ''}
           </p>
         ` : ''}
-        <span class="inline-block mt-2 px-4 py-1 rounded-full text-sm font-medium ${player.status === 'Activo' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' : 'bg-gray-100 text-gray-800'}">${player.status}</span>
+        <button 
+          onclick="togglePlayerStatus('${player.id}'); showPlayerDetails('${player.id}')" 
+          class="inline-block mt-2 px-4 py-1 rounded-full text-sm font-medium ${statusClass} cursor-pointer hover:opacity-80 transition-opacity"
+        >
+          ${player.status || 'Activo'}
+        </button>
       </div>
       
       <!-- Información personal -->
@@ -388,4 +484,4 @@ function deletePlayerConfirm(playerId) {
   }
 }
 
-console.log('✅ players.js cargado (MEJORADO)');
+console.log('✅ players.js cargado (CON GESTIÓN DE ESTADO ACTIVO/INACTIVO)');

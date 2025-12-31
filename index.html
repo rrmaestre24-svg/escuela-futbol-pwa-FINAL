@@ -379,22 +379,55 @@
             <!-- ========================================
                  VISTA: JUGADORES
             ========================================= -->
-            <div id="playersView" class="hidden p-4 space-y-4">
-                <!-- Buscador y botón agregar -->
-                <div class="flex gap-2">
-                    <div class="flex-1 relative">
-                        <input type="text" id="playerSearch" placeholder="Buscar jugador..." class="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white">
-                        <i data-lucide="search" class="w-5 h-5 text-gray-400 absolute left-3 top-2.5"></i>
-                    </div>
-                    <button onclick="showAddPlayerModal()" class="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg flex items-center gap-2">
-                        <i data-lucide="user-plus" class="w-5 h-5"></i>
-                        Agregar
-                    </button>
-                </div>
+           <!-- ========================================
+     VISTA: JUGADORES - CON FILTROS DE ESTADO
+========================================= -->
+<div id="playersView" class="hidden p-4 space-y-4">
+    <!-- Buscador y botón agregar -->
+    <div class="flex gap-2">
+        <div class="flex-1 relative">
+            <input type="text" id="playerSearch" placeholder="Buscar jugador..." class="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white">
+            <i data-lucide="search" class="w-5 h-5 text-gray-400 absolute left-3 top-2.5"></i>
+        </div>
+        <button onclick="showAddPlayerModal()" class="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg flex items-center gap-2">
+            <i data-lucide="user-plus" class="w-5 h-5"></i>
+            Agregar
+        </button>
+    </div>
 
-                <!-- Lista de jugadores -->
-                <div id="playersList" class="space-y-3"></div>
-            </div>
+    <!-- ⭐ NUEVO: Filtros por estado -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl p-3 shadow-sm">
+        <div class="flex items-center gap-2 overflow-x-auto">
+            <span class="text-sm font-medium text-gray-600 dark:text-gray-400 mr-2">Filtrar:</span>
+            <button 
+                onclick="filterByStatus('todos')" 
+                data-status-filter="todos"
+                class="px-4 py-2 rounded-lg text-sm font-medium transition-all bg-teal-600 text-white whitespace-nowrap"
+            >
+                Todos
+            </button>
+            <button 
+                onclick="filterByStatus('activo')" 
+                data-status-filter="activo"
+                class="px-4 py-2 rounded-lg text-sm font-medium transition-all bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 whitespace-nowrap flex items-center gap-1"
+            >
+                <span class="text-green-600">●</span>
+                Activos
+            </button>
+            <button 
+                onclick="filterByStatus('inactivo')" 
+                data-status-filter="inactivo"
+                class="px-4 py-2 rounded-lg text-sm font-medium transition-all bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 whitespace-nowrap flex items-center gap-1"
+            >
+                <span class="text-red-600">●</span>
+                Inactivos
+            </button>
+        </div>
+    </div>
+
+    <!-- Lista de jugadores -->
+    <div id="playersList" class="space-y-3"></div>
+</div>
 
             <!-- ========================================
                  VISTA: PAGOS

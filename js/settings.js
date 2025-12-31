@@ -1,5 +1,6 @@
 // ========================================
 // CONFIGURACIÓN - CON FIREBASE AUTHENTICATION PARA NUEVOS USUARIOS
+// VERSIÓN CORREGIDA CON MAPEO Y RESTAURACIÓN DE SESIÓN
 // ========================================
 
 // Cargar configuración al abrir vista
@@ -252,7 +253,7 @@ document.getElementById('changePasswordForm')?.addEventListener('submit', functi
   
   showToast('✅ Contraseña cambiada correctamente');
   
-  console.log('🔒 Contraseña actualizada para:', currentUser.email);
+  console.log('🔑 Contraseña actualizada para:', currentUser.email);
 });
 
 // NUEVO: Mostrar/Ocultar contraseña
@@ -479,6 +480,7 @@ function closeAddSchoolUserModal() {
 }
 
 // 🔥 Guardar nuevo usuario de la escuela - CON FIREBASE AUTHENTICATION
+// VERSIÓN CORREGIDA - CON MAPEO Y RESTAURACIÓN DE SESIÓN
 async function saveSchoolUser(userData) {
   const currentUser = getCurrentUser();
   if (!currentUser) return;
@@ -489,32 +491,25 @@ async function saveSchoolUser(userData) {
     return;
   }
   
-  const newUser = {
-    id: generateId(),
-    schoolId: currentUser.schoolId,
-    email: userData.email,
-    password: userData.password,
-    name: userData.name,
-    birthDate: userData.birthDate || '',
-    phone: userData.phone || '',
-    avatar: userData.avatar || getDefaultAvatar(),
-    role: 'admin',
-    isMainAdmin: false,
-    createdAt: getCurrentDate()
-  };
-  
-  // Guardar localmente
-  saveUser(newUser);
-
-  // 🔥 CREAR EN FIREBASE AUTHENTICATION
+  // 🔥 CREAR EN FIREBASE AUTHENTICATION PRIMERO
   if (window.APP_STATE?.firebaseReady && window.firebase?.auth) {
     try {
       console.log('🔥 Creando usuario en Firebase Authentication...');
       showToast('🔥 Creando cuenta en Firebase...');
       
-      // Guardar email y password del admin actual
-      const adminEmail = currentUser.email;
-      const adminPassword = currentUser.password;
+      // ⭐ IMPORTANTE: Guardar datos del admin ANTES de crear el nuevo usuario
+      const adminUser = window.firebase.auth.currentUser;
+      const adminEmail = adminUser ? adminUser.email : currentUser.email;
+      
+      // Obtener contraseña del admin desde localStorage (más confiable)
+      const allUsers = getUsers();
+      const adminFromStorage = allUsers.find(u => u.id === currentUser.id);
+      const adminPassword = adminFromStorage ? adminFromStorage.password : null;
+      
+      if (!adminPassword) {
+        console.warn('⚠️ No se pudo obtener contraseña del admin');
+        showToast('⚠️ Advertencia: Puede que necesites volver a iniciar sesión');
+      }
       
       // Crear el nuevo usuario en Firebase Auth
       const userCredential = await window.firebase.createUserWithEmailAndPassword(
@@ -523,16 +518,37 @@ async function saveSchoolUser(userData) {
         userData.password
       );
       
-      console.log('✅ Usuario creado en Firebase Auth:', userCredential.user.uid);
+      const newUserUid = userCredential.user.uid;
+      console.log('✅ Usuario creado en Firebase Auth con UID:', newUserUid);
+      
+      // Crear objeto de usuario local con el UID de Firebase
+      const newUser = {
+        id: newUserUid, // ⭐ Usar UID de Firebase como ID
+        schoolId: currentUser.schoolId,
+        email: userData.email,
+        password: userData.password,
+        name: userData.name,
+        birthDate: userData.birthDate || '',
+        phone: userData.phone || '',
+        avatar: userData.avatar || getDefaultAvatar(),
+        role: 'admin',
+        isMainAdmin: false,
+        createdAt: getCurrentDate(),
+        firebaseUid: newUserUid
+      };
+      
+      // Guardar localmente
+      saveUser(newUser);
+      console.log('✅ Usuario guardado localmente');
       
       // Guardar en Firestore
       const settings = getSchoolSettings();
-      const clubId = settings.clubId || 'default_club';
+      const clubId = settings.clubId || currentUser.schoolId || 'default_club';
       
       await window.firebase.setDoc(
-        window.firebase.doc(window.firebase.db, `clubs/${clubId}/users`, newUser.id),
+        window.firebase.doc(window.firebase.db, `clubs/${clubId}/users`, newUserUid),
         {
-          id: newUser.id,
+          id: newUserUid,
           email: newUser.email,
           name: newUser.name,
           isMainAdmin: false,
@@ -540,48 +556,96 @@ async function saveSchoolUser(userData) {
           avatar: newUser.avatar || '',
           phone: newUser.phone || '',
           birthDate: newUser.birthDate || '',
-          createdAt: new Date().toISOString(),
-          firebaseUid: userCredential.user.uid
+          createdAt: new Date().toISOString()
         }
       );
-      
       console.log('✅ Usuario guardado en Firestore');
       
-      // 🔐 IMPORTANTE: Cerrar sesión del nuevo usuario y restaurar la del admin
+      // ⭐ CRÍTICO: Guardar mapeo email → clubId (para login multi-dispositivo)
+      if (typeof saveUserClubMapping === 'function') {
+        const mappingSaved = await saveUserClubMapping(userData.email, clubId, newUserUid);
+        if (mappingSaved) {
+          console.log('✅ Mapeo guardado - Login multi-dispositivo habilitado');
+        } else {
+          console.warn('⚠️ Mapeo no guardado - puede afectar login multi-dispositivo');
+        }
+      }
+      
+      // 🔄 IMPORTANTE: Cerrar sesión del nuevo usuario
       await window.firebase.signOut(window.firebase.auth);
       console.log('🔄 Sesión del nuevo usuario cerrada');
       
-      // Re-autenticar al admin
+      // ⭐ RESTAURAR sesión del admin
       if (adminEmail && adminPassword) {
-        await window.firebase.signInWithEmailAndPassword(
-          window.firebase.auth,
-          adminEmail,
-          adminPassword
-        );
-        console.log('✅ Sesión del admin restaurada');
+        try {
+          await window.firebase.signInWithEmailAndPassword(
+            window.firebase.auth,
+            adminEmail,
+            adminPassword
+          );
+          console.log('✅ Sesión del admin restaurada');
+          window.APP_STATE.currentUser = window.firebase.auth.currentUser;
+        } catch (reAuthError) {
+          console.error('❌ Error al restaurar sesión del admin:', reAuthError);
+          showToast('⚠️ Usuario creado, pero necesitas volver a iniciar sesión');
+          
+          // Redirigir al login después de un tiempo
+          setTimeout(() => {
+            logout();
+          }, 2000);
+          return;
+        }
+      } else {
+        console.warn('⚠️ No se pudo restaurar sesión del admin');
+        showToast('⚠️ Usuario creado, pero necesitas volver a iniciar sesión');
+        
+        setTimeout(() => {
+          logout();
+        }, 2000);
+        return;
       }
       
-      showToast('✅ Usuario creado correctamente en Firebase');
+      showToast('✅ Usuario creado correctamente');
+      
+      // Resumen en consola
+      console.log('✅ ========================================');
+      console.log('✅ USUARIO CREADO EXITOSAMENTE');
+      console.log('✅ ========================================');
+      console.log('📋 Resumen:');
+      console.log('   • UID:', newUserUid);
+      console.log('   • Email:', userData.email);
+      console.log('   • Club ID:', clubId);
+      console.log('   • Usuario en Auth: ✅');
+      console.log('   • Usuario en Firestore: ✅');
+      console.log('   • Mapeo guardado: ✅');
+      console.log('   • Sesión admin restaurada: ✅');
+      console.log('========================================');
+      console.log('💡 El nuevo usuario puede hacer login con:');
+      console.log('   Email:', userData.email);
+      console.log('   Contraseña: (la configurada)');
+      console.log('   Club ID:', clubId, '(opcional)');
+      console.log('========================================');
       
     } catch (error) {
       console.error('❌ Error al crear usuario en Firebase:', error);
       
       if (error.code === 'auth/email-already-in-use') {
-        showToast('⚠️ Email ya existe en Firebase, pero guardado localmente');
+        showToast('❌ Este email ya existe en Firebase');
       } else if (error.code === 'auth/weak-password') {
         showToast('❌ La contraseña debe tener al menos 6 caracteres');
       } else if (error.code === 'auth/invalid-email') {
         showToast('❌ Email inválido');
       } else {
-        showToast('⚠️ Usuario guardado localmente, sincroniza más tarde');
+        showToast('❌ Error: ' + error.message);
       }
+      return;
     }
   } else {
-    console.log('⚠️ Firebase no disponible, guardado solo localmente');
-    showToast('⚠️ Firebase no disponible, usuario guardado localmente');
+    console.log('⚠️ Firebase no disponible');
+    showToast('❌ Firebase no disponible. Intenta más tarde.');
+    return;
   }
 
-  showToast('✅ Usuario agregado correctamente');
   closeAddSchoolUserModal();
   renderSchoolUsers();
 }
@@ -695,4 +759,4 @@ function toggleSection(sectionId) {
   }
 }
 
-console.log('✅ settings.js cargado (CON FIREBASE AUTHENTICATION PARA NUEVOS USUARIOS)');
+console.log('✅ settings.js cargado (VERSIÓN CORREGIDA CON MAPEO Y RESTAURACIÓN)');
