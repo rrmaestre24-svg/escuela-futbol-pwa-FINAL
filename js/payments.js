@@ -1054,36 +1054,217 @@ window.autoFillEditConcept = autoFillEditConcept;
 console.log('✅ Sistema de edición COMPLETA de facturas cargado');
 
 // ========================================
-// BUSCADOR DE FACTURAS
-// Agregar este código a payments.js
+// BUSCADOR DE FACTURAS - CÓDIGO COMPLETO
 // ========================================
 
-// Variable global para el término de búsqueda
 let currentSearchTerm = '';
 
-// Función para mostrar/ocultar el buscador
 function togglePaymentSearch() {
   const searchContainer = document.getElementById('paymentSearchContainer');
   if (searchContainer) {
     searchContainer.classList.toggle('hidden');
-    // Focus en el input cuando se muestra (con delay para móvil)
     if (!searchContainer.classList.contains('hidden')) {
       setTimeout(() => {
         const input = document.getElementById('paymentSearchInput');
         if (input) {
           input.focus();
-          // En móvil, asegurar que el teclado se abra
           input.click();
         }
       }, 100);
     } else {
-      // Al cerrar, limpiar la búsqueda
       clearPaymentSearch();
     }
   }
   
-  // Recrear iconos de Lucide
   if (typeof lucide !== 'undefined' && lucide.createIcons) {
     lucide.createIcons();
   }
 }
+
+function searchPayments() {
+  const searchInput = document.getElementById('paymentSearchInput');
+  if (!searchInput) return;
+  
+  currentSearchTerm = searchInput.value.toLowerCase().trim();
+  
+  if (currentSearchTerm === '') {
+    renderPayments();
+    return;
+  }
+  
+  const payments = getPayments();
+  const expenses = getExpenses();
+  let filteredData = [];
+  
+  if (currentPaymentTab === 'monthly') {
+    filteredData = payments
+      .filter(p => p.type === 'Mensualidad')
+      .filter(p => matchesSearch(p, 'payment'));
+    renderFilteredMonthlyPayments(filteredData);
+    
+  } else if (currentPaymentTab === 'extras') {
+    filteredData = payments
+      .filter(p => p.type !== 'Mensualidad')
+      .filter(p => matchesSearch(p, 'payment'));
+    renderFilteredExtraPayments(filteredData);
+    
+  } else if (currentPaymentTab === 'expenses') {
+    filteredData = expenses.filter(e => matchesSearch(e, 'expense'));
+    renderFilteredExpenses(filteredData);
+    
+  } else if (currentPaymentTab === 'history') {
+    const filteredPayments = payments.filter(p => matchesSearch(p, 'payment'));
+    const filteredExpenses = expenses.filter(e => matchesSearch(e, 'expense'));
+    renderPaymentsHistory(filteredPayments, filteredExpenses);
+  }
+  
+  showSearchResultsCount(filteredData.length);
+}
+
+function matchesSearch(item, type) {
+  if (!currentSearchTerm) return true;
+  
+  const term = currentSearchTerm;
+  
+  if (type === 'payment') {
+    const player = getPlayerById(item.playerId);
+    const playerName = player ? player.name.toLowerCase() : '';
+    const playerCategory = player ? player.category.toLowerCase() : '';
+    const concept = (item.concept || '').toLowerCase();
+    const invoiceNumber = (item.invoiceNumber || '').toLowerCase();
+    const amount = item.amount.toString();
+    const paymentType = (item.type || '').toLowerCase();
+    
+    return playerName.includes(term) ||
+           playerCategory.includes(term) ||
+           concept.includes(term) ||
+           invoiceNumber.includes(term) ||
+           amount.includes(term) ||
+           paymentType.includes(term);
+           
+  } else if (type === 'expense') {
+    const beneficiaryName = (item.beneficiaryName || '').toLowerCase();
+    const concept = (item.concept || '').toLowerCase();
+    const category = (item.category || '').toLowerCase();
+    const invoiceNumber = (item.invoiceNumber || '').toLowerCase();
+    const amount = item.amount.toString();
+    
+    return beneficiaryName.includes(term) ||
+           concept.includes(term) ||
+           category.includes(term) ||
+           invoiceNumber.includes(term) ||
+           amount.includes(term);
+  }
+  
+  return false;
+}
+
+function renderFilteredMonthlyPayments(payments) {
+  const container = document.getElementById('monthlyPaymentsContent');
+  
+  if (payments.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-icon">🔍</div>
+        <p class="text-gray-500 dark:text-gray-400">No se encontraron resultados para "${currentSearchTerm}"</p>
+        <button onclick="clearPaymentSearch()" class="mt-3 text-sm text-teal-600 dark:text-teal-400 underline">
+          Limpiar búsqueda
+        </button>
+      </div>
+    `;
+    return;
+  }
+  
+  const sorted = sortBy(payments, 'dueDate', 'desc');
+  
+  container.innerHTML = sorted.map(payment => {
+    const player = getPlayerById(payment.playerId);
+    if (!player) return '';
+    return renderPaymentCard(payment, player);
+  }).join('');
+  
+  lucide.createIcons();
+}
+
+function renderFilteredExtraPayments(payments) {
+  const container = document.getElementById('extrasPaymentsContent');
+  
+  if (payments.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-icon">🔍</div>
+        <p class="text-gray-500 dark:text-gray-400">No se encontraron resultados para "${currentSearchTerm}"</p>
+        <button onclick="clearPaymentSearch()" class="mt-3 text-sm text-teal-600 dark:text-teal-400 underline">
+          Limpiar búsqueda
+        </button>
+      </div>
+    `;
+    return;
+  }
+  
+  const sorted = sortBy(payments, 'dueDate', 'desc');
+  
+  container.innerHTML = sorted.map(payment => {
+    const player = getPlayerById(payment.playerId);
+    if (!player) return '';
+    return renderPaymentCard(payment, player);
+  }).join('');
+  
+  lucide.createIcons();
+}
+
+function renderFilteredExpenses(expenses) {
+  const container = document.getElementById('expensesPaymentsContent');
+  
+  if (expenses.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-icon">🔍</div>
+        <p class="text-gray-500 dark:text-gray-400">No se encontraron resultados para "${currentSearchTerm}"</p>
+        <button onclick="clearPaymentSearch()" class="mt-3 text-sm text-teal-600 dark:text-teal-400 underline">
+          Limpiar búsqueda
+        </button>
+      </div>
+    `;
+    return;
+  }
+  
+  const sorted = sortBy(expenses, 'date', 'desc');
+  
+  container.innerHTML = sorted.map(expense => renderExpenseCard(expense)).join('');
+  
+  lucide.createIcons();
+}
+
+function clearPaymentSearch() {
+  const searchInput = document.getElementById('paymentSearchInput');
+  if (searchInput) {
+    searchInput.value = '';
+  }
+  currentSearchTerm = '';
+  renderPayments();
+  
+  const searchContainer = document.getElementById('paymentSearchContainer');
+  if (searchContainer) {
+    searchContainer.classList.add('hidden');
+  }
+}
+
+function showSearchResultsCount(count) {
+  const searchInput = document.getElementById('paymentSearchInput');
+  if (!searchInput) return;
+  
+  if (count === 0) {
+    searchInput.placeholder = '❌ Sin resultados...';
+  } else if (count === 1) {
+    searchInput.placeholder = `✅ 1 resultado encontrado`;
+  } else {
+    searchInput.placeholder = `✅ ${count} resultados encontrados`;
+  }
+}
+
+window.searchPayments = searchPayments;
+window.clearPaymentSearch = clearPaymentSearch;
+window.togglePaymentSearch = togglePaymentSearch;
+
+console.log('✅ Sistema de búsqueda de pagos completo cargado');
