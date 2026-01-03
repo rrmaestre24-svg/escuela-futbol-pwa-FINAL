@@ -1066,180 +1066,24 @@ function togglePaymentSearch() {
   const searchContainer = document.getElementById('paymentSearchContainer');
   if (searchContainer) {
     searchContainer.classList.toggle('hidden');
-    // Focus en el input cuando se muestra
+    // Focus en el input cuando se muestra (con delay para móvil)
     if (!searchContainer.classList.contains('hidden')) {
-      document.getElementById('paymentSearchInput').focus();
+      setTimeout(() => {
+        const input = document.getElementById('paymentSearchInput');
+        if (input) {
+          input.focus();
+          // En móvil, asegurar que el teclado se abra
+          input.click();
+        }
+      }, 100);
+    } else {
+      // Al cerrar, limpiar la búsqueda
+      clearPaymentSearch();
     }
   }
-}
-
-// Función de búsqueda
-function searchPayments() {
-  currentSearchTerm = document.getElementById('paymentSearchInput').value.toLowerCase().trim();
-  renderPayments();
-}
-
-// Limpiar búsqueda
-function clearPaymentSearch() {
-  currentSearchTerm = '';
-  document.getElementById('paymentSearchInput').value = '';
-  renderPayments();
-}
-
-// Filtrar pagos según búsqueda
-function filterPaymentsBySearch(payments) {
-  if (!currentSearchTerm) return payments;
   
-  return payments.filter(payment => {
-    const player = getPlayerById(payment.playerId);
-    if (!player) return false;
-    
-    // Buscar en múltiples campos
-    const searchableText = [
-      player.name,
-      player.category,
-      payment.concept,
-      payment.invoiceNumber || '',
-      formatCurrency(payment.amount),
-      payment.status,
-      payment.type
-    ].join(' ').toLowerCase();
-    
-    return searchableText.includes(currentSearchTerm);
-  });
-}
-
-// Filtrar egresos según búsqueda
-function filterExpensesBySearch(expenses) {
-  if (!currentSearchTerm) return expenses;
-  
-  return expenses.filter(expense => {
-    const searchableText = [
-      expense.beneficiaryName,
-      expense.concept,
-      expense.category,
-      expense.invoiceNumber || '',
-      formatCurrency(expense.amount)
-    ].join(' ').toLowerCase();
-    
-    return searchableText.includes(currentSearchTerm);
-  });
-}
-
-// ========================================
-// ACTUALIZAR FUNCIONES DE RENDERIZADO
-// ========================================
-
-// Actualizar renderMonthlyPayments con filtro
-function renderMonthlyPayments(payments) {
-  const container = document.getElementById('monthlyPaymentsContent');
-  
-  // Aplicar filtro de búsqueda
-  const filteredPayments = filterPaymentsBySearch(payments);
-  
-  if (filteredPayments.length === 0) {
-    const message = currentSearchTerm 
-      ? `No se encontraron resultados para "${currentSearchTerm}"`
-      : 'No hay mensualidades registradas';
-    
-    container.innerHTML = `
-      <div class="empty-state">
-        <div class="empty-state-icon">${currentSearchTerm ? '🔍' : '💰'}</div>
-        <p class="text-gray-500 dark:text-gray-400">${message}</p>
-        ${currentSearchTerm ? `
-          <button onclick="clearPaymentSearch()" class="mt-3 text-teal-600 hover:text-teal-700 font-medium">
-            Limpiar búsqueda
-          </button>
-        ` : ''}
-      </div>
-    `;
-    return;
+  // Recrear iconos de Lucide
+  if (typeof lucide !== 'undefined' && lucide.createIcons) {
+    lucide.createIcons();
   }
-  
-  const sorted = sortBy(filteredPayments, 'dueDate', 'desc');
-  
-  container.innerHTML = sorted.map(payment => {
-    const player = getPlayerById(payment.playerId);
-    if (!player) return '';
-    return renderPaymentCard(payment, player);
-  }).join('');
-  
-  lucide.createIcons();
 }
-
-// Actualizar renderExtraPayments con filtro
-function renderExtraPayments(payments) {
-  const container = document.getElementById('extrasPaymentsContent');
-  
-  // Aplicar filtro de búsqueda
-  const filteredPayments = filterPaymentsBySearch(payments);
-  
-  if (filteredPayments.length === 0) {
-    const message = currentSearchTerm 
-      ? `No se encontraron resultados para "${currentSearchTerm}"`
-      : 'No hay pagos extras registrados';
-    
-    container.innerHTML = `
-      <div class="empty-state">
-        <div class="empty-state-icon">${currentSearchTerm ? '🔍' : '🎽'}</div>
-        <p class="text-gray-500 dark:text-gray-400">${message}</p>
-        ${currentSearchTerm ? `
-          <button onclick="clearPaymentSearch()" class="mt-3 text-teal-600 hover:text-teal-700 font-medium">
-            Limpiar búsqueda
-          </button>
-        ` : ''}
-      </div>
-    `;
-    return;
-  }
-  
-  const sorted = sortBy(filteredPayments, 'dueDate', 'desc');
-  
-  container.innerHTML = sorted.map(payment => {
-    const player = getPlayerById(payment.playerId);
-    if (!player) return '';
-    return renderPaymentCard(payment, player);
-  }).join('');
-  
-  lucide.createIcons();
-}
-
-// Actualizar renderExpensesInPayments con filtro
-function renderExpensesInPayments(expenses) {
-  const container = document.getElementById('expensesPaymentsContent');
-  
-  // Aplicar filtro de búsqueda
-  const filteredExpenses = filterExpensesBySearch(expenses);
-  
-  if (filteredExpenses.length === 0) {
-    const message = currentSearchTerm 
-      ? `No se encontraron resultados para "${currentSearchTerm}"`
-      : 'No hay egresos registrados';
-    
-    container.innerHTML = `
-      <div class="empty-state">
-        <div class="empty-state-icon">${currentSearchTerm ? '🔍' : '💸'}</div>
-        <p class="text-gray-500 dark:text-gray-400">${message}</p>
-        ${currentSearchTerm ? `
-          <button onclick="clearPaymentSearch()" class="mt-3 text-teal-600 hover:text-teal-700 font-medium">
-            Limpiar búsqueda
-          </button>
-        ` : ''}
-      </div>
-    `;
-    return;
-  }
-  
-  const sorted = sortBy(filteredExpenses, 'date', 'desc');
-  
-  container.innerHTML = sorted.map(expense => renderExpenseCard(expense)).join('');
-  
-  lucide.createIcons();
-}
-
-// Hacer funciones globales
-window.togglePaymentSearch = togglePaymentSearch;
-window.searchPayments = searchPayments;
-window.clearPaymentSearch = clearPaymentSearch;
-
-console.log('✅ Buscador de facturas cargado');

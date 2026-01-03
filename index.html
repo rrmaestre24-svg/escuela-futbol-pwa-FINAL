@@ -254,46 +254,60 @@
                     </button>
                 </div>
                  
-                <!-- Buscador + Botón Registrar -->
-                <div class="flex gap-2">
-                    <!-- Botón Buscar -->
-                    <button onclick="togglePaymentSearch()" 
-                        class="bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-white px-4 py-3 rounded-lg flex items-center gap-2">
-                        <i data-lucide="search" class="w-5 h-5"></i>
-                        Buscar
-                    </button>
-                    
-                    <!-- Botón Registrar Pago -->
-                    <button onclick="showUnifiedPaymentModal()" 
-                        class="flex-1 bg-gradient-to-r from-teal-600 to-blue-600 hover:from-teal-700 hover:to-blue-700 text-white py-3 rounded-lg flex items-center justify-center gap-2 shadow-lg transform hover:scale-105 transition-all">
-                        <i data-lucide="plus-circle" class="w-6 h-6"></i>
-                        <span class="font-bold">Registrar Pago</span>
-                    </button>
-                </div>
+               <!-- Buscador + Botón Registrar -->
+            <div class="flex gap-2">
+                <!-- Botón Buscar (mejorado para móvil) -->
+                <button 
+                    type="button"
+                    onclick="togglePaymentSearch()" 
+                    class="bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-white px-4 py-3 rounded-lg flex items-center gap-2 active:scale-95 transition-transform"
+                    style="touch-action: manipulation; -webkit-tap-highlight-color: transparent; min-height: 44px;"
+                    aria-label="Buscar pagos">
+                    <i data-lucide="search" class="w-5 h-5"></i>
+                    <span class="hidden sm:inline">Buscar</span>
+                </button>
+                
+                <!-- Botón Registrar Pago -->
+                <button 
+                    type="button"
+                    onclick="showUnifiedPaymentModal()" 
+                    class="flex-1 bg-gradient-to-r from-teal-600 to-blue-600 hover:from-teal-700 hover:to-blue-700 text-white py-3 rounded-lg flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all"
+                    style="touch-action: manipulation; min-height: 44px;">
+                    <i data-lucide="plus-circle" class="w-6 h-6"></i>
+                    <span class="font-bold">Registrar Pago</span>
+                </button>
+            </div>
 
-                <!-- Campo de búsqueda (oculto por defecto) -->
-                <div id="paymentSearchContainer" class="hidden">
-                    <div class="relative">
-                        <input 
-                            type="text" 
-                            id="paymentSearchInput" 
-                            placeholder="Buscar por jugador, concepto, factura, monto..."
-                            oninput="searchPayments()"
-                            class="w-full px-4 py-3 pl-12 pr-12 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-2 focus:ring-teal-500"
-                        >
-                        <i data-lucide="search" class="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"></i>
-                        <button 
-                            onclick="clearPaymentSearch()" 
-                            class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                            title="Limpiar búsqueda"
-                        >
-                            <i data-lucide="x" class="w-5 h-5"></i>
-                        </button>
-                    </div>
-                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-2 ml-1">
-                        💡 Puedes buscar por nombre, categoría, concepto, número de factura o monto
-                    </p>
+            <!-- Campo de búsqueda (oculto por defecto) -->
+            <div id="paymentSearchContainer" class="hidden">
+                <div class="relative">
+                    <input 
+                        type="search"
+                        id="paymentSearchInput" 
+                        placeholder="Buscar por jugador, concepto, factura, monto..."
+                        oninput="searchPayments()"
+                        class="w-full px-4 py-3 pl-12 pr-12 rounded-lg border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                        style="font-size: 16px;"
+                        autocomplete="off"
+                        autocorrect="off"
+                        autocapitalize="off"
+                        spellcheck="false"
+                    >
+                    <i data-lucide="search" class="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none"></i>
+                    <button 
+                        type="button"
+                        onclick="clearPaymentSearch()" 
+                        class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-2 active:scale-90 transition-transform"
+                        style="touch-action: manipulation; min-height: 44px; min-width: 44px;"
+                        title="Limpiar búsqueda"
+                        aria-label="Limpiar búsqueda">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
                 </div>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-2 ml-1">
+                    Busca por nombre, categoría, concepto, número de factura o monto
+                </p>
+            </div>
                 
 
                 <!-- Contenido de tabs -->

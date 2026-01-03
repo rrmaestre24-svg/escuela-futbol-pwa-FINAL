@@ -503,3 +503,33 @@ select option {
 select option:hover {
   background-color: rgba(13, 148, 136, 0.1);
 }
+
+/* Animación para el buscador */
+.animate-slide-down {
+    animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Mejorar área táctil en móvil */
+.touch-manipulation {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* Asegurar que los botones sean táctiles en móvil */
+@media (max-width: 640px) {
+    button {
+        min-height: 44px; /* Tamaño mínimo recomendado para táctil */
+        min-width: 44px;
+    }
+}
