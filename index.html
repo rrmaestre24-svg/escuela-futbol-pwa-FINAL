@@ -253,12 +253,48 @@
                          Historial
                     </button>
                 </div>
+                 
+                <!-- Buscador + Botón Registrar -->
+                <div class="flex gap-2">
+                    <!-- Botón Buscar -->
+                    <button onclick="togglePaymentSearch()" 
+                        class="bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-white px-4 py-3 rounded-lg flex items-center gap-2">
+                        <i data-lucide="search" class="w-5 h-5"></i>
+                        Buscar
+                    </button>
+                    
+                    <!-- Botón Registrar Pago -->
+                    <button onclick="showUnifiedPaymentModal()" 
+                        class="flex-1 bg-gradient-to-r from-teal-600 to-blue-600 hover:from-teal-700 hover:to-blue-700 text-white py-3 rounded-lg flex items-center justify-center gap-2 shadow-lg transform hover:scale-105 transition-all">
+                        <i data-lucide="plus-circle" class="w-6 h-6"></i>
+                        <span class="font-bold">Registrar Pago</span>
+                    </button>
+                </div>
 
-                <!-- Botón Unificado -->
-                <button onclick="showUnifiedPaymentModal()" class="w-full bg-gradient-to-r from-teal-600 to-blue-600 hover:from-teal-700 hover:to-blue-700 text-white py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg transform hover:scale-105 transition-all">
-                    <i data-lucide="plus-circle" class="w-6 h-6"></i>
-                    <span class="font-bold">Registrar Pago</span>
-                </button>
+                <!-- Campo de búsqueda (oculto por defecto) -->
+                <div id="paymentSearchContainer" class="hidden">
+                    <div class="relative">
+                        <input 
+                            type="text" 
+                            id="paymentSearchInput" 
+                            placeholder="Buscar por jugador, concepto, factura, monto..."
+                            oninput="searchPayments()"
+                            class="w-full px-4 py-3 pl-12 pr-12 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-2 focus:ring-teal-500"
+                        >
+                        <i data-lucide="search" class="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"></i>
+                        <button 
+                            onclick="clearPaymentSearch()" 
+                            class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                            title="Limpiar búsqueda"
+                        >
+                            <i data-lucide="x" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-2 ml-1">
+                        💡 Puedes buscar por nombre, categoría, concepto, número de factura o monto
+                    </p>
+                </div>
+                
 
                 <!-- Contenido de tabs -->
                 <div id="monthlyPaymentsContent" class="space-y-3"></div>
@@ -281,6 +317,7 @@
                     </div>
                 </div>
             </div>
+            
 
             <!-- ========================================
                  VISTA: CALENDARIO
@@ -1397,8 +1434,8 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
     <script src="js/install.js"></script>
     <script src="js/cache.js"></script>
     <script src="js/theme.js"></script>
-    <script src="js/storage.js"></script>
     <script src="js/pwa-icons.js"></script>
+    <script src="js/storage.js"></script>
     <script src="js/whatsapp.js"></script>
     <script src="js/pdf.js"></script>
     <script src="js/auth.js"></script>
