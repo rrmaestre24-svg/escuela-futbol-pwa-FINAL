@@ -230,8 +230,8 @@ document.getElementById('userProfileForm')?.addEventListener('submit', function(
   showToast('✅ Perfil actualizado');
 });
 
-// NUEVO: Cambiar contraseña
-document.getElementById('changePasswordForm')?.addEventListener('submit', function(e) {
+// NUEVO: Cambiar contraseña - CON FIREBASE AUTHENTICATION
+document.getElementById('changePasswordForm')?.addEventListener('submit', async function(e) {
   e.preventDefault();
   
   const currentUser = getCurrentUser();
@@ -253,21 +253,6 @@ document.getElementById('changePasswordForm')?.addEventListener('submit', functi
   const newPassword = newPasswordInput.value;
   const confirmPassword = confirmPasswordInput.value;
   
-  // Validar contraseña actual
-  const users = getUsers();
-  const user = users.find(u => u.id === currentUser.id);
-  
-  if (!user) {
-    showToast('❌ Usuario no encontrado');
-    return;
-  }
-  
-  if (user.password !== currentPassword) {
-    showToast('❌ La contraseña actual es incorrecta');
-    currentPasswordInput.classList.add('border-red-500');
-    return;
-  }
-  
   // Validar nueva contraseña
   if (newPassword.length < 6) {
     showToast('❌ La nueva contraseña debe tener al menos 6 caracteres');
@@ -285,18 +270,85 @@ document.getElementById('changePasswordForm')?.addEventListener('submit', functi
     return;
   }
   
-  // Actualizar contraseña
-  updateUser(currentUser.id, { password: newPassword });
-  
-  // Limpiar formulario
-  const changePasswordForm = document.getElementById('changePasswordForm');
-  if (changePasswordForm) changePasswordForm.reset();
-  
-  showToast('✅ Contraseña cambiada correctamente');
-  
-  console.log('🔐 Contraseña actualizada para:', currentUser.email);
+  // 🔥 ACTUALIZAR EN FIREBASE AUTHENTICATION
+  try {
+    const firebaseUser = window.firebase?.auth?.currentUser;
+    
+    if (!firebaseUser) {
+      showToast('❌ No hay sesión activa en Firebase');
+      return;
+    }
+    
+    showToast('🔄 Cambiando contraseña...');
+    
+    // 1. Re-autenticar (requerido por Firebase)
+    const credential = window.firebase.EmailAuthProvider.credential(
+      firebaseUser.email,
+      currentPassword
+    );
+    
+    await window.firebase.reauthenticateWithCredential(firebaseUser, credential);
+    console.log('✅ Re-autenticación exitosa');
+    
+    // 2. Actualizar contraseña en Firebase
+    await window.firebase.updatePassword(firebaseUser, newPassword);
+    console.log('✅ Contraseña actualizada en Firebase Authentication');
+    
+    // 3. Actualizar en localStorage (mantener coherencia)
+    updateUser(currentUser.id, { password: newPassword });
+    console.log('✅ Contraseña actualizada en localStorage');
+    
+    // 4. Actualizar en Firestore si existe
+    const clubId = localStorage.getItem('clubId');
+    if (clubId && window.firebase?.db) {
+      try {
+        await window.firebase.updateDoc(
+          window.firebase.doc(window.firebase.db, `clubs/${clubId}/users`, currentUser.id),
+          { 
+            passwordUpdatedAt: new Date().toISOString()
+          }
+        );
+        console.log('✅ Timestamp actualizado en Firestore');
+      } catch (firestoreError) {
+        console.log('ℹ️ No se pudo actualizar Firestore:', firestoreError.message);
+      }
+    }
+    
+    // Limpiar formulario
+    const changePasswordForm = document.getElementById('changePasswordForm');
+    if (changePasswordForm) changePasswordForm.reset();
+    
+    showToast('✅ Contraseña cambiada correctamente');
+    
+    console.log('🔐 ========================================');
+    console.log('🔐 CONTRASEÑA ACTUALIZADA EXITOSAMENTE');
+    console.log('🔐 ========================================');
+    console.log('   • Usuario:', currentUser.email);
+    console.log('   • Firebase Auth: ✅');
+    console.log('   • localStorage: ✅');
+    console.log('   • Firestore: ✅');
+    console.log('========================================');
+    
+  } catch (error) {
+    console.error('❌ Error al cambiar contraseña:', error);
+    
+    // Remover clases de error previas
+    currentPasswordInput.classList.remove('border-red-500');
+    confirmPasswordInput.classList.remove('border-red-500');
+    
+    if (error.code === 'auth/wrong-password') {
+      showToast('❌ La contraseña actual es incorrecta');
+      currentPasswordInput.classList.add('border-red-500');
+    } else if (error.code === 'auth/weak-password') {
+      showToast('❌ La contraseña es muy débil');
+      newPasswordInput.classList.add('border-red-500');
+    } else if (error.code === 'auth/requires-recent-login') {
+      showToast('❌ Por seguridad, cierra sesión y vuelve a entrar antes de cambiar tu contraseña');
+    } else {
+      showToast('❌ Error: ' + error.message);
+    }
+  }
 });
-
 // NUEVO: Mostrar/Ocultar contraseña
 function togglePasswordVisibility(inputId) {
   const input = document.getElementById(inputId);
