@@ -5,6 +5,206 @@
 // ✅ CON NORMALIZACIÓN DE TELÉFONOS
 // ========================================
 
+// ========================================
+// FUNCIONES AUXILIARES NECESARIAS
+// ========================================
+
+// Obtener usuario actual de la sesión
+function getCurrentUser() {
+  try {
+    const userStr = localStorage.getItem('currentUser');
+    return userStr ? JSON.parse(userStr) : null;
+  } catch (error) {
+    console.error('Error al obtener usuario actual:', error);
+    return null;
+  }
+}
+
+// Establecer usuario actual
+function setCurrentUser(user) {
+  try {
+    localStorage.setItem('currentUser', JSON.stringify(user));
+  } catch (error) {
+    console.error('Error al guardar usuario actual:', error);
+  }
+}
+
+// Limpiar sesión
+function clearCurrentUser() {
+  try {
+    localStorage.removeItem('currentUser');
+  } catch (error) {
+    console.error('Error al limpiar sesión:', error);
+  }
+}
+
+// Obtener todos los usuarios
+function getUsers() {
+  try {
+    const usersStr = localStorage.getItem('users');
+    return usersStr ? JSON.parse(usersStr) : [];
+  } catch (error) {
+    console.error('Error al obtener usuarios:', error);
+    return [];
+  }
+}
+
+// Guardar usuario
+function saveUser(user) {
+  try {
+    const users = getUsers();
+    users.push(user);
+    localStorage.setItem('users', JSON.stringify(users));
+  } catch (error) {
+    console.error('Error al guardar usuario:', error);
+  }
+}
+
+// Actualizar usuario
+function updateUser(userId, updates) {
+  try {
+    const users = getUsers();
+    const index = users.findIndex(u => u.id === userId);
+    if (index !== -1) {
+      users[index] = { ...users[index], ...updates };
+      localStorage.setItem('users', JSON.stringify(users));
+    }
+  } catch (error) {
+    console.error('Error al actualizar usuario:', error);
+  }
+}
+
+// Obtener configuración del club
+function getSchoolSettings() {
+  try {
+    const settingsStr = localStorage.getItem('schoolSettings');
+    return settingsStr ? JSON.parse(settingsStr) : null;
+  } catch (error) {
+    console.error('Error al obtener configuración:', error);
+    return null;
+  }
+}
+
+// Guardar configuración del club
+function saveSchoolSettings(settings) {
+  try {
+    localStorage.setItem('schoolSettings', JSON.stringify(settings));
+  } catch (error) {
+    console.error('Error al guardar configuración:', error);
+  }
+}
+
+// Actualizar configuración
+function updateSchoolSettings(updates) {
+  try {
+    const current = getSchoolSettings() || {};
+    const updated = { ...current, ...updates };
+    saveSchoolSettings(updated);
+  } catch (error) {
+    console.error('Error al actualizar configuración:', error);
+  }
+}
+
+// Guardar todos los jugadores
+function saveAllPlayers(players) {
+  try {
+    localStorage.setItem('players', JSON.stringify(players));
+  } catch (error) {
+    console.error('Error al guardar jugadores:', error);
+  }
+}
+
+// Mostrar toast notification
+function showToast(message) {
+  const toast = document.getElementById('toast');
+  if (toast) {
+    toast.textContent = message;
+    toast.classList.remove('hidden');
+    setTimeout(() => {
+      toast.classList.add('hidden');
+    }, 3000);
+  } else {
+    console.log('TOAST:', message);
+  }
+}
+
+// Confirmar acción
+function confirmAction(message) {
+  return confirm(message);
+}
+
+// Obtener fecha actual
+function getCurrentDate() {
+  return new Date().toISOString();
+}
+
+// Convertir imagen a base64
+function imageToBase64(file, callback) {
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    callback(e.target.result);
+  };
+  reader.readAsDataURL(file);
+}
+
+// Comprimir imagen para Firestore
+function compressImageForFirestore(base64, maxWidth, callback) {
+  const img = new Image();
+  img.onload = function() {
+    const canvas = document.createElement('canvas');
+    let width = img.width;
+    let height = img.height;
+    
+    if (width > maxWidth) {
+      height = (height * maxWidth) / width;
+      width = maxWidth;
+    }
+    
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, width, height);
+    
+    callback(canvas.toDataURL('image/jpeg', 0.7));
+  };
+  img.src = base64;
+}
+
+// Logo por defecto
+function getDefaultLogo() {
+  return 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Ccircle cx="50" cy="50" r="45" fill="%230d9488"/%3E%3Ctext x="50" y="65" font-size="50" text-anchor="middle" fill="white"%3E⚽%3C/text%3E%3C/svg%3E';
+}
+
+// Avatar por defecto
+function getDefaultAvatar() {
+  return 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Ccircle cx="50" cy="50" r="45" fill="%23gray"/%3E%3Ctext x="50" y="65" font-size="50" text-anchor="middle" fill="white"%3E👤%3C/text%3E%3C/svg%3E';
+}
+
+// Normalizar teléfono
+function normalizePhone(phone) {
+  if (!phone) return '';
+  // Eliminar espacios, guiones y paréntesis
+  let normalized = phone.replace(/[\s\-\(\)]/g, '');
+  // Si no tiene +, agregar +57 para Colombia
+  if (!normalized.startsWith('+')) {
+    normalized = '+57' + normalized;
+  }
+  return normalized;
+}
+
+// Inicializar app
+function initApp() {
+  console.log('✅ App inicializada');
+  // Cargar contenido del dashboard si existe
+  if (typeof loadDashboard === 'function') {
+    loadDashboard();
+  }
+}
+
+// ========================================
+// CÓDIGO ORIGINAL DE AUTH.JS
+// ========================================
+
 // ✅ FUNCIÓN AUXILIAR: Esperar a que Firebase esté listo
 async function waitForFirebase(maxAttempts = 10) {
   for (let i = 0; i < maxAttempts; i++) {
@@ -286,7 +486,7 @@ document.getElementById('loginForm')?.addEventListener('submit', async function(
     return;
   }
   
-  console.log('🔍 Iniciando login para:', email);
+  console.log('🔐 Iniciando login para:', email);
   if (clubIdInput) {
     console.log('⚡ Club ID proporcionado:', clubIdInput, '(login rápido)');
   } else {
@@ -302,7 +502,7 @@ document.getElementById('loginForm')?.addEventListener('submit', async function(
   }
   
   try {
-    showToast('🔍 Verificando credenciales...');
+    showToast('🔐 Verificando credenciales...');
     
     // 1️⃣ Autenticar con Firebase
     const userCredential = await window.firebase.signInWithEmailAndPassword(
@@ -383,9 +583,7 @@ document.getElementById('loginForm')?.addEventListener('submit', async function(
         
         // Redireccionar al dashboard
         setTimeout(() => {
-          document.getElementById('loginScreen').classList.add('hidden');
-          document.getElementById('appContainer').classList.remove('hidden');
-          initApp();
+          window.location.href = 'index.html';
         }, 500);
       } else {
         showToast('⚠️ Usuario no encontrado en el club');
@@ -485,34 +683,35 @@ document.getElementById('registerForm')?.addEventListener('submit', async functi
     return;
   }
   
- // ========================================
-// PROCESAR IMÁGENES CON COMPRESIÓN
-// ========================================
-const processClubData = () => {
-  if (clubLogoFile) {
-    imageToBase64(clubLogoFile, function(clubLogo) {
-      // ⭐ COMPRIMIR logo antes de procesar
-      compressImageForFirestore(clubLogo, 800, function(compressedLogo) {
-        processAdminData(compressedLogo);
+  // ========================================
+  // PROCESAR IMÁGENES CON COMPRESIÓN
+  // ========================================
+  const processClubData = () => {
+    if (clubLogoFile) {
+      imageToBase64(clubLogoFile, function(clubLogo) {
+        // ⭐ COMPRIMIR logo antes de procesar
+        compressImageForFirestore(clubLogo, 800, function(compressedLogo) {
+          processAdminData(compressedLogo);
+        });
       });
-    });
-  } else {
-    processAdminData(getDefaultLogo());
-  }
-};
+    } else {
+      processAdminData(getDefaultLogo());
+    }
+  };
 
-const processAdminData = (clubLogo) => {
-  if (adminAvatarFile) {
-    imageToBase64(adminAvatarFile, function(adminAvatar) {
-      // ⭐ COMPRIMIR avatar antes de registrar
-      compressImageForFirestore(adminAvatar, 800, function(compressedAvatar) {
-        completeRegistration(clubLogo, compressedAvatar);
+  const processAdminData = (clubLogo) => {
+    if (adminAvatarFile) {
+      imageToBase64(adminAvatarFile, function(adminAvatar) {
+        // ⭐ COMPRIMIR avatar antes de registrar
+        compressImageForFirestore(adminAvatar, 800, function(compressedAvatar) {
+          completeRegistration(clubLogo, compressedAvatar);
+        });
       });
-    });
-  } else {
-    completeRegistration(clubLogo, getDefaultAvatar());
-  }
-};
+    } else {
+      completeRegistration(clubLogo, getDefaultAvatar());
+    }
+  };
+  
   // ========================================
   // FUNCIÓN PRINCIPAL DE REGISTRO
   // ========================================
@@ -557,8 +756,8 @@ const processAdminData = (clubLogo) => {
       // ========================================
       // PASO 1: CREAR USUARIO EN AUTHENTICATION
       // ========================================
-      console.log('📝 Paso 1/6: Creando usuario en Authentication...');
-      showToast('📝 Creando administrador...');
+      console.log('🔐 Paso 1/6: Creando usuario en Authentication...');
+      showToast('🔐 Creando administrador...');
       
       try {
         const userCredential = await window.firebase.createUserWithEmailAndPassword(
@@ -573,7 +772,7 @@ const processAdminData = (clubLogo) => {
         
         console.log('✅ Usuario creado en Auth con UID:', firebaseUid);
         console.log('📧 Email usado:', adminEmail);
-        console.log('🔑 Contraseña configurada correctamente');
+        console.log('🔒 Contraseña configurada correctamente');
         
       } catch (authError) {
         console.error('❌ ERROR en Authentication:', authError);
@@ -863,8 +1062,12 @@ function closeClubIdModal() {
   }
   
   // Redirigir al dashboard
-  document.getElementById('loginScreen').classList.add('hidden');
-  document.getElementById('appContainer').classList.remove('hidden');
+  const loginScreen = document.getElementById('loginScreen');
+  const appContainer = document.getElementById('appContainer');
+  
+  if (loginScreen) loginScreen.classList.add('hidden');
+  if (appContainer) appContainer.classList.remove('hidden');
+  
   initApp();
 }
 
@@ -921,7 +1124,7 @@ async function logout() {
       showToast('👋 Sesión cerrada');
       
       setTimeout(() => {
-        window.location.reload();
+        window.location.href = 'login.html';
       }, 1000);
     } catch (error) {
       console.error('Error al cerrar sesión:', error);
@@ -934,13 +1137,16 @@ async function logout() {
 window.addEventListener('DOMContentLoaded', function() {
   const currentUser = getCurrentUser();
   
+  const loginScreen = document.getElementById('loginScreen');
+  const appContainer = document.getElementById('appContainer');
+  
   if (currentUser) {
-    document.getElementById('loginScreen').classList.add('hidden');
-    document.getElementById('appContainer').classList.remove('hidden');
+    if (loginScreen) loginScreen.classList.add('hidden');
+    if (appContainer) appContainer.classList.remove('hidden');
     initApp();
   } else {
-    document.getElementById('loginScreen').classList.remove('hidden');
-    document.getElementById('appContainer').classList.add('hidden');
+    if (loginScreen) loginScreen.classList.remove('hidden');
+    if (appContainer) appContainer.classList.add('hidden');
   }
 });
 
@@ -1026,120 +1232,100 @@ async function forgotPassword() {
         }
       }
       .animate-fade-in {
-        animation: fade-in 0.3s ease-out;
-      }
-    `;
-    document.head.appendChild(style);
-  }
-
-  document.getElementById('resetPasswordForm').addEventListener('submit', handlePasswordReset);
-  
-  setTimeout(() => {
-    document.getElementById('resetEmail').focus();
-  }, 100);
+animation: fade-in 0.3s ease-out;
 }
-
+`;
+document.head.appendChild(style);
+}
+document.getElementById('resetPasswordForm').addEventListener('submit', handlePasswordReset);
+setTimeout(() => {
+document.getElementById('resetEmail').focus();
+}, 100);
+}
 async function handlePasswordReset(e) {
-  e.preventDefault();
-  
-  const email = document.getElementById('resetEmail').value.trim();
-  const submitBtn = document.getElementById('resetSubmitBtn');
-  const messageDiv = document.getElementById('resetMessage');
-  
-  if (!email) {
-    showResetMessage('❌ Por favor ingresa tu email', 'error');
-    return;
-  }
+e.preventDefault();
+const email = document.getElementById('resetEmail').value.trim();
+const submitBtn = document.getElementById('resetSubmitBtn');
+const messageDiv = document.getElementById('resetMessage');
+if (!email) {
+showResetMessage('❌ Por favor ingresa tu email', 'error');
+return;
+}
+const emailRegex = /^[^\s@]+@[^\s@]+.[^\s@]+$/;
+if (!emailRegex.test(email)) {
+showResetMessage('❌ Email no válido', 'error');
+return;
+}
+if (!window.firebase?.auth) {
+showResetMessage('❌ Error de conexión. Recarga la página.', 'error');
+return;
+}
+submitBtn.disabled = true;
+submitBtn.textContent = '⏳ Enviando...';
+try {
+await window.firebase.sendPasswordResetEmail(
+window.firebase.auth,
+email
+);
+showResetMessage(
+  `✅ ¡Email enviado! Revisa tu bandeja de entrada (${email}) y sigue las instrucciones para restablecer tu contraseña.`,
+  'success'
+);
 
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
-    showResetMessage('❌ Email no válido', 'error');
-    return;
-  }
+document.getElementById('resetPasswordForm').querySelector('div').classList.add('hidden');
+submitBtn.classList.add('hidden');
 
-  if (!window.firebase?.auth) {
-    showResetMessage('❌ Error de conexión. Recarga la página.', 'error');
-    return;
-  }
+const cancelBtn = document.querySelector('#resetPasswordForm button[type="button"]');
+cancelBtn.textContent = 'Cerrar';
+cancelBtn.classList.remove('flex-1');
+cancelBtn.classList.add('w-full');
 
-  submitBtn.disabled = true;
-  submitBtn.textContent = '⏳ Enviando...';
-
-  try {
-    await window.firebase.sendPasswordResetEmail(
-      window.firebase.auth,
-      email
-    );
-    
-    showResetMessage(
-      `✅ ¡Email enviado! Revisa tu bandeja de entrada (${email}) y sigue las instrucciones para restablecer tu contraseña.`,
-      'success'
-    );
-
-    document.getElementById('resetPasswordForm').querySelector('div').classList.add('hidden');
-    submitBtn.classList.add('hidden');
-    
-    const cancelBtn = document.querySelector('#resetPasswordForm button[type="button"]');
-    cancelBtn.textContent = 'Cerrar';
-    cancelBtn.classList.remove('flex-1');
-    cancelBtn.classList.add('w-full');
-    
-    setTimeout(() => {
-      closeResetModal();
-    }, 5000);
-
-  } catch (error) {
-    let errorMessage = '❌ Error al enviar el email. ';
-    
-    switch (error.code) {
-      case 'auth/user-not-found':
-        errorMessage += 'No existe una cuenta con ese email.';
-        break;
-      case 'auth/invalid-email':
-        errorMessage += 'Email no válido.';
-        break;
-      case 'auth/too-many-requests':
-        errorMessage += 'Demasiados intentos. Intenta más tarde.';
-        break;
-      case 'auth/network-request-failed':
-        errorMessage += 'Error de conexión. Verifica tu internet.';
-        break;
-      default:
-        errorMessage += error.message;
-    }
-    
-    showResetMessage(errorMessage, 'error');
-    
-    submitBtn.disabled = false;
-    submitBtn.textContent = 'Enviar Enlace';
-  }
+setTimeout(() => {
+  closeResetModal();
+}, 5000);
+} catch (error) {
+let errorMessage = '❌ Error al enviar el email. ';switch (error.code) {
+  case 'auth/user-not-found':
+    errorMessage += 'No existe una cuenta con ese email.';
+    break;
+  case 'auth/invalid-email':
+    errorMessage += 'Email no válido.';
+    break;
+  case 'auth/too-many-requests':
+    errorMessage += 'Demasiados intentos. Intenta más tarde.';
+    break;
+  case 'auth/network-request-failed':
+    errorMessage += 'Error de conexión. Verifica tu internet.';
+    break;
+  default:
+    errorMessage += error.message;
 }
 
+showResetMessage(errorMessage, 'error');
+
+submitBtn.disabled = false;
+submitBtn.textContent = 'Enviar Enlace';}
+}
 function showResetMessage(message, type) {
-  const messageDiv = document.getElementById('resetMessage');
-  
-  if (type === 'success') {
-    messageDiv.className = 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 text-sm text-green-800 dark:text-green-300';
-  } else {
-    messageDiv.className = 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 text-sm text-red-800 dark:text-red-300';
-  }
-  
-  messageDiv.textContent = message;
-  messageDiv.classList.remove('hidden');
+const messageDiv = document.getElementById('resetMessage');
+if (type === 'success') {
+messageDiv.className = 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 text-sm text-green-800 dark:text-green-300';
+} else {
+messageDiv.className = 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 text-sm text-red-800 dark:text-red-300';
 }
-
+messageDiv.textContent = message;
+messageDiv.classList.remove('hidden');
+}
 function closeResetModal() {
-  const modal = document.getElementById('resetPasswordModal');
-  if (modal) {
-    modal.remove();
-  }
+const modal = document.getElementById('resetPasswordModal');
+if (modal) {
+modal.remove();
 }
-
+}
 document.addEventListener('click', function(e) {
-  const modal = document.getElementById('resetPasswordModal');
-  if (modal && e.target === modal) {
-    closeResetModal();
-  }
+const modal = document.getElementById('resetPasswordModal');
+if (modal && e.target === modal) {
+closeResetModal();
+}
 });
-
 console.log('✅ auth.js cargado (CON NORMALIZACIÓN DE TELÉFONOS)');

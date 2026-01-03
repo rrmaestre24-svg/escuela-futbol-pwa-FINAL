@@ -1,5 +1,5 @@
 // ========================================
-// GESTIÓN DE EGRESOS (Integrado con Pagos)
+// GESTIÓN DE EGRESOS + 🆕 AUDITORÍA
 // ========================================
 
 console.log('📦 Cargando expenses.js...');
@@ -130,7 +130,7 @@ if (expenseCategorySelect) {
   });
 }
 
-// Guardar egreso
+// 🆕 MODIFICADO: Guardar egreso (CON AUDITORÍA)
 const expenseFormElement = document.getElementById('expenseForm');
 if (expenseFormElement) {
   expenseFormElement.addEventListener('submit', function(e) {
@@ -222,9 +222,16 @@ if (expenseFormElement) {
       console.log('💾 Datos del egreso:', expenseData);
       
       if (expenseId) {
-        updateExpense(expenseId, expenseData);
+        // 🆕 EDITAR: Agregar editedBy
+        updateExpense(expenseId, {
+          ...expenseData,
+          editedBy: getAuditInfo() // 🆕 AUDITORÍA
+        });
         showToast('✅ Egreso actualizado');
       } else {
+        // 🆕 CREAR: Agregar createdBy
+        expenseData.createdBy = getAuditInfo(); // 🆕 AUDITORÍA
+        
         saveExpense(expenseData);
         showToast('✅ Egreso registrado');
         
@@ -341,5 +348,5 @@ window.showBeneficiaryType = showBeneficiaryType;
 window.deleteExpenseConfirm = deleteExpenseConfirm;
 window.generateExpenseInvoicePDFWithWhatsApp = generateExpenseInvoicePDFWithWhatsApp;
 
-console.log('✅ expenses.js cargado correctamente');
+console.log('✅ expenses.js cargado correctamente CON AUDITORÍA');
 console.log('✅ showAddExpenseModal disponible:', typeof showAddExpenseModal);

@@ -7,23 +7,113 @@ function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).substr(2);
 }
 
-// Formatear fecha a dd/mm/yyyy
+// ========================================
+// 🆕 FUNCIONES DE FECHA CORREGIDAS
+// ========================================
+
+// 🆕 Función auxiliar: Parsear fecha sin afectar zona horaria
+function parseLocalDate(dateString) {
+  if (!dateString) return new Date();
+  
+  // Si ya es un objeto Date, devolverlo
+  if (dateString instanceof Date) return dateString;
+  
+  // Si es formato YYYY-MM-DD, parsear manualmente
+  if (typeof dateString === 'string' && dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    const [year, month, day] = dateString.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  }
+  
+  // Para otros formatos, usar Date normal
+  return new Date(dateString);
+}
+
+// ✅ Formatear fecha a dd/mm/yyyy (CORREGIDO)
 function formatDate(dateString) {
   if (!dateString) return '-';
-  const date = new Date(dateString);
+  
+  const date = parseLocalDate(dateString);
   const day = String(date.getDate()).padStart(2, '0');
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const year = date.getFullYear();
+  
   return `${day}/${month}/${year}`;
 }
 
-// Formatear fecha a texto legible
+// ✅ Formatear fecha a texto legible (CORREGIDO)
 function formatDateText(dateString) {
   if (!dateString) return '-';
-  const date = new Date(dateString);
-  const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+  
+  const date = parseLocalDate(dateString);
+  const months = [
+    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+  ];
+  
   return `${date.getDate()} de ${months[date.getMonth()]} de ${date.getFullYear()}`;
 }
+
+// ✅ Calcular edad (CORREGIDO)
+function calculateAge(birthDate) {
+  if (!birthDate) return 0;
+  
+  const today = new Date();
+  const birth = parseLocalDate(birthDate);
+  
+  let age = today.getFullYear() - birth.getFullYear();
+  const monthDiff = today.getMonth() - birth.getMonth();
+  
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+    age--;
+  }
+  
+  return age;
+}
+
+// ✅ Calcular días entre fechas (CORREGIDO)
+function daysBetween(date1, date2) {
+  const oneDay = 24 * 60 * 60 * 1000;
+  const firstDate = parseLocalDate(date1);
+  const secondDate = parseLocalDate(date2);
+  
+  // Normalizar a medianoche para comparar solo días
+  firstDate.setHours(0, 0, 0, 0);
+  secondDate.setHours(0, 0, 0, 0);
+  
+  return Math.round((secondDate - firstDate) / oneDay);
+}
+
+// ✅ Verificar si es hoy (CORREGIDO)
+function isToday(dateString) {
+  const today = new Date();
+  const date = parseLocalDate(dateString);
+  
+  return date.getDate() === today.getDate() &&
+         date.getMonth() === today.getMonth() &&
+         date.getFullYear() === today.getFullYear();
+}
+
+// ✅ Verificar si es este mes (CORREGIDO)
+function isThisMonth(dateString) {
+  const today = new Date();
+  const date = parseLocalDate(dateString);
+  
+  return date.getMonth() === today.getMonth() &&
+         date.getFullYear() === today.getFullYear();
+}
+
+// Obtener fecha actual en formato YYYY-MM-DD
+function getCurrentDate() {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+// ========================================
+// FIN FUNCIONES DE FECHA
+// ========================================
 
 // Formatear moneda COP
 function formatCurrency(amount) {
@@ -35,27 +125,6 @@ function formatCurrency(amount) {
     maximumFractionDigits: 0
   }).format(amount);
   return formatted;
-}
-
-// Calcular edad
-function calculateAge(birthDate) {
-  if (!birthDate) return 0;
-  const today = new Date();
-  const birth = new Date(birthDate);
-  let age = today.getFullYear() - birth.getFullYear();
-  const monthDiff = today.getMonth() - birth.getMonth();
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-    age--;
-  }
-  return age;
-}
-
-// Calcular días entre fechas
-function daysBetween(date1, date2) {
-  const oneDay = 24 * 60 * 60 * 1000;
-  const firstDate = new Date(date1);
-  const secondDate = new Date(date2);
-  return Math.round((secondDate - firstDate) / oneDay);
 }
 
 // Validar email
@@ -95,15 +164,6 @@ function confirmAction(message) {
   return confirm(message);
 }
 
-// Obtener fecha actual en formato YYYY-MM-DD
-function getCurrentDate() {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, '0');
-  const day = String(today.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
 // Obtener nombre del mes
 function getMonthName(monthIndex) {
   const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
@@ -118,23 +178,6 @@ function getDaysInMonth(year, month) {
 // Obtener primer día del mes (0 = Domingo)
 function getFirstDayOfMonth(year, month) {
   return new Date(year, month, 1).getDay();
-}
-
-// Verificar si es hoy
-function isToday(dateString) {
-  const today = new Date();
-  const date = new Date(dateString);
-  return date.getDate() === today.getDate() &&
-         date.getMonth() === today.getMonth() &&
-         date.getFullYear() === today.getFullYear();
-}
-
-// Verificar si es este mes
-function isThisMonth(dateString) {
-  const today = new Date();
-  const date = new Date(dateString);
-  return date.getMonth() === today.getMonth() &&
-         date.getFullYear() === today.getFullYear();
 }
 
 // Ordenar array por campo
@@ -236,152 +279,6 @@ function arrayToCSV(array) {
   return csvRows.join('\n');
 }
 
-console.log('✅ utils.js cargado');
-// ========================================
-// DIAGNÓSTICO RE-LOGIN
-// Copiar y pegar en consola (F12) ANTES de intentar hacer login
-// ========================================
-
-console.clear();
-console.log('%c🔍 DIAGNÓSTICO RE-LOGIN', 'background: #0d9488; color: white; font-size: 16px; padding: 10px; border-radius: 5px;');
-console.log('═══════════════════════════════════════\n');
-
-// 1. Verificar HTML
-console.log('📋 1. VERIFICACIÓN HTML:');
-console.log('───────────────────────────────────────');
-const loginClubIdInput = document.getElementById('loginClubId');
-const loginEmailInput = document.getElementById('loginEmail');
-const loginPasswordInput = document.getElementById('loginPassword');
-
-console.log('Campo loginClubId:', loginClubIdInput ? '✅ Existe' : '❌ NO EXISTE');
-console.log('Campo loginEmail:', loginEmailInput ? '✅ Existe' : '❌ NO EXISTE');
-console.log('Campo loginPassword:', loginPasswordInput ? '✅ Existe' : '❌ NO EXISTE');
-console.log('\n');
-
-// 2. Verificar localStorage
-console.log('💾 2. DATOS EN LOCALSTORAGE:');
-console.log('───────────────────────────────────────');
-const clubId = localStorage.getItem('clubId');
-const currentUser = localStorage.getItem('currentUser');
-const users = localStorage.getItem('users');
-
-console.log('clubId:', clubId || '❌ NO EXISTE');
-console.log('currentUser:', currentUser ? '✅ Existe' : '❌ NO EXISTE');
-
-if (currentUser) {
-  try {
-    const user = JSON.parse(currentUser);
-    console.log('  - Email:', user.email);
-    console.log('  - Nombre:', user.name);
-    console.log('  - schoolId:', user.schoolId);
-  } catch (e) {
-    console.log('  ❌ Error al parsear currentUser');
-  }
-}
-
-if (users) {
-  try {
-    const usersList = JSON.parse(users);
-    console.log('users:', `✅ ${usersList.length} usuario(s)`);
-    usersList.forEach(u => {
-      console.log(`  - ${u.email} (schoolId: ${u.schoolId})`);
-    });
-  } catch (e) {
-    console.log('  ❌ Error al parsear users');
-  }
-}
-console.log('\n');
-
-// 3. Verificar Firebase
-console.log('🔥 3. ESTADO DE FIREBASE:');
-console.log('───────────────────────────────────────');
-console.log('APP_STATE existe:', typeof window.APP_STATE);
-console.log('APP_STATE.firebaseReady:', window.APP_STATE?.firebaseReady);
-console.log('window.firebase:', typeof window.firebase);
-console.log('firebase.auth:', window.firebase?.auth ? '✅ Disponible' : '❌ NO DISPONIBLE');
-console.log('firebase.db:', window.firebase?.db ? '✅ Disponible' : '❌ NO DISPONIBLE');
-
-if (window.firebase?.auth?.currentUser) {
-  console.log('Firebase currentUser:', {
-    uid: window.firebase.auth.currentUser.uid,
-    email: window.firebase.auth.currentUser.email
-  });
-} else {
-  console.log('Firebase currentUser: ❌ No hay sesión');
-}
-console.log('\n');
-
-// 4. Verificar funciones
-console.log('⚙️ 4. FUNCIONES NECESARIAS:');
-console.log('───────────────────────────────────────');
-const functions = [
-  'waitForFirebase',
-  'getClubIdForUser',
-  'downloadAllClubData',
-  'saveUserClubMapping',
-  'getUsers',
-  'getCurrentUser',
-  'imageToBase64'
-];
-
-functions.forEach(fn => {
-  const exists = typeof window[fn] === 'function';
-  console.log(`${exists ? '✅' : '❌'} ${fn}()`);
-});
-console.log('\n');
-
-// 5. Simular lectura de campos
-console.log('🎯 5. SIMULACIÓN DE LOGIN:');
-console.log('───────────────────────────────────────');
-if (loginClubIdInput && loginEmailInput && loginPasswordInput) {
-  console.log('Valores actuales en los campos:');
-  console.log('  clubId:', loginClubIdInput.value || '(vacío)');
-  console.log('  email:', loginEmailInput.value || '(vacío)');
-  console.log('  password:', loginPasswordInput.value ? '***' : '(vacío)');
-} else {
-  console.log('❌ No se pueden leer los campos (no existen)');
-}
-console.log('\n');
-
-// 6. Diagnóstico
-console.log('🎯 6. DIAGNÓSTICO:');
-console.log('───────────────────────────────────────');
-
-if (!window.APP_STATE?.firebaseReady) {
-  console.log('⚠️ PROBLEMA: Firebase NO está inicializado');
-  console.log('');
-  console.log('SOLUCIÓN:');
-  console.log('1. Espera 5 segundos y vuelve a intentar');
-  console.log('2. Si persiste, ejecuta: initFirebase()');
-  console.log('3. Recarga la página si es necesario');
-} else if (!clubId) {
-  console.log('⚠️ PROBLEMA: clubId NO está en localStorage');
-  console.log('');
-  console.log('SOLUCIÓN:');
-  console.log('1. Ingresa el clubId manualmente en el campo');
-  console.log('2. O registra el club de nuevo');
-} else if (!loginClubIdInput) {
-  console.log('❌ PROBLEMA GRAVE: Campo loginClubId NO existe en HTML');
-  console.log('');
-  console.log('SOLUCIÓN:');
-  console.log('Verifica que el index.html tenga:');
-  console.log('<input type="text" id="loginClubId" ...>');
-} else {
-  console.log('✅ TODO PARECE CORRECTO');
-  console.log('');
-  console.log('Ahora intenta hacer login y mira qué error aparece en la consola');
-}
-
-console.log('\n═══════════════════════════════════════');
-console.log('🔍 DIAGNÓSTICO COMPLETADO\n');
-
-// Instrucciones
-console.log('%c💡 SIGUIENTE PASO:', 'background: #3b82f6; color: white; font-size: 14px; padding: 5px;');
-console.log('1. Ingresa tus datos en el formulario de login');
-console.log('2. Click en "Entrar"');
-console.log('3. Observa qué errores aparecen aquí en la consola');
-console.log('4. Copia el error COMPLETO y envíamelo\n');
-
 // ========================================
 // COMPRIMIR IMAGEN PARA FIRESTORE
 // ========================================
@@ -451,4 +348,51 @@ function compressImageForFirestore(base64String, maxSizeKB = 800, callback) {
   img.src = base64String;
 }
 
-console.log('✅ utils.js cargado');
+console.log('✅ utils.js cargado con correcciones de zona horaria');
+console.log('📅 Fecha actual:', getCurrentDate());
+console.log('📅 Fecha formateada:', formatDate(getCurrentDate()));
+console.log('📅 Fecha en texto:', formatDateText(getCurrentDate()));
+
+// ========================================
+// 🆕 FUNCIÓN AUXILIAR PARA AUDITORÍA
+// Agregar al final de utils.js
+// ========================================
+
+// Capturar información del usuario actual para auditoría
+function getAuditInfo() {
+  const currentUser = getCurrentUser();
+  
+  if (!currentUser) {
+    return {
+      name: 'Sistema',
+      userId: 'system',
+      date: getCurrentDate(),
+      time: new Date().toLocaleTimeString('es-CO', { 
+        hour: '2-digit', 
+        minute: '2-digit',
+        hour12: false 
+      })
+    };
+  }
+  
+  return {
+    name: currentUser.name,
+    userId: currentUser.id,
+    email: currentUser.email,
+    date: getCurrentDate(),
+    time: new Date().toLocaleTimeString('es-CO', { 
+      hour: '2-digit', 
+      minute: '2-digit',
+      hour12: false 
+    })
+  };
+}
+
+// Formatear información de auditoría para mostrar
+function formatAuditInfo(auditInfo) {
+  if (!auditInfo) return '';
+  return `${auditInfo.name} - ${formatDate(auditInfo.date)} ${auditInfo.time}`;
+}
+
+console.log('✅ Funciones de auditoría agregadas');
+

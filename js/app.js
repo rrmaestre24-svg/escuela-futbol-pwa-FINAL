@@ -10,7 +10,7 @@ window.APP_STATE = {
 
 // Navegación entre vistas
 function navigateTo(view) {
-  console.log('📍 Navegando a:', view);
+  console.log('🔄 Navegando a:', view);
   
   // Ocultar todas las vistas
   const allViews = [
@@ -262,6 +262,11 @@ async function initApp() {
     lucide.createIcons();
   }
   
+  // ⭐ ACTIVAR LISTENER DE ELIMINACIÓN DE USUARIO
+  if (typeof setupUserDeletionListener === 'function') {
+    setupUserDeletionListener();
+  }
+  
   console.log('✅ MY CLUB inicializado correctamente');
   console.log('👤 Usuario:', currentUser?.name);
   console.log('⚽ Club:', settings.name);
@@ -334,3 +339,72 @@ window.addEventListener('DOMContentLoaded', function() {
 });
 
 console.log('✅ app.js cargado (ACTUALIZADO)');
+
+// ========================================
+// LISTENER: Detectar eliminación de usuario en tiempo real
+// ========================================
+function setupUserDeletionListener() {
+  const currentUser = getCurrentUser();
+  
+  if (!currentUser || !window.firebase?.db) {
+    console.log('⚠️ No se puede activar listener: usuario o Firebase no disponible');
+    return;
+  }
+  
+  const clubId = localStorage.getItem('clubId');
+  
+  if (!clubId || !currentUser.id) {
+    console.log('⚠️ No se puede activar listener: falta clubId o userId');
+    return;
+  }
+  
+  console.log('👁️ Activando listener de eliminación para:', currentUser.email);
+  
+  // Crear referencia al documento del usuario actual
+  const userDocRef = window.firebase.doc(
+    window.firebase.db,
+    `clubs/${clubId}/users`,
+    currentUser.id
+  );
+  
+  // Escuchar cambios en tiempo real
+  const unsubscribe = window.firebase.onSnapshot(
+    userDocRef,
+    (docSnapshot) => {
+      // Si el documento ya no existe = usuario fue eliminado
+      if (!docSnapshot.exists()) {
+        console.log('🚨 Usuario eliminado de Firebase - Cerrando sesión...');
+        
+        showToast('⚠️ Tu acceso ha sido revocado por el administrador');
+        
+        // Esperar 2 segundos para que vea el mensaje
+        setTimeout(async () => {
+          try {
+            // Cerrar sesión de Firebase
+            if (window.firebase?.auth) {
+              await window.firebase.signOut(window.firebase.auth);
+            }
+            
+            // Limpiar datos locales
+            clearCurrentUser();
+            
+            // Redirigir al login
+            window.location.href = 'login.html';
+          } catch (error) {
+            console.error('Error al cerrar sesión:', error);
+            // Forzar recarga si hay error
+            window.location.href = 'login.html';
+          }
+        }, 2000);
+      }
+    },
+    (error) => {
+      console.error('Error en listener de usuario:', error);
+    }
+  );
+  
+  // Guardar función para desuscribirse después
+  window.userDeletionUnsubscribe = unsubscribe;
+}
+
+console.log('✅ Sistema de detección de eliminación cargado');

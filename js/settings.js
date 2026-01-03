@@ -714,21 +714,80 @@ async function saveSchoolUser(userData) {
     }
   }
 }
-// Eliminar usuario de la escuela
-function deleteSchoolUser(userId) {
-  if (!confirmAction('¿Estás seguro de eliminar este usuario? Perderá acceso a la escuela.')) return;
+// ✅ FUNCIÓN MEJORADA: Eliminar usuario y forzar cierre de sesión
+async function deleteSchoolUser(userId) {
+  const currentUser = getCurrentUser();
   
-  let users = getUsers();
-  users = users.filter(u => u.id !== userId);
-  localStorage.setItem('users', JSON.stringify(users));
-  
-  // ✅ SINCRONIZAR ELIMINACIÓN CON FIREBASE
-  if (typeof syncAllToFirebase === 'function') {
-    syncAllToFirebase();
+  if (!currentUser?.isMainAdmin) {
+    showToast('❌ Solo el administrador principal puede eliminar usuarios');
+    return;
   }
   
-  showToast('✅ Usuario eliminado');
-  renderSchoolUsers();
+  const users = getUsers();
+  const userToDelete = users.find(u => u.id === userId);
+  
+  if (!userToDelete) {
+    showToast('❌ Usuario no encontrado');
+    return;
+  }
+  
+  if (userToDelete.isMainAdmin) {
+    showToast('❌ No puedes eliminar al administrador principal');
+    return;
+  }
+  
+  if (!confirmAction(`¿Eliminar a ${userToDelete.name}?\n\n⚠️ Se cerrará su sesión automáticamente.`)) {
+    return;
+  }
+  
+  try {
+    showToast('🗑️ Eliminando usuario...');
+    
+    const clubId = localStorage.getItem('clubId');
+    
+    if (!clubId) {
+      showToast('❌ No se encontró el ID del club');
+      return;
+    }
+    
+    // 1️⃣ CRÍTICO: Eliminar de Firestore PRIMERO (esto dispara el listener)
+    try {
+      await window.firebase.deleteDoc(
+        window.firebase.doc(window.firebase.db, `clubs/${clubId}/users`, userId)
+      );
+      console.log('✅ Usuario eliminado de Firestore - Listener activado');
+    } catch (firestoreError) {
+      console.error('⚠️ Error al eliminar de Firestore:', firestoreError);
+      throw firestoreError; // Detener si falla esta parte crítica
+    }
+    
+    // 2️⃣ Eliminar de localStorage
+    const updatedUsers = users.filter(u => u.id !== userId);
+    localStorage.setItem('users', JSON.stringify(updatedUsers));
+    console.log('✅ Usuario eliminado de localStorage');
+    
+    // 3️⃣ Actualizar UI
+    renderSchoolUsers();
+    
+    // 4️⃣ Intentar eliminar mapeo (opcional)
+    if (userToDelete.email) {
+      try {
+        await window.firebase.deleteDoc(
+          window.firebase.doc(window.firebase.db, 'userClubMapping', userToDelete.email)
+        );
+        console.log('✅ Mapeo eliminado');
+      } catch (mappingError) {
+        console.log('ℹ️ No se pudo eliminar el mapeo:', mappingError.code);
+      }
+    }
+    
+    showToast('✅ Usuario eliminado - Su sesión se cerrará automáticamente');
+    console.log('✅ Eliminación completada. Listener notificará al usuario.');
+    
+  } catch (error) {
+    console.error('❌ Error al eliminar:', error);
+    showToast('❌ Error al eliminar: ' + error.message);
+  }
 }
 
 // Preview avatar del nuevo usuario
@@ -801,3 +860,4 @@ icon.setAttribute('data-lucide', 'chevron-down');
 } else {
 icon.setAttribute('data-lucide', 'chevron-up');
 }}}
+

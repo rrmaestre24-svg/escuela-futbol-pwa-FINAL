@@ -1,8 +1,88 @@
 // ========================================
-// GENERACIÓN DE PDFs con jsPDF - CORREGIDO
+// GENERACIÓN DE PDFs con jsPDF + FIRMAS AUTOMÁTICAS
 // ========================================
 
-// Generar factura PDF - CORREGIDO
+// ========================================
+// 🆕 FUNCIÓN UNIVERSAL: AGREGAR FIRMA AUTOMÁTICA
+// ========================================
+function addSignatureToDocument(doc, yPosition = 245) {
+  const currentUser = getCurrentUser();
+  
+  if (!currentUser) {
+    console.warn('⚠️ No hay usuario actual para firma');
+    return yPosition;
+  }
+  
+  const primaryColor = [13, 148, 136];
+  const textColor = [31, 41, 55];
+  const lightGray = [156, 163, 175];
+  
+  // Línea separadora superior
+  doc.setDrawColor(...lightGray);
+  doc.setLineWidth(0.3);
+  doc.line(15, yPosition, 195, yPosition);
+  
+  yPosition += 8;
+  
+  // Título
+  doc.setFontSize(9);
+  doc.setTextColor(...lightGray);
+  doc.setFont(undefined, 'italic');
+  doc.text('Documento Generado por:', 15, yPosition);
+  
+  yPosition += 8;
+  
+  // Cuadro de firma
+  doc.setDrawColor(...primaryColor);
+  doc.setLineWidth(0.5);
+  doc.rect(15, yPosition, 180, 20);
+  
+  // Avatar (si existe)
+  let avatarX = 20;
+  let textX = 25;
+  
+  try {
+    if (currentUser.avatar && currentUser.avatar.startsWith('data:image')) {
+      doc.addImage(currentUser.avatar, 'PNG', avatarX, yPosition + 3, 14, 14);
+      textX = avatarX + 18;
+    }
+  } catch (e) {
+    console.log('Avatar no disponible para firma');
+    textX = 20;
+  }
+  
+  // Nombre del usuario
+  doc.setFontSize(11);
+  doc.setTextColor(...textColor);
+  doc.setFont(undefined, 'bold');
+  doc.text(currentUser.name, textX, yPosition + 8);
+  
+  // Cargo
+  doc.setFontSize(9);
+  doc.setTextColor(...primaryColor);
+  doc.setFont(undefined, 'normal');
+  const role = currentUser.isMainAdmin ? 'Administrador Principal' : 'Administrador';
+  doc.text(role, textX, yPosition + 13);
+  
+  // Fecha y hora de generación
+  const now = new Date();
+  const dateStr = formatDate(getCurrentDate());
+  const timeStr = now.toLocaleTimeString('es-CO', { 
+    hour: '2-digit', 
+    minute: '2-digit',
+    hour12: false 
+  });
+  
+  doc.setFontSize(8);
+  doc.setTextColor(...lightGray);
+  doc.text(`${dateStr} a las ${timeStr}`, textX, yPosition + 17);
+  
+  return yPosition + 22;
+}
+
+// ========================================
+// FACTURAS DE INGRESOS (CON FIRMA)
+// ========================================
 function generateInvoicePDF(paymentId, autoDownload = true) {
   const payment = getPaymentById(paymentId);
   if (!payment) {
@@ -22,15 +102,13 @@ function generateInvoicePDF(paymentId, autoDownload = true) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
     
-    // Colores
     const primaryColor = [13, 148, 136];
     const textColor = [31, 41, 55];
     
     // Logo
-    let logoY = 15;
     try {
       if (settings.logo && settings.logo.startsWith('data:image')) {
-        doc.addImage(settings.logo, 'PNG', 15, logoY, 30, 30);
+        doc.addImage(settings.logo, 'PNG', 15, 15, 30, 30);
       }
     } catch (e) {
       console.log('Logo no disponible');
@@ -89,7 +167,6 @@ function generateInvoicePDF(paymentId, autoDownload = true) {
     // Tabla de conceptos
     const tableTop = 105;
     
-    // Encabezados de tabla
     doc.setFillColor(...primaryColor);
     doc.rect(15, tableTop, 180, 10, 'F');
     
@@ -100,7 +177,6 @@ function generateInvoicePDF(paymentId, autoDownload = true) {
     doc.text('PRECIO', 130, tableTop + 7);
     doc.text('TOTAL', 165, tableTop + 7);
     
-    // Fila de datos
     doc.setTextColor(...textColor);
     doc.setFont(undefined, 'normal');
     const rowTop = tableTop + 15;
@@ -141,13 +217,12 @@ function generateInvoicePDF(paymentId, autoDownload = true) {
     doc.setTextColor(...textColor);
     doc.setFontSize(9);
     doc.setFont(undefined, 'italic');
-    doc.text('Gracias por tu preferencia', 105, 270, { align: 'center' });
+    doc.text('Gracias por tu preferencia', 105, 220, { align: 'center' });
+    doc.text(settings.name || 'MI CLUB', 105, 225, { align: 'center' });
     
-    doc.setFontSize(8);
-    doc.text(settings.name || 'MI CLUB', 105, 275, { align: 'center' });
-    doc.text(`Generado el ${formatDate(getCurrentDate())}`, 105, 280, { align: 'center' });
+    // 🆕 AGREGAR FIRMA AUTOMÁTICA
+    addSignatureToDocument(doc, 235);
     
-    // Guardar
     if (autoDownload) {
       doc.save(`Factura-${payment.invoiceNumber || 'SN'}.pdf`);
       showToast('✅ Factura descargada');
@@ -162,7 +237,9 @@ function generateInvoicePDF(paymentId, autoDownload = true) {
   }
 }
 
-// Generar notificación de pago PDF - CORREGIDO
+// ========================================
+// NOTIFICACIÓN DE PAGO (CON FIRMA)
+// ========================================
 function generatePaymentNotificationPDF(paymentId) {
   const payment = getPaymentById(paymentId);
   if (!payment) {
@@ -232,7 +309,6 @@ function generatePaymentNotificationPDF(paymentId) {
     doc.setFont(undefined, 'bold');
     doc.text(title, 105, 60, { align: 'center' });
     
-    // Línea
     doc.setDrawColor(...statusColor);
     doc.setLineWidth(0.5);
     doc.line(15, 70, 195, 70);
@@ -287,11 +363,8 @@ function generatePaymentNotificationPDF(paymentId) {
     if (settings.phone) doc.text(`Telefono: ${settings.phone}`, 15, 197);
     if (settings.email) doc.text(`Email: ${settings.email}`, 15, 204);
     
-    // Pie de página
-    doc.setFontSize(9);
-    doc.setFont(undefined, 'italic');
-    doc.setTextColor(100, 100, 100);
-    doc.text(`Documento generado el ${formatDate(getCurrentDate())}`, 105, 270, { align: 'center' });
+    // 🆕 AGREGAR FIRMA AUTOMÁTICA
+    addSignatureToDocument(doc, 220);
     
     doc.save(`Notificacion-${player.name}-${getCurrentDate()}.pdf`);
     showToast('✅ Notificación descargada');
@@ -302,7 +375,9 @@ function generatePaymentNotificationPDF(paymentId) {
   }
 }
 
-// Generar estado de cuenta por jugador PDF - CORREGIDO
+// ========================================
+// ESTADO DE CUENTA (CON FIRMA)
+// ========================================
 function generatePlayerAccountStatementPDF(playerId) {
   const player = getPlayerById(playerId);
   if (!player) {
@@ -354,7 +429,6 @@ function generatePlayerAccountStatementPDF(playerId) {
     doc.text(`Categoria: ${player.category}`, 15, 72);
     doc.text(`Fecha: ${formatDate(getCurrentDate())}`, 15, 79);
     
-    // Línea
     doc.setDrawColor(...primaryColor);
     doc.line(15, 85, 195, 85);
     
@@ -384,7 +458,6 @@ function generatePlayerAccountStatementPDF(playerId) {
     
     yPos += 10;
     
-    // Encabezados
     doc.setFontSize(9);
     doc.setFillColor(...primaryColor);
     doc.rect(15, yPos, 180, 8, 'F');
@@ -396,10 +469,9 @@ function generatePlayerAccountStatementPDF(playerId) {
     
     yPos += 8;
     
-    // Filas
     doc.setTextColor(...textColor);
     payments.forEach((p, index) => {
-      if (yPos > 270) {
+      if (yPos > 230) {
         doc.addPage();
         yPos = 20;
       }
@@ -426,11 +498,12 @@ function generatePlayerAccountStatementPDF(playerId) {
       yPos += 8;
     });
     
-    // Pie de página
-    doc.setFontSize(8);
-    doc.setFont(undefined, 'italic');
-    doc.setTextColor(100, 100, 100);
-    doc.text(`Generado el ${formatDate(getCurrentDate())}`, 105, 285, { align: 'center' });
+    // 🆕 AGREGAR FIRMA AUTOMÁTICA
+    if (yPos > 235) {
+      doc.addPage();
+      yPos = 20;
+    }
+    addSignatureToDocument(doc, yPos + 10);
     
     doc.save(`Estado-Cuenta-${player.name}.pdf`);
     showToast('✅ Estado de cuenta descargado');
@@ -441,13 +514,16 @@ function generatePlayerAccountStatementPDF(playerId) {
   }
 }
 
-// Generar reporte contable completo PDF - CORREGIDO
+// ========================================
+// REPORTE CONTABLE COMPLETO (CON EGRESOS) - CORREGIDO ✅
+// ========================================
 function generateFullAccountingReportPDF() {
   const settings = getSchoolSettings();
   const players = getPlayers();
   const payments = getPayments();
+  const expenses = getExpenses(); // 🆕 OBTENER EGRESOS
   
-  if (payments.length === 0) {
+  if (payments.length === 0 && expenses.length === 0) {
     showToast('⚠️ No hay datos suficientes para generar el reporte');
     return;
   }
@@ -459,18 +535,15 @@ function generateFullAccountingReportPDF() {
     const primaryColor = [13, 148, 136];
     const textColor = [31, 41, 55];
     
-    // ===== PÁGINA 1: PORTADA =====
+    // PÁGINA 1: PORTADA
     doc.setFillColor(...primaryColor);
     doc.rect(0, 0, 210, 297, 'F');
     
-    // Logo
     try {
       if (settings.logo && settings.logo.startsWith('data:image')) {
         doc.addImage(settings.logo, 'PNG', 80, 80, 50, 50);
       }
-    } catch (e) {
-      console.log('Logo no disponible');
-    }
+    } catch (e) {}
     
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(32);
@@ -484,7 +557,7 @@ function generateFullAccountingReportPDF() {
     doc.setFont(undefined, 'normal');
     doc.text(formatDateText(getCurrentDate()), 105, 180, { align: 'center' });
     
-    // ===== PÁGINA 2: RESUMEN GENERAL =====
+    // PÁGINA 2: RESUMEN
     doc.addPage();
     doc.setTextColor(...textColor);
     
@@ -499,7 +572,6 @@ function generateFullAccountingReportPDF() {
     doc.setFont(undefined, 'bold');
     doc.text('RESUMEN GENERAL', 15, 50);
     
-    // Calcular estadísticas
     const paid = payments.filter(p => p.status === 'Pagado');
     const pending = payments.filter(p => p.status === 'Pendiente');
     const totalIncome = paid.reduce((sum, p) => sum + p.amount, 0);
@@ -507,6 +579,15 @@ function generateFullAccountingReportPDF() {
     
     const thisMonth = payments.filter(p => p.paidDate && isThisMonth(p.paidDate));
     const monthIncome = thisMonth.reduce((sum, p) => sum + p.amount, 0);
+    
+    // 🆕 CÁLCULOS DE EGRESOS
+    const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
+    const thisMonthExpenses = expenses.filter(e => isThisMonth(e.date));
+    const monthExpenses = thisMonthExpenses.reduce((sum, e) => sum + e.amount, 0);
+    
+    // 🆕 UTILIDAD NETA
+    const netProfit = totalIncome - totalExpenses;
+    const monthNetProfit = monthIncome - monthExpenses;
     
     doc.setFontSize(11);
     doc.setTextColor(...textColor);
@@ -536,8 +617,46 @@ function generateFullAccountingReportPDF() {
     doc.text(`Ingresos Este Mes: ${formatCurrency(monthIncome)}`, 15, yPos);
     yPos += 8;
     doc.text(`Por Cobrar: ${formatCurrency(totalPending)}`, 15, yPos);
+    yPos += 15;
     
-    // ===== PÁGINA 3: DETALLE POR JUGADOR =====
+    // 🆕 SECCIÓN DE EGRESOS
+    doc.setFont(undefined, 'bold');
+    doc.setFontSize(12);
+    doc.setTextColor(220, 38, 38); // Rojo para egresos
+    doc.text('EGRESOS', 15, yPos);
+    yPos += 10;
+    
+    doc.setFont(undefined, 'normal');
+    doc.setFontSize(11);
+    doc.setTextColor(...textColor);
+    doc.text(`Total Egresos: ${formatCurrency(totalExpenses)}`, 15, yPos);
+    yPos += 8;
+    doc.text(`Egresos Este Mes: ${formatCurrency(monthExpenses)}`, 15, yPos);
+    yPos += 8;
+    doc.text(`Cantidad de Egresos: ${expenses.length}`, 15, yPos);
+    yPos += 15;
+    
+    // 🆕 UTILIDAD NETA
+    doc.setFont(undefined, 'bold');
+    doc.setFontSize(14);
+    doc.setTextColor(...primaryColor);
+    doc.text('UTILIDAD NETA', 15, yPos);
+    yPos += 10;
+    
+    doc.setFontSize(12);
+    const profitColor = netProfit >= 0 ? [22, 163, 74] : [220, 38, 38];
+    doc.setTextColor(...profitColor);
+    doc.text(`Total: ${formatCurrency(netProfit)}`, 15, yPos);
+    yPos += 8;
+    
+    const monthProfitColor = monthNetProfit >= 0 ? [22, 163, 74] : [220, 38, 38];
+    doc.setTextColor(...monthProfitColor);
+    doc.text(`Este Mes: ${formatCurrency(monthNetProfit)}`, 15, yPos);
+    
+    // 🆕 AGREGAR FIRMA EN PÁGINA 2
+    addSignatureToDocument(doc, 235);
+    
+    // PÁGINA 3: DETALLE POR JUGADOR
     doc.addPage();
     
     doc.setFontSize(18);
@@ -548,7 +667,6 @@ function generateFullAccountingReportPDF() {
     yPos = 45;
     doc.setFontSize(9);
     
-    // Encabezados
     doc.setFillColor(...primaryColor);
     doc.rect(15, yPos, 180, 8, 'F');
     doc.setTextColor(255, 255, 255);
@@ -582,7 +700,60 @@ function generateFullAccountingReportPDF() {
       yPos += 8;
     });
     
-    // Pie de página en todas las páginas
+    // 🆕 PÁGINA 4: DETALLE DE EGRESOS
+    if (expenses.length > 0) {
+      doc.addPage();
+      
+      doc.setFontSize(18);
+      doc.setTextColor(...primaryColor);
+      doc.setFont(undefined, 'bold');
+      doc.text('DETALLE DE EGRESOS', 15, 30);
+      
+      yPos = 45;
+      doc.setFontSize(9);
+      
+      doc.setFillColor(220, 38, 38); // Rojo para egresos
+      doc.rect(15, yPos, 180, 8, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.text('Fecha', 20, yPos + 5);
+      doc.text('Beneficiario', 60, yPos + 5);
+      doc.text('Categoría', 110, yPos + 5);
+      doc.text('Monto', 165, yPos + 5);
+      
+      yPos += 8;
+      
+      doc.setTextColor(...textColor);
+      expenses.forEach((expense, index) => {
+        if (yPos > 270) {
+          doc.addPage();
+          yPos = 20;
+        }
+        
+        const bgColor = index % 2 === 0 ? [249, 250, 251] : [255, 255, 255];
+        doc.setFillColor(...bgColor);
+        doc.rect(15, yPos, 180, 8, 'F');
+        
+        doc.text(formatDate(expense.date), 20, yPos + 5);
+        doc.text(expense.beneficiaryName.substring(0, 20), 60, yPos + 5);
+        doc.text(expense.category, 110, yPos + 5);
+        doc.setTextColor(220, 38, 38);
+        doc.text(formatCurrency(expense.amount), 165, yPos + 5);
+        doc.setTextColor(...textColor);
+        
+        yPos += 8;
+      });
+      
+      // Total de egresos
+      yPos += 5;
+      doc.setFont(undefined, 'bold');
+      doc.setFontSize(12);
+      doc.text('TOTAL EGRESOS:', 110, yPos);
+      doc.setTextColor(220, 38, 38);
+      doc.setFontSize(14);
+      doc.text(formatCurrency(totalExpenses), 165, yPos);
+    }
+    
+    // Pie de página con números
     const pageCount = doc.internal.getNumberOfPages();
     for (let i = 1; i <= pageCount; i++) {
       doc.setPage(i);
@@ -599,13 +770,9 @@ function generateFullAccountingReportPDF() {
     showToast('❌ Error al generar reporte: ' + error.message);
   }
 }
-
-console.log('✅ pdf.js cargado (CORREGIDO)');
-
 // ========================================
-// GENERAR FACTURA DE EGRESO (COMPROBANTE DE PAGO)
+// COMPROBANTE DE EGRESO (CON FIRMA)
 // ========================================
-
 function generateExpenseInvoicePDF(expenseId, autoDownload = true) {
   const expense = getExpenseById(expenseId);
   if (!expense) {
@@ -619,22 +786,18 @@ function generateExpenseInvoicePDF(expenseId, autoDownload = true) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
     
-    // Colores
     const primaryColor = [13, 148, 136];
     const textColor = [31, 41, 55];
     const redColor = [220, 38, 38];
     
     // Logo
-    let logoY = 15;
     try {
       if (settings.logo && settings.logo.startsWith('data:image')) {
-        doc.addImage(settings.logo, 'PNG', 15, logoY, 30, 30);
+        doc.addImage(settings.logo, 'PNG', 15, 15, 30, 30);
       }
-    } catch (e) {
-      console.log('Logo no disponible');
-    }
+    } catch (e) {}
     
-    // Encabezado del club
+    // Encabezado
     doc.setFontSize(20);
     doc.setTextColor(...primaryColor);
     doc.setFont(undefined, 'bold');
@@ -647,28 +810,25 @@ function generateExpenseInvoicePDF(expenseId, autoDownload = true) {
     if (settings.phone) doc.text(settings.phone, 50, 37);
     if (settings.address) doc.text(settings.address, 50, 42);
     
-    // Título COMPROBANTE DE PAGO
+    // Título
     doc.setFontSize(22);
     doc.setTextColor(...redColor);
     doc.setFont(undefined, 'bold');
     doc.text('COMPROBANTE DE PAGO', 150, 25);
     
-    // Número de comprobante
     doc.setFontSize(12);
     doc.setTextColor(...textColor);
     doc.text(expense.invoiceNumber || 'N/A', 150, 35);
     
-    // Fecha
     doc.setFontSize(10);
     doc.setFont(undefined, 'normal');
     doc.text(`Fecha: ${formatDate(expense.date)}`, 150, 42);
     
-    // Línea separadora
     doc.setDrawColor(...primaryColor);
     doc.setLineWidth(0.5);
     doc.line(15, 50, 195, 50);
     
-    // Datos del beneficiario
+    // Beneficiario
     doc.setFontSize(12);
     doc.setFont(undefined, 'bold');
     doc.setTextColor(...primaryColor);
@@ -693,15 +853,9 @@ function generateExpenseInvoicePDF(expenseId, autoDownload = true) {
       doc.text(`Telefono: ${formatPhoneDisplay(expense.beneficiaryPhone)}`, 15, yPos);
     }
     
-    if (expense.beneficiaryEmail) {
-      const yPos = expense.beneficiaryPhone ? (expense.beneficiaryDocument ? 96 : 89) : 82;
-      doc.text(`Email: ${expense.beneficiaryEmail}`, 15, yPos);
-    }
+    // Tabla
+    const tableTop = 105;
     
-    // Tabla de conceptos
-    const tableTop = 110;
-    
-    // Encabezados de tabla
     doc.setFillColor(...redColor);
     doc.rect(15, tableTop, 180, 10, 'F');
     
@@ -711,39 +865,19 @@ function generateExpenseInvoicePDF(expenseId, autoDownload = true) {
     doc.text('CONCEPTO', 70, tableTop + 7);
     doc.text('MONTO', 165, tableTop + 7);
     
-    // Fila de datos
     doc.setTextColor(...textColor);
     doc.setFont(undefined, 'normal');
     const rowTop = tableTop + 15;
     
     doc.text(expense.category, 20, rowTop);
     
-    // Concepto puede ser largo, dividirlo
     const conceptLines = doc.splitTextToSize(expense.concept, 90);
     doc.text(conceptLines, 70, rowTop);
     
     doc.text(formatCurrency(expense.amount), 165, rowTop);
     
-    // Método de pago
-    const methodTop = rowTop + (conceptLines.length * 5) + 10;
-    
-    if (expense.method) {
-      doc.setFont(undefined, 'normal');
-      doc.setFontSize(10);
-      doc.text(`Metodo de pago: ${expense.method}`, 15, methodTop);
-    }
-    
-    // Notas
-    if (expense.notes && expense.notes.trim() !== '') {
-      doc.setFont(undefined, 'bold');
-      doc.text('Notas:', 15, methodTop + 10);
-      doc.setFont(undefined, 'normal');
-      const notesLines = doc.splitTextToSize(expense.notes, 180);
-      doc.text(notesLines, 15, methodTop + 17);
-    }
-    
     // Total
-    const totalsTop = methodTop + 35;
+    const totalsTop = rowTop + 25;
     doc.setFont(undefined, 'bold');
     doc.setFontSize(12);
     doc.text('TOTAL PAGADO:', 110, totalsTop);
@@ -751,34 +885,21 @@ function generateExpenseInvoicePDF(expenseId, autoDownload = true) {
     doc.setFontSize(16);
     doc.text(formatCurrency(expense.amount), 165, totalsTop);
     
-    // Estado PAGADO
     doc.setTextColor(22, 163, 74);
     doc.setFont(undefined, 'bold');
     doc.setFontSize(12);
     doc.text('✓ PAGADO', 15, totalsTop);
     
-    // Línea de firma
+    // Mensaje
     doc.setTextColor(...textColor);
-    doc.setDrawColor(...textColor);
-    doc.line(15, 220, 90, 220);
-    doc.line(120, 220, 195, 220);
-    
-    doc.setFontSize(9);
-    doc.setFont(undefined, 'normal');
-    doc.text('Firma del Beneficiario', 15, 227);
-    doc.text('Firma del Autorizador', 120, 227);
-    
-    // Pie de página
-    doc.setTextColor(100, 100, 100);
     doc.setFontSize(9);
     doc.setFont(undefined, 'italic');
-    doc.text('Este documento certifica el pago realizado', 105, 260, { align: 'center' });
+    doc.text('Este documento certifica el pago realizado', 105, 190, { align: 'center' });
+    doc.text(settings.name || 'MI CLUB', 105, 197, { align: 'center' });
     
-    doc.setFontSize(8);
-    doc.text(settings.name || 'MI CLUB', 105, 267, { align: 'center' });
-    doc.text(`Generado el ${formatDate(getCurrentDate())}`, 105, 273, { align: 'center' });
+    // 🆕 AGREGAR FIRMA AUTOMÁTICA
+    addSignatureToDocument(doc, 210);
     
-    // Guardar
     if (autoDownload) {
       doc.save(`Comprobante-Pago-${expense.invoiceNumber || 'SN'}.pdf`);
       showToast('✅ Comprobante descargado');
@@ -787,11 +908,13 @@ function generateExpenseInvoicePDF(expenseId, autoDownload = true) {
     return doc;
     
   } catch (error) {
-    console.error('Error al generar comprobante de pago:', error);
+    console.error('Error al generar comprobante:', error);
     showToast('❌ Error al generar PDF: ' + error.message);
     return null;
   }
 }
 
-// Hacer la función global
+// Hacer funciones globales
 window.generateExpenseInvoicePDF = generateExpenseInvoicePDF;
+
+console.log('✅ pdf.js cargado con sistema de FIRMAS AUTOMÁTICAS');

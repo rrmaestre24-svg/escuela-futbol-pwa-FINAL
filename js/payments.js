@@ -161,17 +161,21 @@ document.getElementById('paymentForm')?.addEventListener('submit', function(e) {
   };
   
   if (paymentId) {
-    // Editar pago existente
-    updatePayment(paymentId, paymentData);
+    // 🆕 EDITAR: Agregar editedBy
+    updatePayment(paymentId, {
+      ...paymentData,
+      editedBy: getAuditInfo() // 🆕 AUDITORÍA
+    });
     showToast('✅ Pago actualizado');
   } else {
-    // Crear nuevo pago
+    // 🆕 CREAR: Agregar createdBy
     const invoiceNumber = status === 'Pagado' ? getNextInvoiceNumber() : null;
     const newPayment = {
       id: generateId(),
       ...paymentData,
       invoiceNumber,
-      createdAt: getCurrentDate()
+      createdAt: getCurrentDate(),
+      createdBy: getAuditInfo() // 🆕 AUDITORÍA
     };
     
     savePayment(newPayment);
@@ -298,6 +302,10 @@ function renderPaymentCard(payment, player) {
     'Otro': 'text-gray-600'
   };
   
+  // 🆕 Información de auditoría
+  const createdInfo = payment.createdBy ? formatAuditInfo(payment.createdBy) : '';
+  const editedInfo = payment.editedBy ? formatAuditInfo(payment.editedBy) : '';
+  
   return `
     <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm animate-slide-in">
       <div class="flex items-start justify-between mb-3">
@@ -332,6 +340,18 @@ function renderPaymentCard(payment, player) {
             <span class="text-sm font-medium text-teal-600 dark:text-teal-400">${payment.invoiceNumber}</span>
           </div>
         ` : ''}
+        ${createdInfo ? `
+          <div class="flex items-center gap-2">
+            <i data-lucide="user-plus" class="w-4 h-4 text-blue-600"></i>
+            <span class="text-xs text-gray-500 dark:text-gray-400">Creado: ${createdInfo}</span>
+          </div>
+        ` : ''}
+        ${editedInfo ? `
+          <div class="flex items-center gap-2">
+            <i data-lucide="user-check" class="w-4 h-4 text-purple-600"></i>
+            <span class="text-xs text-gray-500 dark:text-gray-400">Editado: ${editedInfo}</span>
+          </div>
+        ` : ''}
       </div>
       
       <div class="flex gap-2">
@@ -354,7 +374,12 @@ function renderPaymentCard(payment, player) {
   `;
 }
 
-// Renderizar card de egreso
+
+// ========================================
+// 🆕 MODIFICAR EN payments.js: renderExpenseCard (línea ~360)
+// Reemplazar toda la función
+// ========================================
+
 function renderExpenseCard(expense) {
   const categoryColors = {
     'Salarios': 'text-purple-600',
@@ -364,6 +389,10 @@ function renderExpenseCard(expense) {
     'Impuestos': 'text-red-600',
     'Otro': 'text-gray-600'
   };
+  
+  // 🆕 Información de auditoría
+  const createdInfo = expense.createdBy ? formatAuditInfo(expense.createdBy) : '';
+  const editedInfo = expense.editedBy ? formatAuditInfo(expense.editedBy) : '';
   
   return `
     <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm animate-slide-in border-l-4 border-red-500">
@@ -400,6 +429,18 @@ function renderExpenseCard(expense) {
             <span class="text-sm text-blue-600">${formatPhoneDisplay(expense.beneficiaryPhone)}</span>
           </div>
         ` : ''}
+        ${createdInfo ? `
+          <div class="flex items-center gap-2">
+            <i data-lucide="user-plus" class="w-4 h-4 text-blue-600"></i>
+            <span class="text-xs text-gray-500 dark:text-gray-400">Creado: ${createdInfo}</span>
+          </div>
+        ` : ''}
+        ${editedInfo ? `
+          <div class="flex items-center gap-2">
+            <i data-lucide="user-check" class="w-4 h-4 text-purple-600"></i>
+            <span class="text-xs text-gray-500 dark:text-gray-400">Editado: ${editedInfo}</span>
+          </div>
+        ` : ''}
       </div>
       
       <div class="flex gap-2">
@@ -414,7 +455,6 @@ function renderExpenseCard(expense) {
     </div>
   `;
 }
-
 // Marcar pago como pagado
 function markAsPaid(paymentId) {
   const payment = getPaymentById(paymentId);
@@ -426,7 +466,8 @@ function markAsPaid(paymentId) {
     status: 'Pagado',
     paidDate: getCurrentDate(),
     invoiceNumber: invoiceNumber,
-    method: 'Efectivo' // Por defecto
+    method: 'Efectivo',
+    editedBy: getAuditInfo() // 🆕 AUDITORÍA
   });
   
   showToast('✅ Pago marcado como pagado');
