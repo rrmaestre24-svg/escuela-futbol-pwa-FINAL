@@ -1,6 +1,29 @@
 // ========================================
 // GENERADOR DE ICONOS PWA DESDE LOGO DEL CLUB
+// VERSIÓN CORREGIDA - CARGA PRIORITARIA
 // ========================================
+
+// 🔥 EJECUTAR INMEDIATAMENTE al cargar el script
+(function() {
+  console.log('🎨 Inicializando sistema de iconos PWA...');
+  
+  // Verificar si ya existe manifest dinámico
+  const hasDynamicManifest = localStorage.getItem('pwa_icon_192');
+  
+  if (!hasDynamicManifest) {
+    console.log('⚠️ No hay iconos guardados, generando ahora...');
+    // Esperar a que storage.js esté disponible
+    const checkStorage = setInterval(() => {
+      if (typeof getSchoolSettings === 'function') {
+        clearInterval(checkStorage);
+        generatePWAIcons();
+      }
+    }, 100);
+  } else {
+    console.log('✅ Iconos guardados encontrados, cargando...');
+    loadSavedIcons();
+  }
+})();
 
 // Generar iconos PWA desde el logo del club
 function generatePWAIcons() {
@@ -63,14 +86,18 @@ function generatePWAIcons() {
     localStorage.setItem('pwa_icon_192', icon192);
     localStorage.setItem('pwa_icon_512', icon512);
     
-    // Actualizar manifest
+    // Actualizar manifest INMEDIATAMENTE
     updateManifestIcons();
     
     // Actualizar favicon dinámicamente
     updateFavicon(icon192);
     
     console.log('✅ Iconos PWA generados correctamente');
-    showToast('✅ Logo de la app actualizado');
+    
+    // Solo mostrar toast si la función existe
+    if (typeof showToast === 'function') {
+      showToast('✅ Logo de la app actualizado');
+    }
   };
   
   img.onerror = function() {
@@ -85,7 +112,10 @@ function updateManifestIcons() {
   const icon192 = localStorage.getItem('pwa_icon_192');
   const icon512 = localStorage.getItem('pwa_icon_512');
   
-  if (!icon192 || !icon512) return;
+  if (!icon192 || !icon512) {
+    console.warn('⚠️ No hay iconos para actualizar');
+    return;
+  }
   
   // Crear nuevo manifest
   const settings = getSchoolSettings();
@@ -153,15 +183,19 @@ function updateManifestIcons() {
   // Actualizar link del manifest
   let manifestLink = document.querySelector('link[rel="manifest"]');
   if (manifestLink) {
+    // Revocar URL anterior si existe
+    if (manifestLink.href.startsWith('blob:')) {
+      URL.revokeObjectURL(manifestLink.href);
+    }
     manifestLink.href = manifestURL;
+    console.log('✅ Manifest actualizado:', manifestURL);
   } else {
     manifestLink = document.createElement('link');
     manifestLink.rel = 'manifest';
     manifestLink.href = manifestURL;
     document.head.appendChild(manifestLink);
+    console.log('✅ Manifest creado:', manifestURL);
   }
-  
-  console.log('✅ Manifest actualizado con nuevos iconos');
 }
 
 // Actualizar favicon en tiempo real
@@ -170,12 +204,22 @@ function updateFavicon(iconUrl) {
   let favicon = document.querySelector('link[rel="icon"]');
   if (favicon) {
     favicon.href = iconUrl;
+  } else {
+    favicon = document.createElement('link');
+    favicon.rel = 'icon';
+    favicon.href = iconUrl;
+    document.head.appendChild(favicon);
   }
   
   // Actualizar apple-touch-icon
   let appleTouchIcon = document.querySelector('link[rel="apple-touch-icon"]');
   if (appleTouchIcon) {
     appleTouchIcon.href = iconUrl;
+  } else {
+    appleTouchIcon = document.createElement('link');
+    appleTouchIcon.rel = 'apple-touch-icon';
+    appleTouchIcon.href = iconUrl;
+    document.head.appendChild(appleTouchIcon);
   }
   
   console.log('✅ Favicon actualizado');
@@ -189,6 +233,8 @@ function loadSavedIcons() {
     updateManifestIcons();
     updateFavicon(icon192);
     console.log('✅ Iconos PWA cargados desde localStorage');
+  } else {
+    console.log('⚠️ No hay iconos guardados en localStorage');
   }
 }
 
@@ -198,10 +244,5 @@ function onLogoChange() {
     generatePWAIcons();
   }, 500);
 }
-
-// Cargar iconos al iniciar la app
-window.addEventListener('DOMContentLoaded', function() {
-  loadSavedIcons();
-});
 
 console.log('✅ pwa-icons.js cargado');
