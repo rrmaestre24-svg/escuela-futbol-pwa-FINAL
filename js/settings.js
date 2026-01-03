@@ -200,12 +200,17 @@ document.getElementById('changeClubLogo')?.addEventListener('change', function(e
       updateSchoolSettings({ logo: base64 });
       showToast('✅ Logo actualizado');
       
+      // ⭐ GENERAR ICONOS PWA CON EL NUEVO LOGO
       if (typeof generatePWAIcons === 'function') {
-        generatePWAIcons();
+        console.log('🎨 Regenerando íconos de la PWA...');
+        setTimeout(() => {
+          generatePWAIcons();
+        }, 500);
       }
     });
   }
 });
+
 
 // Guardar perfil de usuario
 document.getElementById('userProfileForm')?.addEventListener('submit', function(e) {
