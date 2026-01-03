@@ -4,27 +4,39 @@ window.APP_STATE = {
   currentUser: null
 };
 
-
 // ========================================
 // APLICACIÓN PRINCIPAL
 // ========================================
 
 // Navegación entre vistas
 function navigateTo(view) {
+  console.log('📍 Navegando a:', view);
+  
   // Ocultar todas las vistas
-  document.getElementById('dashboardView').classList.add('hidden');
-  document.getElementById('playersView').classList.add('hidden');
-  document.getElementById('paymentsView').classList.add('hidden');
-  document.getElementById('calendarView').classList.add('hidden');
-  document.getElementById('settingsView').classList.add('hidden');
-  document.getElementById('birthdaysView').classList.add('hidden');
-  document.getElementById('notificationsView').classList.add('hidden');
-  document.getElementById('accountingView').classList.add('hidden');
+  const allViews = [
+    'dashboardView',
+    'playersView',
+    'paymentsView',
+    'calendarView',
+    'settingsView',
+    'birthdaysView',
+    'notificationsView',
+    'accountingView'
+  ];
+  
+  allViews.forEach(viewId => {
+    const element = document.getElementById(viewId);
+    if (element) {
+      element.classList.add('hidden');
+    }
+  });
   
   // Mostrar vista seleccionada
   const viewElement = document.getElementById(`${view}View`);
   if (viewElement) {
     viewElement.classList.remove('hidden');
+  } else {
+    console.error('❌ Vista no encontrada:', `${view}View`);
   }
   
   // Actualizar navegación activa
@@ -37,40 +49,82 @@ function navigateTo(view) {
     navItem.classList.add('active');
   }
   
-// Actualizar título del header
-const titles = {
-  'dashboard': 'Dashboard',
-  'players': 'Jugadores',
-  'payments': 'Pagos',
-  'calendar': 'Calendario',
-  'settings': 'Configuración',
-  'accounting': 'Contabilidad',
-  'birthdays': 'Cumpleaños',
-  'notifications': 'Notificaciones'
-};
+  // Actualizar título del header
+  const titles = {
+    'dashboard': 'Dashboard',
+    'players': 'Jugadores',
+    'payments': 'Pagos',
+    'calendar': 'Calendario',
+    'settings': 'Configuración',
+    'accounting': 'Contabilidad',
+    'birthdays': 'Cumpleaños',
+    'notifications': 'Notificaciones'
+  };
   
-  document.getElementById('headerViewName').textContent = titles[view] || 'MY CLUB';
-// Cargar datos específicos de cada vista
-if (view === 'dashboard') {
-  updateDashboard();
-} else if (view === 'players') {
-  renderPlayersList();
-} else if (view === 'payments') {
-  showPaymentTab('monthly');
-} else if (view === 'calendar') {
-  renderCalendar();
-} else if (view === 'settings') {
-  loadSettings();
-} else if (view === 'birthdays') {
-  renderBirthdays();
-} else if (view === 'notifications') {
-  renderNotifications();
-} else if (view === 'accounting') {
-  renderAccounting();
-}
+  const headerViewName = document.getElementById('headerViewName');
+  if (headerViewName) {
+    headerViewName.textContent = titles[view] || 'MY CLUB';
+  }
+  
+  // Cargar datos específicos de cada vista
+  switch(view) {
+    case 'dashboard':
+      if (typeof updateDashboard === 'function') {
+        updateDashboard();
+      }
+      break;
+      
+    case 'players':
+      if (typeof renderPlayersList === 'function') {
+        renderPlayersList();
+      }
+      break;
+      
+    case 'payments':
+      // Mostrar tab de mensualidades por defecto
+      if (typeof showPaymentTab === 'function') {
+        showPaymentTab('monthly');
+      }
+      break;
+      
+    case 'calendar':
+      if (typeof renderCalendar === 'function') {
+        renderCalendar();
+      }
+      break;
+      
+    case 'settings':
+      if (typeof loadSettings === 'function') {
+        loadSettings();
+      }
+      break;
+      
+    case 'birthdays':
+      if (typeof renderBirthdays === 'function') {
+        renderBirthdays();
+      }
+      break;
+      
+    case 'notifications':
+      if (typeof renderNotifications === 'function') {
+        renderNotifications();
+      }
+      break;
+      
+    case 'accounting':
+      if (typeof renderAccounting === 'function') {
+        renderAccounting();
+      }
+      break;
+  }
   
   // Scroll al inicio
   window.scrollTo(0, 0);
+  
+  // Recrear iconos de Lucide
+  if (typeof lucide !== 'undefined' && typeof lucide.createIcons === 'function') {
+    lucide.createIcons();
+  }
 }
 
 // Toggle modo oscuro - VERSIÓN DEFINITIVA
@@ -166,7 +220,9 @@ async function initApp() {
       }
     } catch (error) {
       console.log('⚠️ Firebase no disponible:', error);
-      displayClubIdInDashboard();
+      if (typeof displayClubIdInDashboard === 'function') {
+        displayClubIdInDashboard();
+      }
     }
   }
   
@@ -177,8 +233,16 @@ async function initApp() {
   const settings = getSchoolSettings();
   const currentUser = getCurrentUser();
   
-  document.getElementById('headerLogo').src = settings.logo || getDefaultLogo();
-  document.getElementById('headerClubName').textContent = settings.name || 'MY CLUB';
+  const headerLogo = document.getElementById('headerLogo');
+  const headerClubName = document.getElementById('headerClubName');
+  
+  if (headerLogo) {
+    headerLogo.src = settings.logo || getDefaultLogo();
+  }
+  
+  if (headerClubName) {
+    headerClubName.textContent = settings.name || 'MY CLUB';
+  }
   
   // Aplicar color primario del club
   if (typeof applyPrimaryColor === 'function') {
@@ -186,7 +250,9 @@ async function initApp() {
   }
   
   // Actualizar notificaciones
-  updateNotifications();
+  if (typeof updateNotifications === 'function') {
+    updateNotifications();
+  }
   
   // Cargar dashboard por defecto
   navigateTo('dashboard');
@@ -204,16 +270,34 @@ async function initApp() {
 // Cerrar modales al hacer click fuera
 window.addEventListener('click', function(e) {
   if (e.target.id === 'playerModal') {
-    closePlayerModal();
+    if (typeof closePlayerModal === 'function') {
+      closePlayerModal();
+    }
   }
   if (e.target.id === 'playerDetailsModal') {
-    closePlayerDetailsModal();
+    if (typeof closePlayerDetailsModal === 'function') {
+      closePlayerDetailsModal();
+    }
   }
   if (e.target.id === 'paymentModal') {
-    closePaymentModal();
+    if (typeof closePaymentModal === 'function') {
+      closePaymentModal();
+    }
   }
   if (e.target.id === 'eventModal') {
-    closeEventModal();
+    if (typeof closeEventModal === 'function') {
+      closeEventModal();
+    }
+  }
+  if (e.target.id === 'expenseModal') {
+    if (typeof closeExpenseModal === 'function') {
+      closeExpenseModal();
+    }
+  }
+  if (e.target.id === 'paymentTypeSelectorModal') {
+    if (typeof closePaymentTypeSelectorModal === 'function') {
+      closePaymentTypeSelectorModal();
+    }
   }
 });
 
@@ -224,7 +308,29 @@ document.addEventListener('gesturestart', function(e) {
 
 // Manejo de errores global
 window.addEventListener('error', function(e) {
-  console.error('Error:', e.message);
+  console.error('❌ Error global:', e.message);
 });
 
-console.log('✅ app.js cargado');
+// Verificar que todas las funciones críticas estén cargadas
+window.addEventListener('DOMContentLoaded', function() {
+  console.log('🔍 Verificando funciones...');
+  
+  const criticalFunctions = [
+    'navigateTo',
+    'getPlayers',
+    'getPayments',
+    'getExpenses',
+    'showUnifiedPaymentModal',
+    'showAddExpenseModal'
+  ];
+  
+  criticalFunctions.forEach(funcName => {
+    if (typeof window[funcName] === 'undefined') {
+      console.warn(`⚠️ Función ${funcName} no está definida`);
+    } else {
+      console.log(`✅ ${funcName} OK`);
+    }
+  });
+});
+
+console.log('✅ app.js cargado (ACTUALIZADO)');

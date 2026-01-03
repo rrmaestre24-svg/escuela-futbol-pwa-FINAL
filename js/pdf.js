@@ -601,3 +601,197 @@ function generateFullAccountingReportPDF() {
 }
 
 console.log('✅ pdf.js cargado (CORREGIDO)');
+
+// ========================================
+// GENERAR FACTURA DE EGRESO (COMPROBANTE DE PAGO)
+// ========================================
+
+function generateExpenseInvoicePDF(expenseId, autoDownload = true) {
+  const expense = getExpenseById(expenseId);
+  if (!expense) {
+    showToast('❌ Egreso no encontrado');
+    return null;
+  }
+  
+  const settings = getSchoolSettings();
+  
+  try {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    
+    // Colores
+    const primaryColor = [13, 148, 136];
+    const textColor = [31, 41, 55];
+    const redColor = [220, 38, 38];
+    
+    // Logo
+    let logoY = 15;
+    try {
+      if (settings.logo && settings.logo.startsWith('data:image')) {
+        doc.addImage(settings.logo, 'PNG', 15, logoY, 30, 30);
+      }
+    } catch (e) {
+      console.log('Logo no disponible');
+    }
+    
+    // Encabezado del club
+    doc.setFontSize(20);
+    doc.setTextColor(...primaryColor);
+    doc.setFont(undefined, 'bold');
+    doc.text(settings.name || 'MI CLUB', 50, 25);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(...textColor);
+    doc.setFont(undefined, 'normal');
+    if (settings.email) doc.text(settings.email, 50, 32);
+    if (settings.phone) doc.text(settings.phone, 50, 37);
+    if (settings.address) doc.text(settings.address, 50, 42);
+    
+    // Título COMPROBANTE DE PAGO
+    doc.setFontSize(22);
+    doc.setTextColor(...redColor);
+    doc.setFont(undefined, 'bold');
+    doc.text('COMPROBANTE DE PAGO', 150, 25);
+    
+    // Número de comprobante
+    doc.setFontSize(12);
+    doc.setTextColor(...textColor);
+    doc.text(expense.invoiceNumber || 'N/A', 150, 35);
+    
+    // Fecha
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'normal');
+    doc.text(`Fecha: ${formatDate(expense.date)}`, 150, 42);
+    
+    // Línea separadora
+    doc.setDrawColor(...primaryColor);
+    doc.setLineWidth(0.5);
+    doc.line(15, 50, 195, 50);
+    
+    // Datos del beneficiario
+    doc.setFontSize(12);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(...primaryColor);
+    doc.text('BENEFICIARIO', 15, 60);
+    
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'normal');
+    doc.setTextColor(...textColor);
+    doc.text(`Nombre: ${expense.beneficiaryName}`, 15, 68);
+    
+    if (expense.beneficiaryType === 'internal') {
+      doc.text('Tipo: Usuario/Staff Interno', 15, 75);
+    } else {
+      doc.text('Tipo: Proveedor Externo', 15, 75);
+      if (expense.beneficiaryDocument) {
+        doc.text(`Documento: ${expense.beneficiaryDocument}`, 15, 82);
+      }
+    }
+    
+    if (expense.beneficiaryPhone) {
+      const yPos = expense.beneficiaryDocument ? 89 : 82;
+      doc.text(`Telefono: ${formatPhoneDisplay(expense.beneficiaryPhone)}`, 15, yPos);
+    }
+    
+    if (expense.beneficiaryEmail) {
+      const yPos = expense.beneficiaryPhone ? (expense.beneficiaryDocument ? 96 : 89) : 82;
+      doc.text(`Email: ${expense.beneficiaryEmail}`, 15, yPos);
+    }
+    
+    // Tabla de conceptos
+    const tableTop = 110;
+    
+    // Encabezados de tabla
+    doc.setFillColor(...redColor);
+    doc.rect(15, tableTop, 180, 10, 'F');
+    
+    doc.setTextColor(255, 255, 255);
+    doc.setFont(undefined, 'bold');
+    doc.text('CATEGORIA', 20, tableTop + 7);
+    doc.text('CONCEPTO', 70, tableTop + 7);
+    doc.text('MONTO', 165, tableTop + 7);
+    
+    // Fila de datos
+    doc.setTextColor(...textColor);
+    doc.setFont(undefined, 'normal');
+    const rowTop = tableTop + 15;
+    
+    doc.text(expense.category, 20, rowTop);
+    
+    // Concepto puede ser largo, dividirlo
+    const conceptLines = doc.splitTextToSize(expense.concept, 90);
+    doc.text(conceptLines, 70, rowTop);
+    
+    doc.text(formatCurrency(expense.amount), 165, rowTop);
+    
+    // Método de pago
+    const methodTop = rowTop + (conceptLines.length * 5) + 10;
+    
+    if (expense.method) {
+      doc.setFont(undefined, 'normal');
+      doc.setFontSize(10);
+      doc.text(`Metodo de pago: ${expense.method}`, 15, methodTop);
+    }
+    
+    // Notas
+    if (expense.notes && expense.notes.trim() !== '') {
+      doc.setFont(undefined, 'bold');
+      doc.text('Notas:', 15, methodTop + 10);
+      doc.setFont(undefined, 'normal');
+      const notesLines = doc.splitTextToSize(expense.notes, 180);
+      doc.text(notesLines, 15, methodTop + 17);
+    }
+    
+    // Total
+    const totalsTop = methodTop + 35;
+    doc.setFont(undefined, 'bold');
+    doc.setFontSize(12);
+    doc.text('TOTAL PAGADO:', 110, totalsTop);
+    doc.setTextColor(...redColor);
+    doc.setFontSize(16);
+    doc.text(formatCurrency(expense.amount), 165, totalsTop);
+    
+    // Estado PAGADO
+    doc.setTextColor(22, 163, 74);
+    doc.setFont(undefined, 'bold');
+    doc.setFontSize(12);
+    doc.text('✓ PAGADO', 15, totalsTop);
+    
+    // Línea de firma
+    doc.setTextColor(...textColor);
+    doc.setDrawColor(...textColor);
+    doc.line(15, 220, 90, 220);
+    doc.line(120, 220, 195, 220);
+    
+    doc.setFontSize(9);
+    doc.setFont(undefined, 'normal');
+    doc.text('Firma del Beneficiario', 15, 227);
+    doc.text('Firma del Autorizador', 120, 227);
+    
+    // Pie de página
+    doc.setTextColor(100, 100, 100);
+    doc.setFontSize(9);
+    doc.setFont(undefined, 'italic');
+    doc.text('Este documento certifica el pago realizado', 105, 260, { align: 'center' });
+    
+    doc.setFontSize(8);
+    doc.text(settings.name || 'MI CLUB', 105, 267, { align: 'center' });
+    doc.text(`Generado el ${formatDate(getCurrentDate())}`, 105, 273, { align: 'center' });
+    
+    // Guardar
+    if (autoDownload) {
+      doc.save(`Comprobante-Pago-${expense.invoiceNumber || 'SN'}.pdf`);
+      showToast('✅ Comprobante descargado');
+    }
+    
+    return doc;
+    
+  } catch (error) {
+    console.error('Error al generar comprobante de pago:', error);
+    showToast('❌ Error al generar PDF: ' + error.message);
+    return null;
+  }
+}
+
+// Hacer la función global
+window.generateExpenseInvoicePDF = generateExpenseInvoicePDF;

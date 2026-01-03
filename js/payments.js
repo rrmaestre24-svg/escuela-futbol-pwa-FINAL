@@ -1,33 +1,73 @@
 // ========================================
-// GESTIÓN DE PAGOS
+// GESTIÓN DE PAGOS UNIFICADA (INGRESOS + EGRESOS)
 // ========================================
 
 let currentPaymentTab = 'monthly';
+let currentPaymentMode = 'ingreso'; // 'ingreso' o 'egreso'
+
+// ========================================
+// MODAL SELECTOR DE TIPO
+// ========================================
+
+// Mostrar modal selector
+function showUnifiedPaymentModal() {
+  document.getElementById('paymentTypeSelectorModal').classList.remove('hidden');
+  lucide.createIcons();
+}
+
+// Cerrar modal selector
+function closePaymentTypeSelectorModal() {
+  document.getElementById('paymentTypeSelectorModal').classList.add('hidden');
+}
+
+// Seleccionar tipo de pago
+function selectPaymentType(type) {
+  currentPaymentMode = type;
+  closePaymentTypeSelectorModal();
+  
+  if (type === 'ingreso') {
+    showAddPaymentModal();
+  } else {
+    showAddExpenseModal();
+  }
+}
+
+// ========================================
+// TABS
+// ========================================
 
 // Mostrar tab de pagos
 function showPaymentTab(tab) {
   currentPaymentTab = tab;
   
   // Actualizar botones
-  document.getElementById('monthlyTab').classList.remove('bg-teal-600', 'text-white');
-  document.getElementById('monthlyTab').classList.add('bg-gray-200', 'dark:bg-gray-700', 'text-gray-700', 'dark:text-gray-300');
-  document.getElementById('extrasTab').classList.remove('bg-teal-600', 'text-white');
-  document.getElementById('extrasTab').classList.add('bg-gray-200', 'dark:bg-gray-700', 'text-gray-700', 'dark:text-gray-300');
-  document.getElementById('historyTab').classList.remove('bg-teal-600', 'text-white');
-  document.getElementById('historyTab').classList.add('bg-gray-200', 'dark:bg-gray-700', 'text-gray-700', 'dark:text-gray-300');
-  
-  document.getElementById(`${tab}Tab`).classList.add('bg-teal-600', 'text-white');
-  document.getElementById(`${tab}Tab`).classList.remove('bg-gray-200', 'dark:bg-gray-700', 'text-gray-700', 'dark:text-gray-300');
+  ['monthly', 'extras', 'expenses', 'history'].forEach(t => {
+    const btn = document.getElementById(`${t}Tab`);
+    if (btn) {
+      if (t === tab) {
+        btn.classList.add('bg-teal-600', 'text-white');
+        btn.classList.remove('bg-gray-200', 'dark:bg-gray-700', 'text-gray-700', 'dark:text-gray-300');
+      } else {
+        btn.classList.remove('bg-teal-600', 'text-white');
+        btn.classList.add('bg-gray-200', 'dark:bg-gray-700', 'text-gray-700', 'dark:text-gray-300');
+      }
+    }
+  });
   
   // Mostrar contenido
   document.getElementById('monthlyPaymentsContent').classList.add('hidden');
   document.getElementById('extrasPaymentsContent').classList.add('hidden');
+  document.getElementById('expensesPaymentsContent').classList.add('hidden');
   document.getElementById('historyPaymentsContent').classList.add('hidden');
   
   document.getElementById(`${tab}PaymentsContent`).classList.remove('hidden');
   
   renderPayments();
 }
+
+// ========================================
+// MODAL DE PAGO (INGRESO)
+// ========================================
 
 // Mostrar modal agregar pago
 function showAddPaymentModal() {
@@ -90,7 +130,7 @@ document.getElementById('paymentStatus')?.addEventListener('change', function() 
   }
 });
 
-// Guardar pago
+// Guardar pago (INGRESO)
 document.getElementById('paymentForm')?.addEventListener('submit', function(e) {
   e.preventDefault();
   
@@ -137,10 +177,10 @@ document.getElementById('paymentForm')?.addEventListener('submit', function(e) {
     savePayment(newPayment);
     showToast('✅ Pago registrado');
     
-    // Si está pagado, generar PDF automáticamente
+    // 🚀 AUTO-REDIRECT: Si está pagado, generar PDF + WhatsApp
     if (status === 'Pagado') {
       setTimeout(() => {
-        generateInvoicePDF(newPayment.id);
+        generateInvoicePDFWithWhatsApp(newPayment.id);
       }, 500);
     }
   }
@@ -151,16 +191,23 @@ document.getElementById('paymentForm')?.addEventListener('submit', function(e) {
   updateNotifications();
 });
 
+// ========================================
+// RENDERIZADO
+// ========================================
+
 // Renderizar pagos
 function renderPayments() {
   const payments = getPayments();
+  const expenses = getExpenses();
   
   if (currentPaymentTab === 'monthly') {
     renderMonthlyPayments(payments.filter(p => p.type === 'Mensualidad'));
   } else if (currentPaymentTab === 'extras') {
     renderExtraPayments(payments.filter(p => p.type !== 'Mensualidad'));
+  } else if (currentPaymentTab === 'expenses') {
+    renderExpensesInPayments(expenses);
   } else if (currentPaymentTab === 'history') {
-    renderPaymentsHistory(payments);
+    renderPaymentsHistory(payments, expenses);
   }
 }
 
@@ -216,7 +263,28 @@ function renderExtraPayments(payments) {
   lucide.createIcons();
 }
 
-// Renderizar card de pago
+// Renderizar egresos dentro de pagos
+function renderExpensesInPayments(expenses) {
+  const container = document.getElementById('expensesPaymentsContent');
+  
+  if (expenses.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-icon">💸</div>
+        <p class="text-gray-500 dark:text-gray-400">No hay egresos registrados</p>
+      </div>
+    `;
+    return;
+  }
+  
+  const sorted = sortBy(expenses, 'date', 'desc');
+  
+  container.innerHTML = sorted.map(expense => renderExpenseCard(expense)).join('');
+  
+  lucide.createIcons();
+}
+
+// Renderizar card de pago (INGRESO)
 function renderPaymentCard(payment, player) {
   const statusColor = payment.status === 'Pagado' 
     ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' 
@@ -268,13 +336,9 @@ function renderPaymentCard(payment, player) {
       
       <div class="flex gap-2">
         ${payment.status === 'Pagado' ? `
-          <button onclick="generateInvoicePDF('${payment.id}')" class="flex-1 bg-teal-600 hover:bg-teal-700 text-white text-sm py-2 rounded-lg flex items-center justify-center gap-1">
-            <i data-lucide="download" class="w-4 h-4"></i>
-            PDF
-          </button>
-          <button onclick="sendInvoiceWhatsApp('${payment.id}')" class="flex-1 bg-green-600 hover:bg-green-700 text-white text-sm py-2 rounded-lg flex items-center justify-center gap-1">
-            <i data-lucide="message-circle" class="w-4 h-4"></i>
-            WhatsApp
+          <button onclick="generateInvoicePDFWithWhatsApp('${payment.id}')" class="flex-1 bg-teal-600 hover:bg-teal-700 text-white text-sm py-2 rounded-lg flex items-center justify-center gap-1">
+            <i data-lucide="file-text" class="w-4 h-4"></i>
+            📄 Factura+WA
           </button>
         ` : `
           <button onclick="markAsPaid('${payment.id}')" class="flex-1 bg-green-600 hover:bg-green-700 text-white text-sm py-2 rounded-lg flex items-center justify-center gap-1">
@@ -283,6 +347,67 @@ function renderPaymentCard(payment, player) {
           </button>
         `}
         <button onclick="deletePaymentConfirm('${payment.id}')" class="bg-red-600 hover:bg-red-700 text-white text-sm py-2 px-3 rounded-lg">
+          <i data-lucide="trash-2" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+// Renderizar card de egreso
+function renderExpenseCard(expense) {
+  const categoryColors = {
+    'Salarios': 'text-purple-600',
+    'Servicios': 'text-blue-600',
+    'Materiales': 'text-green-600',
+    'Mantenimiento': 'text-yellow-600',
+    'Impuestos': 'text-red-600',
+    'Otro': 'text-gray-600'
+  };
+  
+  return `
+    <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm animate-slide-in border-l-4 border-red-500">
+      <div class="flex items-start justify-between mb-3">
+        <div>
+          <h3 class="font-bold text-gray-800 dark:text-white">${expense.beneficiaryName}</h3>
+          <p class="text-xs text-gray-500 dark:text-gray-400">
+            ${expense.beneficiaryType === 'internal' ? '👤 Usuario interno' : '📦 Proveedor externo'}
+          </p>
+        </div>
+        <span class="badge bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300">Egreso</span>
+      </div>
+      
+      <div class="space-y-2 mb-3">
+        <div class="flex items-center gap-2">
+          <i data-lucide="tag" class="w-4 h-4 ${categoryColors[expense.category] || 'text-gray-600'}"></i>
+          <span class="text-sm font-medium text-gray-800 dark:text-white">${expense.concept}</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <i data-lucide="dollar-sign" class="w-4 h-4 text-red-600"></i>
+          <span class="text-lg font-bold text-red-600">${formatCurrency(expense.amount)}</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <i data-lucide="calendar" class="w-4 h-4 text-gray-600"></i>
+          <span class="text-sm text-gray-600 dark:text-gray-400">Pagado: ${formatDate(expense.date)}</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <i data-lucide="file-text" class="w-4 h-4 text-teal-600"></i>
+          <span class="text-sm font-medium text-teal-600 dark:text-teal-400">${expense.invoiceNumber}</span>
+        </div>
+        ${expense.beneficiaryPhone ? `
+          <div class="flex items-center gap-2">
+            <i data-lucide="phone" class="w-4 h-4 text-blue-600"></i>
+            <span class="text-sm text-blue-600">${formatPhoneDisplay(expense.beneficiaryPhone)}</span>
+          </div>
+        ` : ''}
+      </div>
+      
+      <div class="flex gap-2">
+        <button onclick="generateExpenseInvoicePDFWithWhatsApp('${expense.id}')" class="flex-1 bg-teal-600 hover:bg-teal-700 text-white text-sm py-2 rounded-lg flex items-center justify-center gap-1">
+          <i data-lucide="file-text" class="w-4 h-4"></i>
+          📄 Factura+WA
+        </button>
+        <button onclick="deleteExpenseConfirm('${expense.id}')" class="bg-red-600 hover:bg-red-700 text-white text-sm py-2 px-3 rounded-lg">
           <i data-lucide="trash-2" class="w-4 h-4"></i>
         </button>
       </div>
@@ -306,9 +431,9 @@ function markAsPaid(paymentId) {
   
   showToast('✅ Pago marcado como pagado');
   
-  // Generar PDF automáticamente
+  // 🚀 AUTO-REDIRECT: Generar PDF + WhatsApp
   setTimeout(() => {
-    generateInvoicePDF(paymentId);
+    generateInvoicePDFWithWhatsApp(paymentId);
   }, 500);
   
   renderPayments();
@@ -316,35 +441,69 @@ function markAsPaid(paymentId) {
   updateNotifications();
 }
 
-// Renderizar historial de pagos
-function renderPaymentsHistory(payments) {
+// Renderizar historial completo (INGRESOS + EGRESOS)
+function renderPaymentsHistory(payments, expenses) {
   const tbody = document.getElementById('paymentsHistoryTable');
   
-  if (payments.length === 0) {
+  if (payments.length === 0 && expenses.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="5" class="text-center py-8 text-gray-500 dark:text-gray-400">No hay pagos registrados</td>
+        <td colspan="5" class="text-center py-8 text-gray-500 dark:text-gray-400">No hay registros</td>
       </tr>
     `;
     return;
   }
   
-  const sorted = sortBy(payments, 'createdAt', 'desc');
+  // Combinar pagos y egresos
+  const allTransactions = [];
   
-  tbody.innerHTML = sorted.map(payment => {
-    const player = getPlayerById(payment.playerId);
-    if (!player) return '';
+  // Agregar pagos
+  payments.forEach(p => {
+    const player = getPlayerById(p.playerId);
+    if (player) {
+      allTransactions.push({
+        date: p.paidDate || p.dueDate,
+        type: 'ingreso',
+        name: player.name,
+        concept: p.concept,
+        amount: p.amount,
+        status: p.status
+      });
+    }
+  });
+  
+  // Agregar egresos
+  expenses.forEach(e => {
+    allTransactions.push({
+      date: e.date,
+      type: 'egreso',
+      name: e.beneficiaryName,
+      concept: e.concept,
+      amount: -e.amount,
+      status: 'Pagado'
+    });
+  });
+  
+  // Ordenar por fecha
+  const sorted = allTransactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+  
+  tbody.innerHTML = sorted.map(t => {
+    const statusColor = t.type === 'ingreso' 
+      ? (t.status === 'Pagado' ? 'text-green-600' : 'text-red-600')
+      : 'text-red-600';
     
-    const statusColor = payment.status === 'Pagado' ? 'text-green-600' : 'text-red-600';
+    const amountColor = t.amount >= 0 ? 'text-green-600' : 'text-red-600';
     
     return `
       <tr class="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
-        <td class="py-3 text-gray-800 dark:text-white">${formatDate(payment.paidDate || payment.dueDate)}</td>
-        <td class="py-3 text-gray-800 dark:text-white">${player.name}</td>
-        <td class="py-3 text-gray-800 dark:text-white">${payment.concept}</td>
-        <td class="py-3 text-right text-gray-800 dark:text-white font-medium">${formatCurrency(payment.amount)}</td>
+        <td class="py-3 text-gray-800 dark:text-white">${formatDate(t.date)}</td>
+        <td class="py-3 text-gray-800 dark:text-white">${t.name}</td>
+        <td class="py-3 text-gray-800 dark:text-white">${t.concept}</td>
+        <td class="py-3 text-right font-medium ${amountColor}">${formatCurrency(Math.abs(t.amount))}</td>
         <td class="py-3 text-center">
-          <span class="text-sm font-medium ${statusColor}">${payment.status}</span>
+          <span class="text-sm font-medium ${statusColor}">
+            ${t.type === 'ingreso' ? '💰 ' + t.status : '💸 Egreso'}
+          </span>
         </td>
       </tr>
     `;
@@ -362,4 +521,44 @@ function deletePaymentConfirm(paymentId) {
   }
 }
 
-console.log('✅ payments.js cargado');
+// ========================================
+// 🚀 AUTO-REDIRECT: PDF + WHATSAPP
+// ========================================
+
+// Generar factura con flujo automático (PDF + WhatsApp)
+function generateInvoicePDFWithWhatsApp(paymentId) {
+  // Primero generar el PDF
+  const pdfGenerated = generateInvoicePDF(paymentId, true);
+  
+  if (!pdfGenerated) {
+    return;
+  }
+  
+  const payment = getPaymentById(paymentId);
+  if (!payment) return;
+  
+  // Mostrar modal informativo
+  showInvoiceProgressModal(payment.invoiceNumber);
+  
+  // Esperar 1.5 segundos y luego verificar WhatsApp
+  setTimeout(() => {
+    closeInvoiceProgressModal();
+    
+    const player = getPlayerById(payment.playerId);
+    if (!player) {
+      showToast('❌ Jugador no encontrado');
+      return;
+    }
+    
+    // Verificar si tiene WhatsApp
+    if (player.phone && player.phone.trim() !== '') {
+      // Tiene WhatsApp → Abrir automáticamente
+      sendInvoiceWhatsApp(paymentId);
+    } else {
+      // NO tiene WhatsApp → Pedir número manual
+      showManualWhatsAppModal(paymentId, 'payment');
+    }
+  }, 1500);
+}
+
+console.log('✅ payments.js cargado (UNIFICADO CON AUTO-REDIRECT)');

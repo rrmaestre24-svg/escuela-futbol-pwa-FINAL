@@ -39,7 +39,7 @@ function sendInvoiceWhatsApp(paymentId) {
 
 ✅ *Estado:* PAGADO
 
-Gracias por tu pago puntual.
+Gracias por tu pago.
 
 _${settings.name}_
 ${settings.phone}
@@ -103,7 +103,7 @@ Su pago se encuentra en período de gracia:
 💵 *Monto:* ${formatCurrency(payment.amount)}
 📅 *Venció:* ${formatDate(payment.dueDate)} (hace ${Math.abs(daysDiff)} días)
 
-Le solicitamos ponerse al día lo antes posible.
+Le recordamos ponerse al día.
 
 _${settings.name}_
 ${settings.phone}
@@ -122,7 +122,7 @@ Su pago se encuentra VENCIDO:
 💵 *Monto:* ${formatCurrency(payment.amount)}
 📅 *Venció:* ${formatDate(payment.dueDate)} (hace ${Math.abs(daysDiff)} días)
 
-Es urgente regularizar su situación. Por favor, comuníquese con nosotros.
+ Por favor, comuníquese con nosotros.
 
 _${settings.name}_
 ${settings.phone}
@@ -236,3 +236,68 @@ ${settings.phone}
 }
 
 console.log('✅ whatsapp.js cargado');
+// ========================================
+// WHATSAPP - FUNCIONES PARA EGRESOS
+// ========================================
+
+// Enviar comprobante de egreso por WhatsApp
+function sendExpenseInvoiceWhatsApp(expenseId) {
+  const expense = getExpenseById(expenseId);
+  if (!expense) {
+    showToast('❌ Egreso no encontrado');
+    return;
+  }
+  
+  const settings = getSchoolSettings();
+  
+  // Construir mensaje
+  const message = `¡Hola ${expense.beneficiaryName}! 👋\n\n` +
+    `Te enviamos el comprobante de pago de *${settings.name || 'MI CLUB'}*\n\n` +
+    `📄 Comprobante: ${expense.invoiceNumber}\n` +
+    `💵 Monto: ${formatCurrency(expense.amount)}\n` +
+    `📋 Concepto: ${expense.concept}\n` +
+    `🏷️ Categoría: ${expense.category}\n` +
+    `📅 Fecha de pago: ${formatDate(expense.date)}\n` +
+    `💳 Método: ${expense.method}\n\n` +
+    `Gracias por tus servicios  ⚽`;
+  
+  // Normalizar teléfono
+  const phone = normalizePhone(expense.beneficiaryPhone);
+  
+  // Abrir WhatsApp
+  const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+  window.open(url, '_blank');
+  
+  showToast('✅ Abriendo WhatsApp...');
+}
+
+// Enviar por WhatsApp con número manual (para egresos)
+function sendExpenseInvoiceWhatsAppManual(expenseId, phone) {
+  const expense = getExpenseById(expenseId);
+  if (!expense) {
+    showToast('❌ Egreso no encontrado');
+    return;
+  }
+  
+  const settings = getSchoolSettings();
+  
+  const message = `¡Hola ${expense.beneficiaryName}! 👋\n\n` +
+    `Te enviamos el comprobante de pago de *${settings.name || 'MI CLUB'}*\n\n` +
+    `📄 Comprobante: ${expense.invoiceNumber}\n` +
+    `💵 Monto: ${formatCurrency(expense.amount)}\n` +
+    `📋 Concepto: ${expense.concept}\n` +
+    `📅 Fecha: ${formatDate(expense.date)}\n\n` +
+    `Gracias por tus servicios ⚽`;
+  
+  const normalizedPhone = normalizePhone(phone);
+  const url = `https://wa.me/${normalizedPhone}?text=${encodeURIComponent(message)}`;
+  window.open(url, '_blank');
+  
+  showToast('✅ Abriendo WhatsApp...');
+}
+
+// Hacer funciones globales
+window.sendExpenseInvoiceWhatsApp = sendExpenseInvoiceWhatsApp;
+window.sendExpenseInvoiceWhatsAppManual = sendExpenseInvoiceWhatsAppManual;
+
+console.log('✅ Funciones de WhatsApp para egresos cargadas');

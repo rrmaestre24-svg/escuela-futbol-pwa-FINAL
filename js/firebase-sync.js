@@ -44,7 +44,7 @@ function getClubId() {
 }
 
 /**
- * ✅ Sube todos los datos locales a Firebase - CORREGIDO
+ * ✅ Sube todos los datos locales a Firebase - CORREGIDO PARA USUARIOS SECUNDARIOS
  */
 async function syncAllToFirebase() {
   if (!checkFirebaseReady()) return;
@@ -55,21 +55,35 @@ async function syncAllToFirebase() {
     return;
   }
 
+  const currentUser = getCurrentUser();
+  if (!currentUser) {
+    showToast('❌ No hay usuario en sesión');
+    return;
+  }
+
   try {
     console.log('📤 Sincronizando todos los datos a Firebase...');
     console.log('📤 Club ID:', clubId);
+    console.log('👤 Usuario:', currentUser.email);
+    console.log('👑 Es admin principal:', currentUser.isMainAdmin);
     showToast('📤 Subiendo datos...');
 
-    const settings = getSchoolSettings();
-    
-    // 1️⃣ Configuración del club - ✅ RUTA CORREGIDA
-    await window.firebase.setDoc(
-      window.firebase.doc(window.firebase.db, `clubs/${clubId}/settings`, "main"),
-      { ...settings, lastUpdated: new Date().toISOString() }
-    );
-    console.log('✅ Configuración subida');
+    let syncedItems = [];
 
-    // 2️⃣ Jugadores - ✅ RUTA CORREGIDA
+    // 1️⃣ Configuración del club - ⚠️ SOLO ADMIN PRINCIPAL
+    if (currentUser.isMainAdmin) {
+      const settings = getSchoolSettings();
+      await window.firebase.setDoc(
+        window.firebase.doc(window.firebase.db, `clubs/${clubId}/settings`, "main"),
+        { ...settings, lastUpdated: new Date().toISOString() }
+      );
+      console.log('✅ Configuración subida');
+      syncedItems.push('configuración');
+    } else {
+      console.log('⏭️ Configuración omitida (solo admin principal)');
+    }
+
+    // 2️⃣ Jugadores - ✅ TODOS LOS ADMINS
     const players = getAllPlayers() || [];
     let playersCount = 0;
     for (const player of players) {
@@ -82,8 +96,9 @@ async function syncAllToFirebase() {
       }
     }
     console.log(`✅ ${playersCount} jugadores subidos`);
+    syncedItems.push(`${playersCount} jugadores`);
 
-    // 3️⃣ Pagos - ✅ RUTA CORREGIDA
+    // 3️⃣ Pagos - ✅ TODOS LOS ADMINS
     const payments = getPayments() || [];
     let paymentsCount = 0;
     for (const payment of payments) {
@@ -96,8 +111,9 @@ async function syncAllToFirebase() {
       }
     }
     console.log(`✅ ${paymentsCount} pagos subidos`);
+    syncedItems.push(`${paymentsCount} pagos`);
 
-    // 4️⃣ Eventos - ✅ RUTA CORREGIDA
+    // 4️⃣ Eventos - ✅ TODOS LOS ADMINS
     const events = getCalendarEvents() || [];
     let eventsCount = 0;
     for (const event of events) {
@@ -110,33 +126,54 @@ async function syncAllToFirebase() {
       }
     }
     console.log(`✅ ${eventsCount} eventos subidos`);
+    syncedItems.push(`${eventsCount} eventos`);
 
-    // 5️⃣ Usuarios - ✅ RUTA CORREGIDA
-    const users = getUsers() || [];
-    let usersCount = 0;
-    for (const user of users) {
-      if (user.id) {
+    // 5️⃣ Usuarios - ⚠️ SOLO ADMIN PRINCIPAL
+    if (currentUser.isMainAdmin) {
+      const users = getUsers() || [];
+      let usersCount = 0;
+      for (const user of users) {
+        if (user.id) {
+          await window.firebase.setDoc(
+            window.firebase.doc(window.firebase.db, `clubs/${clubId}/users`, user.id),
+            {
+              id: user.id,
+              email: user.email,
+              name: user.name,
+              isMainAdmin: user.isMainAdmin || false,
+              role: user.role || 'admin',
+              avatar: user.avatar || '',
+              phone: user.phone || '',
+              birthDate: user.birthDate || '',
+              createdAt: user.createdAt || new Date().toISOString()
+            }
+          );
+          usersCount++;
+        }
+      }
+      console.log(`✅ ${usersCount} usuarios subidos`);
+      syncedItems.push(`${usersCount} usuarios`);
+    } else {
+      console.log('⏭️ Usuarios omitidos (solo admin principal)');
+    }
+    
+    // 6️⃣ Egresos - ✅ TODOS LOS ADMINS
+    const expenses = getExpenses() || [];
+    let expensesCount = 0;
+    for (const expense of expenses) {
+      if (expense.id) {
         await window.firebase.setDoc(
-          window.firebase.doc(window.firebase.db, `clubs/${clubId}/users`, user.id),
-          {
-            id: user.id,
-            email: user.email,
-            name: user.name,
-            isMainAdmin: user.isMainAdmin || false,
-            role: user.role || 'admin',
-            avatar: user.avatar || '',
-            phone: user.phone || '',
-            birthDate: user.birthDate || '',
-            createdAt: user.createdAt || new Date().toISOString()
-          }
+          window.firebase.doc(window.firebase.db, `clubs/${clubId}/expenses`, expense.id),
+          expense
         );
-        usersCount++;
+        expensesCount++;
       }
     }
-    console.log(`✅ ${usersCount} usuarios subidos`);
+    console.log(`✅ ${expensesCount} egresos subidos`);
+    syncedItems.push(`${expensesCount} egresos`);
 
     console.log('✅ Sincronización completada');
-    showToast(`✅ Datos subidos: ${playersCount} jugadores, ${paymentsCount} pagos, ${eventsCount} eventos, ${usersCount} usuarios`);
+    showToast(`✅ Datos subidos: ${syncedItems.join(', ')}`);
   } catch (error) {
     console.error('❌ Error al sincronizar:', error);
     showToast('⚠️ Error al subir datos: ' + error.message);
@@ -201,11 +238,43 @@ async function downloadFromFirebase() {
       window.firebase.collection(window.firebase.db, `clubs/${clubId}/users`)
     );
     const users = [];
-    usersSnapshot.forEach(doc => users.push(doc.data()));
+    usersSnapshot.forEach(doc => {
+      const userData = doc.data();
+      users.push({
+        id: userData.id || doc.id,
+        schoolId: clubId,
+        email: userData.email || '',
+        name: userData.name || '',
+        isMainAdmin: userData.isMainAdmin === true, // ✅ PRESERVAR BOOLEAN
+        role: userData.role || 'admin',
+        avatar: userData.avatar || '',
+        phone: userData.phone || '',
+        birthDate: userData.birthDate || '',
+        password: 'encrypted',
+        createdAt: userData.createdAt || userData.joinedAt || new Date().toISOString()
+      });
+    });
     localStorage.setItem('users', JSON.stringify(users));
     console.log(`✅ ${users.length} usuarios descargados`);
+    
+    // ✅ VERIFICAR ADMIN PRINCIPAL
+    const mainAdmin = users.find(u => u.isMainAdmin === true);
+    if (mainAdmin) {
+      console.log('👑 Admin principal:', mainAdmin.email);
+    } else {
+      console.warn('⚠️ NO hay admin principal');
+    }
 
-    showToast(`✅ Datos descargados: ${players.length} jugadores, ${payments.length} pagos, ${events.length} eventos, ${users.length} usuarios`);
+    // 6️⃣ Egresos - ✅ RUTA CORREGIDA
+    const expensesSnapshot = await window.firebase.getDocs(
+      window.firebase.collection(window.firebase.db, `clubs/${clubId}/expenses`)
+    );
+    const expenses = [];
+    expensesSnapshot.forEach(doc => expenses.push(doc.data()));
+    localStorage.setItem('expenses', JSON.stringify(expenses));
+    console.log(`✅ ${expenses.length} egresos descargados`);
+
+    showToast(`✅ Datos descargados: ${players.length} jugadores, ${payments.length} pagos, ${events.length} eventos, ${users.length} usuarios, ${expenses.length} egresos`);
     
     // Recargar para aplicar cambios
     setTimeout(() => {
@@ -491,4 +560,55 @@ async function deleteEventFromFirebase(eventId) {
   }
 }
 
-console.log('✅ firebase-sync.js cargado (MULTI-CLUB CORREGIDO)');
+/**
+ * ✅ Guardar egreso individual en Firebase
+ */
+async function saveExpenseToFirebase(expense) {
+  if (!checkFirebaseReady()) return false;
+
+  const clubId = getClubId();
+  if (!clubId || !expense?.id) {
+    console.error('❌ Club ID o expense ID faltante');
+    return false;
+  }
+
+  try {
+    // ✅ RUTA: clubs/{clubId}/expenses/{expenseId}
+    await window.firebase.setDoc(
+      window.firebase.doc(window.firebase.db, `clubs/${clubId}/expenses`, expense.id),
+      expense
+    );
+    console.log('✅ Egreso guardado en Firebase:', expense.id);
+    return true;
+  } catch (error) {
+    console.error('❌ Error al guardar egreso:', error);
+    return false;
+  }
+}
+
+/**
+ * ✅ Eliminar egreso de Firebase
+ */
+async function deleteExpenseFromFirebase(expenseId) {
+  if (!checkFirebaseReady()) return false;
+
+  const clubId = getClubId();
+  if (!clubId || !expenseId) {
+    console.error('❌ Club ID o expense ID faltante');
+    return false;
+  }
+
+  try {
+    // ✅ RUTA: clubs/{clubId}/expenses/{expenseId}
+    await window.firebase.deleteDoc(
+      window.firebase.doc(window.firebase.db, `clubs/${clubId}/expenses`, expenseId)
+    );
+    console.log('✅ Egreso eliminado de Firebase:', expenseId);
+    return true;
+  } catch (error) {
+    console.error('❌ Error al eliminar egreso:', error);
+    return false;
+  }
+}
+
+console.log('✅ firebase-sync.js cargado (MULTI-CLUB CON PERMISOS POR ROL)');

@@ -13,6 +13,9 @@ function initStorage() {
   if (!localStorage.getItem('payments')) {
     localStorage.setItem('payments', JSON.stringify([]));
   }
+  if (!localStorage.getItem('expenses')) {
+    localStorage.setItem('expenses', JSON.stringify([]));
+  }
   if (!localStorage.getItem('calendarEvents')) {
     localStorage.setItem('calendarEvents', JSON.stringify([]));
   }
@@ -36,11 +39,38 @@ function initStorage() {
   if (!localStorage.getItem('darkMode')) {
     localStorage.setItem('darkMode', 'false');
   }
+  if (!localStorage.getItem('schoolUsers')) {
+    localStorage.setItem('schoolUsers', JSON.stringify([]));
+  }
 }
 
 // USUARIOS
 function getUsers() {
-  return JSON.parse(localStorage.getItem('users') || '[]');
+  try {
+    const users = localStorage.getItem('users');
+    const schoolUsers = localStorage.getItem('schoolUsers');
+    
+    const parsedUsers = users ? JSON.parse(users) : [];
+    const parsedSchoolUsers = schoolUsers ? JSON.parse(schoolUsers) : [];
+    
+    // Combinar usuarios principales y de escuela
+    const allUsers = [...parsedUsers, ...parsedSchoolUsers];
+    
+    // Incluir al admin actual
+    const currentUser = getCurrentUser();
+    if (currentUser) {
+      const withCurrentUser = [currentUser, ...allUsers];
+      // Eliminar duplicados por email
+      return withCurrentUser.filter((user, index, self) => 
+        index === self.findIndex(u => u.email === user.email)
+      );
+    }
+    
+    return allUsers;
+  } catch (error) {
+    console.error('Error al obtener usuarios:', error);
+    return [];
+  }
 }
 
 function saveUser(user) {
@@ -209,6 +239,91 @@ function getPaidPayments() {
 }
 
 // ========================================
+// EGRESOS - CON SINCRONIZACIÓN AUTOMÁTICA
+// ========================================
+
+function getExpenses() {
+  try {
+    const expenses = localStorage.getItem('expenses');
+    return expenses ? JSON.parse(expenses) : [];
+  } catch (error) {
+    console.error('Error al obtener egresos:', error);
+    return [];
+  }
+}
+
+function getExpenseById(expenseId) {
+  const expenses = getExpenses();
+  return expenses.find(e => e.id === expenseId);
+}
+
+function saveExpense(expense) {
+  try {
+    const expenses = getExpenses();
+    expenses.push(expense);
+    localStorage.setItem('expenses', JSON.stringify(expenses));
+    
+    // ⭐ SINCRONIZACIÓN AUTOMÁTICA
+    if (typeof saveExpenseToFirebase === 'function') {
+      saveExpenseToFirebase(expense).catch(err => 
+        console.warn('⚠️ No se pudo sincronizar egreso con Firebase:', err)
+      );
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error al guardar egreso:', error);
+    return false;
+  }
+}
+
+function updateExpense(expenseId, updatedData) {
+  try {
+    const expenses = getExpenses();
+    const index = expenses.findIndex(e => e.id === expenseId);
+    
+    if (index !== -1) {
+      expenses[index] = { ...expenses[index], ...updatedData };
+      localStorage.setItem('expenses', JSON.stringify(expenses));
+      
+      // ⭐ SINCRONIZACIÓN AUTOMÁTICA
+      if (typeof saveExpenseToFirebase === 'function') {
+        saveExpenseToFirebase(expenses[index]).catch(err => 
+          console.warn('⚠️ No se pudo sincronizar egreso con Firebase:', err)
+        );
+      }
+      
+      return true;
+    }
+    
+    return false;
+  } catch (error) {
+    console.error('Error al actualizar egreso:', error);
+    return false;
+  }
+}
+
+function deleteExpense(expenseId) {
+  try {
+    const expenses = getExpenses();
+    const filtered = expenses.filter(e => e.id !== expenseId);
+    localStorage.setItem('expenses', JSON.stringify(filtered));
+    
+    // ⭐ SINCRONIZACIÓN AUTOMÁTICA
+    if (typeof deleteExpenseFromFirebase === 'function') {
+      deleteExpenseFromFirebase(expenseId).catch(err => 
+        console.warn('⚠️ No se pudo eliminar egreso de Firebase:', err)
+      );
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error al eliminar egreso:', error);
+    return false;
+  }
+}
+
+// ========================================
 // EVENTOS DEL CALENDARIO - CON SINCRONIZACIÓN AUTOMÁTICA
 // ========================================
 
@@ -316,8 +431,12 @@ function setDarkMode(enabled) {
 function getNextInvoiceNumber() {
   const year = new Date().getFullYear();
   const payments = getPayments();
-  const invoicesThisYear = payments.filter(p => 
-    p.invoiceNumber && p.invoiceNumber.includes(year.toString())
+  const expenses = getExpenses();
+  
+  // Combinar pagos y egresos para el conteo
+  const allInvoices = [...payments, ...expenses];
+  const invoicesThisYear = allInvoices.filter(item => 
+    item.invoiceNumber && item.invoiceNumber.includes(year.toString())
   );
   
   const nextNumber = invoicesThisYear.length + 1;
@@ -330,6 +449,7 @@ function exportAllData() {
     users: getUsers(),
     players: getPlayers(),
     payments: getPayments(),
+    expenses: getExpenses(),
     calendarEvents: getCalendarEvents(),
     schoolSettings: getSchoolSettings(),
     exportDate: new Date().toISOString()
@@ -347,6 +467,7 @@ function importData(jsonData) {
     if (data.users) localStorage.setItem('users', JSON.stringify(data.users));
     if (data.players) localStorage.setItem('players', JSON.stringify(data.players));
     if (data.payments) localStorage.setItem('payments', JSON.stringify(data.payments));
+    if (data.expenses) localStorage.setItem('expenses', JSON.stringify(data.expenses));
     if (data.calendarEvents) localStorage.setItem('calendarEvents', JSON.stringify(data.calendarEvents));
     if (data.schoolSettings) localStorage.setItem('schoolSettings', JSON.stringify(data.schoolSettings));
     
@@ -439,6 +560,7 @@ function importDataFromJSON(file) {
       if (data.users) localStorage.setItem('users', JSON.stringify(data.users));
       if (data.players) localStorage.setItem('players', JSON.stringify(data.players));
       if (data.payments) localStorage.setItem('payments', JSON.stringify(data.payments));
+      if (data.expenses) localStorage.setItem('expenses', JSON.stringify(data.expenses));
       if (data.calendarEvents) localStorage.setItem('calendarEvents', JSON.stringify(data.calendarEvents));
       if (data.schoolSettings) localStorage.setItem('schoolSettings', JSON.stringify(data.schoolSettings));
       
@@ -476,4 +598,4 @@ function openImportDialog() {
 // Inicializar al cargar
 initStorage();
 
-console.log('✅ storage.js cargado (CON SINCRONIZACIÓN AUTOMÁTICA)');
+console.log('✅ storage.js cargado (CON EGRESOS Y SINCRONIZACIÓN)');

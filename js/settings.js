@@ -23,85 +23,126 @@ function loadSettings() {
     if (emailDisplay) emailDisplay.textContent = currentUser.email || '';
   }
   
-  // 👥 RESTRICCIÓN: Solo el admin principal ve/edita la configuración del club
+  // ✅ CARGAR DATOS DEL CLUB PARA TODOS (mostrar siempre)
   const clubSection = document.getElementById('clubSettingsSection');
   const restrictedMsg = document.getElementById('clubSettingsRestricted');
   
-  if (currentUser?.isMainAdmin) {
-    // Mostrar sección del club y ocultar mensaje
-    if (clubSection) clubSection.classList.remove('hidden');
-    if (restrictedMsg) restrictedMsg.classList.add('hidden');
-    
-    // Cargar datos del club con validación
-    const clubElements = {
-      clubLogo: document.getElementById('clubLogo'),
-      clubName: document.getElementById('clubName'),
-      clubEmail: document.getElementById('clubEmail'),
-      clubPhone: document.getElementById('clubPhone'),
-      clubAddress: document.getElementById('clubAddress'),
-      clubCity: document.getElementById('clubCity'),
-      clubCountry: document.getElementById('clubCountry'),
-      clubWebsite: document.getElementById('clubWebsite'),
-      clubSocial: document.getElementById('clubSocial'),
-      clubFoundedYear: document.getElementById('clubFoundedYear'),
-      clubMonthlyFee: document.getElementById('clubMonthlyFee')
-    };
-    
-    if (clubElements.clubLogo) clubElements.clubLogo.src = settings.logo || getDefaultLogo();
-    if (clubElements.clubName) clubElements.clubName.value = settings.name || '';
-    if (clubElements.clubEmail) clubElements.clubEmail.value = settings.email || '';
-    if (clubElements.clubPhone) clubElements.clubPhone.value = settings.phone || '';
-    if (clubElements.clubAddress) clubElements.clubAddress.value = settings.address || '';
-    if (clubElements.clubCity) clubElements.clubCity.value = settings.city || '';
-    if (clubElements.clubCountry) clubElements.clubCountry.value = settings.country || '';
-    if (clubElements.clubWebsite) clubElements.clubWebsite.value = settings.website || '';
-    if (clubElements.clubSocial) clubElements.clubSocial.value = settings.socialMedia || '';
-    if (clubElements.clubFoundedYear) clubElements.clubFoundedYear.value = settings.foundedYear || '';
-    if (clubElements.clubMonthlyFee) clubElements.clubMonthlyFee.value = settings.monthlyFee || '';
-    
-    // 👇 Cargar clubId y convertir a solo lectura si ya existe
-    let clubId = settings.clubId;
-    if (!clubId && settings.name) {
-      clubId = settings.name.toLowerCase().replace(/[^a-z0-9]/g, '_');
-    }
-
-    const clubIdInput = document.getElementById('clubIdInput');
-    if (clubIdInput) {
-      if (clubId) {
-        // Reemplazar input por un div de solo lectura
-        const readonlyDiv = document.createElement('div');
-        readonlyDiv.className = 'w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 cursor-not-allowed';
-        readonlyDiv.textContent = clubId;
-        readonlyDiv.id = 'clubIdDisplay';
-        readonlyDiv.title = 'ID único del club (no editable)';
-        clubIdInput.parentNode.replaceChild(readonlyDiv, clubIdInput);
-
-        // Añadir mensaje informativo
-        const infoMsg = document.createElement('p');
-        infoMsg.className = 'text-xs text-gray-500 dark:text-gray-400 mt-1';
-        infoMsg.textContent = 'Este ID identifica tu club en la nube. No se puede cambiar.';
-        readonlyDiv.parentNode.appendChild(infoMsg);
-      } else {
-        clubIdInput.value = 'my_club';
-        clubIdInput.disabled = true;
-      }
-    }
-
-    // Color primario
-    const colorInput = document.getElementById('clubPrimaryColor');
-    if (colorInput) {
-      colorInput.value = settings.primaryColor || '#0d9488';
-      if (typeof previewPrimaryColor === 'function') {
-        previewPrimaryColor(settings.primaryColor || '#0d9488');
-      }
-    }
-  } else {
-    // Otros administradores: ocultar sección del club y mostrar mensaje
-    if (clubSection) clubSection.classList.add('hidden');
-    if (restrictedMsg) restrictedMsg.classList.remove('hidden');
+  // Siempre mostrar la sección del club
+  if (clubSection) clubSection.classList.remove('hidden');
+  if (restrictedMsg) restrictedMsg.classList.add('hidden');
+  
+  // ✅ CARGAR DATOS DEL CLUB (PARA TODOS)
+  const clubElements = {
+    clubLogo: document.getElementById('clubLogo'),
+    clubName: document.getElementById('clubName'),
+    clubEmail: document.getElementById('clubEmail'),
+    clubPhone: document.getElementById('clubPhone'),
+    clubAddress: document.getElementById('clubAddress'),
+    clubCity: document.getElementById('clubCity'),
+    clubCountry: document.getElementById('clubCountry'),
+    clubWebsite: document.getElementById('clubWebsite'),
+    clubSocial: document.getElementById('clubSocial'),
+    clubFoundedYear: document.getElementById('clubFoundedYear'),
+    clubMonthlyFee: document.getElementById('clubMonthlyFee')
+  };
+  
+  if (clubElements.clubLogo) clubElements.clubLogo.src = settings.logo || getDefaultLogo();
+  if (clubElements.clubName) clubElements.clubName.value = settings.name || '';
+  if (clubElements.clubEmail) clubElements.clubEmail.value = settings.email || '';
+  if (clubElements.clubPhone) clubElements.clubPhone.value = settings.phone || '';
+  if (clubElements.clubAddress) clubElements.clubAddress.value = settings.address || '';
+  if (clubElements.clubCity) clubElements.clubCity.value = settings.city || '';
+  if (clubElements.clubCountry) clubElements.clubCountry.value = settings.country || '';
+  if (clubElements.clubWebsite) clubElements.clubWebsite.value = settings.website || '';
+  if (clubElements.clubSocial) clubElements.clubSocial.value = settings.socialMedia || '';
+  if (clubElements.clubFoundedYear) clubElements.clubFoundedYear.value = settings.foundedYear || '';
+  if (clubElements.clubMonthlyFee) clubElements.clubMonthlyFee.value = settings.monthlyFee || '';
+  
+  // ✅ Cargar clubId (solo lectura para todos)
+  let clubId = settings.clubId;
+  if (!clubId && settings.name) {
+    clubId = settings.name.toLowerCase().replace(/[^a-z0-9]/g, '_');
   }
 
-  // Cargar lista de usuarios (todos los usuarios)
+  const clubIdInput = document.getElementById('clubIdInput');
+  if (clubIdInput) {
+    if (clubId) {
+      // Reemplazar input por un div de solo lectura
+      const readonlyDiv = document.createElement('div');
+      readonlyDiv.className = 'w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 cursor-not-allowed';
+      readonlyDiv.textContent = clubId;
+      readonlyDiv.id = 'clubIdDisplay';
+      readonlyDiv.title = 'ID único del club (no editable)';
+      clubIdInput.parentNode.replaceChild(readonlyDiv, clubIdInput);
+
+      // Añadir mensaje informativo
+      const infoMsg = document.createElement('p');
+      infoMsg.className = 'text-xs text-gray-500 dark:text-gray-400 mt-1';
+      infoMsg.textContent = 'Este ID identifica tu club en la nube. No se puede cambiar.';
+      readonlyDiv.parentNode.appendChild(infoMsg);
+    } else {
+      clubIdInput.value = 'my_club';
+      clubIdInput.disabled = true;
+    }
+  }
+
+  // Color primario
+  const colorInput = document.getElementById('clubPrimaryColor');
+  if (colorInput) {
+    colorInput.value = settings.primaryColor || '#0d9488';
+    if (typeof previewPrimaryColor === 'function') {
+      previewPrimaryColor(settings.primaryColor || '#0d9488');
+    }
+  }
+  
+  // ⚠️ DESHABILITAR CAMPOS SI NO ES ADMIN PRINCIPAL
+  if (!currentUser?.isMainAdmin) {
+    console.log('🔒 Usuario secundario: campos en modo solo lectura');
+    
+    // Deshabilitar todos los campos del club
+    Object.values(clubElements).forEach(element => {
+      if (element && element.tagName === 'INPUT') {
+        element.disabled = true;
+        element.classList.add('cursor-not-allowed', 'bg-gray-100', 'dark:bg-gray-800');
+      }
+    });
+    
+    // Deshabilitar color picker
+    if (colorInput) {
+      colorInput.disabled = true;
+      colorInput.classList.add('cursor-not-allowed');
+    }
+    
+    // Ocultar botón de guardar
+    const saveButton = document.querySelector('#clubSettingsForm button[type="submit"]');
+    if (saveButton) {
+      saveButton.style.display = 'none';
+    }
+    
+    // Ocultar botón de cambiar logo
+    const changeLogoLabel = document.querySelector('label[for="changeClubLogo"]');
+    if (changeLogoLabel) {
+      changeLogoLabel.style.display = 'none';
+    }
+    
+    // Mostrar mensaje informativo
+    const formContainer = document.getElementById('clubSettingsForm');
+    if (formContainer && !document.getElementById('readOnlyMessage')) {
+      const message = document.createElement('div');
+      message.id = 'readOnlyMessage';
+      message.className = 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4';
+      message.innerHTML = `
+        <p class="text-sm text-blue-800 dark:text-blue-300">
+          <strong>ℹ️ Información:</strong> Solo el administrador principal puede modificar estos datos.
+        </p>
+      `;
+      formContainer.insertBefore(message, formContainer.firstChild);
+    }
+  } else {
+    console.log('👑 Admin principal: campos editables');
+  }
+
+  // ✅ Cargar lista de usuarios (TODOS LOS USUARIOS PUEDEN VERLA)
   setTimeout(() => {
     renderSchoolUsers();
     const avatarPreview = document.getElementById('schoolUserAvatarPreview');
@@ -253,7 +294,7 @@ document.getElementById('changePasswordForm')?.addEventListener('submit', functi
   
   showToast('✅ Contraseña cambiada correctamente');
   
-  console.log('🔑 Contraseña actualizada para:', currentUser.email);
+  console.log('🔐 Contraseña actualizada para:', currentUser.email);
 });
 
 // NUEVO: Mostrar/Ocultar contraseña
@@ -398,12 +439,18 @@ function exportData() {
 // GESTIÓN DE USUARIOS DE LA ESCUELA
 // ========================================
 
-// Renderizar lista de usuarios de la escuela
+// ✅ Renderizar lista de usuarios de la escuela - CORREGIDO
 function renderSchoolUsers() {
   const currentUser = getCurrentUser();
-  if (!currentUser) return;
+  if (!currentUser) {
+    console.warn('⚠️ No hay usuario actual');
+    return;
+  }
   
-  const schoolUsers = getSchoolUsers(currentUser.schoolId);
+  // ✅ OBTENER TODOS LOS USUARIOS DEL MISMO CLUB (sin filtrar)
+  const allUsers = getUsers();
+  const schoolUsers = allUsers.filter(u => u.schoolId === currentUser.schoolId);
+  
   const container = document.getElementById('schoolUsersList');
   
   if (!container) {
@@ -411,6 +458,7 @@ function renderSchoolUsers() {
     return;
   }
   
+  // ✅ MOSTRAR TODOS LOS USUARIOS (sin importar si es admin principal o no)
   container.innerHTML = schoolUsers.map(user => `
     <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
       <div class="flex items-center gap-3">
@@ -418,7 +466,10 @@ function renderSchoolUsers() {
         <div>
           <p class="font-medium text-gray-800 dark:text-white">${user.name}</p>
           <p class="text-xs text-gray-500 dark:text-gray-400">${user.email}</p>
-          ${user.isMainAdmin ? '<span class="text-xs bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-300 px-2 py-1 rounded mt-1 inline-block">Admin Principal</span>' : ''}
+          ${user.isMainAdmin ? 
+            '<span class="text-xs bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-300 px-2 py-1 rounded mt-1 inline-block">Admin Principal</span>' : 
+            '<span class="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300 px-2 py-1 rounded mt-1 inline-block">Admin</span>'
+          }
         </div>
       </div>
       ${!user.isMainAdmin && currentUser.isMainAdmin ? `
@@ -447,6 +498,8 @@ function renderSchoolUsers() {
       }
     }, 100);
   }
+  
+  console.log('✅ Lista de usuarios renderizada:', schoolUsers.length, 'usuarios');
 }
 
 // Mostrar modal agregar usuario
@@ -479,8 +532,7 @@ function closeAddSchoolUserModal() {
   if (addSchoolUserModal) addSchoolUserModal.classList.add('hidden');
 }
 
-// 🔥 Guardar nuevo usuario de la escuela - CON FIREBASE AUTHENTICATION
-// VERSIÓN CORREGIDA - CON MAPEO Y RESTAURACIÓN DE SESIÓN
+// 🔥 Guardar nuevo usuario de la escuela - CON INSTANCIA SECUNDARIA (CORREGIDO v3)
 async function saveSchoolUser(userData) {
   const currentUser = getCurrentUser();
   if (!currentUser) return;
@@ -491,165 +543,177 @@ async function saveSchoolUser(userData) {
     return;
   }
   
-  // 🔥 CREAR EN FIREBASE AUTHENTICATION PRIMERO
-  if (window.APP_STATE?.firebaseReady && window.firebase?.auth) {
-    try {
-      console.log('🔥 Creando usuario en Firebase Authentication...');
-      showToast('🔥 Creando cuenta en Firebase...');
-      
-      // ⭐ IMPORTANTE: Guardar datos del admin ANTES de crear el nuevo usuario
-      const adminUser = window.firebase.auth.currentUser;
-      const adminEmail = adminUser ? adminUser.email : currentUser.email;
-      
-      // Obtener contraseña del admin desde localStorage (más confiable)
-      const allUsers = getUsers();
-      const adminFromStorage = allUsers.find(u => u.id === currentUser.id);
-      const adminPassword = adminFromStorage ? adminFromStorage.password : null;
-      
-      if (!adminPassword) {
-        console.warn('⚠️ No se pudo obtener contraseña del admin');
-        showToast('⚠️ Advertencia: Puede que necesites volver a iniciar sesión');
-      }
-      
-      // Crear el nuevo usuario en Firebase Auth
-      const userCredential = await window.firebase.createUserWithEmailAndPassword(
-        window.firebase.auth,
-        userData.email,
-        userData.password
-      );
-      
-      const newUserUid = userCredential.user.uid;
-      console.log('✅ Usuario creado en Firebase Auth con UID:', newUserUid);
-      
-      // Crear objeto de usuario local con el UID de Firebase
-      const newUser = {
-        id: newUserUid, // ⭐ Usar UID de Firebase como ID
-        schoolId: currentUser.schoolId,
-        email: userData.email,
-        password: userData.password,
-        name: userData.name,
-        birthDate: userData.birthDate || '',
-        phone: userData.phone || '',
-        avatar: userData.avatar || getDefaultAvatar(),
-        role: 'admin',
-        isMainAdmin: false,
-        createdAt: getCurrentDate(),
-        firebaseUid: newUserUid
-      };
-      
-      // Guardar localmente
-      saveUser(newUser);
-      console.log('✅ Usuario guardado localmente');
-      
-      // Guardar en Firestore
-      const settings = getSchoolSettings();
-      const clubId = settings.clubId || currentUser.schoolId || 'default_club';
-      
-      await window.firebase.setDoc(
-        window.firebase.doc(window.firebase.db, `clubs/${clubId}/users`, newUserUid),
-        {
-          id: newUserUid,
-          email: newUser.email,
-          name: newUser.name,
-          isMainAdmin: false,
-          role: 'admin',
-          avatar: newUser.avatar || '',
-          phone: newUser.phone || '',
-          birthDate: newUser.birthDate || '',
-          createdAt: new Date().toISOString()
-        }
-      );
-      console.log('✅ Usuario guardado en Firestore');
-      
-      // ⭐ CRÍTICO: Guardar mapeo email → clubId (para login multi-dispositivo)
-      if (typeof saveUserClubMapping === 'function') {
-        const mappingSaved = await saveUserClubMapping(userData.email, clubId, newUserUid);
-        if (mappingSaved) {
-          console.log('✅ Mapeo guardado - Login multi-dispositivo habilitado');
-        } else {
-          console.warn('⚠️ Mapeo no guardado - puede afectar login multi-dispositivo');
-        }
-      }
-      
-      // 🔄 IMPORTANTE: Cerrar sesión del nuevo usuario
-      await window.firebase.signOut(window.firebase.auth);
-      console.log('🔄 Sesión del nuevo usuario cerrada');
-      
-      // ⭐ RESTAURAR sesión del admin
-      if (adminEmail && adminPassword) {
-        try {
-          await window.firebase.signInWithEmailAndPassword(
-            window.firebase.auth,
-            adminEmail,
-            adminPassword
-          );
-          console.log('✅ Sesión del admin restaurada');
-          window.APP_STATE.currentUser = window.firebase.auth.currentUser;
-        } catch (reAuthError) {
-          console.error('❌ Error al restaurar sesión del admin:', reAuthError);
-          showToast('⚠️ Usuario creado, pero necesitas volver a iniciar sesión');
-          
-          // Redirigir al login después de un tiempo
-          setTimeout(() => {
-            logout();
-          }, 2000);
-          return;
-        }
-      } else {
-        console.warn('⚠️ No se pudo restaurar sesión del admin');
-        showToast('⚠️ Usuario creado, pero necesitas volver a iniciar sesión');
-        
-        setTimeout(() => {
-          logout();
-        }, 2000);
-        return;
-      }
-      
-      showToast('✅ Usuario creado correctamente');
-      
-      // Resumen en consola
-      console.log('✅ ========================================');
-      console.log('✅ USUARIO CREADO EXITOSAMENTE');
-      console.log('✅ ========================================');
-      console.log('📋 Resumen:');
-      console.log('   • UID:', newUserUid);
-      console.log('   • Email:', userData.email);
-      console.log('   • Club ID:', clubId);
-      console.log('   • Usuario en Auth: ✅');
-      console.log('   • Usuario en Firestore: ✅');
-      console.log('   • Mapeo guardado: ✅');
-      console.log('   • Sesión admin restaurada: ✅');
-      console.log('========================================');
-      console.log('💡 El nuevo usuario puede hacer login con:');
-      console.log('   Email:', userData.email);
-      console.log('   Contraseña: (la configurada)');
-      console.log('   Club ID:', clubId, '(opcional)');
-      console.log('========================================');
-      
-    } catch (error) {
-      console.error('❌ Error al crear usuario en Firebase:', error);
-      
-      if (error.code === 'auth/email-already-in-use') {
-        showToast('❌ Este email ya existe en Firebase');
-      } else if (error.code === 'auth/weak-password') {
-        showToast('❌ La contraseña debe tener al menos 6 caracteres');
-      } else if (error.code === 'auth/invalid-email') {
-        showToast('❌ Email inválido');
-      } else {
-        showToast('❌ Error: ' + error.message);
-      }
-      return;
-    }
-  } else {
-    console.log('⚠️ Firebase no disponible');
+  // 🔥 VERIFICAR QUE FIREBASE ESTÉ LISTO
+  if (!window.APP_STATE?.firebaseReady || !window.firebase?.auth) {
     showToast('❌ Firebase no disponible. Intenta más tarde.');
     return;
   }
-
-  closeAddSchoolUserModal();
-  renderSchoolUsers();
+  
+  let secondaryApp = null;
+  let deleteApp = null; // ⭐ Variable para la función deleteApp
+  
+  try {
+    console.log('🔥 Creando usuario en Firebase Authentication...');
+    showToast('🔥 Creando cuenta en Firebase...');
+    
+    // ⭐ PASO 1: CREAR INSTANCIA SECUNDARIA
+    console.log('📱 Creando instancia secundaria de Firebase...');
+    
+    // ⭐ Importar deleteApp también
+    const firebaseApp = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js');
+    const firebaseAuth = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');
+    
+    const { initializeApp } = firebaseApp;
+    deleteApp = firebaseApp.deleteApp; // ⭐ Guardar referencia a deleteApp
+    const { getAuth, createUserWithEmailAndPassword, signOut } = firebaseAuth;
+    
+    const firebaseConfig = {
+      apiKey: "AIzaSyBThVgzEsTLWSW7puKOVErZ_KOLDEq8v3A",
+      authDomain: "my-club-fae98.firebaseapp.com",
+      projectId: "my-club-fae98",
+      storageBucket: "my-club-fae98.firebasestorage.app",
+      messagingSenderId: "807792685568",
+      appId: "1:807792685568:web:06097faad391a9fd8c9ee5",
+      measurementId: "G-5HRKNKEYKY"
+    };
+    
+    secondaryApp = initializeApp(firebaseConfig, 'SecondaryApp-' + Date.now());
+    const secondaryAuth = getAuth(secondaryApp);
+    
+    console.log('✅ Instancia secundaria creada');
+    
+    // ⭐ PASO 2: CREAR USUARIO
+    console.log('👤 Creando usuario en instancia secundaria...');
+    
+    const userCredential = await createUserWithEmailAndPassword(
+      secondaryAuth,
+      userData.email,
+      userData.password
+    );
+    
+    const newUserUid = userCredential.user.uid;
+    console.log('✅ Usuario creado en Firebase Auth con UID:', newUserUid);
+    
+    // ⭐ PASO 3: CERRAR SESIÓN EN INSTANCIA SECUNDARIA
+    console.log('🔒 Cerrando sesión en instancia secundaria...');
+    await signOut(secondaryAuth);
+    console.log('✅ Sesión secundaria cerrada');
+    
+    // ⭐ PASO 4: ELIMINAR INSTANCIA SECUNDARIA (MÉTODO CORRECTO)
+    console.log('🗑️ Eliminando instancia secundaria...');
+    await deleteApp(secondaryApp); // ⭐ USO CORRECTO
+    secondaryApp = null;
+    console.log('✅ Instancia secundaria eliminada');
+    
+    // ⭐ PASO 5: GUARDAR EN FIRESTORE CON INSTANCIA PRINCIPAL
+    console.log('💾 Guardando datos usando instancia principal...');
+    
+    const newUser = {
+      id: newUserUid,
+      schoolId: currentUser.schoolId,
+      email: userData.email,
+      password: userData.password,
+      name: userData.name,
+      birthDate: userData.birthDate || '',
+      phone: userData.phone || '',
+      avatar: userData.avatar || getDefaultAvatar(),
+      role: 'admin',
+      isMainAdmin: false,
+      createdAt: getCurrentDate(),
+      firebaseUid: newUserUid
+    };
+    
+    saveUser(newUser);
+    console.log('✅ Usuario guardado localmente');
+    
+    const settings = getSchoolSettings();
+    const clubId = settings.clubId || currentUser.schoolId || 'default_club';
+    console.log('🏢 Club ID:', clubId);
+    
+    console.log('📝 Escribiendo en Firestore como admin principal...');
+    
+    await window.firebase.setDoc(
+      window.firebase.doc(window.firebase.db, `clubs/${clubId}/users`, newUserUid),
+      {
+        id: newUserUid,
+        email: newUser.email,
+        name: newUser.name,
+        isMainAdmin: false,
+        role: 'admin',
+        avatar: newUser.avatar || '',
+        phone: newUser.phone || '',
+        birthDate: newUser.birthDate || '',
+        createdAt: new Date().toISOString()
+      }
+    );
+    console.log('✅ Usuario guardado en Firestore');
+    
+    if (typeof saveUserClubMapping === 'function') {
+      console.log('🗺️ Guardando mapeo para login multi-dispositivo...');
+      const mappingSaved = await saveUserClubMapping(userData.email, clubId, newUserUid);
+      if (mappingSaved) {
+        console.log('✅ Mapeo guardado');
+      } else {
+        console.warn('⚠️ Mapeo no se pudo guardar');
+      }
+    }
+    
+    const adminStillConnected = window.firebase.auth.currentUser;
+    if (adminStillConnected) {
+      console.log('✅ Admin sigue conectado:', adminStillConnected.email);
+    } else {
+      console.warn('⚠️ Admin desconectado (esto NO debería pasar)');
+    }
+    
+    showToast('✅ Usuario creado correctamente');
+    
+    console.log('✅ ========================================');
+    console.log('✅ USUARIO CREADO EXITOSAMENTE');
+    console.log('✅ ========================================');
+    console.log('📋 Resumen:');
+    console.log('   • UID:', newUserUid);
+    console.log('   • Email:', userData.email);
+    console.log('   • Club ID:', clubId);
+    console.log('   • Usuario en Auth: ✅');
+    console.log('   • Usuario en Firestore: ✅');
+    console.log('   • Admin mantiene sesión: ✅');
+    console.log('========================================');
+    
+    closeAddSchoolUserModal();
+    renderSchoolUsers();
+    
+  } catch (error) {
+    console.error('❌ ========================================');
+    console.error('❌ ERROR AL CREAR USUARIO');
+    console.error('❌ ========================================');
+    console.error('Error completo:', error);
+    console.error('Código:', error.code);
+    console.error('Mensaje:', error.message);
+    console.error('========================================');
+    
+    // Limpiar instancia secundaria si existe
+    if (secondaryApp && deleteApp) {
+      try {
+        await deleteApp(secondaryApp); // ⭐ USO CORRECTO
+        console.log('🗑️ Instancia secundaria limpiada después del error');
+      } catch (cleanupError) {
+        console.error('Error al limpiar instancia:', cleanupError);
+      }
+    }
+    
+    if (error.code === 'auth/email-already-in-use') {
+      showToast('❌ Este email ya está registrado en Firebase. Por favor usa otro email.');
+    } else if (error.code === 'auth/weak-password') {
+      showToast('❌ La contraseña debe tener al menos 6 caracteres');
+    } else if (error.code === 'auth/invalid-email') {
+      showToast('❌ Email inválido');
+    } else if (error.code === 'permission-denied') {
+      showToast('❌ Error de permisos. Verifica que seas el admin principal.');
+    } else {
+      showToast('❌ Error: ' + error.message);
+    }
+  }
 }
-
 // Eliminar usuario de la escuela
 function deleteSchoolUser(userId) {
   if (!confirmAction('¿Estás seguro de eliminar este usuario? Perderá acceso a la escuela.')) return;
@@ -697,66 +761,43 @@ document.getElementById('addSchoolUserForm')?.addEventListener('submit', functio
   const schoolUserPhone = document.getElementById('schoolUserPhone');
   const schoolUserPassword = document.getElementById('schoolUserPassword');
   const schoolUserBirthDate = document.getElementById('schoolUserBirthDate');
-  
-  const avatarFile = schoolUserAvatar ? schoolUserAvatar.files[0] : null;
-  const currentAvatar = schoolUserAvatarPreview ? schoolUserAvatarPreview.src : getDefaultAvatar();
-  
-  const userData = {
-    name: schoolUserName ? schoolUserName.value : '',
-    email: schoolUserEmail ? schoolUserEmail.value : '',
-    phone: schoolUserPhone ? schoolUserPhone.value : '',
-    password: schoolUserPassword ? schoolUserPassword.value : '',
-    birthDate: schoolUserBirthDate ? schoolUserBirthDate.value : ''
-  };
-  
-  if (avatarFile) {
-    imageToBase64(avatarFile, function(base64) {
-      userData.avatar = base64;
-      saveSchoolUser(userData);
-    });
-  } else {
-    userData.avatar = currentAvatar;
-    saveSchoolUser(userData);
-  }
+const avatarFile = schoolUserAvatar ? schoolUserAvatar.files[0] : null;
+const currentAvatar = schoolUserAvatarPreview ? schoolUserAvatarPreview.src : getDefaultAvatar();
+const userData = {
+name: schoolUserName ? schoolUserName.value : '',
+email: schoolUserEmail ? schoolUserEmail.value : '',
+phone: schoolUserPhone ? schoolUserPhone.value : '',
+password: schoolUserPassword ? schoolUserPassword.value : '',
+birthDate: schoolUserBirthDate ? schoolUserBirthDate.value : ''
+};
+if (avatarFile) {
+imageToBase64(avatarFile, function(base64) {
+userData.avatar = base64;
+saveSchoolUser(userData);
 });
-
+} else {
+userData.avatar = currentAvatar;
+saveSchoolUser(userData);
+}
+});
 // Toggle sección plegable
 function toggleSection(sectionId) {
-  const section = document.getElementById(sectionId);
-  if (!section) {
-    console.warn('⚠️ Sección no encontrada:', sectionId);
-    return;
-  }
-  
-  const prevElement = section.previousElementSibling;
-  if (!prevElement) {
-    console.warn('⚠️ Elemento previo no encontrado para:', sectionId);
-    return;
-  }
-  
-  const icon = prevElement.querySelector('i');
-  
-  // Alternar la sección actual
-  section.classList.toggle('hidden');
-  
-  if (icon) {
-    if (section.classList.contains('hidden')) {
-      icon.setAttribute('data-lucide', 'chevron-down');
-    } else {
-      icon.setAttribute('data-lucide', 'chevron-up');
-    }
-    
-    // Recrear iconos
-    if (typeof lucide !== 'undefined' && lucide.createIcons) {
-      setTimeout(() => {
-        try {
-          lucide.createIcons();
-        } catch (error) {
-          console.warn('⚠️ Error al crear iconos:', error);
-        }
-      }, 50);
-    }
-  }
+const section = document.getElementById(sectionId);
+if (!section) {
+console.warn('⚠️ Sección no encontrada:', sectionId);
+return;
 }
-
-console.log('✅ settings.js cargado (VERSIÓN CORREGIDA CON MAPEO Y RESTAURACIÓN)');
+const prevElement = section.previousElementSibling;
+if (!prevElement) {
+console.warn('⚠️ Elemento previo no encontrado para:', sectionId);
+return;
+}
+const icon = prevElement.querySelector('i');
+// Alternar la sección actual
+section.classList.toggle('hidden');
+if (icon) {
+if (section.classList.contains('hidden')) {
+icon.setAttribute('data-lucide', 'chevron-down');
+} else {
+icon.setAttribute('data-lucide', 'chevron-up');
+}}}

@@ -381,3 +381,74 @@ console.log('1. Ingresa tus datos en el formulario de login');
 console.log('2. Click en "Entrar"');
 console.log('3. Observa qué errores aparecen aquí en la consola');
 console.log('4. Copia el error COMPLETO y envíamelo\n');
+
+// ========================================
+// COMPRIMIR IMAGEN PARA FIRESTORE
+// ========================================
+function compressImageForFirestore(base64String, maxSizeKB = 800, callback) {
+  // Si es SVG o no es una imagen válida, devolver tal cual
+  if (!base64String || base64String.startsWith('data:image/svg') || base64String.length < 1000) {
+    callback(base64String);
+    return;
+  }
+
+  const img = new Image();
+  
+  img.onload = function() {
+    const canvas = document.createElement('canvas');
+    let width = img.width;
+    let height = img.height;
+    
+    // Calcular el tamaño aproximado en KB del base64
+    const currentSizeKB = (base64String.length * 0.75) / 1024;
+    
+    if (currentSizeKB <= maxSizeKB) {
+      // Ya está dentro del límite
+      callback(base64String);
+      return;
+    }
+    
+    // Calcular el factor de reducción necesario
+    const scaleFactor = Math.sqrt(maxSizeKB / currentSizeKB);
+    
+    // Redimensionar
+    width = Math.floor(width * scaleFactor);
+    height = Math.floor(height * scaleFactor);
+    
+    // Límites mínimos y máximos razonables
+    if (width < 100) width = 100;
+    if (height < 100) height = 100;
+    if (width > 800) width = 800;
+    if (height > 800) height = 800;
+    
+    canvas.width = width;
+    canvas.height = height;
+    
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, width, height);
+    
+    // Comprimir a JPEG con calidad ajustable
+    let quality = 0.8;
+    let compressed = canvas.toDataURL('image/jpeg', quality);
+    
+    // Si todavía es muy grande, reducir más
+    let attempts = 0;
+    while ((compressed.length * 0.75) / 1024 > maxSizeKB && quality > 0.3 && attempts < 5) {
+      quality -= 0.1;
+      compressed = canvas.toDataURL('image/jpeg', quality);
+      attempts++;
+    }
+    
+    console.log(`🖼️ Imagen comprimida: ${currentSizeKB.toFixed(0)}KB → ${((compressed.length * 0.75) / 1024).toFixed(0)}KB`);
+    callback(compressed);
+  };
+  
+  img.onerror = function() {
+    console.error('❌ Error al cargar imagen para comprimir');
+    callback(base64String);
+  };
+  
+  img.src = base64String;
+}
+
+console.log('✅ utils.js cargado');

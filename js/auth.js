@@ -485,29 +485,34 @@ document.getElementById('registerForm')?.addEventListener('submit', async functi
     return;
   }
   
-  // ========================================
-  // PROCESAR IMÁGENES
-  // ========================================
-  const processClubData = () => {
-    if (clubLogoFile) {
-      imageToBase64(clubLogoFile, function(clubLogo) {
-        processAdminData(clubLogo);
+ // ========================================
+// PROCESAR IMÁGENES CON COMPRESIÓN
+// ========================================
+const processClubData = () => {
+  if (clubLogoFile) {
+    imageToBase64(clubLogoFile, function(clubLogo) {
+      // ⭐ COMPRIMIR logo antes de procesar
+      compressImageForFirestore(clubLogo, 800, function(compressedLogo) {
+        processAdminData(compressedLogo);
       });
-    } else {
-      processAdminData(getDefaultLogo());
-    }
-  };
-  
-  const processAdminData = (clubLogo) => {
-    if (adminAvatarFile) {
-      imageToBase64(adminAvatarFile, function(adminAvatar) {
-        completeRegistration(clubLogo, adminAvatar);
+    });
+  } else {
+    processAdminData(getDefaultLogo());
+  }
+};
+
+const processAdminData = (clubLogo) => {
+  if (adminAvatarFile) {
+    imageToBase64(adminAvatarFile, function(adminAvatar) {
+      // ⭐ COMPRIMIR avatar antes de registrar
+      compressImageForFirestore(adminAvatar, 800, function(compressedAvatar) {
+        completeRegistration(clubLogo, compressedAvatar);
       });
-    } else {
-      completeRegistration(clubLogo, getDefaultAvatar());
-    }
-  };
-  
+    });
+  } else {
+    completeRegistration(clubLogo, getDefaultAvatar());
+  }
+};
   // ========================================
   // FUNCIÓN PRINCIPAL DE REGISTRO
   // ========================================
