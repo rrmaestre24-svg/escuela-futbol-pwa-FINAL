@@ -1,5 +1,5 @@
 // ========================================
-// GESTIÓN DE CUMPLEAÑOS
+// GESTIÓN DE CUMPLEAÑOS - CORREGIDO
 // ========================================
 
 // Mostrar vista de cumpleaños
@@ -29,7 +29,8 @@ function getAllBirthdays() {
   const players = getPlayers();
   players.forEach(player => {
     if (player.birthDate) {
-      const date = new Date(player.birthDate);
+      // ✅ CORREGIDO: Usar parseLocalDate en lugar de new Date
+      const date = parseLocalDate(player.birthDate);
       birthdays.push({
         id: player.id,
         name: player.name,
@@ -48,7 +49,8 @@ function getAllBirthdays() {
   const users = getUsers();
   users.forEach(user => {
     if (user.birthDate) {
-      const date = new Date(user.birthDate);
+      // ✅ CORREGIDO: Usar parseLocalDate en lugar de new Date
+      const date = parseLocalDate(user.birthDate);
       birthdays.push({
         id: user.id,
         name: user.name,
@@ -70,12 +72,15 @@ function getAllBirthdays() {
 function getUpcomingBirthdays() {
   const birthdays = getAllBirthdays();
   const today = new Date();
+  today.setHours(0, 0, 0, 0); // ✅ Normalizar a medianoche
   const upcoming = [];
   
   birthdays.forEach(birthday => {
     const thisYear = today.getFullYear();
     const birthdayThisYear = new Date(thisYear, birthday.month, birthday.day);
-    const daysUntil = daysBetween(today, birthdayThisYear);
+    birthdayThisYear.setHours(0, 0, 0, 0); // ✅ Normalizar a medianoche
+    
+    const daysUntil = Math.floor((birthdayThisYear - today) / (1000 * 60 * 60 * 24));
     
     if (daysUntil >= 0 && daysUntil <= 7) {
       birthday.daysUntil = daysUntil;
@@ -155,8 +160,10 @@ function renderBirthdayCard(birthday) {
   let daysText = '';
   if (isTodayBirthday) {
     daysText = '<span class="text-xs font-bold text-teal-600 animate-pulse">¡HOY ES SU CUMPLEAÑOS! 🎉</span>';
-  } else if (daysUntil > 0 && daysUntil <= 7) {
-    daysText = `<span class="text-xs font-medium text-blue-600">En ${daysUntil} día${daysUntil > 1 ? 's' : ''}</span>`;
+  } else if (daysUntil === 1) {
+    daysText = '<span class="text-xs font-medium text-blue-600">Mañana</span>';
+  } else if (daysUntil > 1 && daysUntil <= 7) {
+    daysText = `<span class="text-xs font-medium text-blue-600">En ${daysUntil} días</span>`;
   }
   
   const cardClass = isTodayBirthday ? 'bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900 dark:to-pink-900 animate-pulse' : 'bg-gray-50 dark:bg-gray-700';
@@ -191,21 +198,27 @@ function getCurrentYearBirthday(birthday) {
   return `${year}-${String(birthday.month + 1).padStart(2, '0')}-${String(birthday.day).padStart(2, '0')}`;
 }
 
-// Obtener días hasta el cumpleaños
+// ✅ CORREGIDO: Obtener días hasta el cumpleaños
 function getDaysUntilBirthday(birthday) {
+  // Normalizar fecha actual a medianoche
   const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
   const thisYear = today.getFullYear();
   const birthdayThisYear = new Date(thisYear, birthday.month, birthday.day);
+  birthdayThisYear.setHours(0, 0, 0, 0);
   
-  let daysUntil = daysBetween(today, birthdayThisYear);
+  // Calcular días directamente
+  let daysUntil = Math.floor((birthdayThisYear - today) / (1000 * 60 * 60 * 24));
   
   // Si ya pasó este año, calcular para el próximo
   if (daysUntil < 0) {
     const birthdayNextYear = new Date(thisYear + 1, birthday.month, birthday.day);
-    daysUntil = daysBetween(today, birthdayNextYear);
+    birthdayNextYear.setHours(0, 0, 0, 0);
+    daysUntil = Math.floor((birthdayNextYear - today) / (1000 * 60 * 60 * 24));
   }
   
   return daysUntil;
 }
 
-console.log('✅ birthdays.js cargado');
+console.log('✅ birthdays.js cargado - VERSIÓN CORREGIDA');
