@@ -918,3 +918,516 @@ icon.setAttribute('data-lucide', 'chevron-down');
 icon.setAttribute('data-lucide', 'chevron-up');
 }}}
 
+
+// ========================================
+// 🔥 DESTRUCCIÓN TOTAL DEL CLUB
+// Solo Admin Principal + Triple Confirmación
+// ========================================
+
+/**
+ * 🔥 FUNCIÓN PRINCIPAL: Borrar TODO el club completo
+ * ⚠️ SOLO EL ADMIN PRINCIPAL PUEDE EJECUTAR ESTO
+ */
+async function clearAllData() {
+  const currentUser = getCurrentUser();
+  
+  // ✅ VERIFICACIÓN 1: ¿Es admin principal?
+  if (!currentUser?.isMainAdmin) {
+    showToast('❌ Solo el administrador principal puede eliminar el club');
+    console.error('🔒 Acceso denegado: Usuario no es admin principal');
+    return;
+  }
+  
+  const settings = getSchoolSettings();
+  const clubId = localStorage.getItem('clubId') || settings.clubId;
+  
+  if (!clubId) {
+    showToast('❌ No se encontró el ID del club');
+    return;
+  }
+  
+  // 📊 Contar datos antes de borrar
+  const players = getAllPlayers() || [];
+  const payments = getPayments() || [];
+  const events = getCalendarEvents() || [];
+  const users = getUsers() || [];
+  const expenses = getExpenses() || [];
+  
+  console.log('🔥 ========================================');
+  console.log('🔥 INICIANDO PROCESO DE DESTRUCCIÓN TOTAL');
+  console.log('🔥 ========================================');
+  console.log('📋 Datos a eliminar:');
+  console.log('   • Jugadores:', players.length);
+  console.log('   • Pagos:', payments.length);
+  console.log('   • Eventos:', events.length);
+  console.log('   • Usuarios:', users.length);
+  console.log('   • Egresos:', expenses.length);
+  console.log('   • Club:', settings.name || 'Sin nombre');
+  console.log('========================================');
+  
+  // 🚨 PASO 1: Modal de advertencia FUERTE
+  const confirmed = await showDestructionWarningModal(
+    settings.name || 'tu club',
+    players.length,
+    payments.length,
+    events.length,
+    users.length,
+    expenses.length
+  );
+  
+  if (!confirmed) {
+    console.log('❌ Proceso cancelado por el usuario en PASO 1');
+    showToast('✅ Operación cancelada');
+    return;
+  }
+  
+  // 🚨 PASO 2: Confirmación escribiendo el nombre del club
+  const nameConfirmed = await showClubNameConfirmationModal(settings.name || '');
+  
+  if (!nameConfirmed) {
+    console.log('❌ Proceso cancelado por el usuario en PASO 2');
+    showToast('✅ Operación cancelada');
+    return;
+  }
+  
+  // 🚨 PASO 3: Confirmación final
+  const finalConfirmed = await showFinalConfirmationModal();
+  
+  if (!finalConfirmed) {
+    console.log('❌ Proceso cancelado por el usuario en PASO 3');
+    showToast('✅ Operación cancelada');
+    return;
+  }
+  
+  // ✅ TODAS LAS CONFIRMACIONES PASADAS - PROCEDER CON DESTRUCCIÓN
+  console.log('🔥 Todas las confirmaciones completadas. Iniciando destrucción...');
+  
+  await executeClubDestruction(clubId, currentUser);
+}
+
+/**
+ * 🚨 MODAL 1: Advertencia fuerte con estadísticas
+ */
+function showDestructionWarningModal(clubName, playersCount, paymentsCount, eventsCount, usersCount, expensesCount) {
+  return new Promise((resolve) => {
+    const modal = document.createElement('div');
+    modal.id = 'destructionWarningModal';
+    modal.className = 'fixed inset-0 bg-black bg-opacity-80 z-50 flex items-center justify-center p-4';
+    modal.innerHTML = `
+      <div class="bg-white dark:bg-gray-800 rounded-2xl max-w-lg w-full animate-scale-in border-4 border-red-600">
+        <!-- Header Rojo de Peligro -->
+        <div class="bg-gradient-to-r from-red-600 to-red-800 p-6 text-center rounded-t-xl">
+          <div class="text-6xl mb-3">⚠️</div>
+          <h3 class="font-black text-3xl text-white mb-2">¡PELIGRO EXTREMO!</h3>
+          <p class="text-red-100 text-sm font-medium">DESTRUCCIÓN TOTAL DEL CLUB</p>
+        </div>
+        
+        <!-- Contenido -->
+        <div class="p-6 space-y-4">
+          <div class="bg-red-50 dark:bg-red-900/20 border-2 border-red-300 dark:border-red-800 rounded-lg p-4">
+            <p class="text-sm text-red-900 dark:text-red-200 font-bold mb-3">
+              Estás a punto de ELIMINAR PERMANENTEMENTE:
+            </p>
+            <ul class="space-y-2 text-sm text-red-800 dark:text-red-300">
+              <li class="flex items-center gap-2">
+                <span class="text-2xl">👥</span>
+                <strong>${playersCount}</strong> Jugadores con todos sus datos
+              </li>
+              <li class="flex items-center gap-2">
+                <span class="text-2xl">💰</span>
+                <strong>${paymentsCount}</strong> Registros de pagos
+              </li>
+              <li class="flex items-center gap-2">
+                <span class="text-2xl">📅</span>
+                <strong>${eventsCount}</strong> Eventos del calendario
+              </li>
+              <li class="flex items-center gap-2">
+                <span class="text-2xl">👨‍💼</span>
+                <strong>${usersCount}</strong> Usuarios del club
+              </li>
+              <li class="flex items-center gap-2">
+                <span class="text-2xl">📉</span>
+                <strong>${expensesCount}</strong> Registros de egresos
+              </li>
+              <li class="flex items-center gap-2">
+                <span class="text-2xl">⚙️</span>
+                <strong>Toda</strong> la configuración de "${clubName}"
+              </li>
+            </ul>
+          </div>
+          
+          <div class="bg-black text-white rounded-lg p-4">
+            <p class="font-bold text-center mb-2">⛔ ESTA ACCIÓN ES IRREVERSIBLE ⛔</p>
+            <ul class="text-xs space-y-1 text-gray-300">
+              <li>❌ NO SE PUEDE DESHACER</li>
+              <li>❌ NO HAY FORMA DE RECUPERAR LOS DATOS</li>
+              <li>❌ PERDERÁS TODO EL HISTORIAL</li>
+              <li>❌ TODOS LOS USUARIOS PERDERÁN ACCESO</li>
+            </ul>
+          </div>
+          
+          <p class="text-center text-sm text-gray-600 dark:text-gray-400">
+            ¿Estás ABSOLUTAMENTE seguro de continuar?
+          </p>
+        </div>
+        
+        <!-- Botones -->
+        <div class="p-6 pt-0 flex gap-3">
+          <button onclick="cancelDestruction()" class="flex-1 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-white font-bold py-4 rounded-xl transition-all">
+            ✅ NO, CANCELAR
+          </button>
+          <button onclick="continueDestruction()" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-4 rounded-xl transition-all">
+            ⚠️ SÍ, CONTINUAR
+          </button>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    window.cancelDestruction = () => {
+      modal.remove();
+      delete window.cancelDestruction;
+      delete window.continueDestruction;
+      resolve(false);
+    };
+    
+    window.continueDestruction = () => {
+      modal.remove();
+      delete window.cancelDestruction;
+      delete window.continueDestruction;
+      resolve(true);
+    };
+  });
+}
+
+/**
+ * 🚨 MODAL 2: Confirmación escribiendo el nombre del club
+ */
+function showClubNameConfirmationModal(clubName) {
+  return new Promise((resolve) => {
+    const modal = document.createElement('div');
+    modal.id = 'nameConfirmationModal';
+    modal.className = 'fixed inset-0 bg-black bg-opacity-80 z-50 flex items-center justify-center p-4';
+    modal.innerHTML = `
+      <div class="bg-white dark:bg-gray-800 rounded-2xl max-w-md w-full animate-scale-in border-4 border-yellow-500">
+        <div class="bg-gradient-to-r from-yellow-500 to-orange-500 p-6 text-center rounded-t-xl">
+          <div class="text-5xl mb-2">🔐</div>
+          <h3 class="font-bold text-2xl text-white">Confirmación de Seguridad</h3>
+        </div>
+        
+        <div class="p-6 space-y-4">
+          <p class="text-center text-gray-700 dark:text-gray-300 font-medium">
+            Para confirmar que realmente deseas eliminar <strong>TODO</strong>, escribe el nombre EXACTO de tu club:
+          </p>
+          
+          <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-300 dark:border-blue-700 rounded-lg p-3 text-center">
+            <p class="text-xs text-blue-700 dark:text-blue-300 mb-2">Nombre del club:</p>
+            <p class="font-bold text-lg text-blue-900 dark:text-blue-100">${clubName}</p>
+          </div>
+          
+          <input 
+            type="text" 
+            id="clubNameConfirmInput" 
+            placeholder="Escribe el nombre del club aquí..."
+            class="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 text-center font-medium"
+            autocomplete="off"
+          >
+          
+          <p class="text-xs text-center text-red-600 dark:text-red-400 font-medium">
+            ⚠️ Debe coincidir exactamente (mayúsculas/minúsculas)
+          </p>
+        </div>
+        
+        <div class="p-6 pt-0 flex gap-3">
+          <button onclick="cancelNameConfirmation()" class="flex-1 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-white font-bold py-3 rounded-xl">
+            Cancelar
+          </button>
+          <button onclick="confirmNameMatch()" class="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-3 rounded-xl">
+            Verificar
+          </button>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    const input = document.getElementById('clubNameConfirmInput');
+    if (input) input.focus();
+    
+    window.cancelNameConfirmation = () => {
+      modal.remove();
+      delete window.cancelNameConfirmation;
+      delete window.confirmNameMatch;
+      resolve(false);
+    };
+    
+    window.confirmNameMatch = () => {
+      const input = document.getElementById('clubNameConfirmInput');
+      const enteredName = input ? input.value : '';
+      
+      if (enteredName === clubName) {
+        modal.remove();
+        delete window.cancelNameConfirmation;
+        delete window.confirmNameMatch;
+        resolve(true);
+      } else {
+        input.classList.add('border-red-500', 'bg-red-50', 'dark:bg-red-900/20');
+        input.value = '';
+        input.placeholder = '❌ No coincide. Intenta de nuevo...';
+        showToast('❌ El nombre no coincide exactamente');
+        
+        setTimeout(() => {
+          input.classList.remove('border-red-500', 'bg-red-50', 'dark:bg-red-900/20');
+          input.placeholder = 'Escribe el nombre del club aquí...';
+        }, 2000);
+      }
+    };
+    
+    // Enter para confirmar
+    if (input) {
+      input.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          window.confirmNameMatch();
+        }
+      });
+    }
+  });
+}
+
+/**
+ * 🚨 MODAL 3: Confirmación final absoluta
+ */
+function showFinalConfirmationModal() {
+  return new Promise((resolve) => {
+    const modal = document.createElement('div');
+    modal.id = 'finalConfirmationModal';
+    modal.className = 'fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4';
+    modal.innerHTML = `
+      <div class="bg-gradient-to-br from-red-900 to-black rounded-2xl max-w-sm w-full animate-scale-in border-4 border-red-500 shadow-2xl">
+        <div class="p-8 text-center space-y-6">
+          <div class="text-7xl animate-pulse">🔥</div>
+          
+          <h3 class="font-black text-3xl text-white">
+            ÚLTIMA ADVERTENCIA
+          </h3>
+          
+          <p class="text-red-200 font-bold text-lg">
+            Esta es tu última oportunidad<br>para cancelar
+          </p>
+          
+          <div class="bg-black/50 rounded-lg p-4 border border-red-500">
+            <p class="text-white text-sm font-medium">
+              Al continuar, TODO será<br>eliminado PERMANENTEMENTE
+            </p>
+          </div>
+          
+          <p class="text-red-300 text-xs">
+            ¿Estás ABSOLUTAMENTE SEGURO?
+          </p>
+        </div>
+        
+        <div class="p-6 pt-0 flex gap-3">
+          <button onclick="cancelFinal()" class="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-xl transition-all text-lg">
+            🛡️ NO, DETENER
+          </button>
+          <button onclick="confirmFinal()" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-4 rounded-xl transition-all text-lg">
+            💥 SÍ, ELIMINAR
+          </button>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    window.cancelFinal = () => {
+      modal.remove();
+      delete window.cancelFinal;
+      delete window.confirmFinal;
+      resolve(false);
+    };
+    
+    window.confirmFinal = () => {
+      modal.remove();
+      delete window.cancelFinal;
+      delete window.confirmFinal;
+      resolve(true);
+    };
+  });
+}
+
+/**
+ * 🔥 EJECUCIÓN: Destruir todo el club
+ */
+async function executeClubDestruction(clubId, currentUser) {
+  console.log('🔥 ========================================');
+  console.log('🔥 EJECUTANDO DESTRUCCIÓN TOTAL');
+  console.log('🔥 ========================================');
+  
+  try {
+    showToast('🔥 Eliminando datos de Firebase...');
+    
+    let deletedItems = {
+      players: 0,
+      payments: 0,
+      events: 0,
+      users: 0,
+      expenses: 0,
+      settings: false
+    };
+    
+    // Verificar Firebase
+    if (window.firebase?.db) {
+      // 1️⃣ Eliminar Jugadores
+      try {
+        const playersSnapshot = await window.firebase.getDocs(
+          window.firebase.collection(window.firebase.db, `clubs/${clubId}/players`)
+        );
+        
+        for (const doc of playersSnapshot.docs) {
+          await window.firebase.deleteDoc(doc.ref);
+          deletedItems.players++;
+        }
+        console.log(`✅ ${deletedItems.players} jugadores eliminados de Firebase`);
+      } catch (error) {
+        console.error('❌ Error eliminando jugadores:', error);
+      }
+      
+      // 2️⃣ Eliminar Pagos
+      try {
+        const paymentsSnapshot = await window.firebase.getDocs(
+          window.firebase.collection(window.firebase.db, `clubs/${clubId}/payments`)
+        );
+        
+        for (const doc of paymentsSnapshot.docs) {
+          await window.firebase.deleteDoc(doc.ref);
+          deletedItems.payments++;
+        }
+        console.log(`✅ ${deletedItems.payments} pagos eliminados de Firebase`);
+      } catch (error) {
+        console.error('❌ Error eliminando pagos:', error);
+      }
+      
+      // 3️⃣ Eliminar Eventos
+      try {
+        const eventsSnapshot = await window.firebase.getDocs(
+          window.firebase.collection(window.firebase.db, `clubs/${clubId}/events`)
+        );
+        
+        for (const doc of eventsSnapshot.docs) {
+          await window.firebase.deleteDoc(doc.ref);
+          deletedItems.events++;
+        }
+        console.log(`✅ ${deletedItems.events} eventos eliminados de Firebase`);
+      } catch (error) {
+        console.error('❌ Error eliminando eventos:', error);
+      }
+      
+      // 4️⃣ Eliminar Egresos
+      try {
+        const expensesSnapshot = await window.firebase.getDocs(
+          window.firebase.collection(window.firebase.db, `clubs/${clubId}/expenses`)
+        );
+        
+        for (const doc of expensesSnapshot.docs) {
+          await window.firebase.deleteDoc(doc.ref);
+          deletedItems.expenses++;
+        }
+        console.log(`✅ ${deletedItems.expenses} egresos eliminados de Firebase`);
+      } catch (error) {
+        console.error('❌ Error eliminando egresos:', error);
+      }
+      
+      // 5️⃣ Eliminar Usuarios
+      try {
+        const usersSnapshot = await window.firebase.getDocs(
+          window.firebase.collection(window.firebase.db, `clubs/${clubId}/users`)
+        );
+        
+        for (const doc of usersSnapshot.docs) {
+          await window.firebase.deleteDoc(doc.ref);
+          deletedItems.users++;
+        }
+        console.log(`✅ ${deletedItems.users} usuarios eliminados de Firebase`);
+      } catch (error) {
+        console.error('❌ Error eliminando usuarios:', error);
+      }
+      
+      // 6️⃣ Eliminar Configuración
+      try {
+        await window.firebase.deleteDoc(
+          window.firebase.doc(window.firebase.db, `clubs/${clubId}/settings`, "main")
+        );
+        deletedItems.settings = true;
+        console.log('✅ Configuración eliminada de Firebase');
+      } catch (error) {
+        console.error('❌ Error eliminando configuración:', error);
+      }
+      
+      // 7️⃣ Eliminar Mapeo
+      try {
+        await window.firebase.deleteDoc(
+          window.firebase.doc(window.firebase.db, 'userClubMapping', currentUser.email)
+        );
+        console.log('✅ Mapeo eliminado');
+      } catch (error) {
+        console.log('ℹ️ No se pudo eliminar mapeo:', error.code);
+      }
+    }
+    
+    // 8️⃣ Limpiar localStorage
+    showToast('🗑️ Limpiando datos locales...');
+    
+    localStorage.removeItem('currentUser');
+    localStorage.removeItem('users');
+    localStorage.removeItem('players');
+    localStorage.removeItem('payments');
+    localStorage.removeItem('calendarEvents');
+    localStorage.removeItem('schoolSettings');
+    localStorage.removeItem('clubId');
+    localStorage.removeItem('expenses');
+    
+    console.log('✅ localStorage limpiado');
+    
+    // 9️⃣ Cerrar sesión en Firebase
+    if (window.firebase?.auth) {
+      try {
+        await window.firebase.signOut(window.firebase.auth);
+        console.log('✅ Sesión de Firebase cerrada');
+      } catch (error) {
+        console.error('❌ Error al cerrar sesión:', error);
+      }
+    }
+    
+    console.log('🔥 ========================================');
+    console.log('🔥 DESTRUCCIÓN COMPLETADA');
+    console.log('🔥 ========================================');
+    console.log('📊 Resumen de eliminación:');
+    console.log('   • Jugadores:', deletedItems.players);
+    console.log('   • Pagos:', deletedItems.payments);
+    console.log('   • Eventos:', deletedItems.events);
+    console.log('   • Usuarios:', deletedItems.users);
+    console.log('   • Egresos:', deletedItems.expenses);
+    console.log('   • Configuración:', deletedItems.settings ? '✅' : '❌');
+    console.log('========================================');
+    
+    showToast('💥 Club eliminado completamente');
+    
+    // 🔟 Redirigir a login después de 3 segundos
+    setTimeout(() => {
+      window.location.href = 'login.html';
+    }, 3000);
+    
+  } catch (error) {
+    console.error('🔥 ========================================');
+    console.error('🔥 ERROR CRÍTICO EN DESTRUCCIÓN');
+    console.error('🔥 ========================================');
+    console.error('Error:', error);
+    console.error('========================================');
+    
+    showToast('❌ Error durante la eliminación: ' + error.message);
+  }
+}
+
+console.log('✅ Función de destrucción total del club cargada');
+

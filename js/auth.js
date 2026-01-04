@@ -876,25 +876,31 @@ document.getElementById('registerForm')?.addEventListener('submit', async functi
         console.log('✅ Mapeo guardado correctamente');
       }
       
-      // ========================================
-      // PASO 6: FINALIZACIÓN
-      // ========================================
       console.log('🎉 Paso 6/6: Finalizando registro...');
       showToast('✅ Club creado exitosamente');
       
       // Guardar configuración localmente
       localStorage.setItem('clubId', clubId);
-      updateSchoolSettings(clubSettings);
+      saveSchoolSettings(clubSettings); // ✅ CAMBIO AQUÍ
       
-      // Establecer sesión actual
+      console.log('💾 Configuración guardada:');
+      console.log('   • Logo:', clubSettings.logo ? `✅ ${clubSettings.logo.substring(0, 50)}...` : '❌ NO guardado');
+      console.log('   • Nombre:', clubSettings.name);
+      console.log('   • Club ID:', clubSettings.clubId);
+      
+      // ✅ CRÍTICO: Establecer sesión ANTES de mostrar el modal
       const { password: _, ...userWithoutPassword } = newUser;
       setCurrentUser(userWithoutPassword);
       
-      // Generar iconos PWA
+      console.log('✅ Sesión establecida para:', userWithoutPassword.email);
+      console.log('✅ Usuario guardado en localStorage');
+      
+      // Generar iconos PWA con el logo del club
       if (typeof generatePWAIcons === 'function') {
+        console.log('🎨 Generando iconos PWA con logo del club...');
         generatePWAIcons();
       }
-      
+
       // Mostrar modal con Club ID
       showClubIdToUser(clubId, clubName);
       
@@ -914,8 +920,8 @@ document.getElementById('registerForm')?.addEventListener('submit', async functi
       console.log('   • Usuario en Firestore: ✅');
       console.log('   • Configuración guardada: ✅');
       console.log('   • Mapeo guardado:', mappingSaved ? '✅' : '⚠️');
+      console.log('   • Sesión activa: ✅');
       console.log('========================================');
-      
     } catch (error) {
       console.error('❌ ========================================');
       console.error('❌ ERROR DURANTE EL REGISTRO');
@@ -1053,23 +1059,44 @@ function copyClubId(clubId) {
     showToast('⚠️ No se pudo copiar. Anótalo manualmente.');
   });
 }
-
-// ✅ FUNCIÓN: Cerrar modal y redirigir al dashboard
+// ✅ FUNCIÓN CORREGIDA: Cerrar modal y redirigir a index.html
 function closeClubIdModal() {
   const modal = document.getElementById('clubIdModal');
   if (modal) {
     modal.remove();
   }
   
-  // Redirigir al dashboard
-  const loginScreen = document.getElementById('loginScreen');
-  const appContainer = document.getElementById('appContainer');
+  console.log('🔄 Cerrando modal y preparando redirección...');
   
-  if (loginScreen) loginScreen.classList.add('hidden');
-  if (appContainer) appContainer.classList.remove('hidden');
+  // Verificar que la sesión se guardó correctamente
+  const currentUser = getCurrentUser();
   
-  initApp();
+  if (currentUser) {
+    console.log('✅ Usuario autenticado:', currentUser.email);
+    console.log('📋 Club ID:', localStorage.getItem('clubId'));
+    
+    showToast('✅ Redirigiendo al dashboard...');
+    
+    // Redirigir a index.html donde está el dashboard
+    setTimeout(() => {
+      window.location.href = 'index.html';
+    }, 500);
+    
+  } else {
+    console.error('❌ ERROR: No se encontró usuario en sesión');
+    console.error('❌ Contenido localStorage:', {
+      currentUser: localStorage.getItem('currentUser'),
+      clubId: localStorage.getItem('clubId')
+    });
+    
+    showToast('⚠️ Error de sesión. Recargando...');
+    
+    setTimeout(() => {
+      window.location.reload();
+    }, 2000);
+  }
 }
+
 
 // ✅ FUNCIONES PARA MOSTRAR CLUB ID EN DASHBOARD
 function displayClubIdInDashboard() {
