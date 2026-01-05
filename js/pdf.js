@@ -1,5 +1,6 @@
 // ========================================
 // GENERACIÓN DE PDFs con jsPDF + FIRMAS AUTOMÁTICAS
+// ✅ CORREGIDO: Zona horaria en todas las fechas
 // ========================================
 
 // ========================================
@@ -138,7 +139,7 @@ function generateInvoicePDF(paymentId, autoDownload = true) {
     doc.setTextColor(...textColor);
     doc.text(payment.invoiceNumber || 'N/A', 150, 35);
     
-    // Fecha
+    // ✅ CORREGIDO: Fecha usa formatDate que ya maneja zona horaria
     doc.setFontSize(10);
     doc.setFont(undefined, 'normal');
     doc.text(`Fecha: ${formatDate(payment.paidDate || payment.dueDate)}`, 150, 42);
@@ -285,10 +286,14 @@ function generatePaymentNotificationPDF(paymentId) {
     if (settings.email) doc.text(settings.email, 50, 32);
     if (settings.phone) doc.text(settings.phone, 50, 37);
     
-    // Determinar estado
+    // ✅ CORREGIDO: Usar parseLocalDate y normalizar fechas
     const today = new Date();
-    const dueDate = new Date(payment.dueDate);
-    const daysDiff = daysBetween(today, dueDate);
+    today.setHours(0, 0, 0, 0);
+    
+    const dueDate = parseLocalDate(payment.dueDate);
+    dueDate.setHours(0, 0, 0, 0);
+    
+    const daysDiff = Math.floor((dueDate - today) / (1000 * 60 * 60 * 24));
     
     let title = '';
     let statusColor = primaryColor;
@@ -480,6 +485,7 @@ function generatePlayerAccountStatementPDF(playerId) {
       doc.setFillColor(...bgColor);
       doc.rect(15, yPos, 180, 8, 'F');
       
+      // ✅ CORREGIDO: Usa formatDate que ya maneja zona horaria
       doc.text(formatDate(p.paidDate || p.dueDate), 20, yPos + 5);
       
       const conceptoText = p.concept.substring(0, 25);
@@ -515,13 +521,13 @@ function generatePlayerAccountStatementPDF(playerId) {
 }
 
 // ========================================
-// REPORTE CONTABLE COMPLETO (CON EGRESOS) - CORREGIDO ✅
+// REPORTE CONTABLE COMPLETO (CON EGRESOS)
 // ========================================
 function generateFullAccountingReportPDF() {
   const settings = getSchoolSettings();
   const players = getPlayers();
   const payments = getPayments();
-  const expenses = getExpenses(); // 🆕 OBTENER EGRESOS
+  const expenses = getExpenses();
   
   if (payments.length === 0 && expenses.length === 0) {
     showToast('⚠️ No hay datos suficientes para generar el reporte');
@@ -580,12 +586,10 @@ function generateFullAccountingReportPDF() {
     const thisMonth = payments.filter(p => p.paidDate && isThisMonth(p.paidDate));
     const monthIncome = thisMonth.reduce((sum, p) => sum + p.amount, 0);
     
-    // 🆕 CÁLCULOS DE EGRESOS
     const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
     const thisMonthExpenses = expenses.filter(e => isThisMonth(e.date));
     const monthExpenses = thisMonthExpenses.reduce((sum, e) => sum + e.amount, 0);
     
-    // 🆕 UTILIDAD NETA
     const netProfit = totalIncome - totalExpenses;
     const monthNetProfit = monthIncome - monthExpenses;
     
@@ -619,10 +623,9 @@ function generateFullAccountingReportPDF() {
     doc.text(`Por Cobrar: ${formatCurrency(totalPending)}`, 15, yPos);
     yPos += 15;
     
-    // 🆕 SECCIÓN DE EGRESOS
     doc.setFont(undefined, 'bold');
     doc.setFontSize(12);
-    doc.setTextColor(220, 38, 38); // Rojo para egresos
+    doc.setTextColor(220, 38, 38);
     doc.text('EGRESOS', 15, yPos);
     yPos += 10;
     
@@ -636,7 +639,6 @@ function generateFullAccountingReportPDF() {
     doc.text(`Cantidad de Egresos: ${expenses.length}`, 15, yPos);
     yPos += 15;
     
-    // 🆕 UTILIDAD NETA
     doc.setFont(undefined, 'bold');
     doc.setFontSize(14);
     doc.setTextColor(...primaryColor);
@@ -653,7 +655,6 @@ function generateFullAccountingReportPDF() {
     doc.setTextColor(...monthProfitColor);
     doc.text(`Este Mes: ${formatCurrency(monthNetProfit)}`, 15, yPos);
     
-    // 🆕 AGREGAR FIRMA EN PÁGINA 2
     addSignatureToDocument(doc, 235);
     
     // PÁGINA 3: DETALLE POR JUGADOR
@@ -700,7 +701,7 @@ function generateFullAccountingReportPDF() {
       yPos += 8;
     });
     
-    // 🆕 PÁGINA 4: DETALLE DE EGRESOS
+    // PÁGINA 4: DETALLE DE EGRESOS
     if (expenses.length > 0) {
       doc.addPage();
       
@@ -712,7 +713,7 @@ function generateFullAccountingReportPDF() {
       yPos = 45;
       doc.setFontSize(9);
       
-      doc.setFillColor(220, 38, 38); // Rojo para egresos
+      doc.setFillColor(220, 38, 38);
       doc.rect(15, yPos, 180, 8, 'F');
       doc.setTextColor(255, 255, 255);
       doc.text('Fecha', 20, yPos + 5);
@@ -733,6 +734,7 @@ function generateFullAccountingReportPDF() {
         doc.setFillColor(...bgColor);
         doc.rect(15, yPos, 180, 8, 'F');
         
+        // ✅ CORREGIDO: Usa formatDate que ya maneja zona horaria
         doc.text(formatDate(expense.date), 20, yPos + 5);
         doc.text(expense.beneficiaryName.substring(0, 20), 60, yPos + 5);
         doc.text(expense.category, 110, yPos + 5);
@@ -743,7 +745,6 @@ function generateFullAccountingReportPDF() {
         yPos += 8;
       });
       
-      // Total de egresos
       yPos += 5;
       doc.setFont(undefined, 'bold');
       doc.setFontSize(12);
@@ -770,6 +771,7 @@ function generateFullAccountingReportPDF() {
     showToast('❌ Error al generar reporte: ' + error.message);
   }
 }
+
 // ========================================
 // COMPROBANTE DE EGRESO (CON FIRMA)
 // ========================================
@@ -820,6 +822,7 @@ function generateExpenseInvoicePDF(expenseId, autoDownload = true) {
     doc.setTextColor(...textColor);
     doc.text(expense.invoiceNumber || 'N/A', 150, 35);
     
+    // ✅ CORREGIDO: Usa formatDate que ya maneja zona horaria
     doc.setFontSize(10);
     doc.setFont(undefined, 'normal');
     doc.text(`Fecha: ${formatDate(expense.date)}`, 150, 42);
@@ -917,4 +920,4 @@ function generateExpenseInvoicePDF(expenseId, autoDownload = true) {
 // Hacer funciones globales
 window.generateExpenseInvoicePDF = generateExpenseInvoicePDF;
 
-console.log('✅ pdf.js cargado con sistema de FIRMAS AUTOMÁTICAS');
+console.log('✅ pdf.js cargado con ZONA HORARIA CORREGIDA + FIRMAS AUTOMÁTICAS');

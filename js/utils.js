@@ -395,4 +395,3 @@ function formatAuditInfo(auditInfo) {
 }
 
 console.log('✅ Funciones de auditoría agregadas');
-

@@ -122,7 +122,7 @@ Su pago se encuentra VENCIDO:
 💵 *Monto:* ${formatCurrency(payment.amount)}
 📅 *Venció:* ${formatDate(payment.dueDate)} (hace ${Math.abs(daysDiff)} días)
 
- Por favor, comuníquese con nosotros.
+Por favor, comuníquese con nosotros.
 
 _${settings.name}_
 ${settings.phone}
@@ -133,14 +133,14 @@ ${settings.phone}
   showToast('✅ Abriendo WhatsApp...');
 }
 
-// Felicitar cumpleaños por WhatsApp
+// Felicitar cumpleaños por WhatsApp - VERSIÓN CON UNICODE
 function sendBirthdayWhatsApp(personId, isStaff = false) {
   let person, phone, name;
   
   if (isStaff) {
     person = getUsers().find(u => u.id === personId);
     if (!person) {
-      showToast('❌ Usuario no encontrado');
+      showToast('\u274C Usuario no encontrado');
       return;
     }
     phone = person.phone;
@@ -148,7 +148,7 @@ function sendBirthdayWhatsApp(personId, isStaff = false) {
   } else {
     person = getPlayerById(personId);
     if (!person) {
-      showToast('❌ Jugador no encontrado');
+      showToast('\u274C Jugador no encontrado');
       return;
     }
     phone = person.phone;
@@ -158,27 +158,28 @@ function sendBirthdayWhatsApp(personId, isStaff = false) {
   const settings = getSchoolSettings();
   const age = calculateAge(person.birthDate);
   
-  const message = `
-🎉🎂 *¡FELIZ CUMPLEAÑOS!* 🎂🎉
+    // Emojis en formato Unicode para máxima compatibilidad
+    const message = `
+  \u{1F389}\u{1F382} *\u00A1FELIZ CUMPLEA\u00D1OS!* \u{1F382}\u{1F389}
 
-Querido(a) *${name}*,
+  Querido(a) *${name}*,
 
-Desde *${settings.name}* queremos desearte un feliz cumpleaños #${age}.
+  Desde *${settings.name}* queremos desearte un feliz cumplea\u00F1os #${age}.
 
-Que este nuevo año de vida esté lleno de:
-⚽ Goles
-🏆 Triunfos
-😊 Alegrías
-💪 Salud
+  Que este nuevo a\u00F1o de vida est\u00E9 lleno de:
+  \u26BD Goles
+  \u{1F3C6} Triunfos
+  \u{1F60A} Alegr\u00EDas
+  \u{1F4AA} Salud
 
-¡Que lo disfrutes al máximo!
+  \u00A1Que lo disfrutes al m\u00E1ximo!
 
-_${settings.name}_
-  `.trim();
-  
-  openWhatsApp(phone, message);
-  showToast('✅ Abriendo WhatsApp...');
-}
+  _${settings.name}_
+    `.trim();
+    
+    openWhatsApp(phone, message);
+    showToast('\u2705 Abriendo WhatsApp...');
+  }
 
 // Enviar mensaje personalizado
 function sendCustomWhatsApp(phone, message) {
@@ -259,7 +260,7 @@ function sendExpenseInvoiceWhatsApp(expenseId) {
     `🏷️ Categoría: ${expense.category}\n` +
     `📅 Fecha de pago: ${formatDate(expense.date)}\n` +
     `💳 Método: ${expense.method}\n\n` +
-    `Gracias por tus servicios  ⚽`;
+    `Gracias por tus servicios ⚽`;
   
   // Normalizar teléfono
   const phone = normalizePhone(expense.beneficiaryPhone);
