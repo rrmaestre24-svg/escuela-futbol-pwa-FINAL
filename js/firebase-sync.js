@@ -172,6 +172,21 @@ async function syncAllToFirebase() {
     console.log(`✅ ${expensesCount} egresos subidos`);
     syncedItems.push(`${expensesCount} egresos`);
 
+    // 7️⃣ Ingresos de Terceros
+    const thirdPartyIncomes = getThirdPartyIncomes() || [];
+    let thirdPartyCount = 0;
+    for (const income of thirdPartyIncomes) {
+      if (income.id) {
+        await window.firebase.setDoc(
+          window.firebase.doc(window.firebase.db, `clubs/${clubId}/thirdPartyIncomes`, income.id),
+          income
+        );
+        thirdPartyCount++;
+      }
+    }
+    console.log(`✅ ${thirdPartyCount} otros ingresos subidos`);
+    syncedItems.push(`${thirdPartyCount} otros ingresos`);
+
     console.log('✅ Sincronización completada');
     showToast(`✅ Datos subidos: ${syncedItems.join(', ')}`);
   } catch (error) {
@@ -273,6 +288,15 @@ async function downloadFromFirebase() {
     expensesSnapshot.forEach(doc => expenses.push(doc.data()));
     localStorage.setItem('expenses', JSON.stringify(expenses));
     console.log(`✅ ${expenses.length} egresos descargados`);
+
+   // 7️⃣ Ingresos de Terceros
+    const thirdPartySnapshot = await window.firebase.getDocs(
+      window.firebase.collection(window.firebase.db, `clubs/${clubId}/thirdPartyIncomes`)
+    );
+    const thirdPartyIncomes = [];
+    thirdPartySnapshot.forEach(doc => thirdPartyIncomes.push(doc.data()));
+    localStorage.setItem('thirdPartyIncomes', JSON.stringify(thirdPartyIncomes));
+    console.log(`✅ ${thirdPartyIncomes.length} otros ingresos descargados`); 
 
     showToast(`✅ Datos descargados: ${players.length} jugadores, ${payments.length} pagos, ${events.length} eventos, ${users.length} usuarios, ${expenses.length} egresos`);
     
@@ -607,6 +631,40 @@ async function deleteExpenseFromFirebase(expenseId) {
     return true;
   } catch (error) {
     console.error('❌ Error al eliminar egreso:', error);
+    return false;
+  }
+}
+async function saveThirdPartyIncomeToFirebase(income) {
+  if (!checkFirebaseReady()) return false;
+  const clubId = getClubId();
+  if (!clubId || !income?.id) return false;
+
+  try {
+    await window.firebase.setDoc(
+      window.firebase.doc(window.firebase.db, `clubs/${clubId}/thirdPartyIncomes`, income.id),
+      income
+    );
+    console.log('✅ Otro ingreso guardado en Firebase:', income.id);
+    return true;
+  } catch (error) {
+    console.error('❌ Error al guardar otro ingreso:', error);
+    return false;
+  }
+}
+
+async function deleteThirdPartyIncomeFromFirebase(incomeId) {
+  if (!checkFirebaseReady()) return false;
+  const clubId = getClubId();
+  if (!clubId || !incomeId) return false;
+
+  try {
+    await window.firebase.deleteDoc(
+      window.firebase.doc(window.firebase.db, `clubs/${clubId}/thirdPartyIncomes`, incomeId)
+    );
+    console.log('✅ Otro ingreso eliminado de Firebase:', incomeId);
+    return true;
+  } catch (error) {
+    console.error('❌ Error al eliminar otro ingreso:', error);
     return false;
   }
 }

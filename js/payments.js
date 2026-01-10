@@ -20,15 +20,16 @@ function closePaymentTypeSelectorModal() {
   document.getElementById('paymentTypeSelectorModal').classList.add('hidden');
 }
 
-// Seleccionar tipo de pago
 function selectPaymentType(type) {
   currentPaymentMode = type;
   closePaymentTypeSelectorModal();
   
   if (type === 'ingreso') {
     showAddPaymentModal();
-  } else {
+  } else if (type === 'egreso') {
     showAddExpenseModal();
+  } else if (type === 'otroIngreso') {
+    showAddThirdPartyIncomeModal();
   }
 }
 
@@ -41,7 +42,7 @@ function showPaymentTab(tab) {
   currentPaymentTab = tab;
   
   // Actualizar botones
-  ['monthly', 'extras', 'expenses', 'history'].forEach(t => {
+  ['monthly', 'extras', 'expenses', 'thirdParty', 'history'].forEach(t => {
     const btn = document.getElementById(`${t}Tab`);
     if (btn) {
       if (t === tab) {
@@ -54,13 +55,11 @@ function showPaymentTab(tab) {
     }
   });
   
-  // Mostrar contenido
-  document.getElementById('monthlyPaymentsContent').classList.add('hidden');
+document.getElementById('monthlyPaymentsContent').classList.add('hidden');
   document.getElementById('extrasPaymentsContent').classList.add('hidden');
   document.getElementById('expensesPaymentsContent').classList.add('hidden');
+  document.getElementById('thirdPartyIncomesContent')?.classList.add('hidden');
   document.getElementById('historyPaymentsContent').classList.add('hidden');
-  
-  document.getElementById(`${tab}PaymentsContent`).classList.remove('hidden');
   
   renderPayments();
 }
@@ -200,21 +199,37 @@ document.getElementById('paymentForm')?.addEventListener('submit', function(e) {
 // ========================================
 
 // Renderizar pagos
+// Renderizar pagos
 function renderPayments() {
   const payments = getPayments();
   const expenses = getExpenses();
+  const thirdPartyIncomes = getThirdPartyIncomes();
   
+  // Ocultar TODOS los contenedores primero
+  document.getElementById('monthlyPaymentsContent').classList.add('hidden');
+  document.getElementById('extrasPaymentsContent').classList.add('hidden');
+  document.getElementById('expensesPaymentsContent').classList.add('hidden');
+  document.getElementById('thirdPartyIncomesContent')?.classList.add('hidden');
+  document.getElementById('historyPaymentsContent').classList.add('hidden');
+  
+  // Mostrar el contenedor correcto y renderizar
   if (currentPaymentTab === 'monthly') {
+    document.getElementById('monthlyPaymentsContent').classList.remove('hidden');
     renderMonthlyPayments(payments.filter(p => p.type === 'Mensualidad'));
   } else if (currentPaymentTab === 'extras') {
+    document.getElementById('extrasPaymentsContent').classList.remove('hidden');
     renderExtraPayments(payments.filter(p => p.type !== 'Mensualidad'));
   } else if (currentPaymentTab === 'expenses') {
+    document.getElementById('expensesPaymentsContent').classList.remove('hidden');
     renderExpensesInPayments(expenses);
+  } else if (currentPaymentTab === 'thirdParty') {
+    document.getElementById('thirdPartyIncomesContent')?.classList.remove('hidden');
+    renderThirdPartyIncomes(thirdPartyIncomes);
   } else if (currentPaymentTab === 'history') {
+    document.getElementById('historyPaymentsContent').classList.remove('hidden');
     renderPaymentsHistory(payments, expenses);
   }
 }
-
 // Renderizar mensualidades
 function renderMonthlyPayments(payments) {
   const container = document.getElementById('monthlyPaymentsContent');

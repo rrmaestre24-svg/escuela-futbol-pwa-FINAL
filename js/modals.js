@@ -87,6 +87,8 @@ function sendManualWhatsApp() {
     sendInvoiceWhatsAppManual(itemId, normalizedPhone);
   } else if (itemType === 'expense') {
     sendExpenseInvoiceWhatsAppManual(itemId, normalizedPhone);
+  } else if (itemType === 'thirdPartyIncome') {
+    sendThirdPartyIncomeWhatsAppManual(itemId, normalizedPhone);
   }
   
   closeManualWhatsAppModal();

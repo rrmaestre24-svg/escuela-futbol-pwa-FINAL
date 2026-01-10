@@ -1,4 +1,4 @@
-const CACHE_NAME = 'my-club-v1.0.5';
+const CACHE_NAME = 'my-club-v1.0.7'; // ← VERSIÓN INCREMENTADA
 const urlsToCache = [
   './',
   './index.html',
@@ -10,18 +10,23 @@ const urlsToCache = [
   './js/storage.js',
   './js/players.js',
   './js/payments.js',
+  './js/expenses.js', 
+  './js/third-party-income.js', 
+  './js/firebase-sync.js', 
+  './js/modals.js', 
   './js/notifications.js',
   './js/calendar.js',
   './js/birthdays.js',
   './js/accounting.js',
   './js/dashboard.js',
   './js/settings.js',
+  './js/club-settings-protection.js',
   './js/pdf.js',
   './js/whatsapp.js',
   './js/utils.js',
   './js/install.js',
   './js/cache.js',
-  './js/pwa-icons.js' // ⭐ AGREGADO
+  './js/pwa-icons.js'
 ];
 
 // Instalación del Service Worker
@@ -71,7 +76,7 @@ self.addEventListener('activate', event => {
 self.addEventListener('message', event => {
   // SKIP_WAITING para actualización inmediata
   if (event.data && event.data.type === 'SKIP_WAITING') {
-    console.log('⏭️ Saltando espera - Activando nueva versión');
+    console.log('⭐️ Saltando espera - Activando nueva versión');
     self.skipWaiting();
   }
   

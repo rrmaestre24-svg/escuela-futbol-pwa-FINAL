@@ -16,6 +16,10 @@ function initStorage() {
   if (!localStorage.getItem('expenses')) {
     localStorage.setItem('expenses', JSON.stringify([]));
   }
+  // 🆕 NUEVO: Inicializar thirdPartyIncomes
+  if (!localStorage.getItem('thirdPartyIncomes')) {
+    localStorage.setItem('thirdPartyIncomes', JSON.stringify([]));
+  }
   if (!localStorage.getItem('calendarEvents')) {
     localStorage.setItem('calendarEvents', JSON.stringify([]));
   }
@@ -258,82 +262,120 @@ function getExpenseById(expenseId) {
 }
 
 function saveExpense(expense) {
-  try {
-    const expenses = getExpenses();
-    expenses.push(expense);
+  const expenses = getExpenses();
+  expenses.push(expense);
+  localStorage.setItem('expenses', JSON.stringify(expenses));
+  
+  // ⭐ SINCRONIZACIÓN AUTOMÁTICA
+  if (typeof saveExpenseToFirebase === 'function') {
+    saveExpenseToFirebase(expense).catch(err => 
+      console.warn('⚠️ No se pudo sincronizar egreso con Firebase:', err)
+    );
+  }
+}
+
+function updateExpense(expenseId, expenseData) {
+  const expenses = getExpenses();
+  const index = expenses.findIndex(e => e.id === expenseId);
+  if (index !== -1) {
+    expenses[index] = { ...expenses[index], ...expenseData };
     localStorage.setItem('expenses', JSON.stringify(expenses));
     
     // ⭐ SINCRONIZACIÓN AUTOMÁTICA
     if (typeof saveExpenseToFirebase === 'function') {
-      saveExpenseToFirebase(expense).catch(err => 
+      saveExpenseToFirebase(expenses[index]).catch(err => 
         console.warn('⚠️ No se pudo sincronizar egreso con Firebase:', err)
       );
     }
-    
-    return true;
-  } catch (error) {
-    console.error('Error al guardar egreso:', error);
-    return false;
-  }
-}
-
-function updateExpense(expenseId, updatedData) {
-  try {
-    const expenses = getExpenses();
-    const index = expenses.findIndex(e => e.id === expenseId);
-    
-    if (index !== -1) {
-      expenses[index] = { ...expenses[index], ...updatedData };
-      localStorage.setItem('expenses', JSON.stringify(expenses));
-      
-      // ⭐ SINCRONIZACIÓN AUTOMÁTICA
-      if (typeof saveExpenseToFirebase === 'function') {
-        saveExpenseToFirebase(expenses[index]).catch(err => 
-          console.warn('⚠️ No se pudo sincronizar egreso con Firebase:', err)
-        );
-      }
-      
-      return true;
-    }
-    
-    return false;
-  } catch (error) {
-    console.error('Error al actualizar egreso:', error);
-    return false;
   }
 }
 
 function deleteExpense(expenseId) {
-  try {
-    const expenses = getExpenses();
-    const filtered = expenses.filter(e => e.id !== expenseId);
-    localStorage.setItem('expenses', JSON.stringify(filtered));
-    
-    // ⭐ SINCRONIZACIÓN AUTOMÁTICA
-    if (typeof deleteExpenseFromFirebase === 'function') {
-      deleteExpenseFromFirebase(expenseId).catch(err => 
-        console.warn('⚠️ No se pudo eliminar egreso de Firebase:', err)
-      );
-    }
-    
-    return true;
-  } catch (error) {
-    console.error('Error al eliminar egreso:', error);
-    return false;
+  let expenses = getExpenses();
+  expenses = expenses.filter(e => e.id !== expenseId);
+  localStorage.setItem('expenses', JSON.stringify(expenses));
+  
+  // ⭐ SINCRONIZACIÓN AUTOMÁTICA
+  if (typeof deleteExpenseFromFirebase === 'function') {
+    deleteExpenseFromFirebase(expenseId).catch(err => 
+      console.warn('⚠️ No se pudo eliminar egreso de Firebase:', err)
+    );
   }
 }
 
 // ========================================
-// EVENTOS DEL CALENDARIO - CON SINCRONIZACIÓN AUTOMÁTICA
+// 🆕 INGRESOS DE TERCEROS (OTROS INGRESOS)
+// CON SINCRONIZACIÓN AUTOMÁTICA
+// ========================================
+
+function getThirdPartyIncomes() {
+  try {
+    const incomes = localStorage.getItem('thirdPartyIncomes');
+    return incomes ? JSON.parse(incomes) : [];
+  } catch (error) {
+    console.error('Error al obtener ingresos de terceros:', error);
+    return [];
+  }
+}
+
+function getThirdPartyIncomeById(incomeId) {
+  const incomes = getThirdPartyIncomes();
+  return incomes.find(i => i.id === incomeId);
+}
+
+function saveThirdPartyIncome(income) {
+  const incomes = getThirdPartyIncomes();
+  incomes.push(income);
+  localStorage.setItem('thirdPartyIncomes', JSON.stringify(incomes));
+  
+  // ⭐ SINCRONIZACIÓN AUTOMÁTICA
+  if (typeof saveThirdPartyIncomeToFirebase === 'function') {
+    saveThirdPartyIncomeToFirebase(income).catch(err => 
+      console.warn('⚠️ No se pudo sincronizar ingreso con Firebase:', err)
+    );
+  }
+}
+
+function updateThirdPartyIncome(incomeId, incomeData) {
+  const incomes = getThirdPartyIncomes();
+  const index = incomes.findIndex(i => i.id === incomeId);
+  if (index !== -1) {
+    incomes[index] = { ...incomes[index], ...incomeData };
+    localStorage.setItem('thirdPartyIncomes', JSON.stringify(incomes));
+    
+    // ⭐ SINCRONIZACIÓN AUTOMÁTICA
+    if (typeof saveThirdPartyIncomeToFirebase === 'function') {
+      saveThirdPartyIncomeToFirebase(incomes[index]).catch(err => 
+        console.warn('⚠️ No se pudo sincronizar ingreso con Firebase:', err)
+      );
+    }
+  }
+}
+
+function deleteThirdPartyIncome(incomeId) {
+  let incomes = getThirdPartyIncomes();
+  incomes = incomes.filter(i => i.id !== incomeId);
+  localStorage.setItem('thirdPartyIncomes', JSON.stringify(incomes));
+  
+  // ⭐ SINCRONIZACIÓN AUTOMÁTICA
+  if (typeof deleteThirdPartyIncomeFromFirebase === 'function') {
+    deleteThirdPartyIncomeFromFirebase(incomeId).catch(err => 
+      console.warn('⚠️ No se pudo eliminar ingreso de Firebase:', err)
+    );
+  }
+}
+
+// ========================================
+// EVENTOS DEL CALENDARIO
 // ========================================
 
 function getCalendarEvents() {
   return JSON.parse(localStorage.getItem('calendarEvents') || '[]');
 }
 
-function getEventById(id) {
+function getEventById(eventId) {
   const events = getCalendarEvents();
-  return events.find(e => e.id === id);
+  return events.find(e => e.id === eventId);
 }
 
 function saveEvent(event) {
@@ -393,7 +435,7 @@ function getUpcomingEvents(limit = 10) {
 }
 
 // ========================================
-// CONFIGURACIÓN DEL CLUB - CON SINCRONIZACIÓN AUTOMÁTICA
+// CONFIGURACIÓN DEL CLUB
 // ========================================
 
 function getSchoolSettings() {
@@ -407,7 +449,6 @@ function updateSchoolSettings(settings) {
   
   // ⭐ SINCRONIZACIÓN AUTOMÁTICA
   if (typeof syncAllToFirebase === 'function' && window.APP_STATE?.firebaseReady) {
-    // Solo sincronizar settings, no todo
     const clubId = localStorage.getItem('clubId');
     if (clubId && window.firebase?.db) {
       window.firebase.setDoc(
@@ -427,14 +468,17 @@ function setDarkMode(enabled) {
   localStorage.setItem('darkMode', enabled.toString());
 }
 
-// NÚMERO DE FACTURA
+// ========================================
+// 🆕 NÚMERO DE FACTURA - INCLUYE OTROS INGRESOS
+// ========================================
 function getNextInvoiceNumber() {
   const year = new Date().getFullYear();
   const payments = getPayments();
   const expenses = getExpenses();
+  const thirdPartyIncomes = getThirdPartyIncomes(); // 🆕 Incluir otros ingresos
   
-  // Combinar pagos y egresos para el conteo
-  const allInvoices = [...payments, ...expenses];
+  // Combinar pagos, egresos e ingresos de terceros para el conteo
+  const allInvoices = [...payments, ...expenses, ...thirdPartyIncomes]; // 🆕 Modificado
   const invoicesThisYear = allInvoices.filter(item => 
     item.invoiceNumber && item.invoiceNumber.includes(year.toString())
   );
@@ -443,13 +487,16 @@ function getNextInvoiceNumber() {
   return `INV-${year}-${String(nextNumber).padStart(4, '0')}`;
 }
 
-// EXPORTAR TODOS LOS DATOS
+// ========================================
+// 🆕 EXPORTAR DATOS - INCLUYE OTROS INGRESOS
+// ========================================
 function exportAllData() {
   const data = {
     users: getUsers(),
     players: getPlayers(),
     payments: getPayments(),
     expenses: getExpenses(),
+    thirdPartyIncomes: getThirdPartyIncomes(), // 🆕 Incluir otros ingresos
     calendarEvents: getCalendarEvents(),
     schoolSettings: getSchoolSettings(),
     exportDate: new Date().toISOString()
@@ -459,7 +506,9 @@ function exportAllData() {
   showToast('✅ Datos exportados correctamente');
 }
 
-// IMPORTAR DATOS
+// ========================================
+// 🆕 IMPORTAR DATOS - INCLUYE OTROS INGRESOS
+// ========================================
 function importData(jsonData) {
   try {
     const data = JSON.parse(jsonData);
@@ -468,6 +517,7 @@ function importData(jsonData) {
     if (data.players) localStorage.setItem('players', JSON.stringify(data.players));
     if (data.payments) localStorage.setItem('payments', JSON.stringify(data.payments));
     if (data.expenses) localStorage.setItem('expenses', JSON.stringify(data.expenses));
+    if (data.thirdPartyIncomes) localStorage.setItem('thirdPartyIncomes', JSON.stringify(data.thirdPartyIncomes)); // 🆕
     if (data.calendarEvents) localStorage.setItem('calendarEvents', JSON.stringify(data.calendarEvents));
     if (data.schoolSettings) localStorage.setItem('schoolSettings', JSON.stringify(data.schoolSettings));
     
@@ -496,7 +546,6 @@ function clearAllData() {
 // SISTEMA MULTI-USUARIO POR ESCUELA
 // ========================================
 
-// Guardar usuario vinculado a escuela
 function saveUserToSchool(user, schoolId) {
   const users = getUsers();
   user.schoolId = schoolId;
@@ -505,19 +554,16 @@ function saveUserToSchool(user, schoolId) {
   localStorage.setItem('users', JSON.stringify(users));
 }
 
-// Obtener usuarios de una escuela
 function getSchoolUsers(schoolId) {
   const users = getUsers();
   return users.filter(u => u.schoolId === schoolId);
 }
 
-// Verificar límite de usuarios
 function canAddMoreUsers(schoolId) {
   const schoolUsers = getSchoolUsers(schoolId);
-  return schoolUsers.length < 6; // 1 principal + 5 adicionales
+  return schoolUsers.length < 6;
 }
 
-// Obtener ID de la escuela actual
 function getCurrentSchoolId() {
   const currentUser = getCurrentUser();
   return currentUser ? currentUser.schoolId : null;
@@ -536,7 +582,9 @@ function saveSchoolSettings(settings) {
   updateSchoolSettings(settings);
 }
 
-// IMPORTAR DATOS DESDE JSON
+// ========================================
+// 🆕 IMPORTAR DESDE JSON - INCLUYE OTROS INGRESOS
+// ========================================
 function importDataFromJSON(file) {
   const reader = new FileReader();
   
@@ -545,22 +593,20 @@ function importDataFromJSON(file) {
       const jsonData = e.target.result;
       const data = JSON.parse(jsonData);
       
-      // Validar que tenga la estructura correcta
       if (!data.users && !data.players && !data.payments) {
         showToast('❌ Archivo JSON inválido');
         return;
       }
       
-      // Confirmar importación
       if (!confirm('⚠️ ADVERTENCIA: Esto reemplazará TODOS los datos actuales.\n\n¿Estás seguro de continuar?')) {
         return;
       }
       
-      // Importar datos
       if (data.users) localStorage.setItem('users', JSON.stringify(data.users));
       if (data.players) localStorage.setItem('players', JSON.stringify(data.players));
       if (data.payments) localStorage.setItem('payments', JSON.stringify(data.payments));
       if (data.expenses) localStorage.setItem('expenses', JSON.stringify(data.expenses));
+      if (data.thirdPartyIncomes) localStorage.setItem('thirdPartyIncomes', JSON.stringify(data.thirdPartyIncomes)); // 🆕
       if (data.calendarEvents) localStorage.setItem('calendarEvents', JSON.stringify(data.calendarEvents));
       if (data.schoolSettings) localStorage.setItem('schoolSettings', JSON.stringify(data.schoolSettings));
       
@@ -579,7 +625,6 @@ function importDataFromJSON(file) {
   reader.readAsText(file);
 }
 
-// Abrir selector de archivos para importar
 function openImportDialog() {
   const input = document.createElement('input');
   input.type = 'file';
@@ -598,4 +643,4 @@ function openImportDialog() {
 // Inicializar al cargar
 initStorage();
 
-console.log('✅ storage.js cargado (CON EGRESOS Y SINCRONIZACIÓN)');
+console.log('✅ storage.js cargado (CON EGRESOS, OTROS INGRESOS Y SINCRONIZACIÓN)');

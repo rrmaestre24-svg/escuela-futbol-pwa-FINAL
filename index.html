@@ -234,86 +234,89 @@
     <div id="playersList" class="space-y-3"></div>
 </div>
 
-            <!-- ========================================
+<!-- ========================================
                 VISTA: PAGOS (UNIFICADA)
             ========================================= -->
             <div id="paymentsView" class="hidden p-4 space-y-4">
-                <!-- Tabs -->
-                <div class="flex gap-2 overflow-x-auto">
-                    <button onclick="showPaymentTab('monthly')" id="monthlyTab" class="flex-1 py-2 px-4 rounded-lg font-medium transition-all bg-teal-600 text-white whitespace-nowrap">
-                         Mensualidades
+                <!-- Tabs con scroll horizontal para móvil -->
+                <div class="flex gap-2 overflow-x-auto pb-2 scrollbar-hide" style="-webkit-overflow-scrolling: touch;">
+                    <button onclick="showPaymentTab('monthly')" id="monthlyTab" class="py-2 px-4 rounded-lg font-medium transition-all bg-teal-600 text-white whitespace-nowrap text-sm">
+                        📅 Mensualidades
                     </button>
-                    <button onclick="showPaymentTab('extras')" id="extrasTab" class="flex-1 py-2 px-4 rounded-lg font-medium transition-all bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 whitespace-nowrap">
-                         Extras
+                    <button onclick="showPaymentTab('extras')" id="extrasTab" class="py-2 px-4 rounded-lg font-medium transition-all bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 whitespace-nowrap text-sm">
+                        🎽 Extras
                     </button>
-                    <button onclick="showPaymentTab('expenses')" id="expensesTab" class="flex-1 py-2 px-4 rounded-lg font-medium transition-all bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 whitespace-nowrap">
-                         Egresos
+                    <button onclick="showPaymentTab('expenses')" id="expensesTab" class="py-2 px-4 rounded-lg font-medium transition-all bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 whitespace-nowrap text-sm">
+                        💸 Egresos
                     </button>
-                    <button onclick="showPaymentTab('history')" id="historyTab" class="flex-1 py-2 px-4 rounded-lg font-medium transition-all bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 whitespace-nowrap">
-                         Historial
+                    <button onclick="showPaymentTab('thirdParty')" id="thirdPartyTab" class="py-2 px-4 rounded-lg font-medium transition-all bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 whitespace-nowrap text-sm">
+                        💰 Otros
+                    </button>
+                    <button onclick="showPaymentTab('history')" id="historyTab" class="py-2 px-4 rounded-lg font-medium transition-all bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 whitespace-nowrap text-sm">
+                        📋 Historial
                     </button>
                 </div>
-                 
-               <!-- Buscador + Botón Registrar -->
-            <div class="flex gap-2">
-                <!-- Botón Buscar (mejorado para móvil) -->
-                <button 
-                    type="button"
-                    onclick="togglePaymentSearch()" 
-                    class="bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-white px-4 py-3 rounded-lg flex items-center gap-2 active:scale-95 transition-transform"
-                    style="touch-action: manipulation; -webkit-tap-highlight-color: transparent; min-height: 44px;"
-                    aria-label="Buscar pagos">
-                    <i data-lucide="search" class="w-5 h-5"></i>
-                    <span class="hidden sm:inline">Buscar</span>
-                </button>
                 
-                <!-- Botón Registrar Pago -->
-                <button 
-                    type="button"
-                    onclick="showUnifiedPaymentModal()" 
-                    class="flex-1 bg-gradient-to-r from-teal-600 to-blue-600 hover:from-teal-700 hover:to-blue-700 text-white py-3 rounded-lg flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all"
-                    style="touch-action: manipulation; min-height: 44px;">
-                    <i data-lucide="plus-circle" class="w-6 h-6"></i>
-                    <span class="font-bold">Registrar Pago</span>
-                </button>
-            </div>
-
-            <!-- Campo de búsqueda (oculto por defecto) -->
-            <div id="paymentSearchContainer" class="hidden">
-                <div class="relative">
-                    <input 
-                        type="search"
-                        id="paymentSearchInput" 
-                        placeholder="Buscar por jugador, concepto, factura, monto..."
-                        oninput="searchPayments()"
-                        class="w-full px-4 py-3 pl-12 pr-12 rounded-lg border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                        style="font-size: 16px;"
-                        autocomplete="off"
-                        autocorrect="off"
-                        autocapitalize="off"
-                        spellcheck="false"
-                    >
-                    <i data-lucide="search" class="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none"></i>
+                <!-- Buscador + Botón Registrar -->
+                <div class="flex gap-2">
+                    <!-- Botón Buscar -->
                     <button 
                         type="button"
-                        onclick="clearPaymentSearch()" 
-                        class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-2 active:scale-90 transition-transform"
-                        style="touch-action: manipulation; min-height: 44px; min-width: 44px;"
-                        title="Limpiar búsqueda"
-                        aria-label="Limpiar búsqueda">
-                        <i data-lucide="x" class="w-5 h-5"></i>
+                        onclick="togglePaymentSearch()" 
+                        class="bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-white px-4 py-3 rounded-lg flex items-center gap-2 active:scale-95 transition-transform"
+                        style="touch-action: manipulation; -webkit-tap-highlight-color: transparent; min-height: 44px;"
+                        aria-label="Buscar pagos">
+                        <i data-lucide="search" class="w-5 h-5"></i>
+                        <span class="hidden sm:inline">Buscar</span>
+                    </button>
+                    
+                    <!-- Botón Registrar Pago -->
+                    <button 
+                        type="button"
+                        onclick="showUnifiedPaymentModal()" 
+                        class="flex-1 bg-gradient-to-r from-teal-600 to-blue-600 hover:from-teal-700 hover:to-blue-700 text-white py-3 rounded-lg flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all"
+                        style="touch-action: manipulation; min-height: 44px;">
+                        <i data-lucide="plus-circle" class="w-6 h-6"></i>
+                        <span class="font-bold">Registrar Pago</span>
                     </button>
                 </div>
-                <p class="text-xs text-gray-500 dark:text-gray-400 mt-2 ml-1">
-                    Busca por nombre, categoría, concepto, número de factura o monto
-                </p>
-            </div>
-                
+
+                <!-- Campo de búsqueda (oculto por defecto) -->
+                <div id="paymentSearchContainer" class="hidden">
+                    <div class="relative">
+                        <input 
+                            type="search"
+                            id="paymentSearchInput" 
+                            placeholder="Buscar por jugador, concepto, factura, monto..."
+                            oninput="searchPayments()"
+                            class="w-full px-4 py-3 pl-12 pr-12 rounded-lg border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                            style="font-size: 16px;"
+                            autocomplete="off"
+                            autocorrect="off"
+                            autocapitalize="off"
+                            spellcheck="false"
+                        >
+                        <i data-lucide="search" class="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none"></i>
+                        <button 
+                            type="button"
+                            onclick="clearPaymentSearch()" 
+                            class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-2 active:scale-90 transition-transform"
+                            style="touch-action: manipulation; min-height: 44px; min-width: 44px;"
+                            title="Limpiar búsqueda"
+                            aria-label="Limpiar búsqueda">
+                            <i data-lucide="x" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-2 ml-1">
+                        Busca por nombre, categoría, concepto, número de factura o monto
+                    </p>
+                </div>
 
                 <!-- Contenido de tabs -->
                 <div id="monthlyPaymentsContent" class="space-y-3"></div>
                 <div id="extrasPaymentsContent" class="hidden space-y-3"></div>
                 <div id="expensesPaymentsContent" class="hidden space-y-3"></div>
+                <div id="thirdPartyIncomesContent" class="hidden space-y-3"></div>
                 <div id="historyPaymentsContent" class="hidden">
                     <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm overflow-x-auto">
                         <table class="w-full text-sm">
@@ -331,7 +334,6 @@
                     </div>
                 </div>
             </div>
-            
 
             <!-- ========================================
                  VISTA: CALENDARIO
@@ -1030,7 +1032,7 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
                 <i data-lucide="chevron-right" class="w-6 h-6"></i>
             </button>
             
-            <!-- Opción: Egreso -->
+<!-- Opción: Egreso -->
             <button onclick="selectPaymentType('egreso')" class="w-full bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white p-4 rounded-xl flex items-center gap-4 transition-all transform hover:scale-105 shadow-lg">
                 <div class="bg-white bg-opacity-20 p-3 rounded-lg">
                     <i data-lucide="trending-down" class="w-8 h-8"></i>
@@ -1038,6 +1040,18 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
                 <div class="flex-1 text-left">
                     <h4 class="font-bold text-lg">Egreso</h4>
                     <p class="text-sm opacity-90">Salarios, servicios, materiales</p>
+                </div>
+                <i data-lucide="chevron-right" class="w-6 h-6"></i>
+            </button>
+            
+            <!-- Opción: Otro Ingreso -->
+            <button onclick="selectPaymentType('otroIngreso')" class="w-full bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white p-4 rounded-xl flex items-center gap-4 transition-all transform hover:scale-105 shadow-lg">
+                <div class="bg-white bg-opacity-20 p-3 rounded-lg">
+                    <i data-lucide="wallet" class="w-8 h-8"></i>
+                </div>
+                <div class="flex-1 text-left">
+                    <h4 class="font-bold text-lg">Otro Ingreso</h4>
+                    <p class="text-sm opacity-90">Rifas, productos, torneos, etc.</p>
                 </div>
                 <i data-lucide="chevron-right" class="w-6 h-6"></i>
             </button>
@@ -1435,33 +1449,182 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
     </div>
 </div>
 
+<!-- Modal Otros Ingresos -->
+<div id="thirdPartyIncomeModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto animate-scale-in">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="font-bold text-xl text-gray-800 dark:text-white">💰 Registrar Otro Ingreso</h3>
+            <button onclick="closeThirdPartyIncomeModal()" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
+                <i data-lucide="x" class="w-6 h-6 text-gray-600 dark:text-gray-300"></i>
+            </button>
+        </div>
+        
+        <form id="thirdPartyIncomeForm" onsubmit="event.preventDefault(); saveThirdPartyIncomeFromForm();">
+            <input type="hidden" id="thirdPartyIncomeId">
+            
+            <!-- Tipo de Aportante -->
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Tipo de Aportante *</label>
+                <div class="flex gap-4">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" name="contributorType" id="contributorTypePerson" value="person" checked class="text-purple-600">
+                        <span class="text-gray-700 dark:text-gray-300">👤 Persona</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" name="contributorType" id="contributorTypeCompany" value="company" class="text-purple-600">
+                        <span class="text-gray-700 dark:text-gray-300">🏢 Empresa</span>
+                    </label>
+                </div>
+            </div>
+            
+            <!-- Datos del Aportante -->
+            <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-4">
+                <h4 class="font-medium text-gray-800 dark:text-white mb-3">Datos del Aportante</h4>
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre *</label>
+                        <input type="text" id="thirdPartyContributorName" list="contributorsList" onchange="autoFillContributor()" required
+                            class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-600 dark:text-white" placeholder="Nombre del aportante">
+                        <datalist id="contributorsList"></datalist>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Teléfono</label>
+                            <input type="tel" id="thirdPartyContributorPhone" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-600 dark:text-white" placeholder="+57 300...">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Documento</label>
+                            <input type="text" id="thirdPartyContributorDocument" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-600 dark:text-white" placeholder="Opcional">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
+                        <input type="email" id="thirdPartyContributorEmail" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-600 dark:text-white" placeholder="correo@ejemplo.com">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Dirección</label>
+                        <input type="text" id="thirdPartyContributorAddress" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-600 dark:text-white" placeholder="Opcional">
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Datos del Ingreso -->
+            <div class="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4 mb-4">
+                <h4 class="font-medium text-gray-800 dark:text-white mb-3">Datos del Ingreso</h4>
+                <div class="space-y-3">
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Categoría *</label>
+                            <select id="thirdPartyIncomeCategory" onchange="autoFillThirdPartyConcept()" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-600 dark:text-white">
+                                <option value="">Seleccionar...</option>
+                                <option value="Mensualidades">📅 Mensualidades</option>
+                                <option value="Uniformes">👕 Uniformes</option>
+                                <option value="Rifas">🎟️ Rifas</option>
+                                <option value="Productos">📦 Productos</option>
+                                <option value="Torneo">🏆 Torneo</option>
+                                <option value="Integración">🎉 Integración</option>
+                                <option value="Festivales">🎊 Festivales</option>
+                                <option value="Otros">💵 Otros</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Monto *</label>
+                            <input type="number" id="thirdPartyIncomeAmount" required min="0" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-600 dark:text-white" placeholder="$ 0">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Concepto *</label>
+                        <input type="text" id="thirdPartyIncomeConcept" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-600 dark:text-white" placeholder="Descripción del ingreso">
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha *</label>
+                            <input type="date" id="thirdPartyIncomeDate" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-600 dark:text-white">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Método *</label>
+                            <select id="thirdPartyIncomeMethod" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-600 dark:text-white">
+                                <option value="">Seleccionar...</option>
+                                <option value="Efectivo">💵 Efectivo</option>
+                                <option value="Transferencia">🏦 Transferencia</option>
+                                <option value="Nequi">📱 Nequi</option>
+                                <option value="Daviplata">📱 Daviplata</option>
+                                <option value="Tarjeta">💳 Tarjeta</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notas</label>
+                        <textarea id="thirdPartyIncomeNotes" rows="2" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-600 dark:text-white" placeholder="Notas adicionales (opcional)"></textarea>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex gap-2">
+                <button type="button" onclick="closeThirdPartyIncomeModal()" class="flex-1 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700">
+                    Cancelar
+                </button>
+                <button type="submit" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-lg flex items-center justify-center gap-2">
+                    <i data-lucide="save" class="w-5 h-5"></i>
+                    Guardar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
     <!-- Toast Notifications -->
     <div id="toast" class="hidden fixed bottom-24 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-slide-up"></div>
      
-    <!-- Scripts en orden -->
-    <script type="module" src="./js/app.js"></script>
+<!-- ========================================== -->
+    <!-- SCRIPTS EN ORDEN CORRECTO                 -->
+    <!-- ========================================== -->
+    
+    <!-- 1️⃣ CONFIGURACIÓN Y UTILIDADES BASE -->
     <script src="js/firebase-config.js"></script>
-    <script src="js/firebase-sync.js"></script>
     <script src="js/utils.js"></script>
-    <script src="js/modals.js"></script>
     <script src="js/phone-utils.js"></script>
-    <script src="js/install.js"></script>
-    <script src="js/cache.js"></script>
     <script src="js/theme.js"></script>
-    <script src="js/pwa-icons.js"></script>
+    
+    <!-- 2️⃣ STORAGE (BASE DE DATOS - DEBE IR PRIMERO) -->
     <script src="js/storage.js"></script>
-    <script src="js/whatsapp.js"></script>
-    <script src="js/pdf.js"></script>
+    
+    <!-- 3️⃣ SINCRONIZACIÓN FIREBASE (depende de storage) -->
+    <script src="js/firebase-sync.js"></script>
+    
+    <!-- 4️⃣ AUTENTICACIÓN (depende de storage y firebase) -->
     <script src="js/auth.js"></script>
+    
+    <!-- 5️⃣ MÓDULOS PRINCIPALES (dependen de storage) -->
     <script src="js/players.js"></script>
     <script src="js/payments.js"></script>
     <script src="js/expenses.js"></script>
+    <script src="js/third-party-income.js"></script>
+    
+    <!-- 6️⃣ MÓDULOS DE COMUNICACIÓN Y REPORTES -->
+    <script src="js/whatsapp.js"></script>
+    <script src="js/pdf.js"></script>
     <script src="js/notifications.js"></script>
+    
+    <!-- 7️⃣ MÓDULOS DE CALENDARIO Y FECHAS -->
     <script src="js/calendar.js"></script>
     <script src="js/birthdays.js"></script>
+    
+    <!-- 8️⃣ MÓDULOS DE ANÁLISIS Y CONFIGURACIÓN -->
     <script src="js/accounting.js"></script>
     <script src="js/dashboard.js"></script>
     <script src="js/settings.js"></script>
+    <script src="js/club-settings-protection.js"></script>
+    
+    <!-- 9️⃣ MODALES (depende de varios módulos) -->
+    <script src="js/modals.js"></script>
+    
+    <!-- 🔟 PWA Y CACHÉ (dependen de storage y settings) -->
+    <script src="js/install.js"></script>
+    <script src="js/cache.js"></script>
+    <script src="js/pwa-icons.js"></script>
+    
+    <!-- ⭐ APP (SIEMPRE DE ÚLTIMO - Inicializa todo) -->
     <script src="js/app.js"></script>
  <script>
   // Inicializar Firebase automáticamente

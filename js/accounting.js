@@ -59,19 +59,22 @@ function renderAccounting() {
 
 // 🆕 RESUMEN MEJORADO - CON EGRESOS
 function renderAccountingSummary() {
-  const payments = getPayments();
-  const expenses = getExpenses(); // 🆕 Obtener egresos
+const payments = getPayments();
+  const expenses = getExpenses();
+  const thirdPartyIncomes = getThirdPartyIncomes();
   
   const paid = payments.filter(p => p.status === 'Pagado');
   const pending = payments.filter(p => p.status === 'Pendiente');
   
-  // 💰 INGRESOS
-  const totalIncome = paid.reduce((sum, p) => sum + p.amount, 0);
+// 💰 INGRESOS (Pagos de jugadores + Otros ingresos)
+  const totalThirdParty = thirdPartyIncomes.reduce((sum, i) => sum + i.amount, 0);
+  const totalIncome = paid.reduce((sum, p) => sum + p.amount, 0) + totalThirdParty;
   const totalPending = pending.reduce((sum, p) => sum + p.amount, 0);
   
   const thisMonth = paid.filter(p => p.paidDate && isThisMonth(p.paidDate));
-  const monthIncome = thisMonth.reduce((sum, p) => sum + p.amount, 0);
-  
+  const thisMonthThirdParty = thirdPartyIncomes.filter(i => isThisMonth(i.date));
+  const monthThirdParty = thisMonthThirdParty.reduce((sum, i) => sum + i.amount, 0);
+  const monthIncome = thisMonth.reduce((sum, p) => sum + p.amount, 0) + monthThirdParty;
   // 💸 EGRESOS (NUEVO)
   const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
   
