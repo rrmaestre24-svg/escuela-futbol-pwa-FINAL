@@ -521,15 +521,27 @@ function generatePlayerAccountStatementPDF(playerId) {
 }
 
 // ========================================
-// REPORTE CONTABLE COMPLETO (CON EGRESOS)
+// 🆕 REPORTE CONTABLE COMPLETO - CORREGIDO
+// INCLUYE: Otros Ingresos + Factura/Fecha en tablas
 // ========================================
+// 
+// INSTRUCCIONES:
+// 1. Abre tu archivo pdf.js
+// 2. Busca la función "function generateFullAccountingReportPDF()"
+// 3. Borra toda la función (desde "function generateFullAccountingReportPDF()" hasta su llave de cierre "}")
+// 4. Pega esta función en su lugar
+// ========================================
+
 function generateFullAccountingReportPDF() {
   const settings = getSchoolSettings();
   const players = getPlayers();
   const payments = getPayments();
   const expenses = getExpenses();
   
-  if (payments.length === 0 && expenses.length === 0) {
+  // 🆕 Obtener otros ingresos
+  const thirdPartyIncomes = typeof getThirdPartyIncomes === 'function' ? getThirdPartyIncomes() : [];
+  
+  if (payments.length === 0 && expenses.length === 0 && thirdPartyIncomes.length === 0) {
     showToast('⚠️ No hay datos suficientes para generar el reporte');
     return;
   }
@@ -540,6 +552,7 @@ function generateFullAccountingReportPDF() {
     
     const primaryColor = [13, 148, 136];
     const textColor = [31, 41, 55];
+    const purpleColor = [139, 92, 246];
     
     // PÁGINA 1: PORTADA
     doc.setFillColor(...primaryColor);
@@ -578,18 +591,35 @@ function generateFullAccountingReportPDF() {
     doc.setFont(undefined, 'bold');
     doc.text('RESUMEN GENERAL', 15, 50);
     
+    // Calcular totales de pagos
     const paid = payments.filter(p => p.status === 'Pagado');
     const pending = payments.filter(p => p.status === 'Pendiente');
-    const totalIncome = paid.reduce((sum, p) => sum + p.amount, 0);
+    const totalPaymentsIncome = paid.reduce((sum, p) => sum + p.amount, 0);
     const totalPending = pending.reduce((sum, p) => sum + p.amount, 0);
     
-    const thisMonth = payments.filter(p => p.paidDate && isThisMonth(p.paidDate));
-    const monthIncome = thisMonth.reduce((sum, p) => sum + p.amount, 0);
+    // 🆕 Calcular totales de otros ingresos
+    const totalThirdPartyIncome = thirdPartyIncomes.reduce((sum, i) => sum + i.amount, 0);
     
+    // 🆕 Total ingresos = pagos + otros ingresos
+    const totalIncome = totalPaymentsIncome + totalThirdPartyIncome;
+    
+    // Calcular ingresos del mes
+    const thisMonthPayments = payments.filter(p => p.paidDate && isThisMonth(p.paidDate));
+    const monthPaymentsIncome = thisMonthPayments.reduce((sum, p) => sum + p.amount, 0);
+    
+    // 🆕 Otros ingresos del mes
+    const thisMonthThirdParty = thirdPartyIncomes.filter(i => isThisMonth(i.date));
+    const monthThirdPartyIncome = thisMonthThirdParty.reduce((sum, i) => sum + i.amount, 0);
+    
+    // 🆕 Total mes = pagos mes + otros ingresos mes
+    const monthIncome = monthPaymentsIncome + monthThirdPartyIncome;
+    
+    // Egresos
     const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
     const thisMonthExpenses = expenses.filter(e => isThisMonth(e.date));
     const monthExpenses = thisMonthExpenses.reduce((sum, e) => sum + e.amount, 0);
     
+    // Utilidad
     const netProfit = totalIncome - totalExpenses;
     const monthNetProfit = monthIncome - monthExpenses;
     
@@ -607,22 +637,36 @@ function generateFullAccountingReportPDF() {
     doc.text(`Pagos Realizados: ${paid.length}`, 15, yPos);
     yPos += 8;
     doc.text(`Pagos Pendientes: ${pending.length}`, 15, yPos);
+    yPos += 8;
+    // 🆕 Mostrar cantidad de otros ingresos
+    doc.text(`Otros Ingresos Registrados: ${thirdPartyIncomes.length}`, 15, yPos);
     yPos += 15;
     
+    // INGRESOS
     doc.setFont(undefined, 'bold');
     doc.setFontSize(12);
+    doc.setTextColor(22, 163, 74); // Verde
     doc.text('INGRESOS', 15, yPos);
     yPos += 10;
     
     doc.setFont(undefined, 'normal');
     doc.setFontSize(11);
+    doc.setTextColor(...textColor);
+    doc.text(`Pagos de Jugadores: ${formatCurrency(totalPaymentsIncome)}`, 15, yPos);
+    yPos += 8;
+    // 🆕 Mostrar otros ingresos separado
+    doc.text(`Otros Ingresos: ${formatCurrency(totalThirdPartyIncome)}`, 15, yPos);
+    yPos += 8;
+    doc.setFont(undefined, 'bold');
     doc.text(`Total Ingresos: ${formatCurrency(totalIncome)}`, 15, yPos);
+    doc.setFont(undefined, 'normal');
     yPos += 8;
     doc.text(`Ingresos Este Mes: ${formatCurrency(monthIncome)}`, 15, yPos);
     yPos += 8;
     doc.text(`Por Cobrar: ${formatCurrency(totalPending)}`, 15, yPos);
     yPos += 15;
     
+    // EGRESOS
     doc.setFont(undefined, 'bold');
     doc.setFontSize(12);
     doc.setTextColor(220, 38, 38);
@@ -639,6 +683,7 @@ function generateFullAccountingReportPDF() {
     doc.text(`Cantidad de Egresos: ${expenses.length}`, 15, yPos);
     yPos += 15;
     
+    // UTILIDAD NETA
     doc.setFont(undefined, 'bold');
     doc.setFontSize(14);
     doc.setTextColor(...primaryColor);
@@ -655,103 +700,229 @@ function generateFullAccountingReportPDF() {
     doc.setTextColor(...monthProfitColor);
     doc.text(`Este Mes: ${formatCurrency(monthNetProfit)}`, 15, yPos);
     
-    addSignatureToDocument(doc, 235);
+    addSignatureToDocument(doc, 240);
     
-    // PÁGINA 3: DETALLE POR JUGADOR
+    // PÁGINA 3: DETALLE DE PAGOS (con factura y fecha)
     doc.addPage();
     
     doc.setFontSize(18);
     doc.setTextColor(...primaryColor);
     doc.setFont(undefined, 'bold');
-    doc.text('DETALLE POR JUGADOR', 15, 30);
+    doc.text('DETALLE DE PAGOS POR JUGADOR', 15, 30);
     
     yPos = 45;
-    doc.setFontSize(9);
+    doc.setFontSize(8);
     
+    // 🆕 Encabezado con Factura y Fecha
     doc.setFillColor(...primaryColor);
     doc.rect(15, yPos, 180, 8, 'F');
     doc.setTextColor(255, 255, 255);
-    doc.text('Jugador', 20, yPos + 5);
-    doc.text('Categoria', 80, yPos + 5);
-    doc.text('Pagado', 120, yPos + 5);
-    doc.text('Pendiente', 155, yPos + 5);
+    doc.text('Jugador', 17, yPos + 5);
+    doc.text('Categoría', 55, yPos + 5);
+    doc.text('Factura', 90, yPos + 5);
+    doc.text('Fecha', 115, yPos + 5);
+    doc.text('Pagado', 145, yPos + 5);
+    doc.text('Pendiente', 170, yPos + 5);
     
     yPos += 8;
     
     doc.setTextColor(...textColor);
-    players.forEach((player, index) => {
+    doc.setFont(undefined, 'normal');
+    
+    // Mostrar pagos individuales con factura y fecha
+    const allPaymentsSorted = [...payments].sort((a, b) => new Date(b.paidDate || b.dueDate) - new Date(a.paidDate || a.dueDate));
+    
+    allPaymentsSorted.forEach((payment, index) => {
       if (yPos > 270) {
         doc.addPage();
         yPos = 20;
+        
+        // Repetir encabezado
+        doc.setFillColor(...primaryColor);
+        doc.rect(15, yPos, 180, 8, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFont(undefined, 'bold');
+        doc.text('Jugador', 17, yPos + 5);
+        doc.text('Categoría', 55, yPos + 5);
+        doc.text('Factura', 90, yPos + 5);
+        doc.text('Fecha', 115, yPos + 5);
+        doc.text('Pagado', 145, yPos + 5);
+        doc.text('Pendiente', 170, yPos + 5);
+        yPos += 8;
+        doc.setFont(undefined, 'normal');
       }
       
-      const playerPayments = getPaymentsByPlayer(player.id);
-      const playerPaid = playerPayments.filter(p => p.status === 'Pagado').reduce((sum, p) => sum + p.amount, 0);
-      const playerPending = playerPayments.filter(p => p.status === 'Pendiente').reduce((sum, p) => sum + p.amount, 0);
+      const player = getPlayerById(payment.playerId);
+      const playerName = player ? player.name.substring(0, 18) : 'Desconocido';
+      const playerCategory = player ? player.category.substring(0, 12) : 'N/A';
       
       const bgColor = index % 2 === 0 ? [249, 250, 251] : [255, 255, 255];
       doc.setFillColor(...bgColor);
-      doc.rect(15, yPos, 180, 8, 'F');
+      doc.rect(15, yPos, 180, 7, 'F');
       
-      doc.text(player.name.substring(0, 25), 20, yPos + 5);
-      doc.text(player.category, 80, yPos + 5);
-      doc.text(formatCurrency(playerPaid), 120, yPos + 5);
-      doc.text(formatCurrency(playerPending), 155, yPos + 5);
+      doc.setTextColor(...textColor);
+      doc.text(playerName, 17, yPos + 5);
+      doc.text(playerCategory, 55, yPos + 5);
+      doc.text(payment.invoiceNumber || 'N/A', 90, yPos + 5);
+      doc.text(formatDate(payment.paidDate || payment.dueDate), 115, yPos + 5);
       
-      yPos += 8;
+      if (payment.status === 'Pagado') {
+        doc.setTextColor(22, 163, 74);
+        doc.text(formatCurrency(payment.amount), 145, yPos + 5);
+        doc.setTextColor(...textColor);
+        doc.text('$0', 170, yPos + 5);
+      } else {
+        doc.text('$0', 145, yPos + 5);
+        doc.setTextColor(220, 38, 38);
+        doc.text(formatCurrency(payment.amount), 170, yPos + 5);
+      }
+      
+      doc.setTextColor(...textColor);
+      yPos += 7;
     });
     
-    // PÁGINA 4: DETALLE DE EGRESOS
-    if (expenses.length > 0) {
+    // 🆕 PÁGINA: DETALLE DE OTROS INGRESOS
+    if (thirdPartyIncomes.length > 0) {
       doc.addPage();
       
       doc.setFontSize(18);
-      doc.setTextColor(...primaryColor);
+      doc.setTextColor(...purpleColor);
       doc.setFont(undefined, 'bold');
-      doc.text('DETALLE DE EGRESOS', 15, 30);
+      doc.text('DETALLE DE OTROS INGRESOS', 15, 30);
       
       yPos = 45;
-      doc.setFontSize(9);
+      doc.setFontSize(8);
       
-      doc.setFillColor(220, 38, 38);
+      doc.setFillColor(...purpleColor);
       doc.rect(15, yPos, 180, 8, 'F');
       doc.setTextColor(255, 255, 255);
-      doc.text('Fecha', 20, yPos + 5);
-      doc.text('Beneficiario', 60, yPos + 5);
+      doc.text('Factura', 17, yPos + 5);
+      doc.text('Fecha', 40, yPos + 5);
+      doc.text('Aportante', 65, yPos + 5);
       doc.text('Categoría', 110, yPos + 5);
-      doc.text('Monto', 165, yPos + 5);
+      doc.text('Concepto', 140, yPos + 5);
+      doc.text('Monto', 175, yPos + 5);
       
       yPos += 8;
       
       doc.setTextColor(...textColor);
-      expenses.forEach((expense, index) => {
+      doc.setFont(undefined, 'normal');
+      
+      thirdPartyIncomes.forEach((income, index) => {
         if (yPos > 270) {
           doc.addPage();
           yPos = 20;
+          
+          // Repetir encabezado
+          doc.setFillColor(...purpleColor);
+          doc.rect(15, yPos, 180, 8, 'F');
+          doc.setTextColor(255, 255, 255);
+          doc.setFont(undefined, 'bold');
+          doc.text('Factura', 17, yPos + 5);
+          doc.text('Fecha', 40, yPos + 5);
+          doc.text('Aportante', 65, yPos + 5);
+          doc.text('Categoría', 110, yPos + 5);
+          doc.text('Concepto', 140, yPos + 5);
+          doc.text('Monto', 175, yPos + 5);
+          yPos += 8;
+          doc.setFont(undefined, 'normal');
         }
         
         const bgColor = index % 2 === 0 ? [249, 250, 251] : [255, 255, 255];
         doc.setFillColor(...bgColor);
-        doc.rect(15, yPos, 180, 8, 'F');
+        doc.rect(15, yPos, 180, 7, 'F');
         
-        // ✅ CORREGIDO: Usa formatDate que ya maneja zona horaria
-        doc.text(formatDate(expense.date), 20, yPos + 5);
-        doc.text(expense.beneficiaryName.substring(0, 20), 60, yPos + 5);
-        doc.text(expense.category, 110, yPos + 5);
-        doc.setTextColor(220, 38, 38);
-        doc.text(formatCurrency(expense.amount), 165, yPos + 5);
+        doc.setTextColor(...textColor);
+        doc.text(income.invoiceNumber || 'N/A', 17, yPos + 5);
+        doc.text(formatDate(income.date), 40, yPos + 5);
+        doc.text((income.contributorName || 'N/A').substring(0, 18), 65, yPos + 5);
+        doc.text((income.category || 'N/A').substring(0, 12), 110, yPos + 5);
+        doc.text((income.concept || 'N/A').substring(0, 15), 140, yPos + 5);
+        doc.setTextColor(...purpleColor);
+        doc.text(formatCurrency(income.amount), 175, yPos + 5);
         doc.setTextColor(...textColor);
         
-        yPos += 8;
+        yPos += 7;
+      });
+      
+      // Total otros ingresos
+      yPos += 5;
+      doc.setFont(undefined, 'bold');
+      doc.setFontSize(11);
+      doc.text('TOTAL OTROS INGRESOS:', 110, yPos);
+      doc.setTextColor(...purpleColor);
+      doc.setFontSize(13);
+      doc.text(formatCurrency(totalThirdPartyIncome), 175, yPos);
+    }
+    
+    // PÁGINA: DETALLE DE EGRESOS
+    if (expenses.length > 0) {
+      doc.addPage();
+      
+      doc.setFontSize(18);
+      doc.setTextColor(220, 38, 38);
+      doc.setFont(undefined, 'bold');
+      doc.text('DETALLE DE EGRESOS', 15, 30);
+      
+      yPos = 45;
+      doc.setFontSize(8);
+      
+      doc.setFillColor(220, 38, 38);
+      doc.rect(15, yPos, 180, 8, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.text('Factura', 17, yPos + 5);
+      doc.text('Fecha', 40, yPos + 5);
+      doc.text('Beneficiario', 65, yPos + 5);
+      doc.text('Categoría', 115, yPos + 5);
+      doc.text('Monto', 170, yPos + 5);
+      
+      yPos += 8;
+      
+      doc.setTextColor(...textColor);
+      doc.setFont(undefined, 'normal');
+      
+      expenses.forEach((expense, index) => {
+        if (yPos > 270) {
+          doc.addPage();
+          yPos = 20;
+          
+          // Repetir encabezado
+          doc.setFillColor(220, 38, 38);
+          doc.rect(15, yPos, 180, 8, 'F');
+          doc.setTextColor(255, 255, 255);
+          doc.setFont(undefined, 'bold');
+          doc.text('Factura', 17, yPos + 5);
+          doc.text('Fecha', 40, yPos + 5);
+          doc.text('Beneficiario', 65, yPos + 5);
+          doc.text('Categoría', 115, yPos + 5);
+          doc.text('Monto', 170, yPos + 5);
+          yPos += 8;
+          doc.setFont(undefined, 'normal');
+        }
+        
+        const bgColor = index % 2 === 0 ? [249, 250, 251] : [255, 255, 255];
+        doc.setFillColor(...bgColor);
+        doc.rect(15, yPos, 180, 7, 'F');
+        
+        doc.setTextColor(...textColor);
+        doc.text(expense.invoiceNumber || 'N/A', 17, yPos + 5);
+        doc.text(formatDate(expense.date), 40, yPos + 5);
+        doc.text(expense.beneficiaryName.substring(0, 22), 65, yPos + 5);
+        doc.text(expense.category, 115, yPos + 5);
+        doc.setTextColor(220, 38, 38);
+        doc.text(formatCurrency(expense.amount), 170, yPos + 5);
+        doc.setTextColor(...textColor);
+        
+        yPos += 7;
       });
       
       yPos += 5;
       doc.setFont(undefined, 'bold');
-      doc.setFontSize(12);
-      doc.text('TOTAL EGRESOS:', 110, yPos);
+      doc.setFontSize(11);
+      doc.text('TOTAL EGRESOS:', 115, yPos);
       doc.setTextColor(220, 38, 38);
-      doc.setFontSize(14);
-      doc.text(formatCurrency(totalExpenses), 165, yPos);
+      doc.setFontSize(13);
+      doc.text(formatCurrency(totalExpenses), 170, yPos);
     }
     
     // Pie de página con números
@@ -760,11 +931,17 @@ function generateFullAccountingReportPDF() {
       doc.setPage(i);
       doc.setFontSize(8);
       doc.setTextColor(100, 100, 100);
-      doc.text(`Pagina ${i} de ${pageCount}`, 105, 290, { align: 'center' });
+      doc.text(`Página ${i} de ${pageCount}`, 105, 290, { align: 'center' });
     }
     
     doc.save(`Reporte-Contable-${getCurrentDate()}.pdf`);
     showToast('✅ Reporte completo descargado');
+    
+    console.log('📊 Reporte generado con:');
+    console.log('  - Pagos:', payments.length);
+    console.log('  - Otros Ingresos:', thirdPartyIncomes.length);
+    console.log('  - Egresos:', expenses.length);
+    console.log('  - Total Ingresos:', formatCurrency(totalIncome));
     
   } catch (error) {
     console.error('Error al generar reporte:', error);

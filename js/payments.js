@@ -130,7 +130,7 @@ document.getElementById('paymentStatus')?.addEventListener('change', function() 
 });
 
 // Guardar pago (INGRESO)
-document.getElementById('paymentForm')?.addEventListener('submit', function(e) {
+document.getElementById('paymentForm')?.addEventListener('submit', async function(e) {
   e.preventDefault();
   
   const paymentId = document.getElementById('paymentId').value;
@@ -168,7 +168,7 @@ document.getElementById('paymentForm')?.addEventListener('submit', function(e) {
     showToast('✅ Pago actualizado');
   } else {
     // 🆕 CREAR: Agregar createdBy
-    const invoiceNumber = status === 'Pagado' ? getNextInvoiceNumber() : null;
+    const invoiceNumber = status === 'Pagado' ? await getNextInvoiceNumber() : null;
     const newPayment = {
       id: generateId(),
       ...paymentData,

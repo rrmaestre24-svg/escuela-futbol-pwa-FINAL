@@ -133,7 +133,7 @@ if (expenseCategorySelect) {
 // 🆕 MODIFICADO: Guardar egreso (CON AUDITORÍA)
 const expenseFormElement = document.getElementById('expenseForm');
 if (expenseFormElement) {
-  expenseFormElement.addEventListener('submit', function(e) {
+  expenseFormElement.addEventListener('submit', async function(e) {
     e.preventDefault();
     
     console.log('💾 Guardando egreso...');
@@ -203,7 +203,7 @@ if (expenseFormElement) {
         };
       }
       
-      const invoiceNumber = getNextInvoiceNumber();
+      const invoiceNumber = await getNextInvoiceNumber();
       
       const expenseData = {
         id: expenseId || generateId(),

@@ -152,7 +152,7 @@ function autoFillThirdPartyConcept() {
 // GUARDAR INGRESO
 // ========================================
 
-function saveThirdPartyIncomeFromForm() {
+async function saveThirdPartyIncomeFromForm() {
   console.log('💾 Guardando otro ingreso...');
   
   const incomeId = document.getElementById('thirdPartyIncomeId')?.value;
@@ -188,7 +188,7 @@ function saveThirdPartyIncomeFromForm() {
     return;
   }
   
-  const invoiceNumber = getNextInvoiceNumber();
+  const invoiceNumber = await getNextInvoiceNumber();
   
   const incomeData = {
     id: incomeId || generateId(),

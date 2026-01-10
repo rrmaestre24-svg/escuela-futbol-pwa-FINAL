@@ -670,3 +670,118 @@ async function deleteThirdPartyIncomeFromFirebase(incomeId) {
 }
 
 console.log('✅ firebase-sync.js cargado (MULTI-CLUB CON PERMISOS POR ROL)');
+
+// ========================================
+// 🆕 CONSECUTIVO DE FACTURA EN FIREBASE
+// ========================================
+
+/**
+ * Obtener el siguiente número de factura desde Firebase (único para todos los dispositivos)
+ */
+async function getNextInvoiceNumberFromFirebase() {
+  if (!checkFirebaseReady()) {
+    console.warn('⚠️ Firebase no listo, usando consecutivo local');
+    return getNextInvoiceNumberLocal();
+  }
+
+  const clubId = getClubId();
+  if (!clubId) {
+    console.warn('⚠️ No hay clubId, usando consecutivo local');
+    return getNextInvoiceNumberLocal();
+  }
+
+  try {
+    const counterRef = window.firebase.doc(window.firebase.db, `clubs/${clubId}/config`, 'invoiceCounter');
+    
+    // Usar transacción para evitar duplicados
+    const newNumber = await window.firebase.runTransaction(window.firebase.db, async (transaction) => {
+      const counterDoc = await transaction.get(counterRef);
+      
+      let currentNumber = 0;
+      if (counterDoc.exists()) {
+        currentNumber = counterDoc.data().lastNumber || 0;
+      }
+      
+      const nextNumber = currentNumber + 1;
+      
+      transaction.set(counterRef, {
+        lastNumber: nextNumber,
+        lastUpdated: new Date().toISOString()
+      });
+      
+      return nextNumber;
+    });
+
+    const year = new Date().getFullYear();
+    const invoiceNumber = `INV-${year}-${String(newNumber).padStart(4, '0')}`;
+    
+    console.log('✅ Consecutivo desde Firebase:', invoiceNumber);
+    return invoiceNumber;
+
+  } catch (error) {
+    console.error('❌ Error al obtener consecutivo de Firebase:', error);
+    return getNextInvoiceNumberLocal();
+  }
+}
+
+/**
+ * Consecutivo local (fallback)
+ */
+function getNextInvoiceNumberLocal() {
+  const year = new Date().getFullYear();
+  const payments = getPayments();
+  const expenses = getExpenses();
+  const thirdPartyIncomes = typeof getThirdPartyIncomes === 'function' ? getThirdPartyIncomes() : [];
+  
+  const allInvoices = [...payments, ...expenses, ...thirdPartyIncomes];
+  const invoicesThisYear = allInvoices.filter(item => 
+    item.invoiceNumber && item.invoiceNumber.includes(year.toString())
+  );
+  
+  const nextNumber = invoicesThisYear.length + 1;
+  return `INV-${year}-${String(nextNumber).padStart(4, '0')}`;
+}
+
+/**
+ * Sincronizar contador con la cantidad real de facturas
+ */
+async function syncInvoiceCounter() {
+  if (!checkFirebaseReady()) return;
+
+  const clubId = getClubId();
+  if (!clubId) return;
+
+  try {
+    // Contar todas las facturas en Firebase
+    const paymentsSnap = await window.firebase.getDocs(
+      window.firebase.collection(window.firebase.db, `clubs/${clubId}/payments`)
+    );
+    const expensesSnap = await window.firebase.getDocs(
+      window.firebase.collection(window.firebase.db, `clubs/${clubId}/expenses`)
+    );
+    const thirdPartySnap = await window.firebase.getDocs(
+      window.firebase.collection(window.firebase.db, `clubs/${clubId}/thirdPartyIncomes`)
+    );
+
+    const totalInvoices = paymentsSnap.size + expensesSnap.size + thirdPartySnap.size;
+
+    // Actualizar contador
+    const counterRef = window.firebase.doc(window.firebase.db, `clubs/${clubId}/config`, 'invoiceCounter');
+    await window.firebase.setDoc(counterRef, {
+      lastNumber: totalInvoices,
+      lastUpdated: new Date().toISOString(),
+      syncedAt: new Date().toISOString()
+    });
+
+    console.log(`✅ Contador sincronizado: ${totalInvoices} facturas`);
+    showToast(`✅ Contador sincronizado: ${totalInvoices} facturas`);
+
+  } catch (error) {
+    console.error('❌ Error al sincronizar contador:', error);
+  }
+}
+
+// Hacer funciones globales
+window.getNextInvoiceNumberFromFirebase = getNextInvoiceNumberFromFirebase;
+window.getNextInvoiceNumberLocal = getNextInvoiceNumberLocal;
+window.syncInvoiceCounter = syncInvoiceCounter;

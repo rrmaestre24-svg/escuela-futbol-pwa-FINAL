@@ -1,5 +1,5 @@
 // ========================================
-// DASHBOARD
+// DASHBOARD - 🆕 INCLUYE OTROS INGRESOS
 // ========================================
 
 // Actualizar dashboard
@@ -17,11 +17,21 @@ function updateDashboardStats() {
   const payments = getPayments();
   const events = getCalendarEvents();
   
-  // Calcular ingresos del mes
-  const thisMonth = payments.filter(p => 
+  // 🆕 Obtener otros ingresos
+  const thirdPartyIncomes = typeof getThirdPartyIncomes === 'function' ? getThirdPartyIncomes() : [];
+  
+  // Calcular ingresos del mes (pagos de jugadores)
+  const thisMonthPayments = payments.filter(p => 
     p.status === 'Pagado' && p.paidDate && isThisMonth(p.paidDate)
   );
-  const monthIncome = thisMonth.reduce((sum, p) => sum + p.amount, 0);
+  const monthPaymentsIncome = thisMonthPayments.reduce((sum, p) => sum + p.amount, 0);
+  
+  // 🆕 Calcular otros ingresos del mes
+  const thisMonthThirdParty = thirdPartyIncomes.filter(i => isThisMonth(i.date));
+  const monthThirdPartyIncome = thisMonthThirdParty.reduce((sum, i) => sum + i.amount, 0);
+  
+  // 🆕 Total ingresos del mes = pagos + otros ingresos
+  const monthIncome = monthPaymentsIncome + monthThirdPartyIncome;
   
   // Calcular próximos eventos (próximos 30 días)
   const today = getCurrentDate();
@@ -36,6 +46,12 @@ function updateDashboardStats() {
   document.getElementById('statPending').textContent = pending.length;
   document.getElementById('statIncome').textContent = formatCurrency(monthIncome);
   document.getElementById('statEvents').textContent = upcomingEvents.length;
+  
+  // 🆕 Log para debug
+  console.log('📊 Dashboard Stats:');
+  console.log('  - Pagos del mes:', formatCurrency(monthPaymentsIncome));
+  console.log('  - Otros ingresos del mes:', formatCurrency(monthThirdPartyIncome));
+  console.log('  - Total mes:', formatCurrency(monthIncome));
 }
 
 // Actualizar cumpleaños próximos
@@ -161,4 +177,4 @@ function updateDashboardNotifications() {
   lucide.createIcons();
 }
 
-console.log('✅ dashboard.js cargado');
+console.log('✅ dashboard.js cargado (CON OTROS INGRESOS)');

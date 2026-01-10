@@ -468,17 +468,27 @@ function setDarkMode(enabled) {
   localStorage.setItem('darkMode', enabled.toString());
 }
 
+
 // ========================================
-// 🆕 NÚMERO DE FACTURA - INCLUYE OTROS INGRESOS
+// 🆕 NÚMERO DE FACTURA - DESDE FIREBASE
 // ========================================
-function getNextInvoiceNumber() {
+async function getNextInvoiceNumber() {
+  // Intentar obtener desde Firebase primero
+  if (typeof getNextInvoiceNumberFromFirebase === 'function') {
+    try {
+      return await getNextInvoiceNumberFromFirebase();
+    } catch (error) {
+      console.warn('⚠️ Error Firebase, usando local:', error);
+    }
+  }
+  
+  // Fallback: consecutivo local
   const year = new Date().getFullYear();
   const payments = getPayments();
   const expenses = getExpenses();
-  const thirdPartyIncomes = getThirdPartyIncomes(); // 🆕 Incluir otros ingresos
+  const thirdPartyIncomes = getThirdPartyIncomes();
   
-  // Combinar pagos, egresos e ingresos de terceros para el conteo
-  const allInvoices = [...payments, ...expenses, ...thirdPartyIncomes]; // 🆕 Modificado
+  const allInvoices = [...payments, ...expenses, ...thirdPartyIncomes];
   const invoicesThisYear = allInvoices.filter(item => 
     item.invoiceNumber && item.invoiceNumber.includes(year.toString())
   );
@@ -486,7 +496,6 @@ function getNextInvoiceNumber() {
   const nextNumber = invoicesThisYear.length + 1;
   return `INV-${year}-${String(nextNumber).padStart(4, '0')}`;
 }
-
 // ========================================
 // 🆕 EXPORTAR DATOS - INCLUYE OTROS INGRESOS
 // ========================================

@@ -1,8 +1,9 @@
 // ========================================
-// CONTABILIDAD COMPLETA - CON EGRESOS
+// CONTABILIDAD COMPLETA - CON EGRESOS Y OTROS INGRESOS
+// 🆕 CSV MEJORADO: Factura, Fecha, Otros Ingresos
 // ========================================
 
-console.log('📄 Cargando accounting.js con egresos...');
+console.log('📄 Cargando accounting.js con egresos y otros ingresos...');
 
 let accountingCharts = {};
 
@@ -57,39 +58,49 @@ function renderAccounting() {
   renderAccountingPlayersTable();
 }
 
-// 🆕 RESUMEN MEJORADO - CON EGRESOS
+// 🆕 RESUMEN MEJORADO - CON EGRESOS Y OTROS INGRESOS
 function renderAccountingSummary() {
-const payments = getPayments();
+  const payments = getPayments();
   const expenses = getExpenses();
-  const thirdPartyIncomes = getThirdPartyIncomes();
+  const thirdPartyIncomes = typeof getThirdPartyIncomes === 'function' ? getThirdPartyIncomes() : [];
   
   const paid = payments.filter(p => p.status === 'Pagado');
   const pending = payments.filter(p => p.status === 'Pendiente');
   
-// 💰 INGRESOS (Pagos de jugadores + Otros ingresos)
-  const totalThirdParty = thirdPartyIncomes.reduce((sum, i) => sum + i.amount, 0);
-  const totalIncome = paid.reduce((sum, p) => sum + p.amount, 0) + totalThirdParty;
-  const totalPending = pending.reduce((sum, p) => sum + p.amount, 0);
+  // 💰 INGRESOS (Pagos de jugadores + Otros ingresos)
+  const totalThirdParty = thirdPartyIncomes.reduce((sum, i) => sum + (i.amount || 0), 0);
+  const totalPaymentsIncome = paid.reduce((sum, p) => sum + (p.amount || 0), 0);
+  const totalIncome = totalPaymentsIncome + totalThirdParty;
+  const totalPending = pending.reduce((sum, p) => sum + (p.amount || 0), 0);
   
   const thisMonth = paid.filter(p => p.paidDate && isThisMonth(p.paidDate));
-  const thisMonthThirdParty = thirdPartyIncomes.filter(i => isThisMonth(i.date));
-  const monthThirdParty = thisMonthThirdParty.reduce((sum, i) => sum + i.amount, 0);
-  const monthIncome = thisMonth.reduce((sum, p) => sum + p.amount, 0) + monthThirdParty;
-  // 💸 EGRESOS (NUEVO)
-  const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
+  const thisMonthThirdParty = thirdPartyIncomes.filter(i => i.date && isThisMonth(i.date));
+  const monthThirdParty = thisMonthThirdParty.reduce((sum, i) => sum + (i.amount || 0), 0);
+  const monthPaymentsIncome = thisMonth.reduce((sum, p) => sum + (p.amount || 0), 0);
+  const monthIncome = monthPaymentsIncome + monthThirdParty;
   
-  const thisMonthExpenses = expenses.filter(e => isThisMonth(e.date));
-  const monthExpenses = thisMonthExpenses.reduce((sum, e) => sum + e.amount, 0);
+  // 💸 EGRESOS
+  const totalExpenses = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
   
-  // 📊 UTILIDAD NETA (NUEVO)
+  const thisMonthExpenses = expenses.filter(e => e.date && isThisMonth(e.date));
+  const monthExpenses = thisMonthExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
+  
+  // 📊 UTILIDAD NETA
   const netProfit = totalIncome - totalExpenses;
   const monthNetProfit = monthIncome - monthExpenses;
   
   // Actualizar UI
-  document.getElementById('accTotalIncome').textContent = formatCurrency(totalIncome);
-  document.getElementById('accMonthIncome').textContent = formatCurrency(monthIncome);
-  document.getElementById('accPending').textContent = formatCurrency(totalPending);
-  document.getElementById('accPaidCount').textContent = paid.length;
+  const accTotalIncome = document.getElementById('accTotalIncome');
+  if (accTotalIncome) accTotalIncome.textContent = formatCurrency(totalIncome);
+  
+  const accMonthIncome = document.getElementById('accMonthIncome');
+  if (accMonthIncome) accMonthIncome.textContent = formatCurrency(monthIncome);
+  
+  const accPending = document.getElementById('accPending');
+  if (accPending) accPending.textContent = formatCurrency(totalPending);
+  
+  const accPaidCount = document.getElementById('accPaidCount');
+  if (accPaidCount) accPaidCount.textContent = paid.length;
   
   // 🆕 Actualizar nuevos campos (si existen en el HTML)
   const totalExpensesEl = document.getElementById('accTotalExpenses');
@@ -130,6 +141,8 @@ const payments = getPayments();
   }
   
   console.log('📊 Resumen calculado:');
+  console.log('  💰 Pagos jugadores:', formatCurrency(totalPaymentsIncome));
+  console.log('  💜 Otros ingresos:', formatCurrency(totalThirdParty));
   console.log('  💰 Ingresos totales:', formatCurrency(totalIncome));
   console.log('  💸 Egresos totales:', formatCurrency(totalExpenses));
   console.log('  📊 Utilidad neta:', formatCurrency(netProfit));
@@ -148,18 +161,19 @@ function renderAccountingCharts() {
     return;
   }
   
-  renderIncomeVsExpensesChart(); // 🆕 Gráfica dual
+  renderIncomeVsExpensesChart();
   renderIncomeByCategoryChart();
   renderIncomeByTypeChart();
 }
 
-// 🆕 GRÁFICO DUAL: Ingresos vs Egresos
+// 🆕 GRÁFICO DUAL: Ingresos vs Egresos (INCLUYE OTROS INGRESOS)
 function renderIncomeVsExpensesChart() {
   const ctx = document.getElementById('incomeByMonthChart');
   if (!ctx) return;
   
   const payments = getPayments().filter(p => p.status === 'Pagado' && p.paidDate);
   const expenses = getExpenses();
+  const thirdPartyIncomes = typeof getThirdPartyIncomes === 'function' ? getThirdPartyIncomes() : [];
   
   const today = new Date();
   const labels = [];
@@ -171,21 +185,33 @@ function renderIncomeVsExpensesChart() {
     const monthName = getMonthName(date.getMonth());
     labels.push(monthName.substring(0, 3));
     
-    // Ingresos del mes
+    // Ingresos del mes (pagos + otros ingresos)
     const monthPayments = payments.filter(p => {
       const paymentDate = new Date(p.paidDate);
       return paymentDate.getMonth() === date.getMonth() && 
              paymentDate.getFullYear() === date.getFullYear();
     });
-    incomeData.push(monthPayments.reduce((sum, p) => sum + p.amount, 0));
+    const paymentsTotal = monthPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+    
+    // 🆕 Otros ingresos del mes
+    const monthThirdParty = thirdPartyIncomes.filter(i => {
+      if (!i.date) return false;
+      const incomeDate = new Date(i.date);
+      return incomeDate.getMonth() === date.getMonth() && 
+             incomeDate.getFullYear() === date.getFullYear();
+    });
+    const thirdPartyTotal = monthThirdParty.reduce((sum, i) => sum + (i.amount || 0), 0);
+    
+    incomeData.push(paymentsTotal + thirdPartyTotal);
     
     // Egresos del mes
     const monthExpenses = expenses.filter(e => {
+      if (!e.date) return false;
       const expenseDate = new Date(e.date);
       return expenseDate.getMonth() === date.getMonth() && 
              expenseDate.getFullYear() === date.getFullYear();
     });
-    expenseData.push(monthExpenses.reduce((sum, e) => sum + e.amount, 0));
+    expenseData.push(monthExpenses.reduce((sum, e) => sum + (e.amount || 0), 0));
   }
   
   accountingCharts.byMonth = new Chart(ctx, {
@@ -260,7 +286,7 @@ function renderIncomeByCategoryChart() {
     const categoryPlayers = players.filter(p => p.category === category);
     const playerIds = categoryPlayers.map(p => p.id);
     const categoryPayments = payments.filter(p => playerIds.includes(p.playerId));
-    data.push(categoryPayments.reduce((sum, p) => sum + p.amount, 0));
+    data.push(categoryPayments.reduce((sum, p) => sum + (p.amount || 0), 0));
   });
   
   const colors = [
@@ -309,7 +335,7 @@ function renderIncomeByTypeChart() {
   
   types.forEach(type => {
     const typePayments = payments.filter(p => p.type === type);
-    data.push(typePayments.reduce((sum, p) => sum + p.amount, 0));
+    data.push(typePayments.reduce((sum, p) => sum + (p.amount || 0), 0));
   });
   
   accountingCharts.byType = new Chart(ctx, {
@@ -360,8 +386,8 @@ function renderAccountingPlayersTable() {
     const paid = payments.filter(p => p.status === 'Pagado');
     const pending = payments.filter(p => p.status === 'Pendiente');
     
-    const totalPaid = paid.reduce((sum, p) => sum + p.amount, 0);
-    const totalPending = pending.reduce((sum, p) => sum + p.amount, 0);
+    const totalPaid = paid.reduce((sum, p) => sum + (p.amount || 0), 0);
+    const totalPending = pending.reduce((sum, p) => sum + (p.amount || 0), 0);
     const totalExpected = totalPaid + totalPending;
     const compliance = totalExpected > 0 ? (totalPaid / totalExpected * 100) : 0;
     
@@ -405,11 +431,80 @@ function generateFullReport() {
   }
 }
 
-// Exportar CSV
+// ========================================
+// 🆕 EXPORTAR CSV COMPLETO - CON FACTURA, FECHA Y OTROS INGRESOS
+// ========================================
+
 function exportCSV() {
+  const payments = getPayments();
+  const thirdPartyIncomes = typeof getThirdPartyIncomes === 'function' ? getThirdPartyIncomes() : [];
+  
+  if (payments.length === 0 && thirdPartyIncomes.length === 0) {
+    showToast('⚠️ No hay datos para exportar');
+    return;
+  }
+  
+  // 🆕 Exportar pagos individuales con factura y fecha
+  const csvData = [];
+  
+  // Agregar pagos de jugadores
+  payments.forEach(payment => {
+    const player = getPlayerById(payment.playerId);
+    csvData.push({
+      'Tipo': 'Pago Jugador',
+      'Factura': payment.invoiceNumber || 'N/A',
+      'Fecha': payment.paidDate ? formatDate(payment.paidDate) : formatDate(payment.dueDate),
+      'Jugador/Aportante': player ? player.name : 'Desconocido',
+      'Categoría': player ? player.category : 'N/A',
+      'Concepto': payment.concept || payment.type || 'N/A',
+      'Monto': payment.amount || 0,
+      'Estado': payment.status || 'N/A',
+      'Método': payment.method || 'N/A',
+      'Teléfono': player ? (player.phone || '') : '',
+      'Email': player ? (player.email || '') : ''
+    });
+  });
+  
+  // 🆕 Agregar otros ingresos
+  thirdPartyIncomes.forEach(income => {
+    csvData.push({
+      'Tipo': 'Otro Ingreso',
+      'Factura': income.invoiceNumber || 'N/A',
+      'Fecha': income.date ? formatDate(income.date) : 'N/A',
+      'Jugador/Aportante': income.contributorName || 'N/A',
+      'Categoría': income.category || 'N/A',
+      'Concepto': income.concept || 'N/A',
+      'Monto': income.amount || 0,
+      'Estado': 'Pagado',
+      'Método': income.method || 'N/A',
+      'Teléfono': income.contributorPhone || '',
+      'Email': income.contributorEmail || ''
+    });
+  });
+  
+  // Ordenar por fecha (más reciente primero)
+  csvData.sort((a, b) => {
+    const dateA = a['Fecha'] !== 'N/A' ? new Date(a['Fecha'].split('/').reverse().join('-')) : new Date(0);
+    const dateB = b['Fecha'] !== 'N/A' ? new Date(b['Fecha'].split('/').reverse().join('-')) : new Date(0);
+    return dateB - dateA;
+  });
+  
+  if (csvData.length === 0) {
+    showToast('⚠️ No hay datos para exportar');
+    return;
+  }
+  
+  downloadCSV(csvData, `Contabilidad-Ingresos-${getCurrentDate()}.csv`);
+  showToast('✅ CSV de ingresos exportado');
+  
+  console.log('📊 CSV exportado con', csvData.length, 'registros');
+}
+
+// 🆕 Exportar resumen por jugador (función adicional)
+function exportPlayersSummaryCSV() {
   const players = getPlayers();
   if (players.length === 0) {
-    showToast('⚠️ No hay datos para exportar');
+    showToast('⚠️ No hay jugadores para exportar');
     return;
   }
   
@@ -418,19 +513,25 @@ function exportCSV() {
     const paid = payments.filter(p => p.status === 'Pagado');
     const pending = payments.filter(p => p.status === 'Pendiente');
     
+    // Obtener última factura
+    const lastPayment = paid.sort((a, b) => new Date(b.paidDate || 0) - new Date(a.paidDate || 0))[0];
+    
     return {
-      'Jugador': player.name,
-      'Categoría': player.category,
-      'Total Pagado': paid.reduce((sum, p) => sum + p.amount, 0),
-      'Total Pendiente': pending.reduce((sum, p) => sum + p.amount, 0),
-      'Estado': player.status,
-      'Teléfono': player.phone,
+      'Jugador': player.name || 'N/A',
+      'Categoría': player.category || 'N/A',
+      'Total Pagado': paid.reduce((sum, p) => sum + (p.amount || 0), 0),
+      'Total Pendiente': pending.reduce((sum, p) => sum + (p.amount || 0), 0),
+      'Cantidad Pagos': paid.length,
+      'Última Factura': lastPayment ? (lastPayment.invoiceNumber || 'N/A') : 'N/A',
+      'Último Pago': lastPayment ? formatDate(lastPayment.paidDate) : 'N/A',
+      'Estado': player.status || 'N/A',
+      'Teléfono': player.phone || '',
       'Email': player.email || ''
     };
   });
   
-  downloadCSV(csvData, `Contabilidad-${getCurrentDate()}.csv`);
-  showToast('✅ CSV exportado');
+  downloadCSV(csvData, `Resumen-Jugadores-${getCurrentDate()}.csv`);
+  showToast('✅ Resumen de jugadores exportado');
 }
 
 // 🆕 Exportar reporte completo de egresos
@@ -443,15 +544,16 @@ function exportExpensesCSV() {
   
   const csvData = expenses.map(expense => {
     return {
-      'Fecha': formatDate(expense.date),
-      'Beneficiario': expense.beneficiaryName,
+      'Factura': expense.invoiceNumber || 'N/A',
+      'Fecha': expense.date ? formatDate(expense.date) : 'N/A',
+      'Beneficiario': expense.beneficiaryName || 'N/A',
       'Tipo': expense.beneficiaryType === 'internal' ? 'Usuario interno' : 'Proveedor externo',
-      'Categoría': expense.category,
-      'Concepto': expense.concept,
-      'Monto': expense.amount,
-      'Método': expense.method,
-      'Factura': expense.invoiceNumber,
+      'Categoría': expense.category || 'N/A',
+      'Concepto': expense.concept || 'N/A',
+      'Monto': expense.amount || 0,
+      'Método': expense.method || 'N/A',
       'Teléfono': expense.beneficiaryPhone || '',
+      'Documento': expense.beneficiaryDocument || '',
       'Notas': expense.notes || ''
     };
   });
@@ -460,4 +562,92 @@ function exportExpensesCSV() {
   showToast('✅ Egresos exportados');
 }
 
-console.log('✅ accounting.js cargado correctamente CON EGRESOS');
+// 🆕 Exportar reporte completo (todo junto)
+function exportFullReportCSV() {
+  const payments = getPayments();
+  const expenses = getExpenses();
+  const thirdPartyIncomes = typeof getThirdPartyIncomes === 'function' ? getThirdPartyIncomes() : [];
+  
+  if (payments.length === 0 && expenses.length === 0 && thirdPartyIncomes.length === 0) {
+    showToast('⚠️ No hay datos para exportar');
+    return;
+  }
+  
+  const csvData = [];
+  
+  // Pagos de jugadores
+  payments.forEach(payment => {
+    const player = getPlayerById(payment.playerId);
+    csvData.push({
+      'Tipo Registro': 'INGRESO - Pago Jugador',
+      'Factura': payment.invoiceNumber || 'N/A',
+      'Fecha': payment.paidDate ? formatDate(payment.paidDate) : formatDate(payment.dueDate),
+      'Nombre': player ? player.name : 'Desconocido',
+      'Categoría': player ? player.category : 'N/A',
+      'Concepto': payment.concept || payment.type || 'N/A',
+      'Ingreso': payment.status === 'Pagado' ? (payment.amount || 0) : 0,
+      'Egreso': 0,
+      'Estado': payment.status || 'N/A',
+      'Método': payment.method || 'N/A'
+    });
+  });
+  
+  // Otros ingresos
+  thirdPartyIncomes.forEach(income => {
+    csvData.push({
+      'Tipo Registro': 'INGRESO - Otro',
+      'Factura': income.invoiceNumber || 'N/A',
+      'Fecha': income.date ? formatDate(income.date) : 'N/A',
+      'Nombre': income.contributorName || 'N/A',
+      'Categoría': income.category || 'N/A',
+      'Concepto': income.concept || 'N/A',
+      'Ingreso': income.amount || 0,
+      'Egreso': 0,
+      'Estado': 'Pagado',
+      'Método': income.method || 'N/A'
+    });
+  });
+  
+  // Egresos
+  expenses.forEach(expense => {
+    csvData.push({
+      'Tipo Registro': 'EGRESO',
+      'Factura': expense.invoiceNumber || 'N/A',
+      'Fecha': expense.date ? formatDate(expense.date) : 'N/A',
+      'Nombre': expense.beneficiaryName || 'N/A',
+      'Categoría': expense.category || 'N/A',
+      'Concepto': expense.concept || 'N/A',
+      'Ingreso': 0,
+      'Egreso': expense.amount || 0,
+      'Estado': 'Pagado',
+      'Método': expense.method || 'N/A'
+    });
+  });
+  
+  // Ordenar por fecha
+  csvData.sort((a, b) => {
+    const dateA = a['Fecha'] !== 'N/A' ? new Date(a['Fecha'].split('/').reverse().join('-')) : new Date(0);
+    const dateB = b['Fecha'] !== 'N/A' ? new Date(b['Fecha'].split('/').reverse().join('-')) : new Date(0);
+    return dateB - dateA;
+  });
+  
+  downloadCSV(csvData, `Reporte-Completo-${getCurrentDate()}.csv`);
+  showToast('✅ Reporte completo exportado');
+  
+  // Mostrar resumen
+  const totalIngresos = csvData.reduce((sum, r) => sum + (r['Ingreso'] || 0), 0);
+  const totalEgresos = csvData.reduce((sum, r) => sum + (r['Egreso'] || 0), 0);
+  console.log('📊 Reporte exportado:');
+  console.log('  - Total registros:', csvData.length);
+  console.log('  - Total ingresos:', formatCurrency(totalIngresos));
+  console.log('  - Total egresos:', formatCurrency(totalEgresos));
+  console.log('  - Utilidad:', formatCurrency(totalIngresos - totalEgresos));
+}
+
+// Hacer funciones globales
+window.exportCSV = exportCSV;
+window.exportExpensesCSV = exportExpensesCSV;
+window.exportPlayersSummaryCSV = exportPlayersSummaryCSV;
+window.exportFullReportCSV = exportFullReportCSV;
+
+console.log('✅ accounting.js cargado correctamente CON EGRESOS Y OTROS INGRESOS');
