@@ -785,3 +785,52 @@ async function syncInvoiceCounter() {
 window.getNextInvoiceNumberFromFirebase = getNextInvoiceNumberFromFirebase;
 window.getNextInvoiceNumberLocal = getNextInvoiceNumberLocal;
 window.syncInvoiceCounter = syncInvoiceCounter;
+
+// ========================================
+// 🔄 SINCRONIZACIÓN AUTOMÁTICA DEL CONTADOR
+// (Solo se ejecuta la primera vez por dispositivo)
+// ========================================
+window.addEventListener('load', async () => {
+  // Esperar 2 segundos para que Firebase esté completamente listo
+  await new Promise(resolve => setTimeout(resolve, 2000));
+  
+  // Verificar que Firebase esté listo
+  if (!checkFirebaseReady()) {
+    console.log('⏳ Firebase aún no está listo, saltando sincronización');
+    return;
+  }
+
+  const clubId = getClubId();
+  if (!clubId) {
+    console.log('⏳ No hay clubId aún, saltando sincronización');
+    return;
+  }
+
+  // Verificar si ya se sincronizó antes en este dispositivo
+  const syncKey = `counterSynced_${clubId}`;
+  if (localStorage.getItem(syncKey)) {
+    console.log('✅ Contador ya sincronizado anteriormente en este dispositivo');
+    return;
+  }
+
+  console.log('🔄 Sincronizando contador automáticamente por primera vez...');
+  
+  try {
+    // Verificar que la función exista antes de llamarla
+    if (typeof window.syncInvoiceCounter !== 'function') {
+      console.error('❌ syncInvoiceCounter no está disponible aún');
+      return;
+    }
+    
+    await window.syncInvoiceCounter();
+    
+    // Marcar como sincronizado para este dispositivo
+    localStorage.setItem(syncKey, new Date().toISOString());
+    
+    console.log('✅ Sincronización automática completada');
+    
+  } catch (error) {
+    console.error('❌ Error en sincronización automática:', error);
+    // No marcamos como sincronizado, para que lo intente de nuevo
+  }
+});
