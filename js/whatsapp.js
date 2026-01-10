@@ -133,14 +133,14 @@ ${settings.phone}
   showToast('✅ Abriendo WhatsApp...');
 }
 
-// Felicitar cumpleaños por WhatsApp - VERSIÓN CON UNICODE
+// Felicitar cumpleaños por WhatsApp
 function sendBirthdayWhatsApp(personId, isStaff = false) {
   let person, phone, name;
   
   if (isStaff) {
     person = getUsers().find(u => u.id === personId);
     if (!person) {
-      showToast('\u274C Usuario no encontrado');
+      showToast('❌ Usuario no encontrado');
       return;
     }
     phone = person.phone;
@@ -148,7 +148,7 @@ function sendBirthdayWhatsApp(personId, isStaff = false) {
   } else {
     person = getPlayerById(personId);
     if (!person) {
-      showToast('\u274C Jugador no encontrado');
+      showToast('❌ Jugador no encontrado');
       return;
     }
     phone = person.phone;
@@ -158,28 +158,27 @@ function sendBirthdayWhatsApp(personId, isStaff = false) {
   const settings = getSchoolSettings();
   const age = calculateAge(person.birthDate);
   
-    // Emojis en formato Unicode para máxima compatibilidad
-    const message = `
-  \u{1F389}\u{1F382} *\u00A1FELIZ CUMPLEA\u00D1OS!* \u{1F382}\u{1F389}
+  const message = `
+🎉🎂 *¡FELIZ CUMPLEAÑOS!* 🎂🎉
 
-  Querido(a) *${name}*,
+Querido(a) *${name}*,
 
-  Desde *${settings.name}* queremos desearte un feliz cumplea\u00F1os #${age}.
+Desde *${settings.name}* queremos desearte un feliz cumpleaños #${age}.
 
-  Que este nuevo a\u00F1o de vida est\u00E9 lleno de:
-  \u26BD Goles
-  \u{1F3C6} Triunfos
-  \u{1F60A} Alegr\u00EDas
-  \u{1F4AA} Salud
+Que este nuevo año de vida esté lleno de:
+⚽ Goles
+🏆 Triunfos
+😊 Alegrías
+💪 Salud
 
-  \u00A1Que lo disfrutes al m\u00E1ximo!
+¡Que lo disfrutes al máximo!
 
-  _${settings.name}_
-    `.trim();
-    
-    openWhatsApp(phone, message);
-    showToast('\u2705 Abriendo WhatsApp...');
-  }
+_${settings.name}_
+  `.trim();
+  
+  openWhatsApp(phone, message);
+  showToast('✅ Abriendo WhatsApp...');
+}
 
 // Enviar mensaje personalizado
 function sendCustomWhatsApp(phone, message) {
@@ -237,6 +236,7 @@ ${settings.phone}
 }
 
 console.log('✅ whatsapp.js cargado');
+
 // ========================================
 // WHATSAPP - FUNCIONES PARA EGRESOS
 // ========================================

@@ -593,28 +593,20 @@ function generateInvoicePDFWithWhatsApp(paymentId) {
   const payment = getPaymentById(paymentId);
   if (!payment) return;
   
-  // Mostrar modal informativo
-  showInvoiceProgressModal(payment.invoiceNumber);
+  const player = getPlayerById(payment.playerId);
+  if (!player) {
+    showToast('❌ Jugador no encontrado');
+    return;
+  }
   
-  // Esperar 1.5 segundos y luego verificar WhatsApp
-  setTimeout(() => {
-    closeInvoiceProgressModal();
-    
-    const player = getPlayerById(payment.playerId);
-    if (!player) {
-      showToast('❌ Jugador no encontrado');
-      return;
-    }
-    
-    // Verificar si tiene WhatsApp
-    if (player.phone && player.phone.trim() !== '') {
-      // Tiene WhatsApp → Abrir automáticamente
-      sendInvoiceWhatsApp(paymentId);
-    } else {
-      // NO tiene WhatsApp → Pedir número manual
-      showManualWhatsAppModal(paymentId, 'payment');
-    }
-  }, 1500);
+  // Verificar si tiene WhatsApp
+  if (player.phone && player.phone.trim() !== '') {
+    // Tiene WhatsApp → Usar la función de whatsapp.js (CON EMOJIS CORRECTOS)
+    sendInvoiceWhatsApp(paymentId);
+  } else {
+    // NO tiene WhatsApp → Pedir número manual
+    showManualWhatsAppModal(paymentId, 'payment');
+  }
 }
 
 console.log('✅ payments.js cargado (UNIFICADO CON AUTO-REDIRECT)');
