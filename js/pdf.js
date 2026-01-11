@@ -3,6 +3,23 @@
 // ✅ CORREGIDO: Zona horaria en todas las fechas
 // ========================================
 
+
+// ========================================
+// FUNCIÓN: NORMALIZAR TEXTO PARA PDF
+// Convierte caracteres especiales a ASCII simple
+// ========================================
+function normalizeForPDF(text) {
+  if (!text) return '';
+  text = String(text);
+  const map = {
+    'á': 'a', 'é': 'e', 'í': 'i', 'ó': 'o', 'ú': 'u',
+    'Á': 'A', 'É': 'E', 'Í': 'I', 'Ó': 'O', 'Ú': 'U',
+    'ñ': 'n', 'Ñ': 'N', 'ü': 'u', 'Ü': 'U'
+  };
+  return text.replace(/[áéíóúÁÉÍÓÚñÑüÜ]/g, match => map[match] || match);
+}
+
+
 // ========================================
 // 🆕 FUNCIÓN UNIVERSAL: AGREGAR FIRMA AUTOMÁTICA
 // ========================================
@@ -56,7 +73,7 @@ function addSignatureToDocument(doc, yPosition = 245) {
   doc.setFontSize(11);
   doc.setTextColor(...textColor);
   doc.setFont(undefined, 'bold');
-  doc.text(currentUser.name, textX, yPosition + 8);
+  doc.text(normalizeForPDF(currentUser.name), textX, yPosition + 8);
   
   // Cargo
   doc.setFontSize(9);
@@ -119,14 +136,14 @@ function generateInvoicePDF(paymentId, autoDownload = true) {
     doc.setFontSize(20);
     doc.setTextColor(...primaryColor);
     doc.setFont(undefined, 'bold');
-    doc.text(settings.name || 'MI CLUB', 50, 25);
+    doc.text(normalizeForPDF(settings.name || 'MI CLUB'), 50, 25);
     
     doc.setFontSize(10);
     doc.setTextColor(...textColor);
     doc.setFont(undefined, 'normal');
     if (settings.email) doc.text(settings.email, 50, 32);
     if (settings.phone) doc.text(settings.phone, 50, 37);
-    if (settings.address) doc.text(settings.address, 50, 42);
+    if (settings.address) doc.text(normalizeForPDF(settings.address), 50, 42);
     
     // Título FACTURA DE PAGO
     doc.setFontSize(18);
@@ -143,25 +160,25 @@ function generateInvoicePDF(paymentId, autoDownload = true) {
     doc.setFontSize(11);
     doc.setFont(undefined, 'bold');
     doc.setTextColor(...textColor);
-    doc.text('📄 Factura:', 15, 60);
+    doc.text('Factura:', 15, 60);
     doc.setFont(undefined, 'normal');
     doc.text(payment.invoiceNumber || 'N/A', 50, 60);
     
     // 👤 Jugador
     doc.setFont(undefined, 'bold');
-    doc.text('👤 Jugador:', 15, 68);
+    doc.text('Jugador:', 15, 68);
     doc.setFont(undefined, 'normal');
-    doc.text(player.name, 50, 68);
+    doc.text(normalizeForPDF(player.name), 50, 68);
     
     // 💰 Concepto
     doc.setFont(undefined, 'bold');
-    doc.text('💰 Concepto:', 15, 76);
+    doc.text('Concepto:', 15, 76);
     doc.setFont(undefined, 'normal');
-    doc.text(payment.concept, 50, 76);
+    doc.text(normalizeForPDF(payment.concept), 50, 76);
     
     // 💵 Monto
     doc.setFont(undefined, 'bold');
-    doc.text('💵 Monto:', 15, 84);
+    doc.text('Monto:', 15, 84);
     doc.setFont(undefined, 'normal');
     doc.setTextColor(...primaryColor);
     doc.setFontSize(13);
@@ -172,16 +189,16 @@ function generateInvoicePDF(paymentId, autoDownload = true) {
     doc.setFontSize(11);
     doc.setTextColor(...textColor);
     doc.setFont(undefined, 'bold');
-    doc.text('📅 Fecha:', 15, 92);
+    doc.text('Fecha:', 15, 92);
     doc.setFont(undefined, 'normal');
     doc.text(formatDate(payment.paidDate || payment.dueDate), 50, 92);
     
     // 💳 Método
     if (payment.method) {
       doc.setFont(undefined, 'bold');
-      doc.text('💳 Método:', 15, 100);
+      doc.text('Metodo:', 15, 100);
       doc.setFont(undefined, 'normal');
-      doc.text(payment.method, 50, 100);
+      doc.text(normalizeForPDF(payment.method), 50, 100);
     }
     
     // ✅ Estado
@@ -189,11 +206,11 @@ function generateInvoicePDF(paymentId, autoDownload = true) {
     if (payment.status === 'Pagado') {
       doc.setTextColor(22, 163, 74);
       doc.setFontSize(13);
-      doc.text('✅ Estado: PAGADO', 15, 110);
+      doc.text('Estado: PAGADO', 15, 110);
     } else {
       doc.setTextColor(220, 38, 38);
       doc.setFontSize(13);
-      doc.text('⏳ Estado: PENDIENTE', 15, 110);
+      doc.text('Estado: PENDIENTE', 15, 110);
     }
     
     // Mensaje de agradecimiento
@@ -211,7 +228,7 @@ function generateInvoicePDF(paymentId, autoDownload = true) {
     doc.setTextColor(...textColor);
     doc.setFontSize(9);
     doc.setFont(undefined, 'normal');
-    doc.text(settings.name || 'MI CLUB', 105, 150, { align: 'center' });
+    doc.text(normalizeForPDF(settings.name || 'MI CLUB'), 105, 150, { align: 'center' });
     if (settings.phone) {
       doc.text(settings.phone, 105, 155, { align: 'center' });
     }
@@ -273,7 +290,7 @@ function generatePaymentNotificationPDF(paymentId) {
     doc.setFontSize(20);
     doc.setTextColor(...primaryColor);
     doc.setFont(undefined, 'bold');
-    doc.text(settings.name || 'MI CLUB', 50, 25);
+    doc.text(normalizeForPDF(settings.name || 'MI CLUB'), 50, 25);
     
     doc.setFontSize(10);
     doc.setTextColor(...textColor);
@@ -317,15 +334,15 @@ function generatePaymentNotificationPDF(paymentId) {
     doc.setFontSize(12);
     doc.setTextColor(...textColor);
     doc.setFont(undefined, 'normal');
-    doc.text(`Estimado(a) acudiente de: ${player.name}`, 15, 85);
-    doc.text(`Categoria: ${player.category}`, 15, 92);
+    doc.text(`Estimado(a) acudiente de: ${normalizeForPDF(player.name)}`, 15, 85);
+    doc.text(`Categoria: ${normalizeForPDF(player.category)}`, 15, 92);
     
     // Detalle del pago
     doc.setFont(undefined, 'bold');
     doc.text('Detalle del Pago:', 15, 110);
     
     doc.setFont(undefined, 'normal');
-    doc.text(`Concepto: ${payment.concept}`, 15, 120);
+    doc.text(`Concepto: ${normalizeForPDF(payment.concept)}`, 15, 120);
     doc.text(`Monto: ${formatCurrency(payment.amount)}`, 15, 127);
     doc.text(`Fecha de vencimiento: ${formatDate(payment.dueDate)}`, 15, 134);
     
@@ -408,7 +425,7 @@ function generatePlayerAccountStatementPDF(playerId) {
     doc.setFontSize(20);
     doc.setTextColor(...primaryColor);
     doc.setFont(undefined, 'bold');
-    doc.text(settings.name || 'MI CLUB', 50, 25);
+    doc.text(normalizeForPDF(settings.name || 'MI CLUB'), 50, 25);
     
     doc.setFontSize(10);
     doc.setTextColor(...textColor);
@@ -425,8 +442,8 @@ function generatePlayerAccountStatementPDF(playerId) {
     doc.setFontSize(11);
     doc.setTextColor(...textColor);
     doc.setFont(undefined, 'normal');
-    doc.text(`Jugador: ${player.name}`, 15, 65);
-    doc.text(`Categoria: ${player.category}`, 15, 72);
+    doc.text(`Jugador: ${normalizeForPDF(player.name)}`, 15, 65);
+    doc.text(`Categoria: ${normalizeForPDF(player.category)}`, 15, 72);
     doc.text(`Fecha: ${formatDate(getCurrentDate())}`, 15, 79);
     
     doc.setDrawColor(...primaryColor);
@@ -562,7 +579,7 @@ function generateFullAccountingReportPDF() {
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(32);
     doc.setFont(undefined, 'bold');
-    doc.text(settings.name || 'MI CLUB', 105, 150, { align: 'center' });
+    doc.text(normalizeForPDF(settings.name || 'MI CLUB'), 105, 150, { align: 'center' });
     
     doc.setFontSize(24);
     doc.text('REPORTE CONTABLE', 105, 165, { align: 'center' });
@@ -756,8 +773,8 @@ function generateFullAccountingReportPDF() {
       doc.rect(15, yPos, 180, 7, 'F');
       
       doc.setTextColor(...textColor);
-      doc.text(playerName, 17, yPos + 5);
-      doc.text(playerCategory, 55, yPos + 5);
+      doc.text(normalizeForPDF(playerName), 17, yPos + 5);
+      doc.text(normalizeForPDF(playerCategory), 55, yPos + 5);
       doc.text(payment.invoiceNumber || 'N/A', 90, yPos + 5);
       doc.text(formatDate(payment.paidDate || payment.dueDate), 115, yPos + 5);
       
@@ -831,8 +848,8 @@ function generateFullAccountingReportPDF() {
         doc.text(income.invoiceNumber || 'N/A', 17, yPos + 5);
         doc.text(formatDate(income.date), 40, yPos + 5);
         doc.text((income.contributorName || 'N/A').substring(0, 18), 65, yPos + 5);
-        doc.text((income.category || 'N/A').substring(0, 12), 110, yPos + 5);
-        doc.text((income.concept || 'N/A').substring(0, 15), 140, yPos + 5);
+        doc.text(normalizeForPDF((income.category || 'N/A').substring(0, 12)), 110, yPos + 5);
+        doc.text(normalizeForPDF((income.concept || 'N/A').substring(0, 15)), 140, yPos + 5);
         doc.setTextColor(...purpleColor);
         doc.text(formatCurrency(income.amount), 175, yPos + 5);
         doc.setTextColor(...textColor);
@@ -902,8 +919,8 @@ function generateFullAccountingReportPDF() {
         doc.setTextColor(...textColor);
         doc.text(expense.invoiceNumber || 'N/A', 17, yPos + 5);
         doc.text(formatDate(expense.date), 40, yPos + 5);
-        doc.text(expense.beneficiaryName.substring(0, 22), 65, yPos + 5);
-        doc.text(expense.category, 115, yPos + 5);
+        doc.text(normalizeForPDF(expense.beneficiaryName.substring(0, 22)), 65, yPos + 5);
+        doc.text(normalizeForPDF(expense.category), 115, yPos + 5);
         doc.setTextColor(220, 38, 38);
         doc.text(formatCurrency(expense.amount), 170, yPos + 5);
         doc.setTextColor(...textColor);
@@ -975,14 +992,14 @@ function generateExpenseInvoicePDF(expenseId, autoDownload = true) {
     doc.setFontSize(20);
     doc.setTextColor(...primaryColor);
     doc.setFont(undefined, 'bold');
-    doc.text(settings.name || 'MI CLUB', 50, 25);
+    doc.text(normalizeForPDF(settings.name || 'MI CLUB'), 50, 25);
     
     doc.setFontSize(10);
     doc.setTextColor(...textColor);
     doc.setFont(undefined, 'normal');
     if (settings.email) doc.text(settings.email, 50, 32);
     if (settings.phone) doc.text(settings.phone, 50, 37);
-    if (settings.address) doc.text(settings.address, 50, 42);
+    if (settings.address) doc.text(normalizeForPDF(settings.address), 50, 42);
     
     // Título
     doc.setFontSize(18);
@@ -999,21 +1016,21 @@ function generateExpenseInvoicePDF(expenseId, autoDownload = true) {
     doc.setFontSize(11);
     doc.setFont(undefined, 'bold');
     doc.setTextColor(...textColor);
-    doc.text('📄 Factura:', 15, 60);
+    doc.text('Factura:', 15, 60);
     doc.setFont(undefined, 'normal');
     doc.text(expense.invoiceNumber || 'N/A', 50, 60);
     
     // 👤 Jugador (Beneficiario en este caso)
     doc.setFont(undefined, 'bold');
-    doc.text('👤 Jugador:', 15, 68);
+    doc.text('Jugador:', 15, 68);
     doc.setFont(undefined, 'normal');
-    doc.text(expense.beneficiaryName, 50, 68);
+    doc.text(normalizeForPDF(expense.beneficiaryName), 50, 68);
     
     // 💰 Concepto
     doc.setFont(undefined, 'bold');
-    doc.text('💰 Concepto:', 15, 76);
+    doc.text('Concepto:', 15, 76);
     doc.setFont(undefined, 'normal');
-    const conceptLines = doc.splitTextToSize(expense.concept, 140);
+    const conceptLines = doc.splitTextToSize(normalizeForPDF(expense.concept), 140);
     doc.text(conceptLines, 50, 76);
     
     // Calcular Y position después del concepto
@@ -1022,7 +1039,7 @@ function generateExpenseInvoicePDF(expenseId, autoDownload = true) {
     
     // 💵 Monto
     doc.setFont(undefined, 'bold');
-    doc.text('💵 Monto:', 15, yPos);
+    doc.text('Monto:', 15, yPos);
     doc.setFont(undefined, 'normal');
     doc.setTextColor(...redColor);
     doc.setFontSize(13);
@@ -1035,7 +1052,7 @@ function generateExpenseInvoicePDF(expenseId, autoDownload = true) {
     doc.setFontSize(11);
     doc.setTextColor(...textColor);
     doc.setFont(undefined, 'bold');
-    doc.text('📅 Fecha:', 15, yPos);
+    doc.text('Fecha:', 15, yPos);
     doc.setFont(undefined, 'normal');
     doc.text(formatDate(expense.date), 50, yPos);
     
@@ -1044,9 +1061,9 @@ function generateExpenseInvoicePDF(expenseId, autoDownload = true) {
     // 💳 Método
     if (expense.method) {
       doc.setFont(undefined, 'bold');
-      doc.text('💳 Método:', 15, yPos);
+      doc.text('Metodo:', 15, yPos);
       doc.setFont(undefined, 'normal');
-      doc.text(expense.method, 50, yPos);
+      doc.text(normalizeForPDF(expense.method), 50, yPos);
       yPos += 8;
     }
     
@@ -1054,7 +1071,7 @@ function generateExpenseInvoicePDF(expenseId, autoDownload = true) {
     doc.setFont(undefined, 'bold');
     doc.setTextColor(22, 163, 74);
     doc.setFontSize(13);
-    doc.text('✅ Estado: PAGADO', 15, yPos);
+    doc.text('Estado: PAGADO', 15, yPos);
     
     yPos += 15;
     
@@ -1077,7 +1094,7 @@ function generateExpenseInvoicePDF(expenseId, autoDownload = true) {
     doc.setTextColor(...textColor);
     doc.setFontSize(9);
     doc.setFont(undefined, 'normal');
-    doc.text(settings.name || 'MI CLUB', 105, yPos, { align: 'center' });
+    doc.text(normalizeForPDF(settings.name || 'MI CLUB'), 105, yPos, { align: 'center' });
     if (settings.phone) {
       yPos += 5;
       doc.text(settings.phone, 105, yPos, { align: 'center' });
