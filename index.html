@@ -1063,86 +1063,156 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
     </div>
 </div>
 
-    <!-- Modal Agregar/Editar Pago -->
-    <div id="paymentModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-        <div class="bg-white dark:bg-gray-800 rounded-2xl max-w-lg w-full animate-scale-in">
-            <div class="border-b border-gray-200 dark:border-gray-700 p-4 flex items-center justify-between">
-                <h3 class="font-bold text-xl text-gray-800 dark:text-white">Registrar Pago</h3>
-                <button onclick="closePaymentModal()" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
-                    <i data-lucide="x" class="w-6 h-6 text-gray-600 dark:text-gray-300"></i>
-                </button>
-            </div>
-            <form id="paymentForm" class="p-4 space-y-4">
-                <input type="hidden" id="paymentId">
-                
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Jugador *</label>
-                    <select id="paymentPlayer" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"></select>
-                </div>
 
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo de Pago *</label>
-                    <select id="paymentType" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
-                        <option value="">Seleccionar...</option>
-                        <option value="Mensualidad">Mensualidad</option>
-                        <option value="Uniforme">Uniforme</option>
-                        <option value="Torneo">Torneo</option>
-                        <option value="Equipamiento">Equipamiento</option>
-                        <option value="Otro">Otro</option>
-                    </select>
-                </div>
+<!-- ========================================
+     MODAL REGISTRAR PAGO - CON BUSCADOR DE JUGADORES
+     ======================================== -->
 
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Concepto *</label>
-                    <input type="text" id="paymentConcept" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Monto *</label>
-                    <input type="number" id="paymentAmount" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha de Vencimiento *</label>
-                    <input type="date" id="paymentDueDate" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Estado *</label>
-                    <select id="paymentStatus" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
-                        <option value="Pendiente">Pendiente</option>
-                        <option value="Pagado">Pagado</option>
-                    </select>
-                </div>
-
-                <div id="paidDateContainer" class="hidden">
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha de Pago</label>
-                    <input type="date" id="paymentPaidDate" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
-                </div>
-
-                <div id="paymentMethodContainer" class="hidden">
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Método de Pago</label>
-                    <select id="paymentMethod" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
-                        <option value="">Seleccionar...</option>
-                        <option value="Efectivo">Efectivo</option>
-                        <option value="Transferencia">Transferencia</option>
-                        <option value="Tarjeta">Tarjeta</option>
-                        <option value="Nequi">Nequi</option>
-                        <option value="Daviplata">Daviplata</option>
-                    </select>
-                </div>
-
-                <div class="flex gap-2 pt-4">
-                    <button type="button" onclick="closePaymentModal()" class="flex-1 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 py-2 rounded-lg">
-                        Cancelar
-                    </button>
-                    <button type="submit" class="flex-1 bg-teal-600 hover:bg-teal-700 text-white py-2 rounded-lg">
-                        Guardar
-                    </button>
-                </div>
-            </form>
-        </div>
+<div id="paymentModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden p-4">
+  <div class="modal-content max-w-2xl w-full bg-white dark:bg-gray-800 rounded-2xl p-6 max-h-[90vh] overflow-y-auto">
+    <!-- Header -->
+    <div class="flex justify-between items-center mb-6">
+      <h2 class="text-2xl font-bold text-gray-800 dark:text-white">Registrar Pago</h2>
+      <button onclick="closePaymentModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+        <i data-lucide="x" class="w-6 h-6"></i>
+      </button>
     </div>
+
+    <form id="paymentForm">
+      <input type="hidden" id="paymentId">
+
+      <!-- 🔍 BUSCADOR DE JUGADORES -->
+      <div class="mb-6">
+        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+          Jugador *
+        </label>
+        
+        <!-- Jugador Seleccionado -->
+        <div id="selectedPlayerDisplay" class="hidden mb-3 p-3 bg-teal-50 dark:bg-teal-900 border-2 border-teal-500 rounded-lg flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <i data-lucide="user-check" class="w-5 h-5 text-teal-600"></i>
+            <span id="selectedPlayerName" class="font-semibold text-gray-800 dark:text-white"></span>
+          </div>
+          <button 
+            type="button" 
+            onclick="clearPlayerSelection()" 
+            class="text-red-600 hover:text-red-700 dark:text-red-400"
+            title="Cambiar jugador"
+          >
+            <i data-lucide="x-circle" class="w-5 h-5"></i>
+          </button>
+        </div>
+        
+        <!-- Input de Búsqueda -->
+        <div class="relative">
+          <i data-lucide="search" class="absolute left-3 top-3 w-5 h-5 text-gray-400"></i>
+          <input
+            type="text"
+            id="playerSearchInput"
+            placeholder="Buscar por nombre o categoría..."
+            oninput="searchPlayers()"
+            class="w-full px-4 py-2 pl-10 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+            autocomplete="off"
+          >
+        </div>
+        
+        <!-- Lista de Resultados -->
+        <div 
+          id="playerSearchResults" 
+          class="mt-2 max-h-64 overflow-y-auto border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800"
+        >
+          <!-- Los jugadores se cargarán aquí dinámicamente -->
+        </div>
+      </div>
+
+      <!-- Tipo de Pago -->
+      <div class="mb-4">
+        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+          Tipo de Pago *
+        </label>
+        <select id="paymentType" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white" required>
+          <option value="Mensualidad">Mensualidad</option>
+          <option value="Uniforme">Uniforme</option>
+          <option value="Torneo">Torneo</option>
+          <option value="Equipamiento">Equipamiento</option>
+          <option value="Otro">Otro</option>
+        </select>
+      </div>
+
+      <!-- Concepto -->
+      <div class="mb-4">
+        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+          Concepto *
+        </label>
+        <input type="text" id="paymentConcept" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white" required>
+      </div>
+
+      <!-- Monto y Fecha de Vencimiento -->
+      <div class="grid grid-cols-2 gap-4 mb-4">
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+            Monto *
+          </label>
+          <input type="number" id="paymentAmount" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white" required min="0" step="0.01">
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+            Fecha de Vencimiento *
+          </label>
+          <input type="date" id="paymentDueDate" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white" required>
+        </div>
+      </div>
+
+      <!-- Estado -->
+      <div class="mb-4">
+        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+          Estado *
+        </label>
+        <select id="paymentStatus" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white" required>
+          <option value="Pendiente">Pendiente</option>
+          <option value="Pagado">Pagado</option>
+        </select>
+      </div>
+
+      <!-- Fecha de Pago (Solo si está pagado) -->
+      <div id="paidDateContainer" class="mb-4 hidden">
+        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+          Fecha de Pago *
+        </label>
+        <input type="date" id="paymentPaidDate" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white">
+      </div>
+
+      <!-- Método de Pago (Solo si está pagado) -->
+      <div id="paymentMethodContainer" class="mb-4 hidden">
+        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+          Método de Pago *
+        </label>
+        <select id="paymentMethod" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white">
+          <option value="Efectivo">Efectivo</option>
+          <option value="Transferencia">Transferencia</option>
+          <option value="Tarjeta">Tarjeta</option>
+        </select>
+      </div>
+
+      <!-- Botones -->
+      <div class="flex gap-3">
+        <button 
+          type="button" 
+          onclick="closePaymentModal()" 
+          class="flex-1 px-4 py-3 bg-gray-300 hover:bg-gray-400 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-800 dark:text-white rounded-lg font-medium transition-colors"
+        >
+          Cancelar
+        </button>
+        <button 
+          type="submit" 
+          class="flex-1 px-4 py-3 bg-teal-600 hover:bg-teal-700 text-white rounded-lg font-medium transition-colors"
+        >
+          Guardar
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
 
     <!-- Modal Agregar/Editar Evento -->
     <div id="eventModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">

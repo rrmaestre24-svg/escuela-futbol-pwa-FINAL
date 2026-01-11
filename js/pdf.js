@@ -82,7 +82,7 @@ function addSignatureToDocument(doc, yPosition = 245) {
 }
 
 // ========================================
-// FACTURAS DE INGRESOS (CON FIRMA)
+// FACTURAS DE INGRESOS (CON FIRMA Y EMOJIS)
 // ========================================
 function generateInvoicePDF(paymentId, autoDownload = true) {
   const payment = getPaymentById(paymentId);
@@ -128,101 +128,96 @@ function generateInvoicePDF(paymentId, autoDownload = true) {
     if (settings.phone) doc.text(settings.phone, 50, 37);
     if (settings.address) doc.text(settings.address, 50, 42);
     
-    // Título FACTURA
-    doc.setFontSize(24);
+    // Título FACTURA DE PAGO
+    doc.setFontSize(18);
     doc.setTextColor(...primaryColor);
     doc.setFont(undefined, 'bold');
-    doc.text('FACTURA', 150, 25);
-    
-    // Número de factura
-    doc.setFontSize(12);
-    doc.setTextColor(...textColor);
-    doc.text(payment.invoiceNumber || 'N/A', 150, 35);
-    
-    // ✅ CORREGIDO: Fecha usa formatDate que ya maneja zona horaria
-    doc.setFontSize(10);
-    doc.setFont(undefined, 'normal');
-    doc.text(`Fecha: ${formatDate(payment.paidDate || payment.dueDate)}`, 150, 42);
+    doc.text('FACTURA DE PAGO', 150, 25);
     
     // Línea separadora
     doc.setDrawColor(...primaryColor);
     doc.setLineWidth(0.5);
     doc.line(15, 50, 195, 50);
     
-    // Datos del jugador
-    doc.setFontSize(12);
+    // 📄 Factura
+    doc.setFontSize(11);
     doc.setFont(undefined, 'bold');
-    doc.setTextColor(...primaryColor);
-    doc.text('DATOS DEL CLIENTE', 15, 60);
-    
-    doc.setFontSize(10);
-    doc.setFont(undefined, 'normal');
     doc.setTextColor(...textColor);
-    doc.text(`Nombre: ${player.name}`, 15, 68);
-    doc.text(`Categoria: ${player.category}`, 15, 75);
-    doc.text(`Telefono: ${player.phone}`, 15, 82);
-    if (player.email) {
-      doc.text(`Email: ${player.email}`, 15, 89);
-    }
-    
-    // Tabla de conceptos
-    const tableTop = 105;
-    
-    doc.setFillColor(...primaryColor);
-    doc.rect(15, tableTop, 180, 10, 'F');
-    
-    doc.setTextColor(255, 255, 255);
-    doc.setFont(undefined, 'bold');
-    doc.text('CONCEPTO', 20, tableTop + 7);
-    doc.text('CANT', 100, tableTop + 7);
-    doc.text('PRECIO', 130, tableTop + 7);
-    doc.text('TOTAL', 165, tableTop + 7);
-    
-    doc.setTextColor(...textColor);
+    doc.text('📄 Factura:', 15, 60);
     doc.setFont(undefined, 'normal');
-    const rowTop = tableTop + 15;
+    doc.text(payment.invoiceNumber || 'N/A', 50, 60);
     
-    doc.text(payment.concept, 20, rowTop);
-    doc.text('1', 105, rowTop);
-    doc.text(formatCurrency(payment.amount), 130, rowTop);
-    doc.text(formatCurrency(payment.amount), 165, rowTop);
-    
-    // Totales
-    const totalsTop = rowTop + 20;
+    // 👤 Jugador
     doc.setFont(undefined, 'bold');
-    doc.setFontSize(12);
-    doc.text('TOTAL:', 130, totalsTop);
-    doc.setTextColor(...primaryColor);
-    doc.setFontSize(14);
-    doc.text(formatCurrency(payment.amount), 165, totalsTop);
+    doc.text('👤 Jugador:', 15, 68);
+    doc.setFont(undefined, 'normal');
+    doc.text(player.name, 50, 68);
     
-    // Método de pago
+    // 💰 Concepto
+    doc.setFont(undefined, 'bold');
+    doc.text('💰 Concepto:', 15, 76);
+    doc.setFont(undefined, 'normal');
+    doc.text(payment.concept, 50, 76);
+    
+    // 💵 Monto
+    doc.setFont(undefined, 'bold');
+    doc.text('💵 Monto:', 15, 84);
+    doc.setFont(undefined, 'normal');
+    doc.setTextColor(...primaryColor);
+    doc.setFontSize(13);
+    doc.setFont(undefined, 'bold');
+    doc.text(formatCurrency(payment.amount), 50, 84);
+    
+    // 📅 Fecha
+    doc.setFontSize(11);
+    doc.setTextColor(...textColor);
+    doc.setFont(undefined, 'bold');
+    doc.text('📅 Fecha:', 15, 92);
+    doc.setFont(undefined, 'normal');
+    doc.text(formatDate(payment.paidDate || payment.dueDate), 50, 92);
+    
+    // 💳 Método
     if (payment.method) {
-      doc.setTextColor(...textColor);
-      doc.setFontSize(10);
+      doc.setFont(undefined, 'bold');
+      doc.text('💳 Método:', 15, 100);
       doc.setFont(undefined, 'normal');
-      doc.text(`Metodo de pago: ${payment.method}`, 15, totalsTop + 10);
+      doc.text(payment.method, 50, 100);
     }
     
-    // Estado
+    // ✅ Estado
     doc.setFont(undefined, 'bold');
     if (payment.status === 'Pagado') {
       doc.setTextColor(22, 163, 74);
-      doc.text('PAGADO', 15, totalsTop + 20);
+      doc.setFontSize(13);
+      doc.text('✅ Estado: PAGADO', 15, 110);
     } else {
       doc.setTextColor(220, 38, 38);
-      doc.text('PENDIENTE', 15, totalsTop + 20);
+      doc.setFontSize(13);
+      doc.text('⏳ Estado: PENDIENTE', 15, 110);
     }
+    
+    // Mensaje de agradecimiento
+    doc.setTextColor(...textColor);
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'italic');
+    doc.text('Gracias por tu pago.', 105, 130, { align: 'center' });
+    
+    // Línea separadora inferior
+    doc.setDrawColor(...primaryColor);
+    doc.setLineWidth(0.3);
+    doc.line(15, 140, 195, 140);
     
     // Pie de página
     doc.setTextColor(...textColor);
     doc.setFontSize(9);
-    doc.setFont(undefined, 'italic');
-    doc.text('Gracias por tu preferencia', 105, 220, { align: 'center' });
-    doc.text(settings.name || 'MI CLUB', 105, 225, { align: 'center' });
+    doc.setFont(undefined, 'normal');
+    doc.text(settings.name || 'MI CLUB', 105, 150, { align: 'center' });
+    if (settings.phone) {
+      doc.text(settings.phone, 105, 155, { align: 'center' });
+    }
     
     // 🆕 AGREGAR FIRMA AUTOMÁTICA
-    addSignatureToDocument(doc, 235);
+    addSignatureToDocument(doc, 170);
     
     if (autoDownload) {
       doc.save(`Factura-${payment.invoiceNumber || 'SN'}.pdf`);
@@ -949,8 +944,8 @@ function generateFullAccountingReportPDF() {
   }
 }
 
-// ========================================
-// COMPROBANTE DE EGRESO (CON FIRMA)
+/// ========================================
+// COMPROBANTE DE EGRESO (CON FIRMA Y EMOJIS)
 // ========================================
 function generateExpenseInvoicePDF(expenseId, autoDownload = true) {
   const expense = getExpenseById(expenseId);
@@ -990,98 +985,109 @@ function generateExpenseInvoicePDF(expenseId, autoDownload = true) {
     if (settings.address) doc.text(settings.address, 50, 42);
     
     // Título
-    doc.setFontSize(22);
+    doc.setFontSize(18);
     doc.setTextColor(...redColor);
     doc.setFont(undefined, 'bold');
-    doc.text('COMPROBANTE DE PAGO', 150, 25);
+    doc.text('FACTURA DE PAGO', 150, 25);
     
-    doc.setFontSize(12);
-    doc.setTextColor(...textColor);
-    doc.text(expense.invoiceNumber || 'N/A', 150, 35);
-    
-    // ✅ CORREGIDO: Usa formatDate que ya maneja zona horaria
-    doc.setFontSize(10);
-    doc.setFont(undefined, 'normal');
-    doc.text(`Fecha: ${formatDate(expense.date)}`, 150, 42);
-    
+    // Línea separadora
     doc.setDrawColor(...primaryColor);
     doc.setLineWidth(0.5);
     doc.line(15, 50, 195, 50);
     
-    // Beneficiario
-    doc.setFontSize(12);
+    // 📄 Factura
+    doc.setFontSize(11);
     doc.setFont(undefined, 'bold');
-    doc.setTextColor(...primaryColor);
-    doc.text('BENEFICIARIO', 15, 60);
-    
-    doc.setFontSize(10);
-    doc.setFont(undefined, 'normal');
     doc.setTextColor(...textColor);
-    doc.text(`Nombre: ${expense.beneficiaryName}`, 15, 68);
-    
-    if (expense.beneficiaryType === 'internal') {
-      doc.text('Tipo: Usuario/Staff Interno', 15, 75);
-    } else {
-      doc.text('Tipo: Proveedor Externo', 15, 75);
-      if (expense.beneficiaryDocument) {
-        doc.text(`Documento: ${expense.beneficiaryDocument}`, 15, 82);
-      }
-    }
-    
-    if (expense.beneficiaryPhone) {
-      const yPos = expense.beneficiaryDocument ? 89 : 82;
-      doc.text(`Telefono: ${formatPhoneDisplay(expense.beneficiaryPhone)}`, 15, yPos);
-    }
-    
-    // Tabla
-    const tableTop = 105;
-    
-    doc.setFillColor(...redColor);
-    doc.rect(15, tableTop, 180, 10, 'F');
-    
-    doc.setTextColor(255, 255, 255);
-    doc.setFont(undefined, 'bold');
-    doc.text('CATEGORIA', 20, tableTop + 7);
-    doc.text('CONCEPTO', 70, tableTop + 7);
-    doc.text('MONTO', 165, tableTop + 7);
-    
-    doc.setTextColor(...textColor);
+    doc.text('📄 Factura:', 15, 60);
     doc.setFont(undefined, 'normal');
-    const rowTop = tableTop + 15;
+    doc.text(expense.invoiceNumber || 'N/A', 50, 60);
     
-    doc.text(expense.category, 20, rowTop);
-    
-    const conceptLines = doc.splitTextToSize(expense.concept, 90);
-    doc.text(conceptLines, 70, rowTop);
-    
-    doc.text(formatCurrency(expense.amount), 165, rowTop);
-    
-    // Total
-    const totalsTop = rowTop + 25;
+    // 👤 Jugador (Beneficiario en este caso)
     doc.setFont(undefined, 'bold');
-    doc.setFontSize(12);
-    doc.text('TOTAL PAGADO:', 110, totalsTop);
+    doc.text('👤 Jugador:', 15, 68);
+    doc.setFont(undefined, 'normal');
+    doc.text(expense.beneficiaryName, 50, 68);
+    
+    // 💰 Concepto
+    doc.setFont(undefined, 'bold');
+    doc.text('💰 Concepto:', 15, 76);
+    doc.setFont(undefined, 'normal');
+    const conceptLines = doc.splitTextToSize(expense.concept, 140);
+    doc.text(conceptLines, 50, 76);
+    
+    // Calcular Y position después del concepto
+    const conceptHeight = conceptLines.length * 5;
+    let yPos = 76 + conceptHeight + 2;
+    
+    // 💵 Monto
+    doc.setFont(undefined, 'bold');
+    doc.text('💵 Monto:', 15, yPos);
+    doc.setFont(undefined, 'normal');
     doc.setTextColor(...redColor);
-    doc.setFontSize(16);
-    doc.text(formatCurrency(expense.amount), 165, totalsTop);
-    
-    doc.setTextColor(22, 163, 74);
+    doc.setFontSize(13);
     doc.setFont(undefined, 'bold');
-    doc.setFontSize(12);
-    doc.text('✓ PAGADO', 15, totalsTop);
+    doc.text(formatCurrency(expense.amount), 50, yPos);
     
-    // Mensaje
+    yPos += 8;
+    
+    // 📅 Fecha
+    doc.setFontSize(11);
+    doc.setTextColor(...textColor);
+    doc.setFont(undefined, 'bold');
+    doc.text('📅 Fecha:', 15, yPos);
+    doc.setFont(undefined, 'normal');
+    doc.text(formatDate(expense.date), 50, yPos);
+    
+    yPos += 8;
+    
+    // 💳 Método
+    if (expense.method) {
+      doc.setFont(undefined, 'bold');
+      doc.text('💳 Método:', 15, yPos);
+      doc.setFont(undefined, 'normal');
+      doc.text(expense.method, 50, yPos);
+      yPos += 8;
+    }
+    
+    // ✅ Estado
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(22, 163, 74);
+    doc.setFontSize(13);
+    doc.text('✅ Estado: PAGADO', 15, yPos);
+    
+    yPos += 15;
+    
+    // Mensaje de agradecimiento
+    doc.setTextColor(...textColor);
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'italic');
+    doc.text('Gracias por tu pago.', 105, yPos, { align: 'center' });
+    
+    yPos += 10;
+    
+    // Línea separadora inferior
+    doc.setDrawColor(...primaryColor);
+    doc.setLineWidth(0.3);
+    doc.line(15, yPos, 195, yPos);
+    
+    yPos += 10;
+    
+    // Pie de página
     doc.setTextColor(...textColor);
     doc.setFontSize(9);
-    doc.setFont(undefined, 'italic');
-    doc.text('Este documento certifica el pago realizado', 105, 190, { align: 'center' });
-    doc.text(settings.name || 'MI CLUB', 105, 197, { align: 'center' });
+    doc.setFont(undefined, 'normal');
+    doc.text(settings.name || 'MI CLUB', 105, yPos, { align: 'center' });
+    if (settings.phone) {
+      yPos += 5;
+      doc.text(settings.phone, 105, yPos, { align: 'center' });
+    }
     
     // 🆕 AGREGAR FIRMA AUTOMÁTICA
-    addSignatureToDocument(doc, 210);
+    addSignatureToDocument(doc, yPos + 20);
     
     if (autoDownload) {
-      doc.save(`Comprobante-Pago-${expense.invoiceNumber || 'SN'}.pdf`);
+      doc.save(`Factura-${expense.invoiceNumber || 'SN'}.pdf`);
       showToast('✅ Comprobante descargado');
     }
     

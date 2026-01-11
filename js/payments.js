@@ -4,6 +4,10 @@
 
 let currentPaymentTab = 'monthly';
 let currentPaymentMode = 'ingreso'; // 'ingreso' o 'egreso'
+// Variables para el buscador de jugadores
+let selectedPlayerId = null;
+let filteredPlayers = [];
+
 
 // ========================================
 // MODAL SELECTOR DE TIPO
@@ -65,56 +69,102 @@ document.getElementById('monthlyPaymentsContent').classList.add('hidden');
 }
 
 // ========================================
-// MODAL DE PAGO (INGRESO)
+// MODAL DE PAGO (INGRESO) - VERSIÓN CORREGIDA
 // ========================================
 
-// Mostrar modal agregar pago
+// Mostrar modal agregar pago - VERSIÓN CORREGIDA
 function showAddPaymentModal() {
-  document.getElementById('paymentForm').reset();
-  document.getElementById('paymentId').value = '';
-  document.getElementById('paidDateContainer').classList.add('hidden');
-  document.getElementById('paymentMethodContainer').classList.add('hidden');
+  console.log('🔵 Abriendo modal de pagos con buscador');
   
-  // Llenar select de jugadores
-  const players = getActivePlayers();
-  const select = document.getElementById('paymentPlayer');
-  select.innerHTML = '<option value="">Seleccionar jugador...</option>' + 
-    players.map(p => `<option value="${p.id}">${p.name} - ${p.category}</option>`).join('');
-  
-  document.getElementById('paymentModal').classList.remove('hidden');
+  try {
+    // Resetear formulario
+    const form = document.getElementById('paymentForm');
+    if (form) form.reset();
+    
+    const paymentId = document.getElementById('paymentId');
+    if (paymentId) paymentId.value = '';
+    
+    const paidContainer = document.getElementById('paidDateContainer');
+    if (paidContainer) paidContainer.classList.add('hidden');
+    
+    const methodContainer = document.getElementById('paymentMethodContainer');
+    if (methodContainer) methodContainer.classList.add('hidden');
+    
+    // Resetear buscador
+    selectedPlayerId = null;
+    
+    const searchInput = document.getElementById('playerSearchInput');
+    if (searchInput) {
+      searchInput.value = '';
+    } else {
+      console.warn('⚠️ playerSearchInput no encontrado');
+    }
+    
+    const selectedName = document.getElementById('selectedPlayerName');
+    if (selectedName) {
+      selectedName.textContent = '';
+    } else {
+      console.warn('⚠️ selectedPlayerName no encontrado');
+    }
+    
+    const selectedDisplay = document.getElementById('selectedPlayerDisplay');
+    if (selectedDisplay) {
+      selectedDisplay.classList.add('hidden');
+    } else {
+      console.warn('⚠️ selectedPlayerDisplay no encontrado');
+    }
+    
+    // Cargar jugadores
+    const allPlayers = getActivePlayers();
+    console.log(`📋 Cargando ${allPlayers.length} jugadores`);
+    renderPlayerSearchResults(allPlayers);
+    
+    // Mostrar modal
+    const modal = document.getElementById('paymentModal');
+    if (modal) {
+      modal.classList.remove('hidden');
+      console.log('✅ Modal de pagos mostrado');
+    } else {
+      console.error('❌ Modal paymentModal no encontrado en el DOM');
+      return;
+    }
+    
+    // Auto-focus en el input de búsqueda
+    setTimeout(() => {
+      const searchInput = document.getElementById('playerSearchInput');
+      if (searchInput) {
+        searchInput.focus();
+      }
+    }, 100);
+    
+    // Recrear iconos
+    if (typeof lucide !== 'undefined' && lucide.createIcons) {
+      lucide.createIcons();
+    }
+    
+  } catch (error) {
+    console.error('❌ Error al abrir modal de pagos:', error);
+    showToast('❌ Error al abrir el formulario');
+  }
 }
 
 // Cerrar modal pago
 function closePaymentModal() {
-  document.getElementById('paymentModal').classList.add('hidden');
+  console.log('🔴 Cerrando modal de pagos');
+  const modal = document.getElementById('paymentModal');
+  if (modal) {
+    modal.classList.add('hidden');
+    console.log('✅ Modal cerrado');
+  } else {
+    console.error('❌ Modal paymentModal no encontrado');
+  }
 }
 
-// Auto-completar al cambiar tipo de pago
-document.getElementById('paymentType')?.addEventListener('change', function() {
-  const type = this.value;
-  const settings = getSchoolSettings();
-  const conceptInput = document.getElementById('paymentConcept');
-  const amountInput = document.getElementById('paymentAmount');
-  
-  if (type === 'Mensualidad') {
-    const currentMonth = getMonthName(new Date().getMonth());
-    conceptInput.value = `Mensualidad ${currentMonth}`;
-    amountInput.value = settings.monthlyFee || '';
-  } else if (type === 'Uniforme') {
-    conceptInput.value = 'Uniforme completo';
-    amountInput.value = '';
-  } else if (type === 'Torneo') {
-    conceptInput.value = 'Inscripción torneo';
-    amountInput.value = '';
-  } else if (type === 'Equipamiento') {
-    conceptInput.value = 'Equipamiento deportivo';
-    amountInput.value = '';
-  } else {
-    conceptInput.value = '';
-    amountInput.value = '';
-  }
-});
+// Hacer funciones globales
+window.showAddPaymentModal = showAddPaymentModal;
+window.closePaymentModal = closePaymentModal;
 
+console.log('✅ Funciones de modal de pagos cargadas');
 // Mostrar/ocultar campos según estado
 document.getElementById('paymentStatus')?.addEventListener('change', function() {
   const status = this.value;
@@ -134,7 +184,13 @@ document.getElementById('paymentForm')?.addEventListener('submit', async functio
   e.preventDefault();
   
   const paymentId = document.getElementById('paymentId').value;
-  const playerId = document.getElementById('paymentPlayer').value;
+  // Validar que haya un jugador seleccionado
+  if (!selectedPlayerId) {
+    showToast('❌ Selecciona un jugador');
+    document.getElementById('playerSearchInput').focus();
+    return;
+  }
+   const playerId = selectedPlayerId;
   const type = document.getElementById('paymentType').value;
   const concept = document.getElementById('paymentConcept').value;
   const amount = parseFloat(document.getElementById('paymentAmount').value);
@@ -143,10 +199,7 @@ document.getElementById('paymentForm')?.addEventListener('submit', async functio
   const paidDate = document.getElementById('paymentPaidDate').value;
   const method = document.getElementById('paymentMethod').value;
   
-  if (!playerId) {
-    showToast('❌ Selecciona un jugador');
-    return;
-  }
+
   
   const paymentData = {
     playerId,
@@ -1274,4 +1327,167 @@ window.searchPayments = searchPayments;
 window.clearPaymentSearch = clearPaymentSearch;
 window.togglePaymentSearch = togglePaymentSearch;
 
-console.log('✅ Sistema de búsqueda de pagos completo cargado');
+console.log('✅ Sistema de búsqueda de pagos completo cargado')
+
+// ========================================
+// 🔍 BUSCADOR DE JUGADORES - FUNCIONES
+// ========================================
+
+// Buscar jugadores en tiempo real
+function searchPlayers() {
+  const searchInput = document.getElementById('playerSearchInput');
+  if (!searchInput) return;
+  
+  const searchTerm = searchInput.value.toLowerCase().trim();
+  const allPlayers = getActivePlayers();
+  
+  if (searchTerm === '') {
+    filteredPlayers = allPlayers;
+  } else {
+    filteredPlayers = allPlayers.filter(player => {
+      const name = (player.name || '').toLowerCase();
+      const category = (player.category || '').toLowerCase();
+      return name.includes(searchTerm) || category.includes(searchTerm);
+    });
+  }
+  
+  renderPlayerSearchResults(filteredPlayers);
+}
+
+// Renderizar resultados de búsqueda
+function renderPlayerSearchResults(players) {
+  const container = document.getElementById('playerSearchResults');
+  
+  if (!container) {
+    console.error('❌ No se encontró el contenedor playerSearchResults');
+    return;
+  }
+  
+  // 🔥 LIMPIAR completamente antes de renderizar
+  container.innerHTML = '';
+  
+  if (!players || players.length === 0) {
+    container.innerHTML = `
+      <div class="p-4 text-center text-gray-500 dark:text-gray-400">
+        <i data-lucide="user-x" class="w-8 h-8 mx-auto mb-2 opacity-50"></i>
+        <p class="text-sm">No se encontraron jugadores</p>
+      </div>
+    `;
+    if (typeof lucide !== 'undefined' && lucide.createIcons) {
+      lucide.createIcons();
+    }
+    return;
+  }
+  
+  // Construir HTML de jugadores
+  const playersHTML = players.map(player => {
+    const isSelected = selectedPlayerId === player.id;
+    const avatar = player.avatar || getDefaultAvatar();
+    
+    return `
+      <div 
+        onclick="selectPlayer('${player.id}')" 
+        class="flex items-center gap-3 p-3 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer rounded-lg transition-colors ${isSelected ? 'bg-teal-50 dark:bg-teal-900 border-2 border-teal-500' : 'border border-transparent'}"
+      >
+        <img 
+          src="${avatar}" 
+          alt="${player.name}" 
+          class="w-12 h-12 rounded-full object-cover border-2 border-gray-200 dark:border-gray-600"
+        >
+        <div class="flex-1">
+          <p class="font-semibold text-gray-800 dark:text-white">${player.name}</p>
+          <p class="text-sm text-gray-500 dark:text-gray-400">${player.category}</p>
+        </div>
+        ${isSelected ? '<i data-lucide="check-circle" class="w-5 h-5 text-teal-600"></i>' : ''}
+      </div>
+    `;
+  }).join('');
+  
+  container.innerHTML = playersHTML;
+  
+  if (typeof lucide !== 'undefined' && lucide.createIcons) {
+    lucide.createIcons();
+  }
+}
+
+// Seleccionar un jugador
+function selectPlayer(playerId) {
+  selectedPlayerId = playerId;
+  const player = getPlayerById(playerId);
+  
+  if (!player) {
+    console.error('❌ Jugador no encontrado:', playerId);
+    return;
+  }
+  
+  const selectedName = document.getElementById('selectedPlayerName');
+  const selectedDisplay = document.getElementById('selectedPlayerDisplay');
+  
+  if (selectedName) {
+    selectedName.textContent = `${player.name} - ${player.category}`;
+  }
+  
+  if (selectedDisplay) {
+    selectedDisplay.classList.remove('hidden');
+  }
+  
+  // Re-renderizar con el jugador seleccionado
+  const currentPlayers = filteredPlayers.length > 0 ? filteredPlayers : getActivePlayers();
+  renderPlayerSearchResults(currentPlayers);
+  
+  // Limpiar input
+  const searchInput = document.getElementById('playerSearchInput');
+  if (searchInput) {
+    searchInput.value = '';
+  }
+  
+  filteredPlayers = [];
+  
+  showToast(`✅ ${player.name} seleccionado`);
+  
+  if (typeof lucide !== 'undefined' && lucide.createIcons) {
+    lucide.createIcons();
+  }
+}
+
+// Deseleccionar jugador
+function clearPlayerSelection() {
+  selectedPlayerId = null;
+  
+  const selectedDisplay = document.getElementById('selectedPlayerDisplay');
+  const searchInput = document.getElementById('playerSearchInput');
+  
+  if (selectedDisplay) {
+    selectedDisplay.classList.add('hidden');
+  }
+  
+  if (searchInput) {
+    searchInput.value = '';
+  }
+  
+  const allPlayers = getActivePlayers();
+  renderPlayerSearchResults(allPlayers);
+  
+  showToast('ℹ️ Selección eliminada');
+}
+
+// Hacer funciones globales
+window.searchPlayers = searchPlayers;
+window.selectPlayer = selectPlayer;
+window.clearPlayerSelection = clearPlayerSelection;
+
+console.log('✅ Buscador de jugadores cargado correctamente');
+
+
+// ========================================
+// HACER FUNCIONES GLOBALES
+// ========================================
+window.showAddPaymentModal = showAddPaymentModal;
+window.closePaymentModal = closePaymentModal;
+window.searchPlayers = searchPlayers;
+window.selectPlayer = selectPlayer;
+window.clearPlayerSelection = clearPlayerSelection;
+window.showEditPaymentModal = showEditPaymentModal;
+window.closeEditPaymentModal = closeEditPaymentModal;
+
+console.log('✅ Todas las funciones de payments.js exportadas globalmente');

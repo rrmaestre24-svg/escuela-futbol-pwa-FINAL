@@ -533,3 +533,92 @@ select option:hover {
         min-width: 44px;
     }
 }
+
+/* ========================================
+   🔍 ESTILOS PARA BUSCADOR DE JUGADORES
+   ======================================== */
+
+/* Contenedor de resultados */
+#playerSearchResults {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
+}
+
+#playerSearchResults::-webkit-scrollbar {
+  width: 6px;
+}
+
+#playerSearchResults::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#playerSearchResults::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.5);
+  border-radius: 3px;
+}
+
+#playerSearchResults::-webkit-scrollbar-thumb:hover {
+  background: rgba(156, 163, 175, 0.7);
+}
+
+/* Items de jugador */
+.player-search-item {
+  transition: all 0.2s ease;
+}
+
+.player-search-item:hover {
+  transform: translateX(4px);
+}
+
+.player-search-item img {
+  transition: transform 0.2s ease;
+}
+
+.player-search-item:hover img {
+  transform: scale(1.05);
+}
+
+/* Animación para el jugador seleccionado */
+#selectedPlayerDisplay {
+  animation: slideInDown 0.3s ease;
+}
+
+@keyframes slideInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Estado vacío */
+#playerSearchResults:empty::after {
+  content: "Cargando jugadores...";
+  display: block;
+  text-align: center;
+  padding: 2rem;
+  color: #9ca3af;
+  font-size: 0.875rem;
+}
+
+/* Focus en input de búsqueda */
+#playerSearchInput:focus {
+  border-color: #14b8a6;
+  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.1);
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  #playerSearchResults {
+    max-height: 200px;
+  }
+  
+  .player-search-item img {
+    width: 40px;
+    height: 40px;
+  }
+}
+
