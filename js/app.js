@@ -262,9 +262,14 @@ async function initApp() {
     lucide.createIcons();
   }
   
-  // ⭐ ACTIVAR LISTENER DE ELIMINACIÓN DE USUARIO
+// ⭐ ACTIVAR LISTENER DE ELIMINACIÓN DE USUARIO
   if (typeof setupUserDeletionListener === 'function') {
     setupUserDeletionListener();
+  }
+  
+  // 🔐 VERIFICAR LICENCIA
+  if (typeof initLicenseSystem === 'function') {
+    initLicenseSystem();
   }
   
   console.log('✅ MY CLUB inicializado correctamente');

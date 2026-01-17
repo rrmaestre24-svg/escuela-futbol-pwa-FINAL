@@ -2,7 +2,8 @@
 // CONFIGURACIÓN DE FIREBASE - AUTO-INICIALIZACIÓN
 // ========================================
 
-const firebaseConfig = {
+// 🔒 Intentar cargar configuración externa, si no existe usar valores por defecto
+const firebaseConfig = window.APP_CONFIG?.firebase || {
   apiKey: "AIzaSyBThVgzEsTLWSW7puKOVErZ_KOLDEq8v3A",
   authDomain: "my-club-fae98.firebaseapp.com",
   projectId: "my-club-fae98",
@@ -11,6 +12,13 @@ const firebaseConfig = {
   appId: "1:807792685568:web:06097faad391a9fd8c9ee5",
   measurementId: "G-5HRKNKEYKY"
 };
+
+// ℹ️ Informar si se está usando config externo o hardcodeado
+if (window.APP_CONFIG?.firebase) {
+  console.log('🔒 Usando configuración desde config.js (seguro)');
+} else {
+  console.warn('⚠️ Usando configuración hardcodeada (no recomendado para producción)');
+}
 
 let db = null;
 let auth = null;
@@ -84,12 +92,12 @@ console.log('✅ firebase-config.js cargado');
 // ✅ AUTO-INICIALIZAR Firebase cuando el DOM esté listo
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
-    console.log('📄 DOM cargado, inicializando Firebase...');
+    console.log('🔄 DOM cargado, inicializando Firebase...');
     initFirebase();
   });
 } else {
   // DOM ya está listo
-  console.log('📄 DOM ya listo, inicializando Firebase inmediatamente...');
+  console.log('🔄 DOM ya listo, inicializando Firebase inmediatamente...');
   initFirebase();
 }
 

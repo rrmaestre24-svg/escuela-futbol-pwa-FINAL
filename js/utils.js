@@ -139,12 +139,65 @@ function isValidPhone(phone) {
   return re.test(phone.replace(/\s/g, ''));
 }
 
-// Convertir imagen a Base64
+// Convertir imagen a Base64 - VERSIÓN MEJORADA
 function imageToBase64(file, callback) {
+  // ✅ Validar que sea un archivo
+  if (!file) {
+    console.error('❌ No se proporcionó archivo');
+    showToast('❌ No se seleccionó ningún archivo');
+    return;
+  }
+  
+  // ✅ Validar que sea una imagen
+  if (!file.type.startsWith('image/')) {
+    console.error('❌ Archivo no es imagen:', file.type);
+    showToast('❌ Por favor selecciona una imagen válida');
+    return;
+  }
+  
+  // ✅ Validar tamaño (máximo 5MB antes de comprimir)
+  const maxSizeBytes = 5 * 1024 * 1024;
+  if (file.size > maxSizeBytes) {
+    console.error('❌ Imagen muy grande:', (file.size / 1024 / 1024).toFixed(2), 'MB');
+    showToast('❌ La imagen es muy grande. Máximo 5MB');
+    return;
+  }
+  
+  console.log('📸 Procesando imagen:', {
+    nombre: file.name,
+    tipo: file.type,
+    tamaño: (file.size / 1024).toFixed(2) + ' KB'
+  });
+  
   const reader = new FileReader();
+  
   reader.onload = function(e) {
-    callback(e.target.result);
+    const base64 = e.target.result;
+    console.log('✅ Imagen cargada, tamaño Base64:', (base64.length / 1024).toFixed(2), 'KB');
+    
+    // Si la imagen es muy grande, comprimirla
+    if (base64.length > 1024 * 1024) {
+      console.log('🔄 Comprimiendo imagen...');
+      
+      if (typeof compressImageForFirestore === 'function') {
+        compressImageForFirestore(base64, 800, function(compressedBase64) {
+          console.log('✅ Imagen comprimida:', (compressedBase64.length / 1024).toFixed(2), 'KB');
+          callback(compressedBase64);
+        });
+      } else {
+        console.warn('⚠️ Función de compresión no disponible');
+        callback(base64);
+      }
+    } else {
+      callback(base64);
+    }
   };
+  
+  reader.onerror = function(error) {
+    console.error('❌ Error al leer archivo:', error);
+    showToast('❌ Error al cargar la imagen');
+  };
+  
   reader.readAsDataURL(file);
 }
 

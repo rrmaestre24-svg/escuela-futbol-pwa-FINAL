@@ -237,11 +237,28 @@
                 </button>
             </form>
             
-            <!-- Register Form -->
+          <!-- Register Form -->
             <form id="registerForm" class="hidden px-6 pb-8 space-y-4 max-h-[70vh] overflow-y-auto hide-scrollbar">
                 <p class="text-sm text-gray-300 mb-4">
                     <strong>📋 Paso 1:</strong> Datos del Club
                 </p>
+                
+                <!-- 🔐 CÓDIGO DE ACTIVACIÓN -->
+                <div class="input-line mb-4">
+                    <label class="block text-sm font-medium text-gray-300 mb-2">
+                        🎟️ Código de Activación *
+                    </label>
+                    <input type="text" id="regActivationCode" required
+                           class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl focus:outline-none focus:border-teal-500 text-white uppercase tracking-wider font-mono text-lg text-center"
+                           placeholder="XXXX-XXXX"
+                           maxlength="9"
+                           oninput="this.value = this.value.toUpperCase()">
+                    <p class="text-xs text-gray-400 mt-2">
+                        💡 Si no tienes código, <a href="https://wa.me/+573005452038" target="_blank" class="text-teal-400 hover:underline">contáctanos</a>
+                    </p>
+                </div>
+                
+                <!-- Logo del Club -->
                 
                 <!-- Logo del Club -->
                 <div class="text-center">
@@ -259,12 +276,13 @@
                     <input type="text" id="regClubName" required class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl focus:outline-none focus:border-teal-500 text-white placeholder-gray-400">
                 </div>
                 
-                <!-- Club ID -->
+               <!-- Club ID -->
                 <div class="input-line">
                     <label class="block text-sm font-medium text-gray-300 mb-2">ID único del Club *</label>
                     <input type="text" id="regClubId" required placeholder="club_mi_escuela" class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl focus:outline-none focus:border-teal-500 text-white placeholder-gray-400">
                     <p class="text-xs text-gray-400 mt-1">Este ID identificará tu club en la nube</p>
                 </div>
+
                 
                 <!-- Color y Moneda -->
                 <div class="grid grid-cols-2 gap-3">
@@ -400,6 +418,10 @@
     <script src="js/phone-utils.js"></script>
     <script src="js/auth.js"></script>
     <script src="js/pwa-icons.js"></script>
+    <!-- AGREGAR ESTA LÍNEA ANTES DE </body> -->
+    <script src="js/license-system.js"></script>
+</body>
+</html>
     
     <script>
         // Mostrar tab de login

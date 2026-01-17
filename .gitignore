@@ -1,5 +1,8 @@
 # Credenciales de Firebase (NO subir a GitHub)
-#js/firebase-config.js
+js/firebase-config.js
+
+# PERO en tu caso, las credenciales están en index.html directamente
+# Así que este archivo NO aplica porque NO tienes firebase-config.js separado
 
 # Archivos del sistema
 .DS_Store
@@ -16,8 +19,9 @@ desktop.ini
 # Logs
 *.log
 npm-debug.log*
+console.log
 
-# Node modules (si usas npm en el futuro)
+# Node modules
 node_modules/
 
 # Archivos temporales

@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Super Admin - MY CLUB</title>
+    
+    <!-- PWA Meta Tags -->
+    <meta name="description" content="Panel de administración de licencias MY CLUB">
+    <meta name="theme-color" content="#0d9488">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Super Admin">
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+    
+    <!-- Iconos para iOS -->
+    <link rel="apple-touch-icon" href="icons/icon-152x152.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-192x192.png">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-96x96.png">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class'
+        }
+    </script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <style>
+        /* Animaciones */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in { animation: fadeIn 0.3s ease-out; }
+        
+        /* Scrollbar personalizado */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1f2937; }
+        ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+        
+        /* Tabla responsive */
+        .table-container { overflow-x: auto; }
+        
+        /* Cards hover */
+        .stat-card:hover { transform: translateY(-2px); box-shadow: 0 10px 40px rgba(0,0,0,0.2); }
+        
+        /* PWA Install Button */
+        .install-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+    </style>
+</head>
+<body class="dark bg-gray-900 min-h-screen">
+    
+    <!-- Login Screen -->
+    <div id="loginScreen" class="min-h-screen flex items-center justify-center p-4">
+        <div class="bg-gray-800 rounded-2xl shadow-2xl p-8 w-full max-w-md animate-fade-in">
+            <div class="text-center mb-8">
+                <div class="text-6xl mb-4">🛡️</div>
+                <h1 class="text-2xl font-bold text-white">Panel Super Admin</h1>
+                <p class="text-gray-400 text-sm mt-2">MY CLUB - Sistema de Licencias</p>
+            </div>
+            
+            <form id="adminLoginForm" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">
+                        <i data-lucide="mail" class="w-4 h-4 inline mr-1"></i>
+                        Email
+                    </label>
+                    <input type="email" id="adminEmail" required
+                           class="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                           placeholder="admin@email.com">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">
+                        <i data-lucide="lock" class="w-4 h-4 inline mr-1"></i>
+                        Contraseña
+                    </label>
+                    <input type="password" id="adminPassword" required
+                           class="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                           placeholder="••••••••">
+                </div>
+                
+                <button type="submit" 
+                        class="w-full bg-gradient-to-r from-teal-600 to-blue-600 hover:from-teal-700 hover:to-blue-700 text-white font-bold py-3 rounded-xl transition-all">
+                    Ingresar
+                </button>
+            </form>
+            
+            <p class="text-center text-gray-500 text-xs mt-6">
+                Acceso restringido a administradores
+            </p>
+        </div>
+    </div>
+    
+    <!-- Panel Principal -->
+    <div id="adminPanel" class="hidden">
+        <!-- Header -->
+        <header class="bg-gray-800 border-b border-gray-700 px-6 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <span class="text-3xl">🛡️</span>
+                    <div>
+                        <h1 class="text-xl font-bold text-white">Panel Super Admin</h1>
+                        <p class="text-sm text-gray-400">MY CLUB - Sistema de Licencias</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-4">
+                    <span id="adminUserEmail" class="text-sm text-gray-400"></span>
+                    <button onclick="adminLogout()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm flex items-center gap-2">
+                        <i data-lucide="log-out" class="w-4 h-4"></i>
+                        Salir
+                    </button>
+                </div>
+            </div>
+        </header>
+        
+        <!-- Contenido Principal -->
+        <main class="p-6">
+            <!-- Stats Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <!-- Total Escuelas -->
+                <div class="stat-card bg-gradient-to-br from-teal-600 to-teal-700 rounded-2xl p-6 transition-all">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-teal-100 text-sm">Escuelas Activas</p>
+                            <p id="statActiveSchools" class="text-4xl font-bold text-white mt-1">0</p>
+                        </div>
+                        <div class="bg-white bg-opacity-20 p-3 rounded-xl">
+                            <i data-lucide="school" class="w-8 h-8 text-white"></i>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Escuelas Inactivas -->
+                <div class="stat-card bg-gradient-to-br from-red-600 to-red-700 rounded-2xl p-6 transition-all">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-red-100 text-sm">Escuelas Inactivas</p>
+                            <p id="statInactiveSchools" class="text-4xl font-bold text-white mt-1">0</p>
+                        </div>
+                        <div class="bg-white bg-opacity-20 p-3 rounded-xl">
+                            <i data-lucide="alert-circle" class="w-8 h-8 text-white"></i>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Próximos a Vencer -->
+                <div class="stat-card bg-gradient-to-br from-yellow-600 to-orange-600 rounded-2xl p-6 transition-all">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-yellow-100 text-sm">Próximos a Vencer (7 días)</p>
+                            <p id="statExpiringSoon" class="text-4xl font-bold text-white mt-1">0</p>
+                        </div>
+                        <div class="bg-white bg-opacity-20 p-3 rounded-xl">
+                            <i data-lucide="clock" class="w-8 h-8 text-white"></i>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Códigos Pendientes -->
+                <div class="stat-card bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl p-6 transition-all">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-blue-100 text-sm">Códigos Sin Usar</p>
+                            <p id="statPendingCodes" class="text-4xl font-bold text-white mt-1">0</p>
+                        </div>
+                        <div class="bg-white bg-opacity-20 p-3 rounded-xl">
+                            <i data-lucide="ticket" class="w-8 h-8 text-white"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Sección de Acciones Rápidas -->
+            <div class="bg-gray-800 rounded-2xl p-6 mb-8">
+                <h2 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                    <i data-lucide="zap" class="w-5 h-5 text-yellow-500"></i>
+                    Acciones Rápidas
+                </h2>
+                <div class="flex flex-wrap gap-4">
+                    <button onclick="showGenerateCodeModal()" 
+                            class="bg-teal-600 hover:bg-teal-700 text-white px-6 py-3 rounded-xl font-medium flex items-center gap-2 transition-all">
+                        <i data-lucide="plus-circle" class="w-5 h-5"></i>
+                        Generar Código
+                    </button>
+                    <button onclick="refreshData()" 
+                            class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-medium flex items-center gap-2 transition-all">
+                        <i data-lucide="refresh-cw" class="w-5 h-5"></i>
+                        Actualizar Datos
+                    </button>
+                    <button onclick="showCodesTab()" 
+                            class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-xl font-medium flex items-center gap-2 transition-all">
+                        <i data-lucide="list" class="w-5 h-5"></i>
+                        Ver Códigos
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Tabs -->
+            <div class="flex gap-2 mb-6">
+                <button onclick="showTab('schools')" id="tabSchools"
+                        class="px-6 py-3 rounded-xl font-medium transition-all bg-teal-600 text-white">
+                    🏫 Escuelas
+                </button>
+                <button onclick="showTab('codes')" id="tabCodes"
+                        class="px-6 py-3 rounded-xl font-medium transition-all bg-gray-700 text-gray-300 hover:bg-gray-600">
+                    🎟️ Códigos
+                </button>
+                <button onclick="showTab('alerts')" id="tabAlerts"
+                        class="px-6 py-3 rounded-xl font-medium transition-all bg-gray-700 text-gray-300 hover:bg-gray-600">
+                    ⚠️ Alertas
+                </button>
+            </div>
+            
+            <!-- Tab: Escuelas -->
+            <div id="schoolsSection" class="bg-gray-800 rounded-2xl p-6">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-xl font-bold text-white">Lista de Escuelas</h2>
+                    <div class="flex items-center gap-4">
+                        <input type="text" id="searchSchools" placeholder="Buscar escuela..."
+                               class="px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                               onkeyup="filterSchools()">
+                        <select id="filterStatus" onchange="filterSchools()"
+                                class="px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-teal-500">
+                            <option value="all">Todos</option>
+                            <option value="activo">Activos</option>
+                            <option value="gracia">En Gracia</option>
+                            <option value="inactivo">Inactivos</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="table-container">
+                    <table class="w-full">
+                        <thead>
+                            <tr class="text-left text-gray-400 text-sm border-b border-gray-700">
+                                <th class="pb-4 font-medium">Club</th>
+                                <th class="pb-4 font-medium">Teléfono</th>
+                                <th class="pb-4 font-medium">Plan</th>
+                                <th class="pb-4 font-medium">Vencimiento</th>
+                                <th class="pb-4 font-medium">Jugadores</th>
+                                <th class="pb-4 font-medium">Estado</th>
+                                <th class="pb-4 font-medium">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="schoolsTableBody">
+                            <!-- Se llena dinámicamente -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div id="noSchoolsMessage" class="hidden text-center py-12">
+                    <div class="text-6xl mb-4">🏫</div>
+                    <p class="text-gray-400">No hay escuelas registradas</p>
+                </div>
+            </div>
+            
+            <!-- Tab: Códigos -->
+            <div id="codesSection" class="bg-gray-800 rounded-2xl p-6 hidden">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-xl font-bold text-white">Códigos de Activación</h2>
+                    <button onclick="showGenerateCodeModal()" 
+                            class="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2">
+                        <i data-lucide="plus" class="w-4 h-4"></i>
+                        Nuevo Código
+                    </button>
+                </div>
+                
+                <div class="table-container">
+                    <table class="w-full">
+                        <thead>
+                            <tr class="text-left text-gray-400 text-sm border-b border-gray-700">
+                                <th class="pb-4 font-medium">Código</th>
+                                <th class="pb-4 font-medium">Plan</th>
+                                <th class="pb-4 font-medium">Creado</th>
+                                <th class="pb-4 font-medium">Expira</th>
+                                <th class="pb-4 font-medium">Estado</th>
+                                <th class="pb-4 font-medium">Usado Por</th>
+                                <th class="pb-4 font-medium">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="codesTableBody">
+                            <!-- Se llena dinámicamente -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div id="noCodesMessage" class="hidden text-center py-12">
+                    <div class="text-6xl mb-4">🎟️</div>
+                    <p class="text-gray-400">No hay códigos generados</p>
+                </div>
+            </div>
+            
+            <!-- Tab: Alertas -->
+            <div id="alertsSection" class="bg-gray-800 rounded-2xl p-6 hidden">
+                <h2 class="text-xl font-bold text-white mb-6">Alertas de Vencimiento</h2>
+                <div id="alertsList">
+                    <!-- Se llena dinámicamente -->
+                </div>
+                <div id="noAlertsMessage" class="hidden text-center py-12">
+                    <div class="text-6xl mb-4">✅</div>
+                    <p class="text-gray-400">No hay alertas pendientes</p>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <!-- Modal: Generar Código -->
+    <div id="generateCodeModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md animate-fade-in">
+            <div class="p-6 border-b border-gray-700">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-xl font-bold text-white flex items-center gap-2">
+                        <i data-lucide="ticket" class="w-5 h-5 text-teal-500"></i>
+                        Generar Código de Activación
+                    </h3>
+                    <button onclick="closeGenerateCodeModal()" class="text-gray-400 hover:text-white">
+                        <i data-lucide="x" class="w-6 h-6"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <form id="generateCodeForm" class="p-6 space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Plan de Suscripción</label>
+                    <select id="codePlan" required
+                            class="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-teal-500">
+                        <option value="mensual">Mensual</option>
+                        <option value="anual">Anual</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Precio (referencia)</label>
+                    <input type="text" id="codePrice" placeholder="Ej: $50.000 COP"
+                           class="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500">
+                    <p class="text-xs text-gray-500 mt-1">Solo para tu referencia, no afecta el sistema</p>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Notas (opcional)</label>
+                    <input type="text" id="codeNotes" placeholder="Ej: Cliente Juan Pérez"
+                           class="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500">
+                </div>
+                
+                <div class="bg-gray-700 rounded-xl p-4">
+                    <p class="text-sm text-gray-400">
+                        <i data-lucide="info" class="w-4 h-4 inline mr-1"></i>
+                        El código será válido por <strong class="text-white">7 días</strong> para ser usado.
+                    </p>
+                </div>
+                
+                <button type="submit" 
+                        class="w-full bg-gradient-to-r from-teal-600 to-blue-600 hover:from-teal-700 hover:to-blue-700 text-white font-bold py-3 rounded-xl transition-all">
+                    Generar Código
+                </button>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Modal: Código Generado -->
+    <div id="codeGeneratedModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md animate-fade-in text-center">
+            <div class="p-8">
+                <div class="text-6xl mb-4">🎉</div>
+                <h3 class="text-xl font-bold text-white mb-2">¡Código Generado!</h3>
+                <p class="text-gray-400 mb-6">Comparte este código con tu cliente</p>
+                
+                <div class="bg-gray-900 rounded-xl p-6 mb-6">
+                    <p id="generatedCodeDisplay" class="text-3xl font-mono font-bold text-teal-400 tracking-wider"></p>
+                </div>
+                
+                <div class="flex gap-3">
+                    <button onclick="copyGeneratedCode()" 
+                            class="flex-1 bg-teal-600 hover:bg-teal-700 text-white py-3 rounded-xl font-medium flex items-center justify-center gap-2">
+                        <i data-lucide="copy" class="w-4 h-4"></i>
+                        Copiar
+                    </button>
+                    <button onclick="shareViaWhatsApp()" 
+                            class="flex-1 bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-medium flex items-center justify-center gap-2">
+                        <i data-lucide="message-circle" class="w-4 h-4"></i>
+                        WhatsApp
+                    </button>
+                </div>
+                
+                <button onclick="closeCodeGeneratedModal()" 
+                        class="w-full mt-4 bg-gray-700 hover:bg-gray-600 text-white py-2 rounded-xl">
+                    Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal: Acciones de Escuela -->
+    <div id="schoolActionsModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg animate-fade-in">
+            <div class="p-6 border-b border-gray-700">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-xl font-bold text-white" id="schoolActionTitle">Acciones</h3>
+                    <button onclick="closeSchoolActionsModal()" class="text-gray-400 hover:text-white">
+                        <i data-lucide="x" class="w-6 h-6"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="p-6">
+                <input type="hidden" id="actionSchoolId">
+                
+                <!-- Info del Club -->
+                <div class="bg-gray-700 rounded-xl p-4 mb-6">
+                    <div class="flex items-center gap-4">
+                        <div class="text-4xl">🏫</div>
+                        <div>
+                            <h4 id="actionSchoolName" class="font-bold text-white text-lg"></h4>
+                            <p id="actionSchoolPhone" class="text-gray-400 text-sm"></p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Historial de Pagos -->
+                <div class="mb-6">
+                    <h4 class="font-bold text-white mb-3 flex items-center gap-2">
+                        <i data-lucide="history" class="w-4 h-4"></i>
+                        Historial de Pagos
+                    </h4>
+                    <div id="paymentHistoryList" class="max-h-40 overflow-y-auto space-y-2">
+                        <!-- Se llena dinámicamente -->
+                    </div>
+                </div>
+                
+                <!-- Acciones -->
+                <div class="space-y-3">
+                    <button onclick="extendSubscription('mensual')" 
+                            class="w-full bg-teal-600 hover:bg-teal-700 text-white py-3 rounded-xl font-medium flex items-center justify-center gap-2">
+                        <i data-lucide="plus-circle" class="w-5 h-5"></i>
+                        Extender 1 Mes
+                    </button>
+                    <button onclick="extendSubscription('anual')" 
+                            class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-medium flex items-center justify-center gap-2">
+                        <i data-lucide="plus-circle" class="w-5 h-5"></i>
+                        Extender 1 Año
+                    </button>
+                    <button onclick="toggleSchoolStatus()" id="toggleStatusBtn"
+                            class="w-full bg-yellow-600 hover:bg-yellow-700 text-white py-3 rounded-xl font-medium flex items-center justify-center gap-2">
+                        <i data-lucide="power" class="w-5 h-5"></i>
+                        <span id="toggleStatusText">Activar/Desactivar</span>
+                    </button>
+                    <button onclick="sendReminderWhatsApp()" 
+                            class="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-medium flex items-center justify-center gap-2">
+                        <i data-lucide="message-circle" class="w-5 h-5"></i>
+                        Enviar Recordatorio WhatsApp
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Toast -->
+    <div id="toast" class="hidden fixed bottom-8 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-lg shadow-lg z-50 border border-gray-700"></div>
+    
+    <!-- Firebase -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getFirestore, collection, doc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, query, where, orderBy } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+        import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+        
+        // Configuración Firebase (misma que tu app)
+        const firebaseConfig = {
+            apiKey: "AIzaSyBThVgzEsTLWSW7puKOVErZ_KOLDEq8v3A",
+            authDomain: "my-club-fae98.firebaseapp.com",
+            projectId: "my-club-fae98",
+            storageBucket: "my-club-fae98.firebasestorage.app",
+            messagingSenderId: "807792685568",
+            appId: "1:807792685568:web:06097faad391a9fd8c9ee5"
+        };
+        
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+        
+        // Hacer disponible globalmente
+        window.firebaseAdmin = { db, auth, collection, doc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, query, where, orderBy, signInWithEmailAndPassword, signOut, onAuthStateChanged };
+        
+        // ✅ Sin emails hardcodeados - La verificación se hace contra Firestore
+        console.log('✅ Firebase Admin cargado');
+    </script>
+    
+    <script src="admin.js"></script>
+    
+    <script>
+        // Inicializar Lucide Icons
+        lucide.createIcons();
+    </script>
+    
+    <!-- Botón de instalación PWA -->
+    <button id="installBtn" class="install-btn hidden bg-teal-600 hover:bg-teal-700 text-white px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 transition-all">
+        <i data-lucide="download" class="w-5 h-5"></i>
+        <span>Instalar App</span>
+    </button>
+    
+    <!-- Service Worker y PWA -->
+    <script>
+        // Variables para la instalación
+        let deferredPrompt;
+        const installBtn = document.getElementById('installBtn');
+        
+        // Registrar Service Worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', async () => {
+                try {
+                    const registration = await navigator.serviceWorker.register('./sw.js');
+                    console.log('✅ Service Worker registrado:', registration.scope);
+                    
+                    // Verificar actualizaciones
+                    registration.addEventListener('updatefound', () => {
+                        const newWorker = registration.installing;
+                        newWorker.addEventListener('statechange', () => {
+                            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                // Hay una nueva versión disponible
+                                if (confirm('🔄 Hay una nueva versión disponible. ¿Actualizar ahora?')) {
+                                    newWorker.postMessage({ type: 'SKIP_WAITING' });
+                                    window.location.reload();
+                                }
+                            }
+                        });
+                    });
+                } catch (error) {
+                    console.error('❌ Error al registrar Service Worker:', error);
+                }
+            });
+        }
+        
+        // Capturar evento de instalación
+        window.addEventListener('beforeinstallprompt', (e) => {
+            console.log('📱 PWA instalable detectada');
+            e.preventDefault();
+            deferredPrompt = e;
+            
+            // Mostrar botón de instalación
+            if (installBtn) {
+                installBtn.classList.remove('hidden');
+                lucide.createIcons();
+            }
+        });
+        
+        // Manejar click en botón de instalación
+        if (installBtn) {
+            installBtn.addEventListener('click', async () => {
+                if (!deferredPrompt) {
+                    console.log('⚠️ No hay prompt de instalación disponible');
+                    return;
+                }
+                
+                // Mostrar prompt de instalación
+                deferredPrompt.prompt();
+                
+                // Esperar respuesta del usuario
+                const { outcome } = await deferredPrompt.userChoice;
+                console.log('📱 Resultado de instalación:', outcome);
+                
+                if (outcome === 'accepted') {
+                    console.log('✅ PWA instalada');
+                    installBtn.classList.add('hidden');
+                }
+                
+                deferredPrompt = null;
+            });
+        }
+        
+        // Detectar si ya está instalada
+        window.addEventListener('appinstalled', () => {
+            console.log('✅ PWA instalada exitosamente');
+            if (installBtn) {
+                installBtn.classList.add('hidden');
+            }
+            deferredPrompt = null;
+        });
+        
+        // Verificar si ya está en modo standalone (instalada)
+        if (window.matchMedia('(display-mode: standalone)').matches) {
+            console.log('📱 Ejecutando como PWA instalada');
+            if (installBtn) {
+                installBtn.classList.add('hidden');
+            }
+        }
+    </script>
+</body>
+</html>

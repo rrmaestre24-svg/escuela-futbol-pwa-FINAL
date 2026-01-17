@@ -3,6 +3,77 @@
 // ========================================
 
 /**
+ * ✅ Comprimir imagen base64 para Firebase (máximo 800KB)
+ */
+function compressImageForFirebase(base64, maxWidth = 400, quality = 0.6) {
+  return new Promise((resolve) => {
+    // Si no es una imagen base64, devolver vacío
+    if (!base64 || !base64.startsWith('data:image')) {
+      resolve('');
+      return;
+    }
+    
+    // Si ya es pequeña (menos de 500KB), no comprimir
+    if (base64.length < 500000) {
+      resolve(base64);
+      return;
+    }
+    
+    const img = new Image();
+    img.onload = function() {
+      const canvas = document.createElement('canvas');
+      let width = img.width;
+      let height = img.height;
+      
+      // Redimensionar si es muy grande
+      if (width > maxWidth) {
+        height = (height * maxWidth) / width;
+        width = maxWidth;
+      }
+      
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+      
+      // Comprimir a JPEG con calidad reducida
+      const compressed = canvas.toDataURL('image/jpeg', quality);
+      console.log(`🗜️ Imagen comprimida: ${Math.round(base64.length/1024)}KB → ${Math.round(compressed.length/1024)}KB`);
+      resolve(compressed);
+    };
+    
+    img.onerror = function() {
+      console.warn('⚠️ Error al comprimir imagen, usando original');
+      resolve(base64);
+    };
+    
+    img.src = base64;
+  });
+}
+
+/**
+ * ✅ Preparar jugador para Firebase (comprimir avatar)
+ */
+async function preparePlayerForFirebase(player) {
+  if (!player) return player;
+  
+  const prepared = { ...player };
+  
+  // Comprimir avatar si existe y es muy grande
+  if (prepared.avatar && prepared.avatar.length > 500000) {
+    console.log(`🗜️ Comprimiendo avatar de jugador: ${prepared.name || prepared.id}`);
+    prepared.avatar = await compressImageForFirebase(prepared.avatar, 300, 0.5);
+  }
+  
+  // Comprimir foto si existe
+  if (prepared.photo && prepared.photo.length > 500000) {
+    prepared.photo = await compressImageForFirebase(prepared.photo, 300, 0.5);
+  }
+  
+  return prepared;
+}
+
+/**
  * ✅ Verificar si Firebase está listo y autenticado
  */
 function checkFirebaseReady() {
@@ -83,14 +154,16 @@ async function syncAllToFirebase() {
       console.log('⏭️ Configuración omitida (solo admin principal)');
     }
 
-    // 2️⃣ Jugadores - ✅ TODOS LOS ADMINS
+    // 2️⃣ Jugadores - ✅ TODOS LOS ADMINS (con compresión de avatar)
     const players = getAllPlayers() || [];
     let playersCount = 0;
     for (const player of players) {
       if (player.id) {
+        // ✅ Comprimir avatar antes de subir
+        const preparedPlayer = await preparePlayerForFirebase(player);
         await window.firebase.setDoc(
-          window.firebase.doc(window.firebase.db, `clubs/${clubId}/players`, player.id),
-          player
+          window.firebase.doc(window.firebase.db, `clubs/${clubId}/players`, preparedPlayer.id),
+          preparedPlayer
         );
         playersCount++;
       }
@@ -128,12 +201,18 @@ async function syncAllToFirebase() {
     console.log(`✅ ${eventsCount} eventos subidos`);
     syncedItems.push(`${eventsCount} eventos`);
 
-    // 5️⃣ Usuarios - ⚠️ SOLO ADMIN PRINCIPAL
+    // 5️⃣ Usuarios - ⚠️ SOLO ADMIN PRINCIPAL (con compresión de avatar)
     if (currentUser.isMainAdmin) {
       const users = getUsers() || [];
       let usersCount = 0;
       for (const user of users) {
         if (user.id) {
+          // ✅ Comprimir avatar de usuario si es muy grande
+          let compressedAvatar = user.avatar || '';
+          if (compressedAvatar && compressedAvatar.length > 500000) {
+            compressedAvatar = await compressImageForFirebase(compressedAvatar, 300, 0.5);
+          }
+          
           await window.firebase.setDoc(
             window.firebase.doc(window.firebase.db, `clubs/${clubId}/users`, user.id),
             {
@@ -142,7 +221,7 @@ async function syncAllToFirebase() {
               name: user.name,
               isMainAdmin: user.isMainAdmin || false,
               role: user.role || 'admin',
-              avatar: user.avatar || '',
+              avatar: compressedAvatar,
               phone: user.phone || '',
               birthDate: user.birthDate || '',
               createdAt: user.createdAt || new Date().toISOString()
@@ -364,12 +443,15 @@ async function savePlayerToFirebase(player) {
   }
 
   try {
+    // ✅ Comprimir avatar antes de guardar
+    const preparedPlayer = await preparePlayerForFirebase(player);
+    
     // ✅ RUTA CORREGIDA
     await window.firebase.setDoc(
-      window.firebase.doc(window.firebase.db, `clubs/${clubId}/players`, player.id),
-      player
+      window.firebase.doc(window.firebase.db, `clubs/${clubId}/players`, preparedPlayer.id),
+      preparedPlayer
     );
-    console.log('✅ Jugador guardado en Firebase:', player.id);
+    console.log('✅ Jugador guardado en Firebase:', preparedPlayer.id);
     return true;
   } catch (error) {
     console.error('❌ Error al guardar jugador:', error);

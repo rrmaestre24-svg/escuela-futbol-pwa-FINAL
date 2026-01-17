@@ -1,4 +1,4 @@
-const CACHE_NAME = 'my-club-v1.0.7'; // ← VERSIÓN INCREMENTADA
+const CACHE_NAME = 'my-club-v1.0.8';
 const urlsToCache = [
   './',
   './index.html',
@@ -26,7 +26,8 @@ const urlsToCache = [
   './js/utils.js',
   './js/install.js',
   './js/cache.js',
-  './js/pwa-icons.js'
+  './js/pwa-icons.js',          
+  './js/license-system.js'      
 ];
 
 // Instalación del Service Worker
@@ -38,7 +39,6 @@ self.addEventListener('install', event => {
         console.log('✅ Cache abierto');
         return cache.addAll(urlsToCache).catch(err => {
           console.error('❌ Error al cachear archivos:', err);
-          // Intentar cachear uno por uno
           return Promise.all(
             urlsToCache.map(url => {
               return cache.add(url).catch(err => {
@@ -49,7 +49,6 @@ self.addEventListener('install', event => {
         });
       })
   );
-  // Forzar activación inmediata
   self.skipWaiting();
 });
 
@@ -68,19 +67,16 @@ self.addEventListener('activate', event => {
       );
     })
   );
-  // Tomar control inmediato de todas las páginas
   return self.clients.claim();
 });
 
 // Escuchar mensajes
 self.addEventListener('message', event => {
-  // SKIP_WAITING para actualización inmediata
   if (event.data && event.data.type === 'SKIP_WAITING') {
     console.log('⭐️ Saltando espera - Activando nueva versión');
     self.skipWaiting();
   }
   
-  // ⭐ NUEVO: Actualizar iconos PWA dinámicamente
   if (event.data && event.data.type === 'UPDATE_ICONS') {
     console.log('🎨 Mensaje recibido: Actualizar iconos PWA');
     const icons = event.data.icons || [];
@@ -91,7 +87,6 @@ self.addEventListener('message', event => {
       icons.forEach((icon, index) => {
         if (icon.src && icon.src.startsWith('data:image/')) {
           console.log(`✅ Icono ${index + 1} registrado (base64)`);
-          // Los iconos en base64 están en el manifest, no requieren cache adicional
         }
       });
       
@@ -99,7 +94,6 @@ self.addEventListener('message', event => {
     });
   }
   
-  // ⭐ NUEVO: Limpiar cache de iconos antiguos
   if (event.data && event.data.type === 'CLEAR_ICON_CACHE') {
     console.log('🧹 Limpiando cache de iconos antiguos...');
     caches.open(CACHE_NAME).then(cache => {
@@ -117,18 +111,15 @@ self.addEventListener('message', event => {
 
 // Estrategia: Network First, fallback a Cache (solo para GET)
 self.addEventListener('fetch', event => {
-  // Ignorar chrome-extension y otras URLs no HTTP
   if (!event.request.url.startsWith('http')) {
     return;
   }
 
-  // Solo cachear solicitudes GET
   if (event.request.method !== 'GET') {
     event.respondWith(fetch(event.request));
     return;
   }
 
-  // ⭐ MANEJO ESPECIAL PARA MANIFEST DINÁMICO
   if (event.request.url.includes('blob:') && event.request.destination === 'manifest') {
     console.log('📄 Manifest dinámico solicitado');
     event.respondWith(fetch(event.request));
@@ -138,7 +129,6 @@ self.addEventListener('fetch', event => {
   event.respondWith(
     fetch(event.request)
       .then(response => {
-        // Si la respuesta es válida, cachearla
         if (response && response.status === 200) {
           const responseToCache = response.clone();
           caches.open(CACHE_NAME).then(cache => {
@@ -148,12 +138,10 @@ self.addEventListener('fetch', event => {
         return response;
       })
       .catch(() => {
-        // Si falla la red, buscar en cache
         return caches.match(event.request).then(response => {
           if (response) {
             return response;
           }
-          // Si no está en cache, mostrar página offline
           if (event.request.mode === 'navigate') {
             return caches.match('./offline.html');
           }

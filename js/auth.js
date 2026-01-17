@@ -192,6 +192,55 @@ function normalizePhone(phone) {
   return normalized;
 }
 
+// ✅ NUEVA FUNCIÓN: Formatear Club ID personalizado
+function formatClubId(input) {
+  if (!input) return null;
+  
+  // Convertir a minúsculas
+  let formatted = input.toLowerCase().trim();
+  
+  // Reemplazar espacios con guiones bajos
+  formatted = formatted.replace(/\s+/g, '_');
+  
+  // Eliminar caracteres especiales (solo permitir letras, números, guiones y guiones bajos)
+  formatted = formatted.replace(/[^a-z0-9_-]/g, '');
+  
+  // Eliminar guiones o guiones bajos múltiples
+  formatted = formatted.replace(/[-_]{2,}/g, '_');
+  
+  // Eliminar guiones o guiones bajos al inicio o final
+  formatted = formatted.replace(/^[-_]+|[-_]+$/g, '');
+  
+  return formatted || null;
+}
+
+// ✅ NUEVA FUNCIÓN: Verificar si el Club ID ya existe en Firebase
+async function checkClubIdExists(clubId) {
+  if (!window.firebase?.db) {
+    console.warn('⚠️ Firebase no disponible para verificar Club ID');
+    return false;
+  }
+  
+  try {
+    // Verificar en la colección 'clubs'
+    const clubRef = window.firebase.doc(window.firebase.db, 'clubs', clubId);
+    const clubSnap = await window.firebase.getDoc(clubRef);
+    
+    if (clubSnap.exists()) {
+      return true; // Ya existe
+    }
+    
+    // También verificar en 'licenses' por si acaso
+    const licenseRef = window.firebase.doc(window.firebase.db, 'licenses', clubId);
+    const licenseSnap = await window.firebase.getDoc(licenseRef);
+    
+    return licenseSnap.exists();
+  } catch (error) {
+    console.error('❌ Error al verificar Club ID:', error);
+    return false;
+  }
+}
+
 // Inicializar app
 function initApp() {
   console.log('✅ App inicializada');
@@ -473,7 +522,7 @@ document.getElementById('regAdminAvatar')?.addEventListener('change', function(e
   }
 });
 
-// ✅✅✅ LOGIN MEJORADO - CON CLUB ID OPCIONAL ✅✅✅
+// ✅✅✅ LOGIN MEJORADO - CON AUTO-REGISTRO EN SUBCOLECCIÓN ✅✅✅
 document.getElementById('loginForm')?.addEventListener('submit', async function(e) {
   e.preventDefault();
   
@@ -513,19 +562,19 @@ document.getElementById('loginForm')?.addEventListener('submit', async function(
     
     console.log('✅ Autenticado en Firebase');
     window.APP_STATE.currentUser = userCredential.user;
+    const firebaseUid = userCredential.user.uid;
     
     let clubId = null;
     
-    // 2️⃣ NUEVO: Si proporcionó clubId, intentar login directo
+    // 2️⃣ Si proporcionó clubId, intentar login directo
     if (clubIdInput) {
       console.log('⚡ Intentando login directo con clubId:', clubIdInput);
       
       try {
-        // Verificar que el usuario existe en ese club
         const userInClubRef = window.firebase.doc(
           window.firebase.db,
           `clubs/${clubIdInput}/users`,
-          userCredential.user.uid
+          firebaseUid
         );
         
         const userInClubSnap = await window.firebase.getDoc(userInClubRef);
@@ -537,12 +586,10 @@ document.getElementById('loginForm')?.addEventListener('submit', async function(
         } else {
           console.warn('⚠️ Usuario no encontrado en el club proporcionado');
           showToast('⚠️ Club ID incorrecto, buscando automáticamente...');
-          // Continuar con búsqueda automática
         }
       } catch (directError) {
         console.warn('⚠️ Error en login directo:', directError.message);
         showToast('⚠️ Buscando club automáticamente...');
-        // Continuar con búsqueda automática
       }
     }
     
@@ -563,11 +610,49 @@ document.getElementById('loginForm')?.addEventListener('submit', async function(
     localStorage.setItem('clubId', clubId);
     console.log('✅ clubId guardado:', clubId);
 
-    // 5️⃣ Descargar todos los datos del club
+    // 🆕 5️⃣ VERIFICAR Y REGISTRAR USUARIO EN LA SUBCOLECCIÓN
+    console.log('🔍 Verificando si usuario está registrado en club/users...');
+    
+    try {
+      const userInClubRef = window.firebase.doc(
+        window.firebase.db,
+        `clubs/${clubId}/users`,
+        firebaseUid
+      );
+      
+      const userInClubDoc = await window.firebase.getDoc(userInClubRef);
+      
+      if (!userInClubDoc.exists()) {
+        console.log('⚠️ Usuario NO está en club/users, registrando...');
+        showToast('🔧 Configurando acceso...');
+        
+        // Registrar usuario en la subcolección
+        await window.firebase.setDoc(userInClubRef, {
+          id: firebaseUid,
+          email: email,
+          name: userCredential.user.displayName || email.split('@')[0],
+          isMainAdmin: false, // Por defecto false
+          role: 'admin',
+          avatar: '',
+          phone: '',
+          birthDate: '',
+          joinedAt: new Date().toISOString()
+        });
+        
+        console.log('✅ Usuario registrado en club/users');
+      } else {
+        console.log('✅ Usuario ya existe en club/users');
+      }
+    } catch (registerError) {
+      console.error('❌ Error al verificar/registrar usuario:', registerError);
+      // Continuar de todos modos
+    }
+
+    // 6️⃣ Descargar todos los datos del club
     const downloaded = await downloadAllClubData(clubId);
 
     if (downloaded) {
-      // 6️⃣ Buscar usuario en la lista descargada
+      // 7️⃣ Buscar usuario en la lista descargada
       const users = getUsers();
       const user = users.find(u => u.email === email);
       
@@ -611,31 +696,48 @@ document.getElementById('loginForm')?.addEventListener('submit', async function(
   }
 });
 
-// ✅✅✅ REGISTRO SIMPLIFICADO - CON NORMALIZACIÓN DE TELÉFONOS ✅✅✅
 document.getElementById('registerForm')?.addEventListener('submit', async function(e) {
   e.preventDefault();
   
+  // ========================================
+  // 🔐 VALIDACIÓN DE CÓDIGO DE ACTIVACIÓN
+  // ========================================
+  const activationCode = document.getElementById('regActivationCode')?.value.trim().toUpperCase();
+  
+  if (!activationCode) {
+    showToast('❌ El código de activación es obligatorio');
+    return;
+  }
+  
+  if (!/^[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(activationCode)) {
+    showToast('❌ Formato de código inválido (XXXX-XXXX)');
+    return;
+  }
+  
+  showToast('⏳ Validando código...');
+  
+  if (typeof validateActivationCode !== 'function') {
+    showToast('❌ Error: Recarga la página');
+    return;
+  }
+  
+  const codeValidation = await validateActivationCode(activationCode);
+  
+  if (!codeValidation.valid) {
+    showToast('❌ ' + codeValidation.error);
+    return;
+  }
+  
+  console.log('✅ Código válido:', codeValidation.data);
+  const activationPlan = codeValidation.data.plan;
+  // ========================================
+  
+  // ========================================
   // ========================================
   // DATOS DEL CLUB
   // ========================================
   const clubLogoFile = document.getElementById('regClubLogo').files[0];
   const clubName = document.getElementById('regClubName').value.trim();
-  const clubIdInput = document.getElementById('regClubId').value.trim();
-  
-  // Generar clubId automáticamente si no se proporciona
-  let clubId = clubIdInput.toLowerCase().replace(/[^a-z0-9_]/g, '_');
-  if (!clubId && clubName) {
-    clubId = clubName.toLowerCase().replace(/[^a-z0-9]/g, '_');
-  }
-  
-  if (!clubId) {
-    showToast('⚠️ El ID del club es obligatorio');
-    return;
-  }
-  
-  const clubColor = document.getElementById('regClubColor').value;
-  const clubCurrency = document.getElementById('regClubCurrency').value;
-  const monthlyFee = parseFloat(document.getElementById('regMonthlyFee').value) || 0;
   
   // ⭐ NORMALIZACIÓN DE TELÉFONOS DEL CLUB
   const clubPhone = normalizePhone(document.getElementById('regClubPhone')?.value.trim() || '');
@@ -682,7 +784,7 @@ document.getElementById('registerForm')?.addEventListener('submit', async functi
     showToast('❌ Este email ya está registrado');
     return;
   }
-  
+
   // ========================================
   // PROCESAR IMÁGENES CON COMPRESIÓN
   // ========================================
@@ -715,7 +817,47 @@ document.getElementById('registerForm')?.addEventListener('submit', async functi
   // ========================================
   // FUNCIÓN PRINCIPAL DE REGISTRO
   // ========================================
-  const completeRegistration = async (clubLogo, adminAvatar) => {
+const completeRegistration = async (clubLogo, adminAvatar) => {
+    // ✅ OBTENER CLUB ID PERSONALIZADO DEL USUARIO
+    const customClubIdInput = document.getElementById('regClubId')?.value.trim() || '';
+    let clubId;
+    
+    if (customClubIdInput) {
+      // Formatear el ID personalizado
+      clubId = formatClubId(customClubIdInput);
+      
+      if (!clubId || clubId.length < 3) {
+        showToast('❌ El ID del club debe tener al menos 3 caracteres válidos');
+        return;
+      }
+      
+      if (clubId.length > 30) {
+        showToast('❌ El ID del club no puede tener más de 30 caracteres');
+        return;
+      }
+      
+      // Verificar que no exista
+      showToast('🔍 Verificando disponibilidad del ID...');
+      const exists = await checkClubIdExists(clubId);
+      
+      if (exists) {
+        showToast('❌ Este ID de club ya está en uso. Elige otro.');
+        return;
+      }
+      
+      console.log('✅ Club ID personalizado disponible:', clubId);
+    } else {
+      // Si no proporcionó ID, generar uno automático (fallback)
+      clubId = 'club_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 6);
+      console.log('🆔 Club ID generado automáticamente:', clubId);
+    }
+    
+    // ✅ OBTENER VALORES DE CONFIGURACIÓN ADICIONALES
+    const monthlyFee = document.getElementById('regMonthlyFee')?.value.trim() || '50000';
+    const clubCurrency = document.getElementById('regClubCurrency')?.value || 'COP';
+    const clubColor = document.getElementById('regClubColor')?.value || '#0d9488';
+    
+    console.log('🆔 Club ID final:', clubId);
     
     // Configuración del club (usando email del admin)
     const clubSettings = {
@@ -724,7 +866,7 @@ document.getElementById('registerForm')?.addEventListener('submit', async functi
       clubId: clubId,
       logo: clubLogo,
       email: adminEmail,
-      phone: clubPhone, // ⭐ YA NORMALIZADO
+      phone: clubPhone,
       address: clubAddress,
       city: clubCity,
       country: clubCountry,
@@ -842,11 +984,9 @@ document.getElementById('registerForm')?.addEventListener('submit', async functi
           birthDate: adminBirthDate || '',
           createdAt: new Date().toISOString()
         }
-      );
+    );
       console.log('✅ Usuario guardado en Firestore');
       
-      // ========================================
-      // PASO 4: GUARDAR CONFIGURACIÓN DEL CLUB
       // ========================================
       console.log('⚙️ Paso 4/6: Guardando configuración del club...');
       showToast('⚙️ Configurando club...');
@@ -873,8 +1013,29 @@ document.getElementById('registerForm')?.addEventListener('submit', async functi
       if (!mappingSaved) {
         console.warn('⚠️ Mapeo no guardado - puede afectar login multi-dispositivo');
       } else {
-        console.log('✅ Mapeo guardado correctamente');
+console.log('✅ Mapeo guardado correctamente');
       }
+      
+      // ========================================
+      // 🔐 ACTIVAR LICENCIA
+      // ========================================
+      console.log('🔐 Activando licencia...');
+      showToast('🔐 Activando licencia...');
+      
+      if (typeof activateLicense === 'function') {
+        const licenseActivated = await activateLicense(
+          activationCode,
+          clubId,
+          clubName,
+          clubPhone,
+          activationPlan
+        );
+        
+        if (licenseActivated) {
+          console.log('✅ Licencia activada');
+        }
+      }
+      // ========================================
       
       console.log('🎉 Paso 6/6: Finalizando registro...');
       showToast('✅ Club creado exitosamente');
