@@ -513,6 +513,7 @@
     </script>
     
     <!-- Botón de instalación PWA -->
+    <!-- Botón de instalación PWA -->
     <button id="installBtn" class="install-btn hidden bg-teal-600 hover:bg-teal-700 text-white px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 transition-all">
         <i data-lucide="download" class="w-5 h-5"></i>
         <span>Instalar App</span>
@@ -523,6 +524,9 @@
         // Variables para la instalación
         let deferredPrompt;
         const installBtn = document.getElementById('installBtn');
+        
+        // Detectar si es móvil
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
         
         // Registrar Service Worker
         if ('serviceWorker' in navigator) {
@@ -553,13 +557,31 @@
         // Capturar evento de instalación
         window.addEventListener('beforeinstallprompt', (e) => {
             console.log('📱 PWA instalable detectada');
-            e.preventDefault();
-            deferredPrompt = e;
             
-            // Mostrar botón de instalación
-            if (installBtn) {
-                installBtn.classList.remove('hidden');
-                lucide.createIcons();
+            // ✅ SOLUCIÓN: En móvil, NO bloquear el banner nativo
+            if (!isMobile) {
+                // En desktop, prevenir el banner y mostrar botón personalizado
+                e.preventDefault();
+                deferredPrompt = e;
+                
+                // Mostrar botón de instalación solo en desktop
+                if (installBtn) {
+                    installBtn.classList.remove('hidden');
+                    lucide.createIcons();
+                }
+            } else {
+                // En móvil, guardar el prompt pero dejar que aparezca el banner nativo
+                deferredPrompt = e;
+                console.log('📱 Móvil detectado - Usando banner nativo de Chrome');
+                
+                // OPCIONAL: También mostrar el botón en móvil después de 2 segundos
+                // por si el usuario cierra el banner
+                setTimeout(() => {
+                    if (installBtn && deferredPrompt) {
+                        installBtn.classList.remove('hidden');
+                        lucide.createIcons();
+                    }
+                }, 2000);
             }
         });
         
