@@ -179,73 +179,6 @@ document.getElementById('paymentStatus')?.addEventListener('change', function() 
   }
 });
 
-// Guardar pago (INGRESO)
-document.getElementById('paymentForm')?.addEventListener('submit', async function(e) {
-  e.preventDefault();
-  
-  const paymentId = document.getElementById('paymentId').value;
-  // Validar que haya un jugador seleccionado
-  if (!selectedPlayerId) {
-    showToast('❌ Selecciona un jugador');
-    document.getElementById('playerSearchInput').focus();
-    return;
-  }
-   const playerId = selectedPlayerId;
-  const type = document.getElementById('paymentType').value;
-  const concept = document.getElementById('paymentConcept').value;
-  const amount = parseFloat(document.getElementById('paymentAmount').value);
-  const dueDate = document.getElementById('paymentDueDate').value;
-  const status = document.getElementById('paymentStatus').value;
-  const paidDate = document.getElementById('paymentPaidDate').value;
-  const method = document.getElementById('paymentMethod').value;
-  
-
-  
-  const paymentData = {
-    playerId,
-    type,
-    concept,
-    amount,
-    dueDate,
-    status,
-    paidDate: status === 'Pagado' ? paidDate : null,
-    method: status === 'Pagado' ? method : null
-  };
-  
-  if (paymentId) {
-    // 🆕 EDITAR: Agregar editedBy
-    updatePayment(paymentId, {
-      ...paymentData,
-      editedBy: getAuditInfo() // 🆕 AUDITORÍA
-    });
-    showToast('✅ Pago actualizado');
-  } else {
-    // 🆕 CREAR: Agregar createdBy
-    const invoiceNumber = status === 'Pagado' ? await getNextInvoiceNumber() : null;
-    const newPayment = {
-      id: generateId(),
-      ...paymentData,
-      invoiceNumber,
-      createdAt: getCurrentDate(),
-      createdBy: getAuditInfo() // 🆕 AUDITORÍA
-    };
-    
-    savePayment(newPayment);
-    showToast('✅ Pago registrado');
-    
-    // 🚀 AUTO-REDIRECT: Si está pagado, generar PDF + WhatsApp
-    if (status === 'Pagado') {
-      setTimeout(() => {
-        generateInvoicePDFWithWhatsApp(newPayment.id);
-      }, 500);
-    }
-  }
-  
-  closePaymentModal();
-  renderPayments();
-  updateDashboard();
-  updateNotifications();
-});
 
 // ========================================
 // RENDERIZADO
@@ -1491,3 +1424,85 @@ window.showEditPaymentModal = showEditPaymentModal;
 window.closeEditPaymentModal = closeEditPaymentModal;
 
 console.log('✅ Todas las funciones de payments.js exportadas globalmente');
+
+// ========================================
+// DELEGACIÓN DE EVENTOS - PREVENIR DUPLICACIÓN
+// ========================================
+
+// Función para manejar el submit del formulario de pagos
+async function handlePaymentFormSubmit(e) {
+  const paymentId = document.getElementById('paymentId').value;
+  
+  // Validar que haya un jugador seleccionado
+  if (!selectedPlayerId) {
+    showToast('❌ Selecciona un jugador');
+    document.getElementById('playerSearchInput').focus();
+    return;
+  }
+  
+  const playerId = selectedPlayerId;
+  const type = document.getElementById('paymentType').value;
+  const concept = document.getElementById('paymentConcept').value;
+  const amount = parseFloat(document.getElementById('paymentAmount').value);
+  const dueDate = document.getElementById('paymentDueDate').value;
+  const status = document.getElementById('paymentStatus').value;
+  const paidDate = document.getElementById('paymentPaidDate').value;
+  const method = document.getElementById('paymentMethod').value;
+  
+  const paymentData = {
+    playerId,
+    type,
+    concept,
+    amount,
+    dueDate,
+    status,
+    paidDate: status === 'Pagado' ? paidDate : null,
+    method: status === 'Pagado' ? method : null
+  };
+  
+  if (paymentId) {
+    // 🆕 EDITAR: Agregar editedBy
+    updatePayment(paymentId, {
+      ...paymentData,
+      editedBy: getAuditInfo() // 🆕 AUDITORÍA
+    });
+    showToast('✅ Pago actualizado');
+  } else {
+    // 🆕 CREAR: Agregar createdBy
+    const invoiceNumber = status === 'Pagado' ? await getNextInvoiceNumber() : null;
+    const newPayment = {
+      id: generateId(),
+      ...paymentData,
+      invoiceNumber,
+      createdAt: getCurrentDate(),
+      createdBy: getAuditInfo() // 🆕 AUDITORÍA
+    };
+    
+    savePayment(newPayment);
+    showToast('✅ Pago registrado');
+    
+    // 🚀 AUTO-REDIRECT: Si está pagado, generar PDF + WhatsApp
+    if (status === 'Pagado') {
+      setTimeout(() => {
+        generateInvoicePDFWithWhatsApp(newPayment.id);
+      }, 500);
+    }
+  }
+  
+  closePaymentModal();
+  renderPayments();
+  updateDashboard();
+  updateNotifications();
+}
+
+// Registrar el listener con delegación de eventos (SOLO UNA VEZ)
+document.addEventListener('DOMContentLoaded', function() {
+  document.body.addEventListener('submit', function(e) {
+    if (e.target && e.target.id === 'paymentForm') {
+      e.preventDefault();
+      handlePaymentFormSubmit(e);
+    }
+  });
+}, { once: true }); // ← ESTO ASEGURA QUE SOLO SE REGISTRE UNA VEZ
+
+console.log('✅ Sistema anti-duplicación de pagos activado');
