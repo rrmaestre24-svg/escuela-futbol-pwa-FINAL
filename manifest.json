@@ -2,7 +2,7 @@
   "name": "MY CLUB - Gestión de Escuelas de Fútbol",
   "short_name": "MY CLUB",
   "description": "Aplicación completa para gestión de escuelas de fútbol infantil",
-  "start_url": "/login.html",  
+  "start_url": "/login",
   "scope": "/",
   "display": "standalone",
   "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
