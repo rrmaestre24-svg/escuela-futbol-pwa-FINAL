@@ -141,17 +141,17 @@ async function syncAllToFirebase() {
 
     let syncedItems = [];
 
-    // 1️⃣ Configuración del club - ⚠️ SOLO ADMIN PRINCIPAL
+    // 1️⃣ Configuración del club - ⚠️ SOLO ADMIN PRINCIPAL puede editar settings
     if (currentUser.isMainAdmin) {
       const settings = getSchoolSettings();
       await window.firebase.setDoc(
         window.firebase.doc(window.firebase.db, `clubs/${clubId}/settings`, "main"),
         { ...settings, lastUpdated: new Date().toISOString() }
       );
-      console.log('✅ Configuración subida');
+      console.log('✅ Configuración del club subida');
       syncedItems.push('configuración');
     } else {
-      console.log('⏭️ Configuración omitida (solo admin principal)');
+      console.log('⏭️ Configuración del club omitida (solo admin principal puede editarla)');
     }
 
     // 2️⃣ Jugadores - ✅ TODOS LOS ADMINS (con compresión de avatar)
@@ -201,7 +201,7 @@ async function syncAllToFirebase() {
     console.log(`✅ ${eventsCount} eventos subidos`);
     syncedItems.push(`${eventsCount} eventos`);
 
-    // 5️⃣ Usuarios - ⚠️ SOLO ADMIN PRINCIPAL (con compresión de avatar)
+    // 5️⃣ Usuarios - ⚠️ SOLO ADMIN PRINCIPAL puede sincronizar usuarios
     if (currentUser.isMainAdmin) {
       const users = getUsers() || [];
       let usersCount = 0;
@@ -233,7 +233,7 @@ async function syncAllToFirebase() {
       console.log(`✅ ${usersCount} usuarios subidos`);
       syncedItems.push(`${usersCount} usuarios`);
     } else {
-      console.log('⏭️ Usuarios omitidos (solo admin principal)');
+      console.log('⏭️ Gestión de usuarios omitida (solo admin principal puede agregar/eliminar usuarios)');
     }
     
     // 6️⃣ Egresos - ✅ TODOS LOS ADMINS
@@ -275,7 +275,7 @@ async function syncAllToFirebase() {
 }
 
 /**
- * ✅ Descarga todos los datos desde Firebase - CORREGIDO
+ * ✅ Descarga todos los datos desde Firebase - CORREGIDO CON RE-SYNC DE CONTADOR
  */
 async function downloadFromFirebase() {
   if (!checkFirebaseReady()) return;
@@ -287,9 +287,9 @@ async function downloadFromFirebase() {
   }
 
   try {
-    console.log('🔥 Descargando datos desde Firebase...');
-    console.log('🔥 Club ID:', clubId);
-    showToast('🔥 Descargando datos...');
+    console.log('📥 Descargando datos desde Firebase...');
+    console.log('📥 Club ID:', clubId);
+    showToast('📥 Descargando datos...');
 
     // 1️⃣ Configuración - ✅ RUTA CORREGIDA
     const settingsSnap = await window.firebase.getDoc(
@@ -375,7 +375,17 @@ async function downloadFromFirebase() {
     const thirdPartyIncomes = [];
     thirdPartySnapshot.forEach(doc => thirdPartyIncomes.push(doc.data()));
     localStorage.setItem('thirdPartyIncomes', JSON.stringify(thirdPartyIncomes));
-    console.log(`✅ ${thirdPartyIncomes.length} otros ingresos descargados`); 
+    console.log(`✅ ${thirdPartyIncomes.length} otros ingresos descargados`);
+
+    // ✅ 8️⃣ IMPORTANTE: Limpiar marca de sincronización y re-sincronizar contador
+    const syncKey = `counterSynced_${clubId}`;
+    localStorage.removeItem(syncKey);
+    console.log('🔄 Forzando re-sincronización del contador de facturas...');
+    
+    // Re-sincronizar el contador con la cantidad real de facturas de pagos
+    if (typeof syncInvoiceCounter === 'function') {
+      await syncInvoiceCounter();
+    }
 
     showToast(`✅ Datos descargados: ${players.length} jugadores, ${payments.length} pagos, ${events.length} eventos, ${users.length} usuarios, ${expenses.length} egresos`);
     
@@ -716,6 +726,7 @@ async function deleteExpenseFromFirebase(expenseId) {
     return false;
   }
 }
+
 async function saveThirdPartyIncomeToFirebase(income) {
   if (!checkFirebaseReady()) return false;
   const clubId = getClubId();
@@ -807,25 +818,26 @@ async function getNextInvoiceNumberFromFirebase() {
 }
 
 /**
- * Consecutivo local (fallback)
+ * ✅ Consecutivo local (fallback) - SOLO CUENTA PAYMENTS
  */
 function getNextInvoiceNumberLocal() {
   const year = new Date().getFullYear();
-  const payments = getPayments();
-  const expenses = getExpenses();
-  const thirdPartyIncomes = typeof getThirdPartyIncomes === 'function' ? getThirdPartyIncomes() : [];
+  const payments = getPayments() || []; // ✅ Solo pagos de jugadores
   
-  const allInvoices = [...payments, ...expenses, ...thirdPartyIncomes];
-  const invoicesThisYear = allInvoices.filter(item => 
+  // ✅ Contar solo facturas de pagos de este año
+  const invoicesThisYear = payments.filter(item => 
     item.invoiceNumber && item.invoiceNumber.includes(year.toString())
   );
   
   const nextNumber = invoicesThisYear.length + 1;
-  return `INV-${year}-${String(nextNumber).padStart(4, '0')}`;
+  const invoiceNumber = `INV-${year}-${String(nextNumber).padStart(4, '0')}`;
+  
+  console.log('📋 Consecutivo local (payments):', invoiceNumber);
+  return invoiceNumber;
 }
 
 /**
- * Sincronizar contador con la cantidad real de facturas
+ * ✅ Sincronizar contador con la cantidad real de facturas - SOLO PAYMENTS
  */
 async function syncInvoiceCounter() {
   if (!checkFirebaseReady()) return;
@@ -834,18 +846,14 @@ async function syncInvoiceCounter() {
   if (!clubId) return;
 
   try {
-    // Contar todas las facturas en Firebase
+    // ✅ Contar SOLO las facturas de payments (pagos de jugadores)
     const paymentsSnap = await window.firebase.getDocs(
       window.firebase.collection(window.firebase.db, `clubs/${clubId}/payments`)
     );
-    const expensesSnap = await window.firebase.getDocs(
-      window.firebase.collection(window.firebase.db, `clubs/${clubId}/expenses`)
-    );
-    const thirdPartySnap = await window.firebase.getDocs(
-      window.firebase.collection(window.firebase.db, `clubs/${clubId}/thirdPartyIncomes`)
-    );
 
-    const totalInvoices = paymentsSnap.size + expensesSnap.size + thirdPartySnap.size;
+    const totalInvoices = paymentsSnap.size; // ✅ Solo facturas de pagos
+
+    console.log(`📊 Facturas de pagos en Firebase: ${totalInvoices}`);
 
     // Actualizar contador
     const counterRef = window.firebase.doc(window.firebase.db, `clubs/${clubId}/config`, 'invoiceCounter');
@@ -855,8 +863,8 @@ async function syncInvoiceCounter() {
       syncedAt: new Date().toISOString()
     });
 
-    console.log(`✅ Contador sincronizado: ${totalInvoices} facturas`);
-    showToast(`✅ Contador sincronizado: ${totalInvoices} facturas`);
+    console.log(`✅ Contador sincronizado: ${totalInvoices} facturas de pago`);
+    showToast(`✅ Contador sincronizado: ${totalInvoices} facturas de pago`);
 
   } catch (error) {
     console.error('❌ Error al sincronizar contador:', error);

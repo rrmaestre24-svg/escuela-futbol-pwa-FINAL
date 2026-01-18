@@ -1,4 +1,4 @@
-const CACHE_NAME = 'my-club-v1.0.8';
+const CACHE_NAME = 'my-club-v1.0.10';
 const urlsToCache = [
   './',
   './index.html',
@@ -27,7 +27,7 @@ const urlsToCache = [
   './js/install.js',
   './js/cache.js',
   './js/pwa-icons.js',          
-  './js/license-system.js'      
+  './js/license-system.js'
 ];
 
 // Instalación del Service Worker
@@ -49,32 +49,60 @@ self.addEventListener('install', event => {
         });
       })
   );
+  // 🆕 FORZAR ACTIVACIÓN INMEDIATA
   self.skipWaiting();
 });
 
-// Activación del Service Worker
+// Activación del Service Worker - 🆕 LIMPIEZA AGRESIVA
 self.addEventListener('activate', event => {
   console.log('⚽ Service Worker: Activando v' + CACHE_NAME);
   event.waitUntil(
     caches.keys().then(cacheNames => {
       return Promise.all(
         cacheNames.map(cacheName => {
+          // 🆕 ELIMINAR TODAS LAS CACHÉS ANTERIORES (no solo las diferentes)
           if (cacheName !== CACHE_NAME) {
             console.log('🗑️ Eliminando cache antigua:', cacheName);
             return caches.delete(cacheName);
           }
         })
       );
+    }).then(() => {
+      console.log('✅ Cachés antiguas eliminadas');
+      // 🆕 FORZAR CONTROL DE TODOS LOS CLIENTES INMEDIATAMENTE
+      return self.clients.claim();
     })
   );
-  return self.clients.claim();
 });
 
 // Escuchar mensajes
 self.addEventListener('message', event => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
-    console.log('⭐️ Saltando espera - Activando nueva versión');
+    console.log('⭐ Saltando espera - Activando nueva versión');
     self.skipWaiting();
+  }
+  
+  // 🆕 MENSAJE PARA LIMPIAR CACHE MANUALMENTE
+  if (event.data && event.data.type === 'CLEAR_ALL_CACHE') {
+    console.log('🧹 Limpiando TODA la caché...');
+    event.waitUntil(
+      caches.keys().then(cacheNames => {
+        return Promise.all(
+          cacheNames.map(cacheName => {
+            console.log('🗑️ Eliminando:', cacheName);
+            return caches.delete(cacheName);
+          })
+        );
+      }).then(() => {
+        console.log('✅ Toda la caché eliminada');
+        // Recargar página para obtener archivos frescos
+        return self.clients.matchAll().then(clients => {
+          clients.forEach(client => {
+            client.postMessage({ type: 'CACHE_CLEARED' });
+          });
+        });
+      })
+    );
   }
   
   if (event.data && event.data.type === 'UPDATE_ICONS') {
@@ -109,7 +137,7 @@ self.addEventListener('message', event => {
   }
 });
 
-// Estrategia: Network First, fallback a Cache (solo para GET)
+// 🆕 ESTRATEGIA MEJORADA: Network First con timeout corto
 self.addEventListener('fetch', event => {
   if (!event.request.url.startsWith('http')) {
     return;
@@ -126,6 +154,41 @@ self.addEventListener('fetch', event => {
     return;
   }
 
+  // 🆕 Para archivos JS y CSS, SIEMPRE intentar red primero con timeout corto
+  const isJsOrCss = event.request.url.endsWith('.js') || event.request.url.endsWith('.css');
+  
+  if (isJsOrCss) {
+    event.respondWith(
+      // Timeout de 3 segundos para archivos JS/CSS
+      Promise.race([
+        fetch(event.request).then(response => {
+          if (response && response.status === 200) {
+            const responseToCache = response.clone();
+            caches.open(CACHE_NAME).then(cache => {
+              cache.put(event.request, responseToCache);
+              console.log('📦 Actualizado en cache:', event.request.url);
+            });
+          }
+          return response;
+        }),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('timeout')), 3000)
+        )
+      ]).catch(() => {
+        // Si falla la red, usar cache
+        return caches.match(event.request).then(response => {
+          if (response) {
+            console.log('📂 Sirviendo desde cache:', event.request.url);
+            return response;
+          }
+          return new Response('Archivo no disponible', { status: 503 });
+        });
+      })
+    );
+    return;
+  }
+
+  // Para otros archivos, estrategia normal
   event.respondWith(
     fetch(event.request)
       .then(response => {
@@ -151,3 +214,4 @@ self.addEventListener('fetch', event => {
 });
 
 console.log('✅ Service Worker cargado - v' + CACHE_NAME);
+console.log('🔄 Modo: Network First con limpieza agresiva');

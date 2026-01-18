@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reparación de Sincronización - My Club</title>
+  
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    
+    .container {
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      max-width: 500px;
+      width: 100%;
+      overflow: hidden;
+    }
+    
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 40px 30px;
+      text-align: center;
+    }
+    
+    .header h1 {
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+    
+    .header p {
+      font-size: 16px;
+      opacity: 0.95;
+      line-height: 1.5;
+    }
+    
+    .icon {
+      font-size: 40px;
+    }
+    
+    .content {
+      padding: 40px 30px;
+    }
+    
+    .info-box {
+      background: #f8f9ff;
+      border-left: 4px solid #667eea;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 30px;
+    }
+    
+    .info-box h3 {
+      color: #667eea;
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+    
+    .info-box p {
+      color: #4a5568;
+      font-size: 14px;
+      line-height: 1.6;
+      margin-bottom: 8px;
+    }
+    
+    .info-box ul {
+      list-style: none;
+      margin-top: 10px;
+    }
+    
+    .info-box li {
+      color: #4a5568;
+      font-size: 14px;
+      padding: 6px 0;
+      padding-left: 24px;
+      position: relative;
+    }
+    
+    .info-box li:before {
+      content: "✓";
+      position: absolute;
+      left: 0;
+      color: #667eea;
+      font-weight: bold;
+    }
+    
+    .progress-container {
+      display: none;
+      margin-bottom: 20px;
+    }
+    
+    .progress-container.active {
+      display: block;
+    }
+    
+    .progress-bar-container {
+      background: #e2e8f0;
+      border-radius: 10px;
+      height: 12px;
+      overflow: hidden;
+      margin-bottom: 15px;
+    }
+    
+    .progress-bar {
+      background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+      height: 100%;
+      width: 0%;
+      transition: width 0.5s ease;
+      border-radius: 10px;
+    }
+    
+    .progress-text {
+      text-align: center;
+      color: #4a5568;
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+    
+    .progress-step {
+      background: white;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-bottom: 8px;
+      font-size: 14px;
+      color: #4a5568;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      opacity: 0.5;
+      transition: all 0.3s ease;
+    }
+    
+    .progress-step.active {
+      border-color: #667eea;
+      background: #f8f9ff;
+      opacity: 1;
+      transform: scale(1.02);
+    }
+    
+    .progress-step.completed {
+      border-color: #48bb78;
+      background: #f0fff4;
+      opacity: 1;
+    }
+    
+    .progress-step.error {
+      border-color: #f56565;
+      background: #fff5f5;
+      opacity: 1;
+    }
+    
+    .step-icon {
+      font-size: 18px;
+    }
+    
+    .button-container {
+      display: flex;
+      gap: 15px;
+    }
+    
+    .btn {
+      flex: 1;
+      padding: 16px 24px;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    }
+    
+    .btn-primary:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+    }
+    
+    .btn-secondary {
+      background: #e2e8f0;
+      color: #4a5568;
+    }
+    
+    .btn-secondary:hover:not(:disabled) {
+      background: #cbd5e0;
+    }
+    
+    .success-message {
+      display: none;
+      text-align: center;
+      padding: 30px;
+    }
+    
+    .success-message.active {
+      display: block;
+    }
+    
+    .success-icon {
+      font-size: 64px;
+      margin-bottom: 20px;
+    }
+    
+    .success-message h2 {
+      color: #48bb78;
+      font-size: 24px;
+      margin-bottom: 10px;
+    }
+    
+    .success-message p {
+      color: #4a5568;
+      font-size: 16px;
+      line-height: 1.6;
+      margin-bottom: 20px;
+    }
+    
+    .countdown {
+      font-size: 14px;
+      color: #667eea;
+      font-weight: 600;
+      margin-top: 10px;
+    }
+    
+    .error-message {
+      display: none;
+      background: #fff5f5;
+      border: 2px solid #f56565;
+      border-radius: 10px;
+      padding: 20px;
+      margin-top: 20px;
+    }
+    
+    .error-message.active {
+      display: block;
+    }
+    
+    .error-message h3 {
+      color: #c53030;
+      font-size: 16px;
+      margin-bottom: 10px;
+    }
+    
+    .error-message p {
+      color: #4a5568;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    .spinner {
+      display: inline-block;
+      animation: spin 1s linear infinite;
+    }
+    
+    @media (max-width: 600px) {
+      .header h1 {
+        font-size: 24px;
+      }
+      
+      .content {
+        padding: 30px 20px;
+      }
+      
+      .button-container {
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>
+        <span class="icon">⚽</span>
+        Reparar Sincronización
+      </h1>
+      <p>Actualización de datos del club</p>
+    </div>
+    
+    <div class="content">
+      <div id="initialView">
+        <div class="info-box">
+          <h3>📋 ¿Qué hace esta herramienta?</h3>
+          <p>Esta página reparará la sincronización de datos entre tu dispositivo y el servidor. El proceso incluye:</p>
+          <ul>
+            <li>Limpiar datos desactualizados</li>
+            <li>Descargar información actualizada</li>
+            <li>Verificar la integridad de los datos</li>
+            <li>Actualizar la caché de la app</li>
+          </ul>
+        </div>
+        
+        <div class="info-box">
+          <h3>⏱️ Tiempo estimado</h3>
+          <p>El proceso toma aproximadamente <strong>10-20 segundos</strong>. Por favor no cierres esta ventana hasta que termine.</p>
+        </div>
+        
+        <div class="button-container">
+          <button class="btn btn-primary" id="startBtn">
+            <span>🔧</span>
+            Iniciar Reparación
+          </button>
+        </div>
+      </div>
+      
+      <div class="progress-container" id="progressView">
+        <div class="progress-text" id="progressText">Iniciando...</div>
+        <div class="progress-bar-container">
+          <div class="progress-bar" id="progressBar"></div>
+        </div>
+        
+        <div id="stepsContainer">
+          <div class="progress-step" id="step1">
+            <span class="step-icon">⏳</span>
+            <span>1. Limpiando caché...</span>
+          </div>
+          <div class="progress-step" id="step2">
+            <span class="step-icon">⏳</span>
+            <span>2. Verificando Firebase...</span>
+          </div>
+          <div class="progress-step" id="step3">
+            <span class="step-icon">⏳</span>
+            <span>3. Limpiando datos locales...</span>
+          </div>
+          <div class="progress-step" id="step4">
+            <span class="step-icon">⏳</span>
+            <span>4. Descargando desde servidor...</span>
+          </div>
+          <div class="progress-step" id="step5">
+            <span class="step-icon">⏳</span>
+            <span>5. Verificando datos...</span>
+          </div>
+          <div class="progress-step" id="step6">
+            <span class="step-icon">⏳</span>
+            <span>6. Finalizando...</span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="success-message" id="successView">
+        <div class="success-icon">✅</div>
+        <h2>¡Reparación Exitosa!</h2>
+        <p>Tu app ha sido sincronizada correctamente. Ahora todos tus datos están actualizados.</p>
+        <p class="countdown" id="countdown">Redirigiendo en 5 segundos...</p>
+        <div class="button-container">
+          <button class="btn btn-primary" onclick="window.location.href='./index.html'">
+            <span>🏠</span>
+            Ir a la App
+          </button>
+        </div>
+      </div>
+      
+      <div class="error-message" id="errorView">
+        <h3>⚠️ Se encontraron errores</h3>
+        <p id="errorText">Algunos pasos fallaron durante la reparación. Por favor, intenta de nuevo o contacta al administrador.</p>
+        <div class="button-container" style="margin-top: 20px;">
+          <button class="btn btn-secondary" onclick="location.reload()">
+            <span>🔄</span>
+            Reintentar
+          </button>
+          <button class="btn btn-primary" onclick="window.location.href='./index.html'">
+            <span>🏠</span>
+            Ir a la App
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Cargar Firebase Config desde la app -->
+  <script src="./js/firebase-config.js"></script>
+  
+  <script>
+    // ========================================
+    // 🔧 SCRIPT DE REPARACIÓN Y SINCRONIZACIÓN
+    // ========================================
+
+    console.log('🔧 Iniciando script de reparación integrado...');
+
+    /**
+     * Estado del proceso
+     */
+    const repairState = {
+      step: 0,
+      totalSteps: 6,
+      errors: [],
+      logs: []
+    };
+
+    /**
+     * Actualizar progreso en la UI
+     */
+    function updateProgress(step, message, isError = false) {
+      repairState.step = step;
+      repairState.logs.push({ step, message, isError, time: new Date().toISOString() });
+      
+      console.log(isError ? '❌' : '✅', `Paso ${step}/${repairState.totalSteps}:`, message);
+      
+      const progressBar = document.getElementById('progressBar');
+      const progressText = document.getElementById('progressText');
+      const percentage = Math.round((step / repairState.totalSteps) * 100);
+      
+      if (progressBar) progressBar.style.width = percentage + '%';
+      if (progressText) progressText.textContent = message;
+      
+      // Actualizar paso visual
+      const stepElement = document.getElementById(`step${step}`);
+      if (stepElement) {
+        if (isError) {
+          stepElement.classList.add('error');
+          stepElement.querySelector('.step-icon').textContent = '❌';
+        } else {
+          stepElement.classList.add('completed');
+          stepElement.querySelector('.step-icon').textContent = '✅';
+        }
+        
+        // Remover clase active de todos
+        document.querySelectorAll('.progress-step').forEach(el => {
+          el.classList.remove('active');
+        });
+        
+        // Activar siguiente paso
+        if (step < repairState.totalSteps) {
+          const nextStep = document.getElementById(`step${step + 1}`);
+          if (nextStep) {
+            nextStep.classList.add('active');
+            nextStep.querySelector('.step-icon').textContent = '⏳';
+          }
+        }
+      }
+      
+      if (isError) {
+        repairState.errors.push(message);
+      }
+    }
+
+    /**
+     * Esperar un tiempo determinado
+     */
+    function wait(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    /**
+     * 🆕 PASO 1: Limpiar Service Worker y caché
+     */
+    async function clearServiceWorkerCache() {
+      updateProgress(1, 'Limpiando caché del navegador...');
+      
+      try {
+        // Limpiar todas las cachés
+        if ('caches' in window) {
+          const cacheNames = await caches.keys();
+          await Promise.all(
+            cacheNames.map(cacheName => {
+              console.log('🗑️ Eliminando caché:', cacheName);
+              return caches.delete(cacheName);
+            })
+          );
+          console.log('✅ Cachés eliminadas:', cacheNames.length);
+        }
+        
+        // Actualizar Service Workers
+        if ('serviceWorker' in navigator) {
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          
+          for (const registration of registrations) {
+            console.log('🔄 Actualizando Service Worker...');
+            
+            // Enviar mensaje para limpiar cache
+            if (registration.active) {
+              registration.active.postMessage({ type: 'CLEAR_ALL_CACHE' });
+            }
+            
+            // Forzar actualización
+            await registration.update();
+          }
+        }
+        
+        await wait(1000);
+        updateProgress(1, '✅ Caché limpiada correctamente');
+        return true;
+      } catch (error) {
+        console.error('Error en clearServiceWorkerCache:', error);
+        updateProgress(1, '⚠️ Caché parcialmente limpiada (continuando...)');
+        return true; // Continuar aunque falle
+      }
+    }
+
+    /**
+     * 🆕 PASO 2: Verificar Firebase con timeout extendido
+     */
+    async function verifyFirebase() {
+      updateProgress(2, 'Conectando con Firebase...');
+      
+      try {
+        // Esperar hasta 30 segundos a que Firebase esté listo
+        let attempts = 0;
+        const maxAttempts = 60; // 30 segundos
+        
+        while (attempts < maxAttempts) {
+          // Verificar múltiples condiciones
+          if (window.firebase && 
+              window.firebase.db && 
+              window.APP_STATE?.firebaseReady) {
+            
+            console.log('✅ Firebase está listo');
+            console.log('  - DB:', !!window.firebase.db);
+            console.log('  - Auth:', !!window.firebase.auth);
+            console.log('  - User:', !!window.firebase.auth?.currentUser);
+            
+            updateProgress(2, '✅ Firebase conectado correctamente');
+            return true;
+          }
+          
+          await wait(500);
+          attempts++;
+          
+          // Log cada 5 segundos
+          if (attempts % 10 === 0) {
+            console.log(`⏳ Esperando Firebase... (${attempts/2}s)`);
+          }
+        }
+        
+        console.warn('⚠️ Firebase no respondió en 30 segundos');
+        updateProgress(2, '⚠️ Firebase lento, pero continuando...');
+        return true; // Continuar de todas formas
+      } catch (error) {
+        console.error('Error en verifyFirebase:', error);
+        updateProgress(2, '⚠️ Error al verificar Firebase (continuando...)');
+        return true; // Continuar
+      }
+    }
+
+    /**
+     * 🆕 PASO 3: Limpiar localStorage (excepto credenciales)
+     */
+    async function clearLocalStorage() {
+      updateProgress(3, 'Limpiando datos locales...');
+      
+      try {
+        const itemsToKeep = [
+          'currentUser',
+          'clubId',
+          'clubName',
+          'authToken',
+          'lastLogin',
+          'lastRepair'
+        ];
+        
+        const itemsToRemove = [
+          'players',
+          'payments',
+          'expenses',
+          'thirdPartyIncomes',
+          'calendar',
+          'settings',
+          'users'
+        ];
+        
+        // Guardar items importantes
+        const backup = {};
+        itemsToKeep.forEach(key => {
+          const value = localStorage.getItem(key);
+          if (value) {
+            backup[key] = value;
+          }
+        });
+        
+        // Eliminar items específicos
+        let removedCount = 0;
+        itemsToRemove.forEach(key => {
+          if (localStorage.getItem(key)) {
+            localStorage.removeItem(key);
+            removedCount++;
+            console.log('🗑️ Eliminado:', key);
+          }
+        });
+        
+        // Restaurar items importantes
+        Object.keys(backup).forEach(key => {
+          localStorage.setItem(key, backup[key]);
+        });
+        
+        console.log('✅ Items eliminados:', removedCount);
+        console.log('✅ Items preservados:', Object.keys(backup).length);
+        
+        await wait(500);
+        updateProgress(3, `✅ ${removedCount} items locales eliminados`);
+        return true;
+      } catch (error) {
+        console.error('Error en clearLocalStorage:', error);
+        updateProgress(3, '❌ Error al limpiar localStorage: ' + error.message, true);
+        return false;
+      }
+    }
+
+    /**
+     * 🆕 PASO 4: Descargar datos desde Firebase
+     */
+    async function downloadFromFirebase() {
+      updateProgress(4, 'Descargando datos desde Firebase...');
+      
+      try {
+        // Verificar Firebase nuevamente
+        if (!window.firebase || !window.firebase.db) {
+          throw new Error('Firebase no está disponible');
+        }
+        
+        const clubId = localStorage.getItem('clubId');
+        if (!clubId) {
+          throw new Error('No se encontró clubId');
+        }
+        
+        console.log('📥 Descargando datos para club:', clubId);
+        
+        let totalDownloaded = 0;
+        
+        // Descargar configuración (puede fallar si no eres admin principal)
+        try {
+          const settingsDoc = await window.firebase.getDoc(
+            window.firebase.doc(window.firebase.db, `clubs/${clubId}/settings`, 'main')
+          );
+          if (settingsDoc.exists()) {
+            localStorage.setItem('settings', JSON.stringify(settingsDoc.data()));
+            totalDownloaded++;
+            console.log('✅ Configuración descargada');
+          }
+        } catch (e) {
+          console.warn('⚠️ No se pudo descargar configuración (puede que no tengas permisos)');
+        }
+        
+        // Descargar jugadores
+        const playersSnap = await window.firebase.getDocs(
+          window.firebase.collection(window.firebase.db, `clubs/${clubId}/players`)
+        );
+        const players = playersSnap.docs.map(doc => doc.data());
+        localStorage.setItem('players', JSON.stringify(players));
+        totalDownloaded += players.length;
+        console.log('✅ Jugadores descargados:', players.length);
+        
+        // Descargar pagos
+        const paymentsSnap = await window.firebase.getDocs(
+          window.firebase.collection(window.firebase.db, `clubs/${clubId}/payments`)
+        );
+        const payments = paymentsSnap.docs.map(doc => doc.data());
+        localStorage.setItem('payments', JSON.stringify(payments));
+        totalDownloaded += payments.length;
+        console.log('✅ Pagos descargados:', payments.length);
+        
+        // Descargar gastos
+        const expensesSnap = await window.firebase.getDocs(
+          window.firebase.collection(window.firebase.db, `clubs/${clubId}/expenses`)
+        );
+        const expenses = expensesSnap.docs.map(doc => doc.data());
+        localStorage.setItem('expenses', JSON.stringify(expenses));
+        totalDownloaded += expenses.length;
+        console.log('✅ Gastos descargados:', expenses.length);
+        
+        // Descargar otros ingresos
+        const incomesSnap = await window.firebase.getDocs(
+          window.firebase.collection(window.firebase.db, `clubs/${clubId}/thirdPartyIncomes`)
+        );
+        const incomes = incomesSnap.docs.map(doc => doc.data());
+        localStorage.setItem('thirdPartyIncomes', JSON.stringify(incomes));
+        totalDownloaded += incomes.length;
+        console.log('✅ Otros ingresos descargados:', incomes.length);
+        
+        // Descargar eventos
+        const eventsSnap = await window.firebase.getDocs(
+          window.firebase.collection(window.firebase.db, `clubs/${clubId}/events`)
+        );
+        const events = eventsSnap.docs.map(doc => doc.data());
+        localStorage.setItem('calendar', JSON.stringify(events));
+        totalDownloaded += events.length;
+        console.log('✅ Eventos descargados:', events.length);
+        
+        // Descargar usuarios (puede fallar si no eres admin principal)
+        try {
+          const usersSnap = await window.firebase.getDocs(
+            window.firebase.collection(window.firebase.db, `clubs/${clubId}/users`)
+          );
+          const users = usersSnap.docs.map(doc => doc.data());
+          localStorage.setItem('users', JSON.stringify(users));
+          totalDownloaded += users.length;
+          console.log('✅ Usuarios descargados:', users.length);
+        } catch (e) {
+          console.warn('⚠️ No se pudieron descargar usuarios (puede que no tengas permisos)');
+        }
+        
+        await wait(500);
+        updateProgress(4, `✅ ${totalDownloaded} registros descargados desde Firebase`);
+        return true;
+      } catch (error) {
+        console.error('Error en downloadFromFirebase:', error);
+        updateProgress(4, '❌ Error al descargar datos: ' + error.message, true);
+        return false;
+      }
+    }
+
+    /**
+     * 🆕 PASO 5: Verificar integridad de datos
+     */
+    async function verifyDataIntegrity() {
+      updateProgress(5, 'Verificando integridad de datos...');
+      
+      try {
+        const checks = [];
+        
+        // Verificar jugadores
+        const playersData = localStorage.getItem('players');
+        if (playersData) {
+          const players = JSON.parse(playersData);
+          checks.push(`${players.length} jugadores`);
+        }
+        
+        // Verificar pagos
+        const paymentsData = localStorage.getItem('payments');
+        if (paymentsData) {
+          const payments = JSON.parse(paymentsData);
+          checks.push(`${payments.length} pagos`);
+        }
+        
+        // Verificar gastos
+        const expensesData = localStorage.getItem('expenses');
+        if (expensesData) {
+          const expenses = JSON.parse(expensesData);
+          checks.push(`${expenses.length} gastos`);
+        }
+        
+        // Verificar otros ingresos
+        const incomesData = localStorage.getItem('thirdPartyIncomes');
+        if (incomesData) {
+          const incomes = JSON.parse(incomesData);
+          checks.push(`${incomes.length} otros ingresos`);
+        }
+        
+        console.log('✅ Datos verificados:', checks.join(', '));
+        
+        await wait(500);
+        updateProgress(5, `✅ Datos verificados: ${checks.join(', ')}`);
+        return true;
+      } catch (error) {
+        console.error('Error en verifyDataIntegrity:', error);
+        updateProgress(5, '❌ Error al verificar datos: ' + error.message, true);
+        return false;
+      }
+    }
+
+    /**
+     * 🆕 PASO 6: Marcar como reparado
+     */
+    async function markAsRepaired() {
+      updateProgress(6, 'Finalizando reparación...');
+      
+      try {
+        const clubId = localStorage.getItem('clubId');
+        const timestamp = new Date().toISOString();
+        
+        // Guardar marca de reparación
+        localStorage.setItem('lastRepair', timestamp);
+        localStorage.setItem(`repaired_${clubId}`, timestamp);
+        
+        console.log('✅ Reparación completada en:', timestamp);
+        
+        await wait(500);
+        updateProgress(6, '✅ ¡Reparación completada exitosamente!');
+        return true;
+      } catch (error) {
+        console.error('Error en markAsRepaired:', error);
+        updateProgress(6, '❌ Error al finalizar: ' + error.message, true);
+        return false;
+      }
+    }
+
+    /**
+     * 🚀 EJECUTAR REPARACIÓN COMPLETA
+     */
+    async function executeRepair() {
+      console.log('🚀 Iniciando proceso de reparación...');
+      
+      const steps = [
+        clearServiceWorkerCache,
+        verifyFirebase,
+        clearLocalStorage,
+        downloadFromFirebase,
+        verifyDataIntegrity,
+        markAsRepaired
+      ];
+      
+      let hasErrors = false;
+      
+      for (const step of steps) {
+        const success = await step();
+        if (!success) {
+          hasErrors = true;
+          // Pero continuar con los siguientes pasos
+        }
+        await wait(500);
+      }
+      
+      // Mostrar resultado final
+      const initialView = document.getElementById('initialView');
+      const progressView = document.getElementById('progressView');
+      const successView = document.getElementById('successView');
+      const errorView = document.getElementById('errorView');
+      
+      progressView.classList.remove('active');
+      
+      if (!hasErrors || repairState.errors.length === 0) {
+        console.log('✅ Reparación completada exitosamente');
+        successView.classList.add('active');
+        
+        // Countdown y redirect
+        let seconds = 5;
+        const countdownEl = document.getElementById('countdown');
+        
+        const interval = setInterval(() => {
+          seconds--;
+          countdownEl.textContent = `Redirigiendo en ${seconds} segundos...`;
+          
+          if (seconds <= 0) {
+            clearInterval(interval);
+            window.location.href = './index.html';
+          }
+        }, 1000);
+      } else {
+        console.error('❌ Reparación completada con errores');
+        errorView.classList.add('active');
+        document.getElementById('errorText').textContent = 
+          'Errores: ' + repairState.errors.join(', ');
+      }
+      
+      return !hasErrors;
+    }
+
+    // ========================================
+    // INICIALIZACIÓN
+    // ========================================
+
+    // Referencias a elementos
+    const startBtn = document.getElementById('startBtn');
+    const initialView = document.getElementById('initialView');
+    const progressView = document.getElementById('progressView');
+
+    // Listener del botón de inicio
+    startBtn.addEventListener('click', async () => {
+      console.log('🔘 Botón presionado, iniciando reparación...');
+      
+      // Ocultar vista inicial
+      initialView.style.display = 'none';
+      
+      // Mostrar vista de progreso
+      progressView.classList.add('active');
+      
+      // Esperar a que Firebase esté listo
+      await wait(2000);
+      
+      // Ejecutar reparación
+      await executeRepair();
+    });
+
+    console.log('✅ Página de reparación cargada correctamente');
+  </script>
+</body>
+</html>

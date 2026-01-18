@@ -346,7 +346,7 @@ window.addEventListener('DOMContentLoaded', function() {
 console.log('✅ app.js cargado (ACTUALIZADO)');
 
 // ========================================
-// LISTENER: Detectar eliminación de usuario en tiempo real
+// LISTENER: Detectar eliminación de usuario en tiempo real - ✅ CON MANEJO DE ERRORES
 // ========================================
 function setupUserDeletionListener() {
   const currentUser = getCurrentUser();
@@ -365,14 +365,13 @@ function setupUserDeletionListener() {
   
   console.log('👁️ Activando listener de eliminación para:', currentUser.email);
   
-  // Crear referencia al documento del usuario actual
   const userDocRef = window.firebase.doc(
     window.firebase.db,
     `clubs/${clubId}/users`,
     currentUser.id
   );
   
-  // Escuchar cambios en tiempo real
+  // ✅ Escuchar cambios con manejo de errores
   const unsubscribe = window.firebase.onSnapshot(
     userDocRef,
     (docSnapshot) => {
@@ -382,33 +381,31 @@ function setupUserDeletionListener() {
         
         showToast('⚠️ Tu acceso ha sido revocado por el administrador');
         
-        // Esperar 2 segundos para que vea el mensaje
         setTimeout(async () => {
           try {
-            // Cerrar sesión de Firebase
             if (window.firebase?.auth) {
               await window.firebase.signOut(window.firebase.auth);
             }
             
-            // Limpiar datos locales
             clearCurrentUser();
-            
-            // Redirigir al login
             window.location.href = 'login.html';
           } catch (error) {
             console.error('Error al cerrar sesión:', error);
-            // Forzar recarga si hay error
             window.location.href = 'login.html';
           }
         }, 2000);
       }
     },
     (error) => {
-      console.error('Error en listener de usuario:', error);
+      // ✅ MANEJO DE ERRORES DE PERMISOS
+      if (error.code === 'permission-denied') {
+        console.warn('⚠️ Sin permisos para escuchar usuario (puede ser normal si el usuario fue eliminado)');
+      } else {
+        console.error('❌ Error en listener de usuario:', error);
+      }
     }
   );
   
-  // Guardar función para desuscribirse después
   window.userDeletionUnsubscribe = unsubscribe;
 }
 
