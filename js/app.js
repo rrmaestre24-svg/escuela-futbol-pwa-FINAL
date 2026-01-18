@@ -346,7 +346,7 @@ window.addEventListener('DOMContentLoaded', function() {
 console.log('✅ app.js cargado (ACTUALIZADO)');
 
 // ========================================
-// LISTENER: Detectar eliminación de usuario en tiempo real - ✅ CON MANEJO DE ERRORES
+// LISTENER: Detectar eliminación de usuario en tiempo real
 // ========================================
 function setupUserDeletionListener() {
   const currentUser = getCurrentUser();
@@ -365,48 +365,78 @@ function setupUserDeletionListener() {
   
   console.log('👁️ Activando listener de eliminación para:', currentUser.email);
   
+  // ✅ RUTA CORRECTA
   const userDocRef = window.firebase.doc(
     window.firebase.db,
-    `clubs/${clubId}/users`,
-    currentUser.id
+    `clubs/${clubId}/users/${currentUser.id}`  // ✅ Ruta completa
   );
   
-  // ✅ Escuchar cambios con manejo de errores
+  // Escuchar cambios con manejo de errores
   const unsubscribe = window.firebase.onSnapshot(
     userDocRef,
     (docSnapshot) => {
-      // Si el documento ya no existe = usuario fue eliminado
+      // Verificar si el documento fue eliminado
       if (!docSnapshot.exists()) {
-        console.log('🚨 Usuario eliminado de Firebase - Cerrando sesión...');
-        
-        showToast('⚠️ Tu acceso ha sido revocado por el administrador');
-        
-        setTimeout(async () => {
-          try {
-            if (window.firebase?.auth) {
-              await window.firebase.signOut(window.firebase.auth);
-            }
-            
-            clearCurrentUser();
-            window.location.href = 'login.html';
-          } catch (error) {
-            console.error('Error al cerrar sesión:', error);
-            window.location.href = 'login.html';
-          }
-        }, 2000);
+        console.log('🚨 Usuario ELIMINADO de Firebase - Cerrando sesión...');
+        handleUserDeleted();
+        return;
       }
+      
+      // Verificar si fue marcado como eliminado
+      const userData = docSnapshot.data();
+      if (userData?.deleted === true) {
+        console.log('🚨 Usuario MARCADO como eliminado - Cerrando sesión...');
+        handleUserDeleted();
+        return;
+      }
+      
+      console.log('✅ Usuario activo - Listener funcionando');
     },
     (error) => {
-      // ✅ MANEJO DE ERRORES DE PERMISOS
+      // Manejo de errores de permisos
       if (error.code === 'permission-denied') {
-        console.warn('⚠️ Sin permisos para escuchar usuario (puede ser normal si el usuario fue eliminado)');
+        console.warn('⚠️ Sin permisos para escuchar usuario (puede haber sido eliminado)');
+        // Si hay error de permisos, probablemente el usuario fue eliminado
+        handleUserDeleted();
       } else {
         console.error('❌ Error en listener de usuario:', error);
       }
     }
   );
   
+  // Guardar unsubscribe para poder limpiarlo después
   window.userDeletionUnsubscribe = unsubscribe;
+}
+
+// Función para manejar usuario eliminado
+function handleUserDeleted() {
+  console.log('🚪 Procesando eliminación de usuario...');
+  
+  showToast('⚠️ Tu acceso ha sido revocado por el administrador', 'error');
+  
+  setTimeout(async () => {
+    try {
+      // Cerrar sesión de Firebase
+      if (window.firebase?.auth) {
+        await window.firebase.signOut(window.firebase.auth);
+      }
+      
+      // Limpiar todo el almacenamiento local
+      clearCurrentUser();
+      localStorage.clear();
+      sessionStorage.clear();
+      
+      // Redirigir al login
+      window.location.href = 'login.html';
+      
+    } catch (error) {
+      console.error('Error al cerrar sesión:', error);
+      // Forzar redirección de todas formas
+      localStorage.clear();
+      sessionStorage.clear();
+      window.location.href = 'login.html';
+    }
+  }, 2000); // 2 segundos para que el usuario lea el mensaje
 }
 
 console.log('✅ Sistema de detección de eliminación cargado');

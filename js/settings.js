@@ -152,7 +152,6 @@ function loadSettings() {
   }, 100);
 }
 
-// Cambiar avatar del usuario - MEJORADO
 document.getElementById('changeAvatar')?.addEventListener('change', function(e) {
   const file = e.target.files[0];
   if (file) {
@@ -160,25 +159,32 @@ document.getElementById('changeAvatar')?.addEventListener('change', function(e) 
       showToast('❌ Por favor selecciona una imagen válida');
       return;
     }
-    if (file.size > 2 * 1024 * 1024) {
-      showToast('❌ La imagen es muy grande. Máximo 2MB');
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('❌ La imagen es muy grande. Máximo 5MB');
       return;
     }
-    imageToBase64(file, function(base64) {
+    
+    // ✅ COMPRIMIR IMAGEN ANTES DE GUARDAR
+    imageToBase64(file, async function(base64) {
+      console.log('🗜️ Comprimiendo avatar del usuario actual...');
+      const compressed = await compressImageForFirebase(base64, 300, 0.6);
+      
       const userAvatar = document.getElementById('userAvatar');
-      if (userAvatar) userAvatar.src = base64;
+      if (userAvatar) userAvatar.src = compressed;
       
       const currentUser = getCurrentUser();
       if (currentUser) {
-        updateUser(currentUser.id, { avatar: base64 });
-        setCurrentUser({ ...currentUser, avatar: base64 });
+        updateUser(currentUser.id, { avatar: compressed });
+        setCurrentUser({ ...currentUser, avatar: compressed });
         showToast('✅ Foto actualizada');
       }
+      console.log(`✅ Avatar comprimido: ${Math.round(base64.length/1024)}KB → ${Math.round(compressed.length/1024)}KB`);
     });
   }
 });
 
-// Cambiar logo del club - MEJORADO
+
+// Cambiar logo del club - ✅ CON COMPRESIÓN
 document.getElementById('changeClubLogo')?.addEventListener('change', function(e) {
   const file = e.target.files[0];
   if (file) {
@@ -186,19 +192,26 @@ document.getElementById('changeClubLogo')?.addEventListener('change', function(e
       showToast('❌ Por favor selecciona una imagen válida');
       return;
     }
-    if (file.size > 2 * 1024 * 1024) {
-      showToast('❌ La imagen es muy grande. Máximo 2MB');
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('❌ La imagen es muy grande. Máximo 5MB');
       return;
     }
-    imageToBase64(file, function(base64) {
+    
+    // ✅ COMPRIMIR LOGO ANTES DE GUARDAR
+    imageToBase64(file, async function(base64) {
+      console.log('🗜️ Comprimiendo logo del club...');
+      const compressed = await compressImageForFirebase(base64, 400, 0.7);
+      
       const clubLogo = document.getElementById('clubLogo');
       const headerLogo = document.getElementById('headerLogo');
       
-      if (clubLogo) clubLogo.src = base64;
-      if (headerLogo) headerLogo.src = base64;
+      if (clubLogo) clubLogo.src = compressed;
+      if (headerLogo) headerLogo.src = compressed;
       
-      updateSchoolSettings({ logo: base64 });
+      updateSchoolSettings({ logo: compressed });  // ✅ Guarda comprimido
       showToast('✅ Logo actualizado');
+      
+      console.log(`✅ Logo comprimido: ${Math.round(base64.length/1024)}KB → ${Math.round(compressed.length/1024)}KB`);
       
       // ⭐ GENERAR ICONOS PWA CON EL NUEVO LOGO
       if (typeof generatePWAIcons === 'function') {
@@ -210,7 +223,6 @@ document.getElementById('changeClubLogo')?.addEventListener('change', function(e
     });
   }
 });
-
 
 // Guardar perfil de usuario
 document.getElementById('userProfileForm')?.addEventListener('submit', function(e) {
@@ -771,7 +783,7 @@ async function saveSchoolUser(userData) {
     }
   }
 }
-// ✅ FUNCIÓN MEJORADA: Eliminar usuario y forzar cierre de sesión
+// ✅ FUNCIÓN MEJORADA: Eliminar usuario PERMANENTEMENTE
 async function deleteSchoolUser(userId) {
   const currentUser = getCurrentUser();
   
@@ -793,12 +805,12 @@ async function deleteSchoolUser(userId) {
     return;
   }
   
-  if (!confirmAction(`¿Eliminar a ${userToDelete.name}?\n\n⚠️ Se cerrará su sesión automáticamente.`)) {
+  if (!confirmAction(`¿Eliminar PERMANENTEMENTE a ${userToDelete.name}?\n\n⚠️ Esta acción es irreversible.\n⚠️ Se cerrará su sesión y NO podrá volver a ingresar.`)) {
     return;
   }
   
   try {
-    showToast('🗑️ Eliminando usuario...');
+    showToast('🗑️ Eliminando usuario permanentemente...');
     
     const clubId = localStorage.getItem('clubId');
     
@@ -807,15 +819,21 @@ async function deleteSchoolUser(userId) {
       return;
     }
     
-    // 1️⃣ CRÍTICO: Eliminar de Firestore PRIMERO (esto dispara el listener)
+    // 1️⃣ MARCAR COMO ELIMINADO EN FIRESTORE (impide acceso)
     try {
-      await window.firebase.deleteDoc(
-        window.firebase.doc(window.firebase.db, `clubs/${clubId}/users`, userId)
+      await window.firebase.updateDoc(
+        window.firebase.doc(window.firebase.db, `clubs/${clubId}/users`, userId),
+        {
+          deleted: true,
+          deletedAt: new Date().toISOString(),
+          deletedBy: currentUser.email,
+          status: 'deleted'
+        }
       );
-      console.log('✅ Usuario eliminado de Firestore - Listener activado');
+      console.log('✅ Usuario marcado como eliminado en Firestore');
     } catch (firestoreError) {
-      console.error('⚠️ Error al eliminar de Firestore:', firestoreError);
-      throw firestoreError; // Detener si falla esta parte crítica
+      console.error('⚠️ Error al marcar como eliminado:', firestoreError);
+      throw firestoreError;
     }
     
     // 2️⃣ Eliminar de localStorage
@@ -826,28 +844,27 @@ async function deleteSchoolUser(userId) {
     // 3️⃣ Actualizar UI
     renderSchoolUsers();
     
-    // 4️⃣ Intentar eliminar mapeo (opcional)
+    // 4️⃣ Eliminar mapeo (impide login)
     if (userToDelete.email) {
       try {
         await window.firebase.deleteDoc(
           window.firebase.doc(window.firebase.db, 'userClubMapping', userToDelete.email)
         );
-        console.log('✅ Mapeo eliminado');
+        console.log('✅ Mapeo eliminado - Usuario no podrá iniciar sesión');
       } catch (mappingError) {
-        console.log('ℹ️ No se pudo eliminar el mapeo:', mappingError.code);
+        console.log('⚠️ No se pudo eliminar el mapeo:', mappingError.code);
       }
     }
     
-    showToast('✅ Usuario eliminado - Su sesión se cerrará automáticamente');
-    console.log('✅ Eliminación completada. Listener notificará al usuario.');
+    showToast('✅ Usuario eliminado permanentemente - NO podrá volver a ingresar');
+    console.log('✅ Eliminación completada. Usuario bloqueado.');
     
   } catch (error) {
-    console.error('❌ Error al eliminar:', error);
+    console.error('❌ Error al eliminar usuario:', error);
     showToast('❌ Error al eliminar: ' + error.message);
   }
 }
 
-// Preview avatar del nuevo usuario
 document.getElementById('schoolUserAvatar')?.addEventListener('change', function(e) {
   const file = e.target.files[0];
   if (file) {
@@ -855,19 +872,27 @@ document.getElementById('schoolUserAvatar')?.addEventListener('change', function
       showToast('❌ Por favor selecciona una imagen válida');
       return;
     }
-    if (file.size > 2 * 1024 * 1024) {
-      showToast('❌ La imagen es muy grande. Máximo 2MB');
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('❌ La imagen es muy grande. Máximo 5MB');
       return;
     }
-    imageToBase64(file, function(base64) {
+    
+    // ✅ COMPRIMIR IMAGEN ANTES DE MOSTRAR
+    imageToBase64(file, async function(base64) {
+      console.log('🗜️ Comprimiendo avatar de usuario...');
+      const compressed = await compressImageForFirebase(base64, 300, 0.6);
+      
       const schoolUserAvatarPreview = document.getElementById('schoolUserAvatarPreview');
-      if (schoolUserAvatarPreview) schoolUserAvatarPreview.src = base64;
+      if (schoolUserAvatarPreview) {
+        schoolUserAvatarPreview.src = compressed;
+      }
+      console.log(`✅ Avatar comprimido: ${Math.round(base64.length/1024)}KB → ${Math.round(compressed.length/1024)}KB`);
     });
   }
 });
 
 // Form submit para agregar usuario
-document.getElementById('addSchoolUserForm')?.addEventListener('submit', function(e) {
+document.getElementById('addSchoolUserForm')?.addEventListener('submit', async function(e) {
   e.preventDefault();
   
   const schoolUserAvatar = document.getElementById('schoolUserAvatar');
@@ -877,24 +902,27 @@ document.getElementById('addSchoolUserForm')?.addEventListener('submit', functio
   const schoolUserPhone = document.getElementById('schoolUserPhone');
   const schoolUserPassword = document.getElementById('schoolUserPassword');
   const schoolUserBirthDate = document.getElementById('schoolUserBirthDate');
-const avatarFile = schoolUserAvatar ? schoolUserAvatar.files[0] : null;
-const currentAvatar = schoolUserAvatarPreview ? schoolUserAvatarPreview.src : getDefaultAvatar();
-const userData = {
-name: schoolUserName ? schoolUserName.value : '',
-email: schoolUserEmail ? schoolUserEmail.value : '',
-phone: schoolUserPhone ? schoolUserPhone.value : '',
-password: schoolUserPassword ? schoolUserPassword.value : '',
-birthDate: schoolUserBirthDate ? schoolUserBirthDate.value : ''
-};
-if (avatarFile) {
-imageToBase64(avatarFile, function(base64) {
-userData.avatar = base64;
-saveSchoolUser(userData);
-});
-} else {
-userData.avatar = currentAvatar;
-saveSchoolUser(userData);
-}
+  
+  // ✅ USAR LA IMAGEN DEL PREVIEW (YA COMPRIMIDA)
+  let finalAvatar = schoolUserAvatarPreview ? schoolUserAvatarPreview.src : getDefaultAvatar();
+  
+  // ✅ VERIFICAR SI NECESITA COMPRESIÓN ADICIONAL
+  if (finalAvatar && finalAvatar.startsWith('data:image') && finalAvatar.length > 500000) {
+    console.warn('⚠️ Avatar muy grande, comprimiendo...');
+    finalAvatar = await compressImageForFirebase(finalAvatar, 300, 0.6);
+    console.log(`✅ Avatar comprimido: ${Math.round(finalAvatar.length/1024)}KB`);
+  }
+  
+  const userData = {
+    name: schoolUserName ? schoolUserName.value : '',
+    email: schoolUserEmail ? schoolUserEmail.value : '',
+    phone: schoolUserPhone ? schoolUserPhone.value : '',
+    password: schoolUserPassword ? schoolUserPassword.value : '',
+    birthDate: schoolUserBirthDate ? schoolUserBirthDate.value : '',
+    avatar: finalAvatar  // ✅ USAR IMAGEN COMPRIMIDA
+  };
+  
+  saveSchoolUser(userData);
 });
 // Toggle sección plegable
 function toggleSection(sectionId) {
