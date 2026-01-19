@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Super Admin - MY CLUB</title>
+    <title>MY CLUB - Super Admin - Super Admin - MY CLUB</title>
     
     <!-- PWA Meta Tags -->
     <meta name="description" content="Panel de administración de licencias MY CLUB">
@@ -32,6 +32,9 @@
     
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- jsPDF para generar facturas PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     
     <style>
         /* Animaciones */
@@ -65,6 +68,20 @@
         @keyframes pulse {
             0%, 100% { transform: scale(1); }
             50% { transform: scale(1.05); }
+        }
+        
+        /* Gráfico de barras simple */
+        .bar-chart {
+            display: flex;
+            align-items: flex-end;
+            gap: 4px;
+            height: 60px;
+        }
+        .bar {
+            width: 20px;
+            background: linear-gradient(to top, #0d9488, #14b8a6);
+            border-radius: 4px 4px 0 0;
+            transition: height 0.3s ease;
         }
     </style>
 </head>
@@ -136,8 +153,8 @@
         
         <!-- Contenido Principal -->
         <main class="p-6">
-            <!-- Stats Cards -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <!-- Stats Cards - Fila 1: Escuelas -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-4">
                 <!-- Total Escuelas -->
                 <div class="stat-card bg-gradient-to-br from-teal-600 to-teal-700 rounded-2xl p-6 transition-all">
                     <div class="flex items-center justify-between">
@@ -191,6 +208,61 @@
                 </div>
             </div>
             
+            <!-- Stats Cards - Fila 2: Facturación 💰 -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <!-- Ingresos del Mes -->
+                <div class="stat-card bg-gradient-to-br from-green-600 to-emerald-700 rounded-2xl p-6 transition-all">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-green-100 text-sm">Ingresos del Mes</p>
+                            <p id="statMonthlyIncome" class="text-3xl font-bold text-white mt-1">$0</p>
+                        </div>
+                        <div class="bg-white bg-opacity-20 p-3 rounded-xl">
+                            <i data-lucide="trending-up" class="w-8 h-8 text-white"></i>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Ingresos del Año -->
+                <div class="stat-card bg-gradient-to-br from-emerald-600 to-green-700 rounded-2xl p-6 transition-all">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-emerald-100 text-sm">Ingresos del Año</p>
+                            <p id="statYearlyIncome" class="text-3xl font-bold text-white mt-1">$0</p>
+                        </div>
+                        <div class="bg-white bg-opacity-20 p-3 rounded-xl">
+                            <i data-lucide="dollar-sign" class="w-8 h-8 text-white"></i>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Pagos Pendientes -->
+                <div class="stat-card bg-gradient-to-br from-amber-600 to-yellow-700 rounded-2xl p-6 transition-all">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-amber-100 text-sm">Pagos Pendientes</p>
+                            <p id="statPendingPayments" class="text-4xl font-bold text-white mt-1">0</p>
+                        </div>
+                        <div class="bg-white bg-opacity-20 p-3 rounded-xl">
+                            <i data-lucide="receipt" class="w-8 h-8 text-white"></i>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Total Facturas -->
+                <div class="stat-card bg-gradient-to-br from-purple-600 to-violet-700 rounded-2xl p-6 transition-all">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-purple-100 text-sm">Total Facturas</p>
+                            <p id="statTotalInvoices" class="text-4xl font-bold text-white mt-1">0</p>
+                        </div>
+                        <div class="bg-white bg-opacity-20 p-3 rounded-xl">
+                            <i data-lucide="file-text" class="w-8 h-8 text-white"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
             <!-- Sección de Acciones Rápidas -->
             <div class="bg-gray-800 rounded-2xl p-6 mb-8">
                 <h2 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
@@ -213,11 +285,16 @@
                         <i data-lucide="list" class="w-5 h-5"></i>
                         Ver Códigos
                     </button>
+                    <button onclick="showNewPaymentModal()" 
+                            class="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl font-medium flex items-center gap-2 transition-all">
+                        <i data-lucide="credit-card" class="w-5 h-5"></i>
+                        Registrar Pago
+                    </button>
                 </div>
             </div>
             
             <!-- Tabs -->
-            <div class="flex gap-2 mb-6">
+            <div class="flex flex-wrap gap-2 mb-6">
                 <button onclick="showTab('schools')" id="tabSchools"
                         class="px-6 py-3 rounded-xl font-medium transition-all bg-teal-600 text-white">
                     🏫 Escuelas
@@ -229,6 +306,10 @@
                 <button onclick="showTab('alerts')" id="tabAlerts"
                         class="px-6 py-3 rounded-xl font-medium transition-all bg-gray-700 text-gray-300 hover:bg-gray-600">
                     ⚠️ Alertas
+                </button>
+                <button onclick="showTab('billing')" id="tabBilling"
+                        class="px-6 py-3 rounded-xl font-medium transition-all bg-gray-700 text-gray-300 hover:bg-gray-600">
+                    💰 Facturación
                 </button>
             </div>
             
@@ -313,13 +394,98 @@
             
             <!-- Tab: Alertas -->
             <div id="alertsSection" class="bg-gray-800 rounded-2xl p-6 hidden">
-                <h2 class="text-xl font-bold text-white mb-6">Alertas de Vencimiento</h2>
+                <h2 class="text-xl font-bold text-white mb-6">⚠️ Alertas de Vencimiento</h2>
                 <div id="alertsList">
                     <!-- Se llena dinámicamente -->
                 </div>
                 <div id="noAlertsMessage" class="hidden text-center py-12">
                     <div class="text-6xl mb-4">✅</div>
                     <p class="text-gray-400">No hay alertas pendientes</p>
+                </div>
+            </div>
+            
+            <!-- Tab: Facturación 💰 NUEVO -->
+            <div id="billingSection" class="bg-gray-800 rounded-2xl p-6 hidden">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                        <i data-lucide="receipt" class="w-6 h-6 text-green-500"></i>
+                        Gestión de Facturación
+                    </h2>
+                    <div class="flex gap-3">
+                        <button onclick="showNewPaymentModal()" 
+                                class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2">
+                            <i data-lucide="plus" class="w-4 h-4"></i>
+                            Registrar Pago
+                        </button>
+                        <button onclick="exportBillingReport()" 
+                                class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2">
+                            <i data-lucide="download" class="w-4 h-4"></i>
+                            Exportar
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Filtros de Facturación -->
+                <div class="flex flex-wrap gap-4 mb-6">
+                    <select id="billingFilterMonth" onchange="filterBilling()"
+                            class="px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-teal-500">
+                        <option value="all">Todos los meses</option>
+                        <option value="0">Enero</option>
+                        <option value="1">Febrero</option>
+                        <option value="2">Marzo</option>
+                        <option value="3">Abril</option>
+                        <option value="4">Mayo</option>
+                        <option value="5">Junio</option>
+                        <option value="6">Julio</option>
+                        <option value="7">Agosto</option>
+                        <option value="8">Septiembre</option>
+                        <option value="9">Octubre</option>
+                        <option value="10">Noviembre</option>
+                        <option value="11">Diciembre</option>
+                    </select>
+                    <select id="billingFilterYear" onchange="filterBilling()"
+                            class="px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-teal-500">
+                        <!-- Se llena dinámicamente -->
+                    </select>
+                    <select id="billingFilterStatus" onchange="filterBilling()"
+                            class="px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-teal-500">
+                        <option value="all">Todos los estados</option>
+                        <option value="pagado">Pagados</option>
+                        <option value="pendiente">Pendientes</option>
+                        <option value="vencido">Vencidos</option>
+                    </select>
+                    <input type="text" id="billingSearch" placeholder="Buscar club..."
+                           class="px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                           onkeyup="filterBilling()">
+                </div>
+                
+                <!-- Tabla de Facturación -->
+                <div class="table-container">
+                    <table class="w-full">
+                        <thead>
+                            <tr class="text-left text-gray-400 text-sm border-b border-gray-700">
+                                <th class="pb-4 font-medium">Factura</th>
+                                <th class="pb-4 font-medium">Club</th>
+                                <th class="pb-4 font-medium">Concepto</th>
+                                <th class="pb-4 font-medium">Monto</th>
+                                <th class="pb-4 font-medium">Fecha</th>
+                                <th class="pb-4 font-medium">Método</th>
+                                <th class="pb-4 font-medium">Estado</th>
+                                <th class="pb-4 font-medium">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="billingTableBody">
+                            <!-- Se llena dinámicamente -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div id="noBillingMessage" class="hidden text-center py-12">
+                    <div class="text-6xl mb-4">💰</div>
+                    <p class="text-gray-400">No hay registros de facturación</p>
+                    <button onclick="showNewPaymentModal()" class="mt-4 bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg">
+                        Registrar primer pago
+                    </button>
                 </div>
             </div>
         </main>
@@ -413,8 +579,8 @@
     
     <!-- Modal: Acciones de Escuela -->
     <div id="schoolActionsModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-        <div class="bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg animate-fade-in">
-            <div class="p-6 border-b border-gray-700">
+        <div class="bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg animate-fade-in max-h-[90vh] overflow-y-auto">
+            <div class="p-6 border-b border-gray-700 sticky top-0 bg-gray-800">
                 <div class="flex items-center justify-between">
                     <h3 class="text-xl font-bold text-white" id="schoolActionTitle">Acciones</h3>
                     <button onclick="closeSchoolActionsModal()" class="text-gray-400 hover:text-white">
@@ -460,6 +626,11 @@
                         <i data-lucide="plus-circle" class="w-5 h-5"></i>
                         Extender 1 Año
                     </button>
+                    <button onclick="showNewPaymentModalForSchool()" 
+                            class="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-medium flex items-center justify-center gap-2">
+                        <i data-lucide="credit-card" class="w-5 h-5"></i>
+                        Registrar Pago + Renovar
+                    </button>
                     <button onclick="toggleSchoolStatus()" id="toggleStatusBtn"
                             class="w-full bg-yellow-600 hover:bg-yellow-700 text-white py-3 rounded-xl font-medium flex items-center justify-center gap-2">
                         <i data-lucide="power" class="w-5 h-5"></i>
@@ -471,6 +642,159 @@
                         Enviar Recordatorio WhatsApp
                     </button>
                 </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal: Registrar Pago 💰 NUEVO -->
+    <div id="newPaymentModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg animate-fade-in max-h-[90vh] overflow-y-auto">
+            <div class="p-6 border-b border-gray-700 sticky top-0 bg-gray-800">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-xl font-bold text-white flex items-center gap-2">
+                        <i data-lucide="credit-card" class="w-5 h-5 text-green-500"></i>
+                        Registrar Pago
+                    </h3>
+                    <button onclick="closeNewPaymentModal()" class="text-gray-400 hover:text-white">
+                        <i data-lucide="x" class="w-6 h-6"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <form id="newPaymentForm" class="p-6 space-y-4">
+                <!-- Seleccionar Club -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Club / Escuela *</label>
+                    <select id="paymentClubId" required
+                            class="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-teal-500">
+                        <option value="">Seleccionar club...</option>
+                        <!-- Se llena dinámicamente -->
+                    </select>
+                </div>
+                
+                <!-- Concepto -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Concepto *</label>
+                    <select id="paymentConcept" required
+                            class="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-teal-500">
+                        <option value="licencia_anual">Licencia Anual</option>
+                        <option value="licencia_mensual">Licencia Mensual</option>
+                        <option value="renovacion_anual">Renovación Anual</option>
+                        <option value="renovacion_mensual">Renovación Mensual</option>
+                        <option value="otro">Otro</option>
+                    </select>
+                </div>
+                
+                <!-- Concepto personalizado -->
+                <div id="customConceptDiv" class="hidden">
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Descripción del concepto</label>
+                    <input type="text" id="paymentCustomConcept" placeholder="Describe el concepto..."
+                           class="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500">
+                </div>
+                
+                <!-- Monto -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Monto (COP) *</label>
+                    <input type="number" id="paymentAmount" required min="0" step="1000" placeholder="150000"
+                           class="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500">
+                </div>
+                
+                <!-- Fecha de Pago -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Fecha de Pago *</label>
+                    <input type="date" id="paymentDate" required
+                           class="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-teal-500">
+                </div>
+                
+                <!-- Método de Pago -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Método de Pago *</label>
+                    <select id="paymentMethod" required
+                            class="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-teal-500">
+                        <option value="transferencia">Transferencia Bancaria</option>
+                        <option value="efectivo">Efectivo</option>
+                        <option value="nequi">Nequi</option>
+                        <option value="daviplata">Daviplata</option>
+                        <option value="pse">PSE</option>
+                        <option value="tarjeta">Tarjeta Crédito/Débito</option>
+                        <option value="otro">Otro</option>
+                    </select>
+                </div>
+                
+                <!-- Estado -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Estado del Pago *</label>
+                    <select id="paymentStatus" required
+                            class="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-teal-500">
+                        <option value="pagado">✅ Pagado</option>
+                        <option value="pendiente">⏳ Pendiente</option>
+                    </select>
+                </div>
+                
+                <!-- Renovar licencia automáticamente -->
+                <div class="bg-gray-700 rounded-xl p-4">
+                    <label class="flex items-center gap-3 cursor-pointer">
+                        <input type="checkbox" id="autoRenewLicense" checked
+                               class="w-5 h-5 rounded border-gray-500 text-teal-500 focus:ring-teal-500">
+                        <div>
+                            <span class="text-white font-medium">Renovar licencia automáticamente</span>
+                            <p class="text-xs text-gray-400">Extiende la licencia según el concepto seleccionado</p>
+                        </div>
+                    </label>
+                </div>
+                
+                <!-- Notas -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Notas (opcional)</label>
+                    <textarea id="paymentNotes" rows="2" placeholder="Observaciones adicionales..."
+                              class="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"></textarea>
+                </div>
+                
+                <div class="flex gap-3 pt-4">
+                    <button type="button" onclick="closeNewPaymentModal()" 
+                            class="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-3 rounded-xl font-medium">
+                        Cancelar
+                    </button>
+                    <button type="submit" 
+                            class="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold py-3 rounded-xl transition-all">
+                        Guardar Pago
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Modal: Ver Factura 💰 NUEVO -->
+    <div id="viewInvoiceModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl animate-fade-in max-h-[90vh] overflow-y-auto">
+            <div class="p-6 border-b border-gray-700 sticky top-0 bg-gray-800">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-xl font-bold text-white flex items-center gap-2">
+                        <i data-lucide="file-text" class="w-5 h-5 text-green-500"></i>
+                        Factura / Recibo
+                    </h3>
+                    <button onclick="closeViewInvoiceModal()" class="text-gray-400 hover:text-white">
+                        <i data-lucide="x" class="w-6 h-6"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Contenido de la Factura -->
+            <div id="invoiceContent" class="p-6 bg-white text-gray-900">
+                <!-- Se llena dinámicamente -->
+            </div>
+            
+            <div class="p-6 border-t border-gray-700 flex gap-3">
+                <button onclick="downloadInvoicePDF()" 
+                        class="flex-1 bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-medium flex items-center justify-center gap-2">
+                    <i data-lucide="download" class="w-5 h-5"></i>
+                    Descargar PDF
+                </button>
+                <button onclick="shareInvoiceWhatsApp()" 
+                        class="flex-1 bg-green-500 hover:bg-green-600 text-white py-3 rounded-xl font-medium flex items-center justify-center gap-2">
+                    <i data-lucide="message-circle" class="w-5 h-5"></i>
+                    Enviar por WhatsApp
+                </button>
             </div>
         </div>
     </div>
@@ -512,7 +836,6 @@
         lucide.createIcons();
     </script>
     
-    <!-- Botón de instalación PWA -->
     <!-- Botón de instalación PWA -->
     <button id="installBtn" class="install-btn hidden bg-teal-600 hover:bg-teal-700 text-white px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 transition-all">
         <i data-lucide="download" class="w-5 h-5"></i>
@@ -558,24 +881,18 @@
         window.addEventListener('beforeinstallprompt', (e) => {
             console.log('📱 PWA instalable detectada');
             
-            // ✅ SOLUCIÓN: En móvil, NO bloquear el banner nativo
             if (!isMobile) {
-                // En desktop, prevenir el banner y mostrar botón personalizado
                 e.preventDefault();
                 deferredPrompt = e;
                 
-                // Mostrar botón de instalación solo en desktop
                 if (installBtn) {
                     installBtn.classList.remove('hidden');
                     lucide.createIcons();
                 }
             } else {
-                // En móvil, guardar el prompt pero dejar que aparezca el banner nativo
                 deferredPrompt = e;
                 console.log('📱 Móvil detectado - Usando banner nativo de Chrome');
                 
-                // OPCIONAL: También mostrar el botón en móvil después de 2 segundos
-                // por si el usuario cierra el banner
                 setTimeout(() => {
                     if (installBtn && deferredPrompt) {
                         installBtn.classList.remove('hidden');
@@ -593,10 +910,8 @@
                     return;
                 }
                 
-                // Mostrar prompt de instalación
                 deferredPrompt.prompt();
                 
-                // Esperar respuesta del usuario
                 const { outcome } = await deferredPrompt.userChoice;
                 console.log('📱 Resultado de instalación:', outcome);
                 

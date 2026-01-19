@@ -1,16 +1,18 @@
 // ========================================
 // PANEL SUPER ADMIN - MY CLUB
-// Gestión de licencias y escuelas
+// Gestión de licencias, escuelas y FACTURACIÓN
 // ========================================
 
-console.log('🛡️ Cargando Panel Super Admin...');
+console.log('🛡️ Cargando Panel Super Admin con Sistema de Facturación...');
 
 // ========================================
 // VARIABLES GLOBALES
 // ========================================
 let currentSchools = [];
 let currentCodes = [];
+let currentBilling = []; // 💰 NUEVO: Facturación
 let currentSchoolData = null;
+let currentInvoiceData = null; // 💰 NUEVO: Factura actual
 
 // ========================================
 // UTILIDADES
@@ -44,6 +46,15 @@ function formatDateTime(dateString) {
     });
 }
 
+function formatCurrency(amount) {
+    return new Intl.NumberFormat('es-CO', {
+        style: 'currency',
+        currency: 'COP',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+    }).format(amount || 0);
+}
+
 function generateCode() {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     let code = '';
@@ -55,6 +66,12 @@ function generateCode() {
         code += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     return code;
+}
+
+function generateInvoiceNumber() {
+    const year = new Date().getFullYear();
+    const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+    return `FAC-${year}-${random}`;
 }
 
 function daysUntil(dateString) {
@@ -114,7 +131,7 @@ async function updateLastLogin(uid) {
 
 // Variable global para almacenar datos del admin actual
 let currentAdminData = null;
-let dataLoaded = false; // Flag para evitar doble carga
+let dataLoaded = false;
 
 document.getElementById('adminLoginForm')?.addEventListener('submit', async function(e) {
     e.preventDefault();
@@ -129,22 +146,17 @@ document.getElementById('adminLoginForm')?.addEventListener('submit', async func
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
         
-        // Verificar si es Super Admin en Firestore
         showToast('⏳ Verificando permisos...');
         const verification = await verifySuperAdmin(user.uid);
         
         if (!verification.isValid) {
-            // No es super admin, cerrar sesión
             const { signOut } = window.firebaseAdmin;
             await signOut(auth);
             showToast('❌ No tienes permisos de administrador');
             return;
         }
         
-        // Guardar datos del admin
         currentAdminData = verification.data;
-        
-        // Actualizar último login
         await updateLastLogin(user.uid);
         
         showToast('✅ Bienvenido, ' + (currentAdminData.displayName || 'Super Admin'));
@@ -166,11 +178,9 @@ function showAdminPanel() {
     document.getElementById('loginScreen').classList.add('hidden');
     document.getElementById('adminPanel').classList.remove('hidden');
     
-    // Mostrar nombre o email del admin
     const displayText = currentAdminData?.displayName || currentAdminData?.email || 'Super Admin';
     document.getElementById('adminUserEmail').textContent = displayText;
     
-    // Cargar datos solo si no se han cargado ya
     if (!dataLoaded) {
         dataLoaded = true;
         loadAllData();
@@ -186,7 +196,6 @@ async function adminLogout() {
             document.getElementById('adminPanel').classList.add('hidden');
             document.getElementById('loginScreen').classList.remove('hidden');
             
-            // Resetear flags
             dataLoaded = false;
             currentAdminData = null;
             
@@ -204,7 +213,6 @@ window.addEventListener('DOMContentLoaded', () => {
             const { onAuthStateChanged, auth } = window.firebaseAdmin;
             onAuthStateChanged(auth, async (user) => {
                 if (user) {
-                    // Verificar si es Super Admin en Firestore
                     const verification = await verifySuperAdmin(user.uid);
                     
                     if (verification.isValid) {
@@ -225,15 +233,18 @@ async function loadAllData() {
     
     await Promise.all([
         loadSchools(),
-        loadCodes()
+        loadCodes(),
+        loadBilling() // 💰 NUEVO
     ]);
     
     updateStats();
+    initBillingFilters(); // 💰 NUEVO
+    
     showToast('✅ Datos cargados');
 }
 
 async function refreshData() {
-    dataLoaded = false; // Permitir recarga manual
+    dataLoaded = false;
     await loadAllData();
     dataLoaded = true;
 }
@@ -248,7 +259,6 @@ async function loadSchools() {
         for (const docSnap of licensesSnapshot.docs) {
             const licenseData = { id: docSnap.id, ...docSnap.data() };
             
-            // ✅ Contar jugadores reales de cada club
             try {
                 console.log(`📊 Contando jugadores de: ${licenseData.clubName}`);
                 
@@ -259,7 +269,6 @@ async function loadSchools() {
                 licenseData.totalPlayers = playerCount;
                 console.log(`✅ ${licenseData.clubName}: ${playerCount} jugadores`);
                 
-                // ✅ ACTUALIZAR el contador en la licencia
                 const { doc, updateDoc } = window.firebaseAdmin;
                 await updateDoc(doc(db, 'licenses', licenseData.clubId), {
                     totalPlayers: playerCount,
@@ -305,10 +314,35 @@ async function loadCodes() {
     }
 }
 
+// 💰 NUEVO: Cargar facturación
+async function loadBilling() {
+    try {
+        const { db, getDocs, collection, orderBy, query } = window.firebaseAdmin;
+        const billingSnapshot = await getDocs(
+            query(collection(db, 'billing'), orderBy('createdAt', 'desc'))
+        );
+        
+        currentBilling = [];
+        billingSnapshot.forEach(doc => {
+            currentBilling.push({ id: doc.id, ...doc.data() });
+        });
+        
+        console.log('💰 Facturas cargadas:', currentBilling.length);
+        renderBillingTable();
+        
+    } catch (error) {
+        console.error('Error al cargar facturación:', error);
+        // Si la colección no existe, iniciar vacía
+        currentBilling = [];
+        renderBillingTable();
+    }
+}
+
 // ========================================
 // ESTADÍSTICAS
 // ========================================
 function updateStats() {
+    // Stats de escuelas
     const active = currentSchools.filter(s => s.status === 'activo').length;
     const inactive = currentSchools.filter(s => s.status === 'inactivo').length;
     const expiring = currentSchools.filter(s => {
@@ -321,6 +355,40 @@ function updateStats() {
     document.getElementById('statInactiveSchools').textContent = inactive;
     document.getElementById('statExpiringSoon').textContent = expiring;
     document.getElementById('statPendingCodes').textContent = pendingCodes;
+    
+    // 💰 Stats de facturación
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    
+    // Ingresos del mes (solo pagados)
+    const monthlyIncome = currentBilling
+        .filter(b => {
+            const date = new Date(b.paymentDate || b.createdAt);
+            return date.getMonth() === currentMonth && 
+                   date.getFullYear() === currentYear && 
+                   b.status === 'pagado';
+        })
+        .reduce((sum, b) => sum + (parseFloat(b.amount) || 0), 0);
+    
+    // Ingresos del año (solo pagados)
+    const yearlyIncome = currentBilling
+        .filter(b => {
+            const date = new Date(b.paymentDate || b.createdAt);
+            return date.getFullYear() === currentYear && b.status === 'pagado';
+        })
+        .reduce((sum, b) => sum + (parseFloat(b.amount) || 0), 0);
+    
+    // Pagos pendientes
+    const pendingPayments = currentBilling.filter(b => b.status === 'pendiente').length;
+    
+    // Total facturas
+    const totalInvoices = currentBilling.length;
+    
+    document.getElementById('statMonthlyIncome').textContent = formatCurrency(monthlyIncome);
+    document.getElementById('statYearlyIncome').textContent = formatCurrency(yearlyIncome);
+    document.getElementById('statPendingPayments').textContent = pendingPayments;
+    document.getElementById('statTotalInvoices').textContent = totalInvoices;
 }
 
 // ========================================
@@ -331,29 +399,37 @@ function showTab(tab) {
     document.getElementById('schoolsSection').classList.add('hidden');
     document.getElementById('codesSection').classList.add('hidden');
     document.getElementById('alertsSection').classList.add('hidden');
+    document.getElementById('billingSection').classList.add('hidden'); // 💰 NUEVO
     
     // Resetear tabs
-    document.getElementById('tabSchools').classList.remove('bg-teal-600', 'text-white');
-    document.getElementById('tabSchools').classList.add('bg-gray-700', 'text-gray-300');
-    document.getElementById('tabCodes').classList.remove('bg-teal-600', 'text-white');
-    document.getElementById('tabCodes').classList.add('bg-gray-700', 'text-gray-300');
-    document.getElementById('tabAlerts').classList.remove('bg-teal-600', 'text-white');
-    document.getElementById('tabAlerts').classList.add('bg-gray-700', 'text-gray-300');
+    const tabs = ['tabSchools', 'tabCodes', 'tabAlerts', 'tabBilling'];
+    tabs.forEach(tabId => {
+        const el = document.getElementById(tabId);
+        if (el) {
+            el.classList.remove('bg-teal-600', 'text-white');
+            el.classList.add('bg-gray-700', 'text-gray-300');
+        }
+    });
     
     // Mostrar sección seleccionada
-    if (tab === 'schools') {
-        document.getElementById('schoolsSection').classList.remove('hidden');
-        document.getElementById('tabSchools').classList.add('bg-teal-600', 'text-white');
-        document.getElementById('tabSchools').classList.remove('bg-gray-700', 'text-gray-300');
-    } else if (tab === 'codes') {
-        document.getElementById('codesSection').classList.remove('hidden');
-        document.getElementById('tabCodes').classList.add('bg-teal-600', 'text-white');
-        document.getElementById('tabCodes').classList.remove('bg-gray-700', 'text-gray-300');
-    } else if (tab === 'alerts') {
-        document.getElementById('alertsSection').classList.remove('hidden');
-        document.getElementById('tabAlerts').classList.add('bg-teal-600', 'text-white');
-        document.getElementById('tabAlerts').classList.remove('bg-gray-700', 'text-gray-300');
-    }
+    const sectionMap = {
+        'schools': 'schoolsSection',
+        'codes': 'codesSection',
+        'alerts': 'alertsSection',
+        'billing': 'billingSection'
+    };
+    
+    const tabMap = {
+        'schools': 'tabSchools',
+        'codes': 'tabCodes',
+        'alerts': 'tabAlerts',
+        'billing': 'tabBilling'
+    };
+    
+    document.getElementById(sectionMap[tab]).classList.remove('hidden');
+    const activeTab = document.getElementById(tabMap[tab]);
+    activeTab.classList.add('bg-teal-600', 'text-white');
+    activeTab.classList.remove('bg-gray-700', 'text-gray-300');
 }
 
 function showCodesTab() {
@@ -397,7 +473,6 @@ function renderSchoolsTable() {
             ? '<span class="bg-blue-900 text-blue-300 px-2 py-1 rounded text-xs">Anual</span>'
             : '<span class="bg-purple-900 text-purple-300 px-2 py-1 rounded text-xs">Mensual</span>';
         
-        // Calcular crecimiento (jugadores)
         const growth = school.totalPlayers || 0;
         
         return `
@@ -420,10 +495,10 @@ function renderSchoolsTable() {
                 </td>
                 <td class="py-4">${planBadge}</td>
                 <td class="py-4">
-                    <p class="text-white">${formatDate(school.endDate)}</p>
-                    <p class="text-xs ${days <= 7 ? 'text-yellow-400' : 'text-gray-400'}">
-                        ${days > 0 ? `${days} días` : days === 0 ? 'Hoy' : `Vencido hace ${Math.abs(days)} días`}
-                    </p>
+                    <div>
+                        <p class="text-white">${formatDate(school.endDate)}</p>
+                        <p class="text-xs text-gray-400">${days > 0 ? days + ' días' : 'Vencido'}</p>
+                    </div>
                 </td>
                 <td class="py-4">
                     <div class="flex items-center gap-2">
@@ -508,7 +583,6 @@ function renderAlerts() {
     const alertsList = document.getElementById('alertsList');
     const noMessage = document.getElementById('noAlertsMessage');
     
-    // Filtrar escuelas con alertas
     const alerts = currentSchools.filter(s => {
         const days = daysUntil(s.endDate);
         return days <= 7 || s.status === 'gracia' || s.status === 'inactivo';
@@ -573,6 +647,97 @@ function renderAlerts() {
     lucide.createIcons();
 }
 
+// 💰 NUEVO: Renderizar tabla de facturación
+function renderBillingTable(filteredBilling = null) {
+    const tbody = document.getElementById('billingTableBody');
+    const noMessage = document.getElementById('noBillingMessage');
+    
+    const billingToRender = filteredBilling || currentBilling;
+    
+    if (billingToRender.length === 0) {
+        tbody.innerHTML = '';
+        noMessage.classList.remove('hidden');
+        return;
+    }
+    
+    noMessage.classList.add('hidden');
+    
+    tbody.innerHTML = billingToRender.map(bill => {
+        let statusBadge, statusColor;
+        
+        if (bill.status === 'pagado') {
+            statusBadge = '✅ Pagado';
+            statusColor = 'bg-green-900 text-green-300';
+        } else if (bill.status === 'pendiente') {
+            statusBadge = '⏳ Pendiente';
+            statusColor = 'bg-yellow-900 text-yellow-300';
+        } else {
+            statusBadge = '❌ Vencido';
+            statusColor = 'bg-red-900 text-red-300';
+        }
+        
+        const methodLabels = {
+            'transferencia': '🏦 Transferencia',
+            'efectivo': '💵 Efectivo',
+            'nequi': '📱 Nequi',
+            'daviplata': '📱 Daviplata',
+            'pse': '🔗 PSE',
+            'tarjeta': '💳 Tarjeta',
+            'otro': '📝 Otro'
+        };
+        
+        const conceptLabels = {
+            'licencia_anual': 'Licencia Anual',
+            'licencia_mensual': 'Licencia Mensual',
+            'renovacion_anual': 'Renovación Anual',
+            'renovacion_mensual': 'Renovación Mensual',
+            'otro': bill.customConcept || 'Otro'
+        };
+        
+        return `
+            <tr class="border-b border-gray-700 hover:bg-gray-750">
+                <td class="py-4">
+                    <code class="bg-gray-900 text-teal-400 px-2 py-1 rounded font-mono text-sm">${bill.invoiceNumber}</code>
+                </td>
+                <td class="py-4">
+                    <div>
+                        <p class="text-white font-medium">${bill.clubName || '-'}</p>
+                        <p class="text-xs text-gray-400">${bill.clubId || ''}</p>
+                    </div>
+                </td>
+                <td class="py-4 text-gray-300">${conceptLabels[bill.concept] || bill.concept}</td>
+                <td class="py-4">
+                    <span class="text-green-400 font-bold">${formatCurrency(bill.amount)}</span>
+                </td>
+                <td class="py-4 text-gray-300">${formatDate(bill.paymentDate || bill.createdAt)}</td>
+                <td class="py-4 text-gray-300">${methodLabels[bill.method] || bill.method}</td>
+                <td class="py-4">
+                    <span class="${statusColor} px-3 py-1 rounded-full text-xs font-medium">
+                        ${statusBadge}
+                    </span>
+                </td>
+                <td class="py-4">
+                    <div class="flex gap-2">
+                        <button onclick="viewInvoice('${bill.id}')" 
+                                class="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-xs flex items-center gap-1">
+                            <i data-lucide="eye" class="w-3 h-3"></i>
+                            Ver
+                        </button>
+                        ${bill.status === 'pendiente' ? `
+                            <button onclick="markAsPaid('${bill.id}')" 
+                                    class="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-xs">
+                                Marcar Pagado
+                            </button>
+                        ` : ''}
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+    
+    lucide.createIcons();
+}
+
 // ========================================
 // FILTROS
 // ========================================
@@ -588,11 +753,44 @@ function filterSchools() {
         return matchSearch && matchStatus;
     });
     
-    // Temporalmente reemplazar y renderizar
     const original = currentSchools;
     currentSchools = filtered;
     renderSchoolsTable();
     currentSchools = original;
+}
+
+// 💰 NUEVO: Filtros de facturación
+function initBillingFilters() {
+    // Llenar selector de años
+    const yearSelect = document.getElementById('billingFilterYear');
+    const currentYear = new Date().getFullYear();
+    
+    yearSelect.innerHTML = `<option value="all">Todos los años</option>`;
+    for (let year = currentYear; year >= currentYear - 5; year--) {
+        yearSelect.innerHTML += `<option value="${year}" ${year === currentYear ? 'selected' : ''}>${year}</option>`;
+    }
+}
+
+function filterBilling() {
+    const month = document.getElementById('billingFilterMonth').value;
+    const year = document.getElementById('billingFilterYear').value;
+    const status = document.getElementById('billingFilterStatus').value;
+    const search = document.getElementById('billingSearch').value.toLowerCase();
+    
+    const filtered = currentBilling.filter(bill => {
+        const date = new Date(bill.paymentDate || bill.createdAt);
+        
+        const matchMonth = month === 'all' || date.getMonth() === parseInt(month);
+        const matchYear = year === 'all' || date.getFullYear() === parseInt(year);
+        const matchStatus = status === 'all' || bill.status === status;
+        const matchSearch = !search || 
+            (bill.clubName || '').toLowerCase().includes(search) ||
+            (bill.invoiceNumber || '').toLowerCase().includes(search);
+        
+        return matchMonth && matchYear && matchStatus && matchSearch;
+    });
+    
+    renderBillingTable(filtered);
 }
 
 // ========================================
@@ -633,11 +831,9 @@ document.getElementById('generateCodeForm')?.addEventListener('submit', async fu
         
         closeGenerateCodeModal();
         
-        // Mostrar código generado
         document.getElementById('generatedCodeDisplay').textContent = code;
         document.getElementById('codeGeneratedModal').classList.remove('hidden');
         
-        // Recargar códigos
         await loadCodes();
         updateStats();
         
@@ -699,18 +895,42 @@ function openSchoolActions(clubId) {
     document.getElementById('actionSchoolPhone').textContent = school.clubPhone || 'Sin teléfono';
     document.getElementById('schoolActionTitle').textContent = school.clubName || school.clubId;
     
-    // Historial de pagos
+    // Historial de pagos - combinar paymentHistory de licencia + billing
     const historyList = document.getElementById('paymentHistoryList');
-    if (school.paymentHistory && school.paymentHistory.length > 0) {
-        historyList.innerHTML = school.paymentHistory.map(payment => `
-            <div class="bg-gray-600 rounded-lg p-3 text-sm">
-                <div class="flex justify-between">
-                    <span class="text-gray-300">${payment.action === 'activation' ? '🎟️ Activación' : '🔄 Renovación'}</span>
-                    <span class="text-white">${formatDate(payment.date)}</span>
+    const clubBilling = currentBilling.filter(b => b.clubId === clubId);
+    
+    if (clubBilling.length > 0 || (school.paymentHistory && school.paymentHistory.length > 0)) {
+        let historyHtml = '';
+        
+        // Pagos de billing
+        clubBilling.forEach(payment => {
+            historyHtml += `
+                <div class="bg-gray-600 rounded-lg p-3 text-sm">
+                    <div class="flex justify-between">
+                        <span class="text-green-400 font-medium">${formatCurrency(payment.amount)}</span>
+                        <span class="text-white">${formatDate(payment.paymentDate || payment.createdAt)}</span>
+                    </div>
+                    <p class="text-gray-400 text-xs mt-1">${payment.concept} - ${payment.status}</p>
                 </div>
-                <p class="text-gray-400 text-xs mt-1">${payment.plan}</p>
-            </div>
-        `).join('');
+            `;
+        });
+        
+        // Historial antiguo de licencia
+        if (school.paymentHistory) {
+            school.paymentHistory.forEach(payment => {
+                historyHtml += `
+                    <div class="bg-gray-600 rounded-lg p-3 text-sm">
+                        <div class="flex justify-between">
+                            <span class="text-gray-300">${payment.action === 'activation' ? '🎟️ Activación' : '🔄 Renovación'}</span>
+                            <span class="text-white">${formatDate(payment.date)}</span>
+                        </div>
+                        <p class="text-gray-400 text-xs mt-1">${payment.plan}</p>
+                    </div>
+                `;
+            });
+        }
+        
+        historyList.innerHTML = historyHtml;
     } else {
         historyList.innerHTML = '<p class="text-gray-500 text-sm">Sin historial</p>';
     }
@@ -728,6 +948,7 @@ function openSchoolActions(clubId) {
     }
     
     document.getElementById('schoolActionsModal').classList.remove('hidden');
+    lucide.createIcons();
 }
 
 function closeSchoolActionsModal() {
@@ -743,7 +964,6 @@ async function extendSubscription(plan) {
     try {
         showToast('⏳ Extendiendo suscripción...');
         
-        // Calcular nueva fecha
         const currentEndDate = new Date(currentSchoolData.endDate);
         const now = new Date();
         const baseDate = currentEndDate > now ? currentEndDate : now;
@@ -755,7 +975,6 @@ async function extendSubscription(plan) {
             newEndDate.setMonth(newEndDate.getMonth() + 1);
         }
         
-        // Actualizar historial
         const paymentHistory = currentSchoolData.paymentHistory || [];
         paymentHistory.push({
             date: new Date().toISOString(),
@@ -840,8 +1059,530 @@ function sendReminderWhatsAppDirect(phone, clubName) {
 }
 
 // ========================================
+// 💰 SISTEMA DE FACTURACIÓN - NUEVO
+// ========================================
+
+// Mostrar modal de nuevo pago
+function showNewPaymentModal() {
+    const form = document.getElementById('newPaymentForm');
+    form.reset();
+    
+    // Llenar selector de clubs
+    const clubSelect = document.getElementById('paymentClubId');
+    clubSelect.innerHTML = '<option value="">Seleccionar club...</option>';
+    currentSchools.forEach(school => {
+        clubSelect.innerHTML += `<option value="${school.clubId}" data-name="${school.clubName}">${school.clubName || school.clubId}</option>`;
+    });
+    
+    // Establecer fecha de hoy
+    document.getElementById('paymentDate').value = new Date().toISOString().split('T')[0];
+    
+    // Manejar cambio de concepto
+    document.getElementById('paymentConcept').addEventListener('change', function() {
+        const customDiv = document.getElementById('customConceptDiv');
+        if (this.value === 'otro') {
+            customDiv.classList.remove('hidden');
+        } else {
+            customDiv.classList.add('hidden');
+        }
+    });
+    
+    document.getElementById('newPaymentModal').classList.remove('hidden');
+    lucide.createIcons();
+}
+
+// Mostrar modal de nuevo pago desde escuela específica
+function showNewPaymentModalForSchool() {
+    if (!currentSchoolData) return;
+    
+    showNewPaymentModal();
+    
+    // Pre-seleccionar la escuela
+    setTimeout(() => {
+        document.getElementById('paymentClubId').value = currentSchoolData.clubId;
+    }, 100);
+    
+    closeSchoolActionsModal();
+}
+
+function closeNewPaymentModal() {
+    document.getElementById('newPaymentModal').classList.add('hidden');
+}
+
+// Guardar nuevo pago
+document.getElementById('newPaymentForm')?.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const clubId = document.getElementById('paymentClubId').value;
+    const concept = document.getElementById('paymentConcept').value;
+    const customConcept = document.getElementById('paymentCustomConcept').value;
+    const amount = parseFloat(document.getElementById('paymentAmount').value);
+    const paymentDate = document.getElementById('paymentDate').value;
+    const method = document.getElementById('paymentMethod').value;
+    const status = document.getElementById('paymentStatus').value;
+    const autoRenew = document.getElementById('autoRenewLicense').checked;
+    const notes = document.getElementById('paymentNotes').value;
+    
+    if (!clubId) {
+        showToast('❌ Selecciona un club');
+        return;
+    }
+    
+    if (!amount || amount <= 0) {
+        showToast('❌ Ingresa un monto válido');
+        return;
+    }
+    
+    // Obtener datos del club
+    const club = currentSchools.find(s => s.clubId === clubId);
+    
+    try {
+        showToast('⏳ Guardando pago...');
+        
+        const { db, doc, setDoc, updateDoc, collection } = window.firebaseAdmin;
+        
+        const invoiceNumber = generateInvoiceNumber();
+        const paymentId = `payment_${Date.now()}`;
+        
+        const paymentData = {
+            invoiceNumber: invoiceNumber,
+            clubId: clubId,
+            clubName: club?.clubName || clubId,
+            clubPhone: club?.clubPhone || '',
+            concept: concept,
+            customConcept: customConcept,
+            amount: amount,
+            paymentDate: paymentDate,
+            method: method,
+            status: status,
+            notes: notes,
+            autoRenew: autoRenew,
+            createdAt: new Date().toISOString(),
+            createdBy: currentAdminData?.email || 'Super Admin'
+        };
+        
+        // Guardar en colección billing
+        await setDoc(doc(db, 'billing', paymentId), paymentData);
+        
+        // Si está marcado como pagado y autoRenew está activo, extender licencia
+        if (status === 'pagado' && autoRenew && club) {
+            const currentEndDate = new Date(club.endDate);
+            const now = new Date();
+            const baseDate = currentEndDate > now ? currentEndDate : now;
+            
+            const newEndDate = new Date(baseDate);
+            
+            // Determinar extensión según concepto
+            if (concept.includes('anual')) {
+                newEndDate.setFullYear(newEndDate.getFullYear() + 1);
+            } else if (concept.includes('mensual')) {
+                newEndDate.setMonth(newEndDate.getMonth() + 1);
+            }
+            
+            // Actualizar licencia
+            const paymentHistory = club.paymentHistory || [];
+            paymentHistory.push({
+                date: new Date().toISOString(),
+                plan: concept.includes('anual') ? 'anual' : 'mensual',
+                action: 'payment',
+                amount: amount,
+                invoiceNumber: invoiceNumber,
+                extendedBy: currentAdminData?.email || 'Super Admin'
+            });
+            
+            await updateDoc(doc(db, 'licenses', clubId), {
+                endDate: newEndDate.toISOString(),
+                status: 'activo',
+                plan: concept.includes('anual') ? 'anual' : 'mensual',
+                paymentHistory: paymentHistory,
+                lastUpdated: new Date().toISOString()
+            });
+            
+            showToast(`✅ Pago registrado y licencia extendida hasta ${formatDate(newEndDate)}`);
+        } else {
+            showToast('✅ Pago registrado correctamente');
+        }
+        
+        closeNewPaymentModal();
+        
+        // Recargar datos
+        await Promise.all([loadBilling(), loadSchools()]);
+        updateStats();
+        
+    } catch (error) {
+        console.error('Error al guardar pago:', error);
+        showToast('❌ Error al guardar pago');
+    }
+});
+
+// Ver factura
+function viewInvoice(paymentId) {
+    const bill = currentBilling.find(b => b.id === paymentId);
+    if (!bill) {
+        showToast('❌ Factura no encontrada');
+        return;
+    }
+    
+    currentInvoiceData = bill;
+    
+    const conceptLabels = {
+        'licencia_anual': 'Licencia Anual MY CLUB',
+        'licencia_mensual': 'Licencia Mensual MY CLUB',
+        'renovacion_anual': 'Renovación Anual MY CLUB',
+        'renovacion_mensual': 'Renovación Mensual MY CLUB',
+        'otro': bill.customConcept || 'Otro concepto'
+    };
+    
+    const methodLabels = {
+        'transferencia': 'Transferencia Bancaria',
+        'efectivo': 'Efectivo',
+        'nequi': 'Nequi',
+        'daviplata': 'Daviplata',
+        'pse': 'PSE',
+        'tarjeta': 'Tarjeta Crédito/Débito',
+        'otro': 'Otro'
+    };
+    
+    const invoiceContent = document.getElementById('invoiceContent');
+    invoiceContent.innerHTML = `
+        <div class="max-w-xl mx-auto">
+            <!-- Header -->
+            <div class="text-center mb-8 border-b pb-6">
+                <h1 class="text-3xl font-bold text-gray-800">⚽ MY CLUB</h1>
+                <p class="text-gray-500">Sistema de Gestión de Escuelas de Fútbol</p>
+            </div>
+            
+            <!-- Info Factura -->
+            <div class="flex justify-between mb-8">
+                <div>
+                    <p class="text-sm text-gray-500">Factura Nº</p>
+                    <p class="font-bold text-lg text-teal-600">${bill.invoiceNumber}</p>
+                </div>
+                <div class="text-right">
+                    <p class="text-sm text-gray-500">Fecha</p>
+                    <p class="font-medium">${formatDate(bill.paymentDate || bill.createdAt)}</p>
+                </div>
+            </div>
+            
+            <!-- Cliente -->
+            <div class="bg-gray-100 rounded-lg p-4 mb-6">
+                <p class="text-sm text-gray-500 mb-1">Cliente</p>
+                <p class="font-bold text-lg">${bill.clubName}</p>
+                <p class="text-gray-600">${bill.clubPhone || 'Sin teléfono'}</p>
+            </div>
+            
+            <!-- Detalle -->
+            <table class="w-full mb-6">
+                <thead>
+                    <tr class="border-b-2 border-gray-300">
+                        <th class="text-left py-2 text-gray-600">Concepto</th>
+                        <th class="text-right py-2 text-gray-600">Valor</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="border-b border-gray-200">
+                        <td class="py-4">${conceptLabels[bill.concept] || bill.concept}</td>
+                        <td class="py-4 text-right font-medium">${formatCurrency(bill.amount)}</td>
+                    </tr>
+                </tbody>
+                <tfoot>
+                    <tr class="border-t-2 border-gray-300">
+                        <td class="py-4 font-bold text-lg">TOTAL</td>
+                        <td class="py-4 text-right font-bold text-lg text-teal-600">${formatCurrency(bill.amount)}</td>
+                    </tr>
+                </tfoot>
+            </table>
+            
+            <!-- Método de pago y estado -->
+            <div class="flex justify-between mb-6 text-sm">
+                <div>
+                    <span class="text-gray-500">Método de pago:</span>
+                    <span class="font-medium ml-2">${methodLabels[bill.method] || bill.method}</span>
+                </div>
+                <div>
+                    <span class="text-gray-500">Estado:</span>
+                    <span class="font-medium ml-2 ${bill.status === 'pagado' ? 'text-green-600' : 'text-yellow-600'}">
+                        ${bill.status === 'pagado' ? '✅ PAGADO' : '⏳ PENDIENTE'}
+                    </span>
+                </div>
+            </div>
+            
+            ${bill.notes ? `
+                <div class="bg-yellow-50 rounded-lg p-4 mb-6">
+                    <p class="text-sm text-gray-500 mb-1">Notas</p>
+                    <p class="text-gray-700">${bill.notes}</p>
+                </div>
+            ` : ''}
+            
+            <!-- Footer -->
+            <div class="text-center text-gray-400 text-sm mt-8 pt-6 border-t">
+                <p>Gracias por confiar en MY CLUB</p>
+                <p>Este documento es un comprobante de pago</p>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('viewInvoiceModal').classList.remove('hidden');
+}
+
+function closeViewInvoiceModal() {
+    document.getElementById('viewInvoiceModal').classList.add('hidden');
+    currentInvoiceData = null;
+}
+
+// Descargar factura como PDF
+function downloadInvoicePDF() {
+    if (!currentInvoiceData) return;
+    
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    
+    const bill = currentInvoiceData;
+    
+    const conceptLabels = {
+        'licencia_anual': 'Licencia Anual MY CLUB',
+        'licencia_mensual': 'Licencia Mensual MY CLUB',
+        'renovacion_anual': 'Renovación Anual MY CLUB',
+        'renovacion_mensual': 'Renovación Mensual MY CLUB',
+        'otro': bill.customConcept || 'Otro concepto'
+    };
+    
+    const methodLabels = {
+        'transferencia': 'Transferencia Bancaria',
+        'efectivo': 'Efectivo',
+        'nequi': 'Nequi',
+        'daviplata': 'Daviplata',
+        'pse': 'PSE',
+        'tarjeta': 'Tarjeta Credito/Debito',
+        'otro': 'Otro'
+    };
+    
+    // Header
+    doc.setFontSize(24);
+    doc.setTextColor(13, 148, 136); // Teal
+    doc.text('MY CLUB', 105, 30, { align: 'center' });
+    
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text('Sistema de Gestion de Escuelas de Futbol', 105, 38, { align: 'center' });
+    
+    // Línea separadora
+    doc.setDrawColor(200);
+    doc.line(20, 45, 190, 45);
+    
+    // Info Factura
+    doc.setFontSize(12);
+    doc.setTextColor(0);
+    doc.text('Factura No:', 20, 55);
+    doc.setTextColor(13, 148, 136);
+    doc.setFontSize(14);
+    doc.text(bill.invoiceNumber, 50, 55);
+    
+    doc.setFontSize(12);
+    doc.setTextColor(100);
+    doc.text('Fecha:', 140, 55);
+    doc.setTextColor(0);
+    doc.text(formatDate(bill.paymentDate || bill.createdAt), 160, 55);
+    
+    // Cliente
+    doc.setFillColor(245, 245, 245);
+    doc.rect(20, 65, 170, 25, 'F');
+    
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text('Cliente:', 25, 73);
+    doc.setFontSize(14);
+    doc.setTextColor(0);
+    doc.text(bill.clubName || 'Sin nombre', 25, 82);
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(bill.clubPhone || 'Sin telefono', 25, 88);
+    
+    // Tabla de detalle
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text('Concepto', 20, 105);
+    doc.text('Valor', 170, 105, { align: 'right' });
+    
+    doc.setDrawColor(200);
+    doc.line(20, 108, 190, 108);
+    
+    doc.setFontSize(12);
+    doc.setTextColor(0);
+    doc.text(conceptLabels[bill.concept] || bill.concept, 20, 118);
+    doc.text(formatCurrency(bill.amount), 170, 118, { align: 'right' });
+    
+    doc.line(20, 125, 190, 125);
+    
+    // Total
+    doc.setFontSize(14);
+    doc.setFont(undefined, 'bold');
+    doc.text('TOTAL:', 20, 135);
+    doc.setTextColor(13, 148, 136);
+    doc.text(formatCurrency(bill.amount), 170, 135, { align: 'right' });
+    
+    // Método y estado
+    doc.setFont(undefined, 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(`Metodo de pago: ${methodLabels[bill.method] || bill.method}`, 20, 150);
+    doc.text(`Estado: ${bill.status === 'pagado' ? 'PAGADO' : 'PENDIENTE'}`, 20, 158);
+    
+    // Notas
+    if (bill.notes) {
+        doc.setFillColor(255, 250, 230);
+        doc.rect(20, 165, 170, 20, 'F');
+        doc.setTextColor(100);
+        doc.text('Notas:', 25, 173);
+        doc.setTextColor(0);
+        doc.text(bill.notes.substring(0, 80), 25, 180);
+    }
+    
+    // Footer
+    doc.setFontSize(10);
+    doc.setTextColor(150);
+    doc.text('Gracias por confiar en MY CLUB', 105, 270, { align: 'center' });
+    doc.text('Este documento es un comprobante de pago', 105, 277, { align: 'center' });
+    
+    // Descargar
+    doc.save(`Factura_${bill.invoiceNumber}.pdf`);
+    showToast('✅ PDF descargado');
+}
+
+// Compartir factura por WhatsApp
+function shareInvoiceWhatsApp() {
+    if (!currentInvoiceData) return;
+    
+    const bill = currentInvoiceData;
+    
+    const conceptLabels = {
+        'licencia_anual': 'Licencia Anual MY CLUB',
+        'licencia_mensual': 'Licencia Mensual MY CLUB',
+        'renovacion_anual': 'Renovación Anual MY CLUB',
+        'renovacion_mensual': 'Renovación Mensual MY CLUB',
+        'otro': bill.customConcept || 'Otro concepto'
+    };
+    
+    const message = `📄 *COMPROBANTE DE PAGO - MY CLUB*\n\n` +
+        `🔢 Factura: *${bill.invoiceNumber}*\n` +
+        `📅 Fecha: ${formatDate(bill.paymentDate || bill.createdAt)}\n\n` +
+        `👤 Cliente: *${bill.clubName}*\n\n` +
+        `📋 Concepto: ${conceptLabels[bill.concept] || bill.concept}\n` +
+        `💰 Total: *${formatCurrency(bill.amount)}*\n\n` +
+        `✅ Estado: ${bill.status === 'pagado' ? 'PAGADO' : 'PENDIENTE'}\n\n` +
+        `¡Gracias por confiar en MY CLUB! ⚽`;
+    
+    const phone = bill.clubPhone ? bill.clubPhone.replace(/[^0-9]/g, '') : '';
+    const url = phone 
+        ? `https://wa.me/${phone}?text=${encodeURIComponent(message)}`
+        : `https://wa.me/?text=${encodeURIComponent(message)}`;
+    
+    window.open(url, '_blank');
+    showToast('✅ Abriendo WhatsApp...');
+}
+
+// Marcar como pagado
+async function markAsPaid(paymentId) {
+    if (!confirm('¿Marcar este pago como PAGADO?')) return;
+    
+    const bill = currentBilling.find(b => b.id === paymentId);
+    if (!bill) return;
+    
+    try {
+        showToast('⏳ Actualizando...');
+        
+        const { db, doc, updateDoc } = window.firebaseAdmin;
+        
+        await updateDoc(doc(db, 'billing', paymentId), {
+            status: 'pagado',
+            paidAt: new Date().toISOString(),
+            updatedBy: currentAdminData?.email || 'Super Admin'
+        });
+        
+        // Si autoRenew estaba activo, extender licencia
+        if (bill.autoRenew) {
+            const club = currentSchools.find(s => s.clubId === bill.clubId);
+            if (club) {
+                const currentEndDate = new Date(club.endDate);
+                const now = new Date();
+                const baseDate = currentEndDate > now ? currentEndDate : now;
+                
+                const newEndDate = new Date(baseDate);
+                
+                if (bill.concept.includes('anual')) {
+                    newEndDate.setFullYear(newEndDate.getFullYear() + 1);
+                } else if (bill.concept.includes('mensual')) {
+                    newEndDate.setMonth(newEndDate.getMonth() + 1);
+                }
+                
+                await updateDoc(doc(db, 'licenses', bill.clubId), {
+                    endDate: newEndDate.toISOString(),
+                    status: 'activo',
+                    lastUpdated: new Date().toISOString()
+                });
+                
+                showToast(`✅ Pago marcado y licencia extendida hasta ${formatDate(newEndDate)}`);
+            } else {
+                showToast('✅ Pago marcado como pagado');
+            }
+        } else {
+            showToast('✅ Pago marcado como pagado');
+        }
+        
+        await Promise.all([loadBilling(), loadSchools()]);
+        updateStats();
+        
+    } catch (error) {
+        console.error('Error al actualizar pago:', error);
+        showToast('❌ Error al actualizar');
+    }
+}
+
+// Exportar reporte de facturación
+function exportBillingReport() {
+    if (currentBilling.length === 0) {
+        showToast('❌ No hay datos para exportar');
+        return;
+    }
+    
+    const headers = ['Factura', 'Club', 'Concepto', 'Monto', 'Fecha', 'Método', 'Estado'];
+    
+    const conceptLabels = {
+        'licencia_anual': 'Licencia Anual',
+        'licencia_mensual': 'Licencia Mensual',
+        'renovacion_anual': 'Renovación Anual',
+        'renovacion_mensual': 'Renovación Mensual',
+        'otro': 'Otro'
+    };
+    
+    const rows = currentBilling.map(bill => [
+        bill.invoiceNumber,
+        bill.clubName,
+        conceptLabels[bill.concept] || bill.concept,
+        bill.amount,
+        formatDate(bill.paymentDate || bill.createdAt),
+        bill.method,
+        bill.status
+    ]);
+    
+    // Crear CSV
+    let csv = headers.join(',') + '\n';
+    rows.forEach(row => {
+        csv += row.map(cell => `"${cell}"`).join(',') + '\n';
+    });
+    
+    // Descargar
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `Reporte_Facturacion_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    
+    showToast('✅ Reporte exportado');
+}
+
+// ========================================
 // INICIALIZACIÓN
 // ========================================
 
-
-console.log('✅ admin.js cargado correctamente');
+console.log('✅ admin.js cargado correctamente con Sistema de Facturación 💰');
