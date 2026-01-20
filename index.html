@@ -862,6 +862,26 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
                 </div>
             </div>
 
+                    <!-- 🆕 DOCUMENTO DE IDENTIDAD -->
+        <div class="grid md:grid-cols-2 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo de Documento</label>
+                <select id="playerDocumentType" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500">
+                    <option value="">Seleccionar...</option>
+                    <option value="TI">TI - Tarjeta de Identidad</option>
+                    <option value="RC">RC - Registro Civil</option>
+                    <option value="CC">CC - Cédula de Ciudadanía</option>
+                    <option value="CE">CE - Cédula de Extranjería</option>
+                    <option value="PA">PA - Pasaporte</option>
+                    <option value="NUIP">NUIP</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Número de Documento</label>
+                <input type="text" id="playerDocumentNumber" placeholder="Ej: 1234567890" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500">
+            </div>
+        </div>
+
             <div class="grid md:grid-cols-2 gap-4">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Categoría *</label>

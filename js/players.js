@@ -1,6 +1,7 @@
 // ========================================
 // GESTIÓN DE JUGADORES - MEJORADO CON ESTADO ACTIVO/INACTIVO
 // ✅ CON NORMALIZACIÓN DE TELÉFONOS
+// 🆕 CON DOCUMENTO DE IDENTIDAD (TI/CC/CE)
 // ========================================
 
 let currentEditingPlayerId = null;
@@ -44,6 +45,10 @@ function showEditPlayerModal(playerId) {
   document.getElementById('playerEmergencyContact').value = player.emergencyContact || '';
   document.getElementById('playerAvatarPreview').src = player.avatar || getDefaultAvatar();
   
+  // 🆕 CARGAR DOCUMENTO DE IDENTIDAD
+  document.getElementById('playerDocumentType').value = player.documentType || '';
+  document.getElementById('playerDocumentNumber').value = player.documentNumber || '';
+  
   document.getElementById('playerModal').classList.remove('hidden');
 }
 
@@ -76,7 +81,7 @@ document.getElementById('playerAvatar')?.addEventListener('change', function(e) 
   }
 });
 
-// Guardar jugador - MEJORADO CON NORMALIZACIÓN DE TELÉFONOS
+// Guardar jugador - MEJORADO CON NORMALIZACIÓN DE TELÉFONOS Y DOCUMENTO
 document.getElementById('playerForm')?.addEventListener('submit', function(e) {
   e.preventDefault();
   
@@ -92,9 +97,12 @@ document.getElementById('playerForm')?.addEventListener('submit', function(e) {
     jerseyNumber: document.getElementById('playerJerseyNumber').value,
     uniformSize: document.getElementById('playerUniformSize').value,
     email: document.getElementById('playerEmail').value,
-    phone: normalizePhone(document.getElementById('playerPhone').value), // ⭐ NORMALIZAR AQUÍ
+    phone: normalizePhone(document.getElementById('playerPhone').value),
     address: document.getElementById('playerAddress').value,
-    emergencyContact: normalizePhone(document.getElementById('playerEmergencyContact').value), // ⭐ NORMALIZAR AQUÍ
+    emergencyContact: normalizePhone(document.getElementById('playerEmergencyContact').value),
+    // 🆕 DOCUMENTO DE IDENTIDAD
+    documentType: document.getElementById('playerDocumentType').value,
+    documentNumber: document.getElementById('playerDocumentNumber').value.trim(),
     medicalInfo: {
       bloodType: document.getElementById('playerBloodType').value,
       allergies: document.getElementById('playerAllergies').value,
@@ -192,13 +200,32 @@ function filterByStatus(status) {
   });
 }
 
-// Renderizar lista de jugadores - MEJORADO CON TELÉFONOS FORMATEADOS
+// 🆕 Función para formatear documento de identidad
+function formatDocument(type, number) {
+  if (!type || !number) return 'No registrado';
+  return `${type} ${number}`;
+}
+
+// 🆕 Función para obtener el nombre completo del tipo de documento
+function getDocumentTypeName(type) {
+  const types = {
+    'TI': 'Tarjeta de Identidad',
+    'CC': 'Cédula de Ciudadanía',
+    'CE': 'Cédula de Extranjería',
+    'RC': 'Registro Civil',
+    'PA': 'Pasaporte',
+    'NUIP': 'NUIP'
+  };
+  return types[type] || type || 'No especificado';
+}
+
+// Renderizar lista de jugadores - MEJORADO CON TELÉFONOS FORMATEADOS Y DOCUMENTO
 function renderPlayersList() {
   const players = getPlayers();
   const searchTerm = document.getElementById('playerSearch')?.value || '';
   
-  // Filtrar por búsqueda
-  let filtered = filterBySearch(players, searchTerm, ['name', 'category', 'phone', 'email', 'position', 'jerseyNumber']);
+  // Filtrar por búsqueda (ahora incluye documento)
+  let filtered = filterBySearch(players, searchTerm, ['name', 'category', 'phone', 'email', 'position', 'jerseyNumber', 'documentNumber']);
   
   // Filtrar por estado
   if (currentStatusFilter === 'activo') {
@@ -267,10 +294,10 @@ function renderPlayersList() {
                 <i data-lucide="phone" class="w-4 h-4"></i>
                 ${formatPhoneDisplay(player.phone)}
               </a>
-              ${player.email ? `
+              ${player.documentNumber ? `
                 <span class="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1">
-                  <i data-lucide="mail" class="w-4 h-4"></i>
-                  ${player.email}
+                  <i data-lucide="id-card" class="w-4 h-4"></i>
+                  ${player.documentType || 'Doc'}: ${player.documentNumber}
                 </span>
               ` : ''}
             </div>
@@ -299,7 +326,7 @@ function renderPlayersList() {
 // Buscar jugadores en tiempo real
 document.getElementById('playerSearch')?.addEventListener('input', renderPlayersList);
 
-// Mostrar detalles del jugador - MEJORADO CON TELÉFONOS FORMATEADOS
+// Mostrar detalles del jugador - MEJORADO CON DOCUMENTO
 function showPlayerDetails(playerId) {
   const player = getPlayerById(playerId);
   if (!player) {
@@ -344,6 +371,15 @@ function showPlayerDetails(playerId) {
           Información Personal
         </h3>
         <div class="space-y-2 text-sm">
+          <!-- 🆕 DOCUMENTO DE IDENTIDAD -->
+          <div class="flex justify-between">
+            <span class="text-gray-500 dark:text-gray-400">Documento:</span>
+            <span class="text-gray-800 dark:text-white font-medium">
+              ${player.documentType && player.documentNumber 
+                ? `${getDocumentTypeName(player.documentType)}: ${player.documentNumber}` 
+                : 'No registrado'}
+            </span>
+          </div>
           <div class="flex justify-between">
             <span class="text-gray-500 dark:text-gray-400">Fecha de nacimiento:</span>
             <span class="text-gray-800 dark:text-white font-medium">${formatDate(player.birthDate)}</span>
@@ -485,4 +521,8 @@ function deletePlayerConfirm(playerId) {
   }
 }
 
-console.log('✅ players.js cargado (CON NORMALIZACIÓN DE TELÉFONOS)');
+// Hacer funciones globales
+window.formatDocument = formatDocument;
+window.getDocumentTypeName = getDocumentTypeName;
+
+console.log('✅ players.js cargado (CON DOCUMENTO DE IDENTIDAD)');

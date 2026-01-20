@@ -1,9 +1,10 @@
 // ========================================
 // CONTABILIDAD COMPLETA - CON EGRESOS Y OTROS INGRESOS
 // 🆕 CSV MEJORADO: Factura, Fecha, Otros Ingresos
+// 🆕 INCLUYE DOCUMENTO DE IDENTIDAD
 // ========================================
 
-console.log('📄 Cargando accounting.js con egresos y otros ingresos...');
+console.log('📄 Cargando accounting.js con egresos, otros ingresos y documento de identidad...');
 
 let accountingCharts = {};
 
@@ -369,7 +370,7 @@ function renderIncomeByTypeChart() {
   });
 }
 
-// Tabla de jugadores
+// Tabla de jugadores - 🆕 CON DOCUMENTO DE IDENTIDAD
 function renderAccountingPlayersTable() {
   const tbody = document.getElementById('accountingPlayersTable');
   if (!tbody) return;
@@ -377,7 +378,7 @@ function renderAccountingPlayersTable() {
   const players = getPlayers();
   
   if (players.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="6" class="text-center py-8 text-gray-500 dark:text-gray-400">No hay jugadores</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center py-8 text-gray-500 dark:text-gray-400">No hay jugadores</td></tr>';
     return;
   }
   
@@ -393,12 +394,20 @@ function renderAccountingPlayersTable() {
     
     const color = compliance >= 80 ? 'bg-green-500' : compliance >= 50 ? 'bg-yellow-500' : 'bg-red-500';
     
+    // 🆕 Formatear documento
+    const documentInfo = player.documentType && player.documentNumber 
+      ? `${player.documentType}: ${player.documentNumber}` 
+      : '-';
+    
     return `
       <tr class="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
         <td class="py-3 text-gray-800 dark:text-white">
           <div class="flex items-center gap-2">
             <img src="${player.avatar || getDefaultAvatar()}" alt="${player.name}" class="w-8 h-8 rounded-full">
-            <span>${player.name}</span>
+            <div>
+              <span class="font-medium">${player.name}</span>
+              <p class="text-xs text-gray-500 dark:text-gray-400">${documentInfo}</p>
+            </div>
           </div>
         </td>
         <td class="py-3 text-gray-800 dark:text-white">${player.category}</td>
@@ -432,7 +441,7 @@ function generateFullReport() {
 }
 
 // ========================================
-// 🆕 EXPORTAR CSV COMPLETO - CON FACTURA, FECHA Y OTROS INGRESOS
+// 🆕 EXPORTAR CSV COMPLETO - CON DOCUMENTO DE IDENTIDAD
 // ========================================
 
 function exportCSV() {
@@ -444,7 +453,7 @@ function exportCSV() {
     return;
   }
   
-  // 🆕 Exportar pagos individuales con factura y fecha
+  // 🆕 Exportar pagos individuales con factura, fecha y DOCUMENTO
   const csvData = [];
   
   // Agregar pagos de jugadores
@@ -455,6 +464,8 @@ function exportCSV() {
       'Factura': payment.invoiceNumber || 'N/A',
       'Fecha': payment.paidDate ? formatDate(payment.paidDate) : formatDate(payment.dueDate),
       'Jugador/Aportante': player ? player.name : 'Desconocido',
+      'Tipo Documento': player ? (player.documentType || 'N/A') : 'N/A', // 🆕
+      'Número Documento': player ? (player.documentNumber || 'N/A') : 'N/A', // 🆕
       'Categoría': player ? player.category : 'N/A',
       'Concepto': payment.concept || payment.type || 'N/A',
       'Monto': payment.amount || 0,
@@ -472,6 +483,8 @@ function exportCSV() {
       'Factura': income.invoiceNumber || 'N/A',
       'Fecha': income.date ? formatDate(income.date) : 'N/A',
       'Jugador/Aportante': income.contributorName || 'N/A',
+      'Tipo Documento': 'N/A',
+      'Número Documento': 'N/A',
       'Categoría': income.category || 'N/A',
       'Concepto': income.concept || 'N/A',
       'Monto': income.amount || 0,
@@ -500,7 +513,7 @@ function exportCSV() {
   console.log('📊 CSV exportado con', csvData.length, 'registros');
 }
 
-// 🆕 Exportar resumen por jugador (función adicional)
+// 🆕 Exportar resumen por jugador (función adicional) - CON DOCUMENTO
 function exportPlayersSummaryCSV() {
   const players = getPlayers();
   if (players.length === 0) {
@@ -518,6 +531,8 @@ function exportPlayersSummaryCSV() {
     
     return {
       'Jugador': player.name || 'N/A',
+      'Tipo Documento': player.documentType || 'N/A', // 🆕
+      'Número Documento': player.documentNumber || 'N/A', // 🆕
       'Categoría': player.category || 'N/A',
       'Total Pagado': paid.reduce((sum, p) => sum + (p.amount || 0), 0),
       'Total Pendiente': pending.reduce((sum, p) => sum + (p.amount || 0), 0),
@@ -562,7 +577,7 @@ function exportExpensesCSV() {
   showToast('✅ Egresos exportados');
 }
 
-// 🆕 Exportar reporte completo (todo junto)
+// 🆕 Exportar reporte completo (todo junto) - CON DOCUMENTO
 function exportFullReportCSV() {
   const payments = getPayments();
   const expenses = getExpenses();
@@ -583,6 +598,8 @@ function exportFullReportCSV() {
       'Factura': payment.invoiceNumber || 'N/A',
       'Fecha': payment.paidDate ? formatDate(payment.paidDate) : formatDate(payment.dueDate),
       'Nombre': player ? player.name : 'Desconocido',
+      'Tipo Documento': player ? (player.documentType || 'N/A') : 'N/A', // 🆕
+      'Número Documento': player ? (player.documentNumber || 'N/A') : 'N/A', // 🆕
       'Categoría': player ? player.category : 'N/A',
       'Concepto': payment.concept || payment.type || 'N/A',
       'Ingreso': payment.status === 'Pagado' ? (payment.amount || 0) : 0,
@@ -599,6 +616,8 @@ function exportFullReportCSV() {
       'Factura': income.invoiceNumber || 'N/A',
       'Fecha': income.date ? formatDate(income.date) : 'N/A',
       'Nombre': income.contributorName || 'N/A',
+      'Tipo Documento': 'N/A',
+      'Número Documento': 'N/A',
       'Categoría': income.category || 'N/A',
       'Concepto': income.concept || 'N/A',
       'Ingreso': income.amount || 0,
@@ -615,6 +634,8 @@ function exportFullReportCSV() {
       'Factura': expense.invoiceNumber || 'N/A',
       'Fecha': expense.date ? formatDate(expense.date) : 'N/A',
       'Nombre': expense.beneficiaryName || 'N/A',
+      'Tipo Documento': 'N/A',
+      'Número Documento': expense.beneficiaryDocument || 'N/A',
       'Categoría': expense.category || 'N/A',
       'Concepto': expense.concept || 'N/A',
       'Ingreso': 0,
@@ -650,4 +671,4 @@ window.exportExpensesCSV = exportExpensesCSV;
 window.exportPlayersSummaryCSV = exportPlayersSummaryCSV;
 window.exportFullReportCSV = exportFullReportCSV;
 
-console.log('✅ accounting.js cargado correctamente CON EGRESOS Y OTROS INGRESOS');
+console.log('✅ accounting.js cargado correctamente CON DOCUMENTO DE IDENTIDAD');
