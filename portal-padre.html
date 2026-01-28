@@ -1,0 +1,1119 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#0d9488">
+    <meta name="description" content="Portal de Padres - Consulta el perfil de tu hijo">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="mobile-web-app-capable" content="yes">
+    
+    <title>Portal de Padres - MY CLUB</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class'
+        }
+    </script>
+    
+    <!-- Manifest para PWA -->
+    <link rel="manifest" href="parent-manifest.json">
+    
+    <!-- Icons -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👨‍👩‍👧</text></svg>">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👨‍👩‍👧</text></svg>">
+    
+    <style>
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        .animate-float { animation: float 3s ease-in-out infinite; }
+        
+        @keyframes slide-up {
+            from { transform: translateY(100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .animate-slide-up { animation: slide-up 0.3s ease-out; }
+        
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .animate-spin { animation: spin 1s linear infinite; }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .animate-pulse { animation: pulse 2s ease-in-out infinite; }
+    </style>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 min-h-screen transition-colors duration-300">
+    
+    <!-- Contenedor de Login -->
+    <div id="loginContainer" class="min-h-screen flex flex-col items-center justify-center p-4">
+        <!-- Logo animado -->
+        <div class="text-6xl mb-6 animate-float">👨‍👩‍👧</div>
+        
+        <h1 class="text-2xl font-bold text-gray-800 dark:text-white mb-2">Portal de Padres</h1>
+        <p class="text-gray-500 dark:text-gray-400 mb-8 text-center">Accede al perfil de tu hijo</p>
+        
+        <!-- Formulario de Login -->
+        <form id="parentLoginForm" class="w-full max-w-sm space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    🏫 Club ID
+                </label>
+                <input 
+                    type="text" 
+                    id="parentClubId" 
+                    required
+                    placeholder="ej: mi_club_futbol"
+                    class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-teal-500 dark:bg-gray-800 dark:text-white text-lg"
+                >
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    🔐 Código de Acceso
+                </label>
+                <input 
+                    type="text" 
+                    id="parentAccessCode" 
+                    required
+                    placeholder="ej: ABC123"
+                    maxlength="6"
+                    class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-teal-500 dark:bg-gray-800 dark:text-white text-lg uppercase tracking-widest text-center font-mono"
+                >
+            </div>
+            
+            <button 
+                type="submit" 
+                class="w-full bg-gradient-to-r from-teal-600 to-blue-600 hover:from-teal-700 hover:to-blue-700 text-white py-4 rounded-xl font-bold text-lg shadow-lg transition-all transform hover:scale-[1.02]"
+            >
+                Acceder al Perfil
+            </button>
+        </form>
+        
+        <!-- Info -->
+        <div class="mt-8 text-center text-sm text-gray-500 dark:text-gray-400">
+            <p>¿No tienes código?</p>
+            <p>Solicítalo al administrador de la escuela</p>
+        </div>
+        
+        <!-- Toggle Dark Mode -->
+        <button onclick="toggleDarkModeParent()" class="mt-6 p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+            <span class="dark:hidden">🌙</span>
+            <span class="hidden dark:inline">☀️</span>
+        </button>
+    </div>
+    
+    <!-- Contenedor del Perfil (oculto inicialmente) -->
+    <div id="profileContainer" class="hidden">
+        <!-- El contenido se genera dinámicamente en JS -->
+    </div>
+    
+    <!-- Modal de Sugerencias -->
+    <div id="suggestionModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <!-- Header -->
+            <div class="bg-gradient-to-r from-amber-500 to-orange-500 p-4 rounded-t-2xl">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-xl font-bold text-white flex items-center gap-2">
+                        💡 Mejoras de la App
+                    </h3>
+                    <button onclick="closeSuggestionModal()" class="text-white hover:bg-white/20 rounded-lg p-1">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Tabs -->
+            <div class="flex border-b border-gray-200 dark:border-gray-700">
+                <button onclick="showSuggestionTab('new')" id="tabNew" class="flex-1 py-3 text-sm font-medium text-amber-600 border-b-2 border-amber-500">
+                    ✏️ Nueva
+                </button>
+                <button onclick="showSuggestionTab('history')" id="tabHistory" class="flex-1 py-3 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700">
+                    📋 Mis Sugerencias
+                </button>
+            </div>
+            
+            <!-- Tab: Nueva Sugerencia -->
+            <div id="newSuggestionTab" class="p-4">
+                <!-- Nota informativa -->
+                <div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mb-4">
+                    <p class="text-sm text-blue-700 dark:text-blue-300">
+                        📱 <strong>¿Tienes ideas para mejorar esta app?</strong><br>
+                        Tu mensaje será enviado al <strong>desarrollador de MY CLUB</strong>, no a la escuela de tu hijo.
+                    </p>
+                </div>
+                
+                <form id="suggestionForm" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tu Nombre</label>
+                        <input type="text" id="suggestionName" required placeholder="Ej: María García"
+                            class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo de mensaje</label>
+                        <select id="suggestionType" required
+                            class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+                            <option value="">Seleccionar...</option>
+                            <option value="sugerencia">💡 Sugerencia de mejora</option>
+                            <option value="bug">🐛 Reportar un error</option>
+                            <option value="pregunta">❓ Pregunta sobre la app</option>
+                            <option value="felicitacion">🎉 Felicitación</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tu mensaje</label>
+                        <textarea id="suggestionMessage" required rows="4" placeholder="Ej: Me gustaría que la app tuviera... / Encontré un error cuando..."
+                            class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white resize-none"></textarea>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Teléfono (opcional)</label>
+                        <input type="tel" id="suggestionPhone" placeholder="Ej: +57 300 123 4567"
+                            class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+                    </div>
+                    
+                    <button type="submit" class="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white py-3 rounded-lg font-bold flex items-center justify-center gap-2">
+                        📤 Enviar al Desarrollador
+                    </button>
+                </form>
+            </div>
+            
+            <!-- Tab: Historial de Sugerencias -->
+            <div id="historySuggestionTab" class="hidden p-4">
+                <div id="suggestionsList" class="space-y-4">
+                    <!-- Se llena dinámicamente -->
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Toast -->
+    <div id="parentToast" class="hidden fixed bottom-20 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-slide-up"></div>
+    
+    <!-- SCRIPT INLINE - Todo el código del portal -->
+    <script>
+// ========================================
+// PORTAL DE PADRES - LÓGICA COMPLETA
+// ========================================
+
+// Estado del portal
+let currentPlayer = null;
+let currentClubId = null;
+let currentClubSettings = null;
+let mySuggestions = [];
+
+// ========================================
+// INICIALIZACIÓN
+// ========================================
+
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('👨‍👩‍👧 Portal de Padres iniciando...');
+  checkSavedSession();
+  const loginForm = document.getElementById('parentLoginForm');
+  if (loginForm) {
+    loginForm.addEventListener('submit', handleParentLogin);
+  }
+  
+  const suggestionForm = document.getElementById('suggestionForm');
+  if (suggestionForm) {
+    suggestionForm.addEventListener('submit', handleSuggestionSubmit);
+  }
+  
+  applyDarkModeParent();
+});
+
+// ========================================
+// AUTENTICACIÓN
+// ========================================
+
+async function handleParentLogin(e) {
+  e.preventDefault();
+  
+  const clubId = document.getElementById('parentClubId').value.trim().toLowerCase();
+  const accessCode = document.getElementById('parentAccessCode').value.trim().toUpperCase();
+  
+  if (!clubId || !accessCode) {
+    showParentToast('❌ Completa todos los campos');
+    return;
+  }
+  
+  const submitBtn = e.target.querySelector('button[type="submit"]');
+  const originalText = submitBtn.innerHTML;
+  submitBtn.innerHTML = '<span class="animate-spin">⏳</span> Verificando...';
+  submitBtn.disabled = true;
+  
+  try {
+    const success = await loadClubDataFromFirebase(clubId, accessCode);
+    
+    if (success) {
+      saveParentSession(clubId, accessCode);
+      showPlayerProfile();
+      showParentToast('✅ ¡Bienvenido!');
+    } else {
+      showParentToast('❌ Código o Club ID inválido');
+    }
+  } catch (error) {
+    console.error('Error en login de padre:', error);
+    showParentToast('❌ Error al verificar. Intenta de nuevo.');
+  } finally {
+    submitBtn.innerHTML = originalText;
+    submitBtn.disabled = false;
+  }
+}
+
+async function loadClubDataFromFirebase(clubId, accessCode) {
+  try {
+    if (!window.firebase?.db) {
+      await initFirebaseForParent();
+    }
+    
+    if (!window.firebase?.db) {
+      console.error('Firebase no disponible');
+      return false;
+    }
+    
+    const codesRef = window.firebase.collection(window.firebase.db, `clubs/${clubId}/parentCodes`);
+    const codesSnapshot = await window.firebase.getDocs(codesRef);
+    
+    let playerId = null;
+    
+    codesSnapshot.forEach(doc => {
+      const data = doc.data();
+      if (data.code === accessCode) {
+        playerId = data.playerId;
+      }
+    });
+    
+    if (!playerId) {
+      console.log('Código no encontrado');
+      return false;
+    }
+    
+    const playerRef = window.firebase.doc(window.firebase.db, `clubs/${clubId}/players`, playerId);
+    const playerSnap = await window.firebase.getDoc(playerRef);
+    
+    if (!playerSnap.exists()) {
+      console.log('Jugador no encontrado');
+      return false;
+    }
+    
+    currentPlayer = { id: playerSnap.id, ...playerSnap.data() };
+    
+    const settingsRef = window.firebase.doc(window.firebase.db, `clubs/${clubId}/settings`, 'main');
+    const settingsSnap = await window.firebase.getDoc(settingsRef);
+    
+    if (settingsSnap.exists()) {
+      currentClubSettings = settingsSnap.data();
+    } else {
+      currentClubSettings = { name: 'Escuela de Fútbol' };
+    }
+    
+    const paymentsRef = window.firebase.collection(window.firebase.db, `clubs/${clubId}/payments`);
+    const paymentsSnapshot = await window.firebase.getDocs(paymentsRef);
+    
+    const playerPayments = [];
+    paymentsSnapshot.forEach(doc => {
+      const payment = { id: doc.id, ...doc.data() };
+      if (payment.playerId === playerId) {
+        playerPayments.push(payment);
+      }
+    });
+    
+    currentPlayer.payments = playerPayments;
+    
+    // Cargar próximos eventos del club
+    try {
+      const eventsRef = window.firebase.collection(window.firebase.db, `clubs/${clubId}/events`);
+      const eventsSnapshot = await window.firebase.getDocs(eventsRef);
+      
+      const today = new Date().toISOString().split('T')[0];
+      const upcomingEvents = [];
+      
+      eventsSnapshot.forEach(doc => {
+        const event = { id: doc.id, ...doc.data() };
+        if (event.date >= today) {
+          upcomingEvents.push(event);
+        }
+      });
+      
+      currentPlayer.upcomingEvents = upcomingEvents
+        .sort((a, b) => new Date(a.date) - new Date(b.date))
+        .slice(0, 5);
+    } catch (e) {
+      console.log('No se pudieron cargar eventos');
+      currentPlayer.upcomingEvents = [];
+    }
+    
+    currentClubId = clubId;
+    
+    // Cargar sugerencias del padre
+    await loadMySuggestions();
+    
+    console.log('✅ Datos cargados correctamente');
+    return true;
+    
+  } catch (error) {
+    console.error('Error al cargar datos:', error);
+    return false;
+  }
+}
+
+async function initFirebaseForParent() {
+  try {
+    const firebaseConfig = {
+      apiKey: "AIzaSyBThVgzEsTLWSW7puKOVErZ_KOLDEq8v3A",
+      authDomain: "my-club-fae98.firebaseapp.com",
+      projectId: "my-club-fae98",
+      storageBucket: "my-club-fae98.firebasestorage.app",
+      messagingSenderId: "807792685568",
+      appId: "1:807792685568:web:06097faad391a9fd8c9ee5"
+    };
+    
+    const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js');
+    const { getFirestore, collection, doc, getDoc, getDocs, addDoc, query, where, orderBy, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
+    
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    
+    window.firebase = { db, collection, doc, getDoc, getDocs, addDoc, query, where, orderBy, serverTimestamp };
+    
+    console.log('✅ Firebase inicializado para portal de padres');
+    return true;
+  } catch (error) {
+    console.error('Error al inicializar Firebase:', error);
+    return false;
+  }
+}
+
+// ========================================
+// SESIÓN
+// ========================================
+
+function saveParentSession(clubId, accessCode) {
+  localStorage.setItem('parentSession', JSON.stringify({ clubId, accessCode, savedAt: new Date().toISOString() }));
+}
+
+function getParentSession() {
+  try {
+    const session = localStorage.getItem('parentSession');
+    return session ? JSON.parse(session) : null;
+  } catch { return null; }
+}
+
+function clearParentSession() {
+  localStorage.removeItem('parentSession');
+  currentPlayer = null;
+  currentClubId = null;
+  currentClubSettings = null;
+}
+
+async function checkSavedSession() {
+  const session = getParentSession();
+  
+  if (session && session.clubId && session.accessCode) {
+    document.getElementById('loginContainer').innerHTML = `
+      <div class="text-center py-8">
+        <div class="animate-spin text-4xl mb-4">⚽</div>
+        <p class="text-gray-600 dark:text-gray-400">Cargando...</p>
+      </div>
+    `;
+    
+    const success = await loadClubDataFromFirebase(session.clubId, session.accessCode);
+    
+    if (success) {
+      showPlayerProfile();
+    } else {
+      clearParentSession();
+      location.reload();
+    }
+  }
+}
+
+// ========================================
+// RENDERIZADO DEL PERFIL
+// ========================================
+
+function showPlayerProfile() {
+  if (!currentPlayer) {
+    showParentToast('❌ Error al cargar perfil');
+    return;
+  }
+  
+  document.getElementById('loginContainer').classList.add('hidden');
+  const profileContainer = document.getElementById('profileContainer');
+  profileContainer.classList.remove('hidden');
+  
+  const age = calculateAge(currentPlayer.birthDate);
+  const payments = currentPlayer.payments || [];
+  const totalPaid = payments.filter(p => p.status === 'Pagado').reduce((sum, p) => sum + (p.amount || 0), 0);
+  const totalPending = payments.filter(p => p.status === 'Pendiente').reduce((sum, p) => sum + (p.amount || 0), 0);
+  
+  // Contar sugerencias con respuesta no leída
+  const unreadResponses = mySuggestions.filter(s => s.response && !s.responseRead).length;
+  
+  const paymentsHTML = payments.length > 0 
+    ? payments.sort((a, b) => new Date(b.dueDate || b.createdAt) - new Date(a.dueDate || a.createdAt))
+        .map(payment => `
+          <div class="flex items-center justify-between p-3 rounded-xl ${payment.status === 'Pagado' ? 'bg-green-50 dark:bg-green-900/20' : 'bg-red-50 dark:bg-red-900/20'}">
+            <div>
+              <p class="font-medium text-gray-800 dark:text-white">${payment.concept || payment.type}</p>
+              <p class="text-xs text-gray-500 dark:text-gray-400">${formatDateParent(payment.paidDate || payment.dueDate)}</p>
+            </div>
+            <div class="text-right">
+              <p class="font-bold text-gray-800 dark:text-white">${formatCurrencyParent(payment.amount)}</p>
+              <span class="text-xs font-medium ${payment.status === 'Pagado' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}">
+                ${payment.status === 'Pagado' ? '✅ Pagado' : '⏳ Pendiente'}
+              </span>
+            </div>
+          </div>
+        `).join('')
+    : '<p class="text-center text-gray-500 dark:text-gray-400 py-8">No hay pagos registrados</p>';
+
+  profileContainer.innerHTML = `
+    <div class="bg-gradient-to-r from-teal-600 to-blue-600 text-white p-4 flex items-center gap-3">
+      <img src="${currentClubSettings?.logo || getDefaultLogoParent()}" alt="Logo" class="w-12 h-12 rounded-lg object-cover">
+      <div class="flex-1">
+        <h1 class="font-bold text-lg">${currentClubSettings?.name || 'Escuela de Fútbol'}</h1>
+        <p class="text-sm opacity-90">Portal de Padres</p>
+      </div>
+      <button onclick="openSuggestionModal()" class="p-2 hover:bg-white/20 rounded-lg transition-colors relative" title="Sugerencias">
+        <span class="text-xl">💡</span>
+        ${unreadResponses > 0 ? `<span class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center animate-pulse">${unreadResponses}</span>` : ''}
+      </button>
+      <button onclick="parentLogout()" class="p-2 hover:bg-white/20 rounded-lg transition-colors" title="Cerrar sesión">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+        </svg>
+      </button>
+    </div>
+    
+    <div class="p-4 space-y-4">
+      <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg text-center">
+        <img src="${currentPlayer.avatar || getDefaultAvatarParent()}" alt="${currentPlayer.name}" 
+             class="w-32 h-32 rounded-full object-cover border-4 border-teal-500 mx-auto mb-4 shadow-lg">
+        <h2 class="text-2xl font-bold text-gray-800 dark:text-white">${currentPlayer.name}</h2>
+        <p class="text-gray-500 dark:text-gray-400">${currentPlayer.category} • ${age} años</p>
+        ${currentPlayer.position ? `<p class="text-teal-600 dark:text-teal-400 font-medium mt-1">${currentPlayer.position} ${currentPlayer.jerseyNumber ? '• Dorsal #' + currentPlayer.jerseyNumber : ''}</p>` : ''}
+        <span class="inline-block mt-2 px-4 py-1 rounded-full text-sm font-medium ${currentPlayer.status === 'Activo' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'}">
+          ${currentPlayer.status || 'Activo'}
+        </span>
+      </div>
+      
+      <div class="grid grid-cols-2 gap-4">
+        <div class="bg-green-50 dark:bg-green-900/30 rounded-xl p-4 text-center">
+          <p class="text-xs text-green-600 dark:text-green-400 mb-1">Total Pagado</p>
+          <p class="text-xl font-bold text-green-700 dark:text-green-300">${formatCurrencyParent(totalPaid)}</p>
+        </div>
+        <div class="bg-red-50 dark:bg-red-900/30 rounded-xl p-4 text-center">
+          <p class="text-xs text-red-600 dark:text-red-400 mb-1">Pendiente</p>
+          <p class="text-xl font-bold text-red-700 dark:text-red-300">${formatCurrencyParent(totalPending)}</p>
+        </div>
+      </div>
+      
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden">
+        <div class="bg-gray-50 dark:bg-gray-700 px-4 py-3 border-b border-gray-200 dark:border-gray-600">
+          <h3 class="font-bold text-gray-800 dark:text-white">💰 Historial de Pagos</h3>
+        </div>
+        <div class="p-4">
+          <div class="space-y-3 max-h-64 overflow-y-auto">${paymentsHTML}</div>
+        </div>
+      </div>
+      
+      ${totalPending > 0 ? `
+        <div class="bg-orange-50 dark:bg-orange-900/30 rounded-2xl p-4 text-center border-2 border-orange-200 dark:border-orange-800">
+          <span class="text-2xl">⚠️</span>
+          <p class="text-orange-700 dark:text-orange-300 font-medium mt-2">Tienes pagos pendientes</p>
+          <p class="text-sm text-orange-600 dark:text-orange-400">Contacta a la escuela para más información</p>
+        </div>
+      ` : `
+        <div class="bg-green-100 dark:bg-green-900/30 rounded-2xl p-4 text-center">
+          <span class="text-2xl">🎉</span>
+          <p class="text-green-700 dark:text-green-300 font-medium mt-2">¡Todo al día!</p>
+          <p class="text-sm text-green-600 dark:text-green-400">No tienes pagos pendientes</p>
+        </div>
+      `}
+      
+      ${currentPlayer.medicalInfo?.bloodType || currentPlayer.medicalInfo?.allergies ? `
+        <div class="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-lg">
+          <h3 class="font-bold text-gray-800 dark:text-white mb-3 flex items-center gap-2">
+            🏥 Información Médica
+          </h3>
+          <div class="space-y-2 text-sm">
+            ${currentPlayer.medicalInfo?.bloodType ? `
+              <div class="flex justify-between">
+                <span class="text-gray-500 dark:text-gray-400">Tipo de sangre:</span>
+                <span class="font-medium text-gray-800 dark:text-white">${currentPlayer.medicalInfo.bloodType}</span>
+              </div>
+            ` : ''}
+            ${currentPlayer.medicalInfo?.allergies ? `
+              <div class="flex justify-between">
+                <span class="text-gray-500 dark:text-gray-400">Alergias:</span>
+                <span class="font-medium text-red-600 dark:text-red-400">${currentPlayer.medicalInfo.allergies}</span>
+              </div>
+            ` : ''}
+            ${currentPlayer.medicalInfo?.conditions ? `
+              <div class="flex justify-between">
+                <span class="text-gray-500 dark:text-gray-400">Condiciones:</span>
+                <span class="font-medium text-gray-800 dark:text-white">${currentPlayer.medicalInfo.conditions}</span>
+              </div>
+            ` : ''}
+          </div>
+        </div>
+      ` : ''}
+      
+      ${currentClubSettings?.phone ? `
+        <div class="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-lg">
+          <h3 class="font-bold text-gray-800 dark:text-white mb-3">📞 Contacto del Club</h3>
+          <a href="https://wa.me/${currentClubSettings.phone.replace(/[^0-9+]/g, '')}" target="_blank"
+             class="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/30 rounded-xl hover:bg-green-100 transition-colors">
+            <div class="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center text-white">📱</div>
+            <div>
+              <p class="font-medium text-gray-800 dark:text-white">WhatsApp</p>
+              <p class="text-sm text-gray-500 dark:text-gray-400">${currentClubSettings.phone}</p>
+            </div>
+          </a>
+        </div>
+      ` : ''}
+      
+      ${(currentPlayer.upcomingEvents && currentPlayer.upcomingEvents.length > 0) ? `
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden">
+          <div class="bg-blue-50 dark:bg-blue-900/30 px-4 py-3 border-b border-blue-200 dark:border-blue-800">
+            <h3 class="font-bold text-blue-800 dark:text-blue-300 flex items-center gap-2">
+              📅 Próximos Eventos
+            </h3>
+          </div>
+          <div class="p-4 space-y-3">
+            ${currentPlayer.upcomingEvents.map(event => `
+              <div class="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-xl">
+                <div class="text-center min-w-[50px]">
+                  <p class="text-xs text-gray-500 dark:text-gray-400">${new Date(event.date).toLocaleDateString('es-CO', { month: 'short' }).toUpperCase()}</p>
+                  <p class="text-xl font-bold text-gray-800 dark:text-white">${new Date(event.date).getDate()}</p>
+                </div>
+                <div class="flex-1">
+                  <p class="font-medium text-gray-800 dark:text-white">${event.title}</p>
+                  <p class="text-xs text-gray-500 dark:text-gray-400">${event.time || ''} ${event.location ? '• ' + event.location : ''}</p>
+                </div>
+                <span class="text-2xl">${getEventIcon(event.type)}</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      ` : ''}
+      
+      <!-- Botón de Sugerencias -->
+      <button onclick="openSuggestionModal()" class="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white py-4 rounded-2xl font-bold text-lg shadow-lg flex items-center justify-center gap-3 transition-all transform hover:scale-[1.02] relative">
+        <span class="text-2xl">💡</span>
+        Sugerir Mejoras de la App
+        ${unreadResponses > 0 ? `<span class="bg-white text-amber-600 text-sm rounded-full px-2 py-0.5">${unreadResponses} respuesta(s)</span>` : ''}
+      </button>
+      
+      <div id="installPrompt" class="hidden bg-gradient-to-r from-purple-500 to-blue-500 rounded-2xl p-4 text-white">
+        <div class="flex items-center gap-3">
+          <div class="text-3xl">📲</div>
+          <div class="flex-1">
+            <p class="font-bold">Instala la App</p>
+            <p class="text-sm opacity-90">Accede más rápido</p>
+          </div>
+          <button onclick="installParentPWA()" class="bg-white text-purple-600 px-4 py-2 rounded-lg font-medium">Instalar</button>
+        </div>
+      </div>
+      
+      <button onclick="generatePlayerCard()" class="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white py-4 rounded-2xl font-bold text-lg shadow-lg flex items-center justify-center gap-3 transition-all transform hover:scale-[1.02]">
+        <span class="text-2xl">🪪</span>
+        Descargar Carnet del Jugador
+      </button>
+    </div>
+  `;
+  
+  checkInstallPrompt();
+}
+
+// ========================================
+// SISTEMA DE SUGERENCIAS
+// ========================================
+
+function openSuggestionModal() {
+  document.getElementById('suggestionModal').classList.remove('hidden');
+  showSuggestionTab('new');
+}
+
+function closeSuggestionModal() {
+  document.getElementById('suggestionModal').classList.add('hidden');
+}
+
+function showSuggestionTab(tab) {
+  const tabNew = document.getElementById('tabNew');
+  const tabHistory = document.getElementById('tabHistory');
+  const newTab = document.getElementById('newSuggestionTab');
+  const historyTab = document.getElementById('historySuggestionTab');
+  
+  if (tab === 'new') {
+    tabNew.classList.add('text-amber-600', 'border-b-2', 'border-amber-500');
+    tabNew.classList.remove('text-gray-500');
+    tabHistory.classList.remove('text-amber-600', 'border-b-2', 'border-amber-500');
+    tabHistory.classList.add('text-gray-500');
+    newTab.classList.remove('hidden');
+    historyTab.classList.add('hidden');
+  } else {
+    tabHistory.classList.add('text-amber-600', 'border-b-2', 'border-amber-500');
+    tabHistory.classList.remove('text-gray-500');
+    tabNew.classList.remove('text-amber-600', 'border-b-2', 'border-amber-500');
+    tabNew.classList.add('text-gray-500');
+    historyTab.classList.remove('hidden');
+    newTab.classList.add('hidden');
+    renderSuggestionHistory();
+  }
+}
+
+async function loadMySuggestions() {
+  try {
+    if (!window.firebase?.db || !currentPlayer?.id) return;
+    
+    const suggestionsRef = window.firebase.collection(window.firebase.db, 'suggestions');
+    const q = window.firebase.query(
+      suggestionsRef,
+      window.firebase.where('playerId', '==', currentPlayer.id),
+      window.firebase.where('clubId', '==', currentClubId)
+    );
+    
+    const snapshot = await window.firebase.getDocs(q);
+    mySuggestions = [];
+    
+    snapshot.forEach(doc => {
+      mySuggestions.push({ id: doc.id, ...doc.data() });
+    });
+    
+    // Ordenar por fecha
+    mySuggestions.sort((a, b) => {
+      const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
+      const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
+      return dateB - dateA;
+    });
+    
+    console.log('✅ Sugerencias cargadas:', mySuggestions.length);
+  } catch (error) {
+    console.error('Error al cargar sugerencias:', error);
+  }
+}
+
+function renderSuggestionHistory() {
+  const container = document.getElementById('suggestionsList');
+  
+  if (mySuggestions.length === 0) {
+    container.innerHTML = `
+      <div class="text-center py-8 text-gray-500 dark:text-gray-400">
+        <span class="text-4xl">📭</span>
+        <p class="mt-2">No has enviado sugerencias aún</p>
+      </div>
+    `;
+    return;
+  }
+  
+  container.innerHTML = mySuggestions.map(s => {
+    const date = s.createdAt?.toDate ? s.createdAt.toDate() : new Date(s.createdAt);
+    const typeIcons = {
+      'sugerencia': '💡',
+      'pregunta': '❓',
+      'queja': '😤',
+      'felicitacion': '🎉'
+    };
+    
+    return `
+      <div class="bg-gray-50 dark:bg-gray-700 rounded-xl p-4 ${s.response && !s.responseRead ? 'border-2 border-amber-500' : ''}">
+        <div class="flex items-start justify-between mb-2">
+          <span class="text-2xl">${typeIcons[s.type] || '💬'}</span>
+          <span class="text-xs text-gray-500 dark:text-gray-400">${date.toLocaleDateString('es-CO')}</span>
+        </div>
+        <p class="text-gray-800 dark:text-white mb-2">${s.message}</p>
+        
+        ${s.response ? `
+          <div class="mt-3 p-3 bg-teal-50 dark:bg-teal-900/30 rounded-lg border-l-4 border-teal-500">
+            <p class="text-xs text-teal-600 dark:text-teal-400 font-medium mb-1">✅ Respuesta del administrador:</p>
+            <p class="text-gray-700 dark:text-gray-300">${s.response}</p>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">${s.responseAt ? new Date(s.responseAt.toDate ? s.responseAt.toDate() : s.responseAt).toLocaleDateString('es-CO') : ''}</p>
+          </div>
+          ${!s.responseRead ? `
+            <button onclick="markAsRead('${s.id}')" class="mt-2 text-sm text-teal-600 dark:text-teal-400 underline">Marcar como leída</button>
+          ` : ''}
+        ` : `
+          <div class="mt-2 flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+            <span class="animate-pulse">⏳</span> Pendiente de respuesta
+          </div>
+        `}
+      </div>
+    `;
+  }).join('');
+}
+
+async function handleSuggestionSubmit(e) {
+  e.preventDefault();
+  
+  const name = document.getElementById('suggestionName').value.trim();
+  const type = document.getElementById('suggestionType').value;
+  const message = document.getElementById('suggestionMessage').value.trim();
+  const phone = document.getElementById('suggestionPhone').value.trim();
+  
+  if (!name || !type || !message) {
+    showParentToast('❌ Completa todos los campos requeridos');
+    return;
+  }
+  
+  const submitBtn = e.target.querySelector('button[type="submit"]');
+  submitBtn.disabled = true;
+  submitBtn.innerHTML = '⏳ Enviando...';
+  
+  try {
+    const suggestionData = {
+      // Información del remitente
+      senderName: name,
+      senderPhone: phone || null,
+      senderType: 'parent', // parent, admin
+      
+      // Información del contexto
+      clubId: currentClubId,
+      clubName: currentClubSettings?.name || 'Sin nombre',
+      playerId: currentPlayer.id,
+      playerName: currentPlayer.name,
+      
+      // Contenido
+      type: type,
+      message: message,
+      
+      // Estado
+      status: 'pending', // pending, responded
+      response: null,
+      responseAt: null,
+      responseRead: false,
+      
+      // Fechas
+      createdAt: window.firebase.serverTimestamp()
+    };
+    
+    await window.firebase.addDoc(
+      window.firebase.collection(window.firebase.db, 'suggestions'),
+      suggestionData
+    );
+    
+    showParentToast('✅ Sugerencia enviada correctamente');
+    
+    // Limpiar formulario
+    document.getElementById('suggestionForm').reset();
+    
+    // Recargar sugerencias
+    await loadMySuggestions();
+    
+    // Mostrar historial
+    showSuggestionTab('history');
+    
+  } catch (error) {
+    console.error('Error al enviar sugerencia:', error);
+    showParentToast('❌ Error al enviar. Intenta de nuevo.');
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = '📤 Enviar al Desarrollador';
+  }
+}
+
+async function markAsRead(suggestionId) {
+  try {
+    const { updateDoc } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
+    const suggestionRef = window.firebase.doc(window.firebase.db, 'suggestions', suggestionId);
+    await updateDoc(suggestionRef, { responseRead: true });
+    
+    // Actualizar localmente
+    const suggestion = mySuggestions.find(s => s.id === suggestionId);
+    if (suggestion) suggestion.responseRead = true;
+    
+    renderSuggestionHistory();
+    showPlayerProfile(); // Actualizar contador
+    showParentToast('✅ Marcada como leída');
+  } catch (error) {
+    console.error('Error:', error);
+  }
+}
+
+// ========================================
+// LOGOUT Y UTILIDADES
+// ========================================
+
+function parentLogout() {
+  if (confirm('¿Cerrar sesión?')) {
+    clearParentSession();
+    location.reload();
+  }
+}
+
+function calculateAge(birthDate) {
+  if (!birthDate) return '-';
+  const today = new Date();
+  const birth = new Date(birthDate);
+  let age = today.getFullYear() - birth.getFullYear();
+  const monthDiff = today.getMonth() - birth.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) age--;
+  return age;
+}
+
+function formatCurrencyParent(amount) {
+  return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(amount || 0);
+}
+
+function formatDateParent(dateStr) {
+  if (!dateStr) return '-';
+  return new Date(dateStr).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function getDefaultLogoParent() {
+  return 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Ccircle cx="50" cy="50" r="45" fill="%230d9488"/%3E%3Ctext x="50" y="65" font-size="50" text-anchor="middle" fill="white"%3E⚽%3C/text%3E%3C/svg%3E';
+}
+
+function getDefaultAvatarParent() {
+  return 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Ccircle cx="50" cy="50" r="45" fill="%236b7280"/%3E%3Ctext x="50" y="65" font-size="50" text-anchor="middle" fill="white"%3E👤%3C/text%3E%3C/svg%3E';
+}
+
+function getEventIcon(type) {
+  const icons = {
+    'Entrenamiento': '⚽',
+    'Partido': '🏆',
+    'Torneo': '🎖️',
+    'Reunión': '👥',
+    'Festivo': '🎉',
+    'Otro': '📌'
+  };
+  return icons[type] || '📅';
+}
+
+function showParentToast(message) {
+  const toast = document.getElementById('parentToast');
+  if (toast) {
+    toast.textContent = message;
+    toast.classList.remove('hidden');
+    setTimeout(() => toast.classList.add('hidden'), 3000);
+  }
+}
+
+function applyDarkModeParent() {
+  if (localStorage.getItem('parentDarkMode') === 'true') {
+    document.documentElement.classList.add('dark');
+  }
+}
+
+function toggleDarkModeParent() {
+  const isDark = document.documentElement.classList.toggle('dark');
+  localStorage.setItem('parentDarkMode', isDark.toString());
+}
+
+// ========================================
+// PWA INSTALL
+// ========================================
+
+let deferredPrompt = null;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  checkInstallPrompt();
+});
+
+function checkInstallPrompt() {
+  const installDiv = document.getElementById('installPrompt');
+  if (installDiv && deferredPrompt) installDiv.classList.remove('hidden');
+}
+
+async function installParentPWA() {
+  if (!deferredPrompt) {
+    showParentToast('La app ya está instalada');
+    return;
+  }
+  
+  deferredPrompt.prompt();
+  const { outcome } = await deferredPrompt.userChoice;
+  
+  if (outcome === 'accepted') showParentToast('✅ ¡App instalada!');
+  
+  deferredPrompt = null;
+  document.getElementById('installPrompt')?.classList.add('hidden');
+}
+
+// ========================================
+// GENERAR CARNET PDF
+// ========================================
+
+async function generatePlayerCard() {
+  if (!currentPlayer) {
+    showParentToast('❌ No hay datos del jugador');
+    return;
+  }
+  
+  showParentToast('⏳ Generando carnet...');
+  
+  try {
+    if (typeof window.jspdf === 'undefined') {
+      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+    }
+    
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [90, 55] });
+    
+    const width = 90;
+    const height = 55;
+    
+    // LADO FRONTAL
+    doc.setFillColor(13, 148, 136);
+    doc.rect(0, 0, width, 18, 'F');
+    doc.setFillColor(255, 255, 255);
+    doc.rect(0, 18, width, height - 18, 'F');
+    
+    if (currentClubSettings?.logo && currentClubSettings.logo.startsWith('data:image')) {
+      try { doc.addImage(currentClubSettings.logo, 'PNG', 3, 3, 12, 12); } catch (e) {}
+    }
+    
+    doc.setFontSize(10);
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.text((currentClubSettings?.name || 'Escuela de Fútbol').substring(0, 25), 18, 8);
+    
+    doc.setFontSize(6);
+    doc.setFont('helvetica', 'normal');
+    doc.text('CARNET DE JUGADOR', 18, 13);
+    
+    doc.setDrawColor(13, 148, 136);
+    doc.setLineWidth(0.5);
+    doc.rect(5, 22, 20, 25, 'S');
+    
+    if (currentPlayer.avatar && currentPlayer.avatar.startsWith('data:image')) {
+      try { doc.addImage(currentPlayer.avatar, 'JPEG', 5.5, 22.5, 19, 24); } catch (e) {}
+    }
+    
+    let infoY = 24;
+    doc.setFontSize(9);
+    doc.setTextColor(30, 30, 30);
+    doc.setFont('helvetica', 'bold');
+    doc.text((currentPlayer.name || 'Sin nombre').substring(0, 22), 28, infoY);
+    
+    infoY += 5;
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(80, 80, 80);
+    doc.text('Categoría: ' + (currentPlayer.category || '-'), 28, infoY);
+    
+    infoY += 4;
+    doc.text('Posición: ' + (currentPlayer.position || '-'), 28, infoY);
+    
+    if (currentPlayer.jerseyNumber) {
+      infoY += 4;
+      doc.text('Dorsal: #' + currentPlayer.jerseyNumber, 28, infoY);
+      doc.setFontSize(20);
+      doc.setTextColor(13, 148, 136);
+      doc.setFont('helvetica', 'bold');
+      doc.text('#' + currentPlayer.jerseyNumber, 75, 45);
+    }
+    
+    if (currentPlayer.documentNumber) {
+      infoY += 4;
+      doc.setFontSize(7);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(80, 80, 80);
+      doc.text((currentPlayer.documentType || 'Doc') + ': ' + currentPlayer.documentNumber, 28, infoY);
+    }
+    
+    doc.setDrawColor(13, 148, 136);
+    doc.setLineWidth(1);
+    doc.line(0, height - 2, width, height - 2);
+    
+    const currentYear = new Date().getFullYear();
+    doc.setFontSize(5);
+    doc.setTextColor(100, 100, 100);
+    doc.text('Vigencia: ' + currentYear, 5, height - 3);
+    
+    // LADO REVERSO
+    doc.addPage([90, 55], 'landscape');
+    doc.setFillColor(250, 250, 250);
+    doc.rect(0, 0, width, height, 'F');
+    doc.setFillColor(13, 148, 136);
+    doc.rect(0, 0, width, 10, 'F');
+    
+    doc.setFontSize(7);
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.text('INFORMACIÓN DE EMERGENCIA', 5, 7);
+    
+    let medY = 16;
+    doc.setFontSize(6);
+    doc.setTextColor(60, 60, 60);
+    
+    doc.setFont('helvetica', 'bold');
+    doc.text('Tipo de Sangre:', 5, medY);
+    doc.setFont('helvetica', 'normal');
+    doc.text(currentPlayer.medicalInfo?.bloodType || 'No especificado', 35, medY);
+    
+    medY += 5;
+    doc.setFont('helvetica', 'bold');
+    doc.text('Alergias:', 5, medY);
+    doc.setFont('helvetica', 'normal');
+    doc.text((currentPlayer.medicalInfo?.allergies || 'Ninguna conocida').substring(0, 35), 35, medY);
+    
+    medY += 8;
+    doc.setFillColor(255, 240, 240);
+    doc.rect(3, medY - 3, width - 6, 12, 'F');
+    doc.setDrawColor(220, 50, 50);
+    doc.setLineWidth(0.3);
+    doc.rect(3, medY - 3, width - 6, 12, 'S');
+    
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(180, 0, 0);
+    doc.text('CONTACTO DE EMERGENCIA:', 5, medY + 1);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(60, 60, 60);
+    doc.text(currentPlayer.emergencyContact || currentPlayer.phone || 'No especificado', 5, medY + 6);
+    
+    medY += 16;
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(13, 148, 136);
+    doc.text('Contacto del Club:', 5, medY);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(60, 60, 60);
+    doc.text(currentClubSettings?.phone || 'No disponible', 35, medY);
+    
+    doc.setFontSize(4);
+    doc.setTextColor(150, 150, 150);
+    doc.text('Este carnet es propiedad de ' + (currentClubSettings?.name || 'la escuela'), 5, height - 3);
+    
+    const fileName = 'carnet_' + currentPlayer.name.replace(/\s+/g, '_') + '_' + currentYear + '.pdf';
+    doc.save(fileName);
+    
+    showParentToast('✅ Carnet descargado');
+    
+  } catch (error) {
+    console.error('Error al generar carnet:', error);
+    showParentToast('❌ Error al generar carnet');
+  }
+}
+
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    if (document.querySelector('script[src="' + src + '"]')) { resolve(); return; }
+    const script = document.createElement('script');
+    script.src = src;
+    script.onload = resolve;
+    script.onerror = reject;
+    document.head.appendChild(script);
+  });
+}
+
+console.log('✅ Portal de Padres cargado correctamente');
+    </script>
+</body>
+</html>

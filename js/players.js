@@ -484,18 +484,26 @@ function showPlayerDetails(playerId) {
         `}
       </div>
       
-      <!-- Botones de acción -->
-      <div class="flex gap-2">
-        <button onclick="generatePlayerAccountStatementPDF('${player.id}')" class="flex-1 bg-teal-600 hover:bg-teal-700 text-white py-3 rounded-lg flex items-center justify-center gap-2">
-          <i data-lucide="file-text" class="w-5 h-5"></i>
-          Estado de Cuenta PDF
-        </button>
-        <button onclick="sendAccountStatementWhatsApp('${player.id}')" class="flex-1 bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg flex items-center justify-center gap-2">
-          <i data-lucide="message-circle" class="w-5 h-5"></i>
-          Enviar WhatsApp
-        </button>
-      </div>
-    </div>
+  <!-- Botones de acción -->
+        <div class="space-y-2">
+          <!-- Fila 1: PDF y WhatsApp -->
+          <div class="flex gap-2">
+            <button onclick="generatePlayerAccountStatementPDF('${player.id}')" class="flex-1 bg-teal-600 hover:bg-teal-700 text-white py-3 rounded-lg flex items-center justify-center gap-2">
+              <i data-lucide="file-text" class="w-5 h-5"></i>
+              Estado de Cuenta PDF
+            </button>
+            <button onclick="sendAccountStatementWhatsApp('${player.id}')" class="flex-1 bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg flex items-center justify-center gap-2">
+              <i data-lucide="message-circle" class="w-5 h-5"></i>
+              Enviar WhatsApp
+            </button>
+          </div>
+          
+          <!-- Fila 2: Acceso para Padres -->
+          <button onclick="generateParentCode('${player.id}')" class="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white py-3 rounded-lg flex items-center justify-center gap-2 shadow-lg">
+            <i data-lucide="users" class="w-5 h-5"></i>
+            👨‍👩‍👧 Generar Acceso para Padres
+          </button>
+        </div>
   `;
   
   document.getElementById('playerDetailsContent').innerHTML = content;
@@ -526,3 +534,214 @@ window.formatDocument = formatDocument;
 window.getDocumentTypeName = getDocumentTypeName;
 
 console.log('✅ players.js cargado (CON DOCUMENTO DE IDENTIDAD)');
+
+// ========================================
+// 🆕 PORTAL DE PADRES - GENERAR CÓDIGO
+// ========================================
+// 📍 AGREGAR ESTE CÓDIGO AL FINAL DE players.js
+// 📍 ANTES de: console.log('✅ players.js cargado...');
+// ========================================
+
+// Generar y mostrar código de acceso para padres
+function generateParentCode(playerId) {
+  const player = getPlayerById(playerId);
+  if (!player) {
+    showToast('❌ Jugador no encontrado');
+    return;
+  }
+  
+  // Verificar si ya tiene código
+  const existingCode = getParentCodeByPlayer(playerId);
+  
+  if (existingCode) {
+    // Mostrar código existente con opción de regenerar
+    showParentCodeModal(player, existingCode.code, true);
+  } else {
+    // Generar nuevo código
+    const newCode = generateParentAccessCode();
+    saveParentCode(playerId, newCode);
+    showParentCodeModal(player, newCode, false);
+  }
+}
+
+// Regenerar código de acceso
+function regenerateParentCode(playerId) {
+  const player = getPlayerById(playerId);
+  if (!player) {
+    showToast('❌ Jugador no encontrado');
+    return;
+  }
+  
+  if (!confirmAction('¿Regenerar código? El código anterior dejará de funcionar.')) {
+    return;
+  }
+  
+  const newCode = generateParentAccessCode();
+  saveParentCode(playerId, newCode);
+  showToast('✅ Nuevo código generado');
+  
+  // Actualizar modal
+  document.getElementById('parentAccessCode').textContent = newCode;
+}
+
+// Mostrar modal con código de acceso
+function showParentCodeModal(player, code, isExisting) {
+  const settings = getSchoolSettings();
+  const clubId = localStorage.getItem('clubId') || settings.clubId || 'mi-club';
+  
+  // Construir URL del portal
+  const portalURL = `${window.location.origin}/portal-padre.html`;
+  
+  const modal = document.createElement('div');
+  modal.id = 'parentCodeModal';
+  modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
+  modal.innerHTML = `
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6 animate-fade-in">
+      <!-- Header -->
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+          👨‍👩‍👧 Acceso para Padres
+        </h3>
+        <button onclick="closeParentCodeModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+          <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </button>
+      </div>
+      
+      <!-- Info del jugador -->
+      <div class="flex items-center gap-3 mb-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-xl">
+        <img src="${player.avatar || getDefaultAvatar()}" alt="${player.name}" class="w-12 h-12 rounded-full object-cover border-2 border-teal-500">
+        <div>
+          <p class="font-semibold text-gray-800 dark:text-white">${player.name}</p>
+          <p class="text-sm text-gray-500 dark:text-gray-400">${player.category}</p>
+        </div>
+      </div>
+      
+      <!-- Código de acceso -->
+      <div class="bg-gradient-to-r from-teal-500 to-blue-500 rounded-xl p-4 text-white text-center mb-4">
+        <p class="text-sm opacity-90 mb-1">Código de Acceso</p>
+        <p id="parentAccessCode" class="text-3xl font-mono font-bold tracking-widest">${code}</p>
+      </div>
+      
+      <!-- Club ID -->
+      <div class="bg-gray-100 dark:bg-gray-700 rounded-xl p-3 mb-4">
+        <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Club ID</p>
+        <p class="font-mono text-gray-800 dark:text-white">${clubId}</p>
+      </div>
+      
+      <!-- Instrucciones -->
+      <div class="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 mb-4">
+        <p class="font-semibold text-blue-800 dark:text-blue-300 mb-2">📱 Instrucciones para el padre:</p>
+        <ol class="text-sm text-blue-700 dark:text-blue-400 space-y-1 list-decimal list-inside">
+          <li>Abrir: <span class="font-mono">${portalURL}</span></li>
+          <li>Ingresar Club ID: <strong>${clubId}</strong></li>
+          <li>Ingresar Código: <strong>${code}</strong></li>
+          <li>¡Listo! Puede instalar la app en su celular</li>
+        </ol>
+      </div>
+      
+      <!-- Botones de acción -->
+      <div class="grid grid-cols-2 gap-3 mb-3">
+        <button onclick="copyParentCode('${code}')" class="flex items-center justify-center gap-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-800 dark:text-white py-2 rounded-lg transition-colors">
+          <i data-lucide="copy" class="w-4 h-4"></i>
+          Copiar Código
+        </button>
+        <button onclick="shareParentCodeWhatsApp('${player.name}', '${clubId}', '${code}', '${player.phone}')" class="flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white py-2 rounded-lg transition-colors">
+          <i data-lucide="message-circle" class="w-4 h-4"></i>
+          WhatsApp
+        </button>
+      </div>
+      
+      <!-- Regenerar código -->
+      <button onclick="regenerateParentCode('${player.id}')" class="w-full flex items-center justify-center gap-2 border border-orange-500 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 py-2 rounded-lg transition-colors">
+        <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+        Regenerar Código
+      </button>
+      
+      ${isExisting ? `
+        <p class="text-xs text-center text-gray-500 dark:text-gray-400 mt-3">
+          ⚠️ Este jugador ya tenía un código asignado
+        </p>
+      ` : ''}
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  
+  // Agregar estilos de animación si no existen
+  if (!document.getElementById('parentCodeModalStyles')) {
+    const style = document.createElement('style');
+    style.id = 'parentCodeModalStyles';
+    style.textContent = `
+      @keyframes fade-in {
+        from { opacity: 0; transform: scale(0.95); }
+        to { opacity: 1; transform: scale(1); }
+      }
+      .animate-fade-in { animation: fade-in 0.3s ease-out; }
+    `;
+    document.head.appendChild(style);
+  }
+  
+  // Recrear iconos
+  if (typeof lucide !== 'undefined' && lucide.createIcons) {
+    lucide.createIcons();
+  }
+}
+
+// Cerrar modal de código
+function closeParentCodeModal() {
+  const modal = document.getElementById('parentCodeModal');
+  if (modal) {
+    modal.remove();
+  }
+}
+
+// Copiar código al portapapeles
+function copyParentCode(code) {
+  navigator.clipboard.writeText(code).then(() => {
+    showToast('✅ Código copiado');
+  }).catch(() => {
+    showToast('⚠️ No se pudo copiar');
+  });
+}
+
+// Compartir por WhatsApp
+function shareParentCodeWhatsApp(playerName, clubId, code, phone) {
+  const settings = getSchoolSettings();
+  const portalURL = `${window.location.origin}/portal-padre.html`;
+  
+  const message = `🎉 *Acceso al Portal de Padres*
+
+Hola! Te comparto el acceso para ver la información de *${playerName}* en ${settings.name || 'nuestra escuela de fútbol'}.
+
+📱 *Pasos para acceder:*
+1. Abre este link: ${portalURL}
+2. Club ID: *${clubId}*
+3. Código: *${code}*
+
+💡 Puedes instalar la app en tu celular para acceder más rápido.
+
+⚽ ¡Gracias por confiar en nosotros!`;
+
+  const encodedMessage = encodeURIComponent(message);
+  
+  // Si tiene teléfono, enviar directo
+  if (phone) {
+    const cleanPhone = phone.replace(/[^0-9+]/g, '');
+    window.open(`https://wa.me/${cleanPhone}?text=${encodedMessage}`, '_blank');
+  } else {
+    // Abrir WhatsApp sin número
+    window.open(`https://wa.me/?text=${encodedMessage}`, '_blank');
+  }
+}
+
+// Exportar funciones globalmente
+window.generateParentCode = generateParentCode;
+window.regenerateParentCode = regenerateParentCode;
+window.showParentCodeModal = showParentCodeModal;
+window.closeParentCodeModal = closeParentCodeModal;
+window.copyParentCode = copyParentCode;
+window.shareParentCodeWhatsApp = shareParentCodeWhatsApp;
+
+console.log('✅ Sistema de código de padres en players.js cargado');

@@ -653,3 +653,138 @@ function openImportDialog() {
 initStorage();
 
 console.log('✅ storage.js cargado (CON EGRESOS, OTROS INGRESOS Y SINCRONIZACIÓN)');
+
+// ========================================
+// 🆕 PORTAL DE PADRES - CÓDIGOS DE ACCESO
+// ========================================
+// 📍 AGREGAR ESTE CÓDIGO AL FINAL DE storage.js
+// 📍 ANTES de: console.log('✅ storage.js cargado...');
+// ========================================
+
+// Generar código único para padre
+function generateParentAccessCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Sin caracteres confusos (0,O,1,I,L)
+  let code = '';
+  for (let i = 0; i < 6; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+}
+
+// Guardar código de acceso para un jugador
+function saveParentCode(playerId, code) {
+  const parentCodes = getParentCodes();
+  
+  // Eliminar código anterior si existe
+  const existingIndex = parentCodes.findIndex(pc => pc.playerId === playerId);
+  if (existingIndex !== -1) {
+    parentCodes.splice(existingIndex, 1);
+  }
+  
+  // Agregar nuevo código
+  parentCodes.push({
+    playerId: playerId,
+    code: code,
+    createdAt: new Date().toISOString(),
+    lastAccess: null
+  });
+  
+  localStorage.setItem('parentCodes', JSON.stringify(parentCodes));
+  
+  // Sincronizar con Firebase si está disponible
+  syncParentCodeToFirebase(playerId, code);
+  
+  return code;
+}
+
+// Obtener todos los códigos de padres
+function getParentCodes() {
+  try {
+    const codes = localStorage.getItem('parentCodes');
+    return codes ? JSON.parse(codes) : [];
+  } catch (error) {
+    console.error('Error al obtener códigos de padres:', error);
+    return [];
+  }
+}
+
+// Obtener código de un jugador específico
+function getParentCodeByPlayer(playerId) {
+  const codes = getParentCodes();
+  return codes.find(pc => pc.playerId === playerId);
+}
+
+// Validar código de acceso (devuelve el jugador si es válido)
+function validateParentCode(clubId, accessCode) {
+  const codes = getParentCodes();
+  const codeData = codes.find(pc => pc.code === accessCode.toUpperCase());
+  
+  if (!codeData) {
+    return null;
+  }
+  
+  const player = getPlayerById(codeData.playerId);
+  
+  if (!player) {
+    return null;
+  }
+  
+  // Actualizar último acceso
+  updateParentCodeAccess(codeData.playerId);
+  
+  return player;
+}
+
+// Actualizar último acceso del código
+function updateParentCodeAccess(playerId) {
+  const parentCodes = getParentCodes();
+  const index = parentCodes.findIndex(pc => pc.playerId === playerId);
+  
+  if (index !== -1) {
+    parentCodes[index].lastAccess = new Date().toISOString();
+    localStorage.setItem('parentCodes', JSON.stringify(parentCodes));
+  }
+}
+
+// Eliminar código de acceso
+function deleteParentCode(playerId) {
+  let parentCodes = getParentCodes();
+  parentCodes = parentCodes.filter(pc => pc.playerId !== playerId);
+  localStorage.setItem('parentCodes', JSON.stringify(parentCodes));
+}
+
+// Sincronizar código con Firebase
+async function syncParentCodeToFirebase(playerId, code) {
+  if (!window.APP_STATE?.firebaseReady || !window.firebase?.db) {
+    console.log('⚠️ Firebase no disponible para sincronizar código de padre');
+    return;
+  }
+  
+  try {
+    const clubId = localStorage.getItem('clubId');
+    if (!clubId) return;
+    
+    await window.firebase.setDoc(
+      window.firebase.doc(window.firebase.db, `clubs/${clubId}/parentCodes`, playerId),
+      {
+        playerId: playerId,
+        code: code,
+        createdAt: new Date().toISOString()
+      }
+    );
+    
+    console.log('✅ Código de padre sincronizado con Firebase');
+  } catch (error) {
+    console.warn('⚠️ No se pudo sincronizar código de padre:', error);
+  }
+}
+
+// Exportar funciones globalmente
+window.generateParentAccessCode = generateParentAccessCode;
+window.saveParentCode = saveParentCode;
+window.getParentCodes = getParentCodes;
+window.getParentCodeByPlayer = getParentCodeByPlayer;
+window.validateParentCode = validateParentCode;
+window.deleteParentCode = deleteParentCode;
+
+console.log('✅ Sistema de códigos de padres cargado');

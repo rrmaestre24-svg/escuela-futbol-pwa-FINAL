@@ -39,6 +39,30 @@
     
     <!-- Custom CSS -->
     <link rel="stylesheet" href="css/styles.css">
+    <style>
+    /* Animaciones para el modal de sugerencias */
+    @keyframes scale-in {
+        from {
+            opacity: 0;
+            transform: scale(0.95);
+        }
+        to {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+    .animate-scale-in {
+        animation: scale-in 0.2s ease-out;
+    }
+    
+    @keyframes pulse-slow {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.7; }
+    }
+    .animate-pulse-slow {
+        animation: pulse-slow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+    </style>
 </head>
 <body class="bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
 
@@ -1715,6 +1739,9 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
      <script src="js/license-system.js"></script>
     <!-- ⭐ APP (SIEMPRE DE ÚLTIMO - Inicializa todo) -->
     <script src="js/app.js"></script>
+    <script src="js/sugerencias-admin.js"></script>
+    <script src="js/super-admin-sugerencias.js"></script>
+    <script src="js/admin-chat-sugerencias.js"></script>
  <script>
   // Inicializar Firebase automáticamente
   if (typeof initFirebase === 'function') {
@@ -1764,6 +1791,13 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
             <i data-lucide="download" class="w-5 h-5"></i>
             <span class="font-medium">Instalar</span>
         </div>
+    </button>
+
+    <!-- Botón Flotante de Sugerencias 💡 -->
+    <button onclick="openAdminSuggestionModal()" 
+            class="fixed bottom-24 left-4 z-50 bg-gradient-to-r from-amber-500 to-orange-500 text-white p-4 rounded-full shadow-lg hover:shadow-xl transition-all hover:scale-110"
+            title="Sugerir mejoras de la app">
+        <span class="text-xl">💡</span>
     </button>
 
 </body>
