@@ -1,8 +1,9 @@
-const CACHE_NAME = 'my-club-v1.0.12';
+const CACHE_NAME = 'my-club-v1.0.13';
 
 const urlsToCache = [
   '/',
   '/index.html',
+  '/login.html',
   '/offline.html',
   '/manifest.json',
   '/parent-manifest.json',
@@ -35,8 +36,9 @@ const urlsToCache = [
   '/js/club-settings-protection.js',
   '/js/pdf.js',
   '/js/whatsapp.js',
+  '/js/sugerencias-admin.js',
 
-  // PORTAL PADRES (JS, NO HTML)
+  // PORTAL PADRES
   '/js/parent-portal.js'
 ];
 
@@ -48,7 +50,11 @@ self.addEventListener('install', event => {
 
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => {
-      return cache.addAll(urlsToCache);
+      return cache.addAll(urlsToCache).catch(err => {
+        console.warn('⚠️ Algunos archivos no se pudieron cachear:', err);
+        // Continuar aunque algunos archivos fallen
+        return Promise.resolve();
+      });
     })
   );
 
@@ -76,24 +82,54 @@ self.addEventListener('activate', event => {
 });
 
 /* ==============================
-   FETCH (RUTAS CORREGIDAS)
+   FETCH
 ============================== */
 self.addEventListener('fetch', event => {
+  // Ignorar peticiones que no son HTTP/HTTPS
   if (!event.request.url.startsWith('http')) return;
 
-  /* 🔁 NAVEGACIÓN SPA / PWA */
-  if (event.request.mode === 'navigate') {
-    event.respondWith(
-      fetch(event.request)
-        .then(response => response)
-        .catch(() => caches.match('/index.html'))
-    );
+  // Ignorar peticiones a Firebase, APIs externas, etc.
+  if (
+    event.request.url.includes('firebaseio.com') ||
+    event.request.url.includes('googleapis.com') ||
+    event.request.url.includes('gstatic.com') ||
+    event.request.url.includes('firebase') ||
+    event.request.url.includes('unpkg.com') ||
+    event.request.url.includes('cdn.tailwindcss.com') ||
+    event.request.url.includes('cdn.jsdelivr.net') ||
+    event.request.url.includes('cdnjs.cloudflare.com')
+  ) {
     return;
   }
 
-  /* ❌ NO GET */
+  /* 🔴 NO cachear métodos que no son GET */
   if (event.request.method !== 'GET') {
-    event.respondWith(fetch(event.request));
+    return;
+  }
+
+  /* 🟢 NAVEGACIÓN (HTML) */
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .then(response => {
+          // Cachear la respuesta
+          if (response && response.status === 200) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then(cache => {
+              cache.put(event.request, clone);
+            });
+          }
+          return response;
+        })
+        .catch(() => {
+          // Si falla, intentar desde cache
+          return caches.match(event.request).then(cached => {
+            if (cached) return cached;
+            // Si no hay cache, mostrar offline.html
+            return caches.match('/offline.html');
+          });
+        })
+    );
     return;
   }
 
@@ -118,10 +154,12 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  /* 🟢 OTROS ARCHIVOS */
+  /* 🔵 OTROS ARCHIVOS (imágenes, JSON, etc.) → Cache First */
   event.respondWith(
-    fetch(event.request)
-      .then(response => {
+    caches.match(event.request).then(cached => {
+      if (cached) return cached;
+      
+      return fetch(event.request).then(response => {
         if (response && response.status === 200) {
           const clone = response.clone();
           caches.open(CACHE_NAME).then(cache => {
@@ -129,8 +167,8 @@ self.addEventListener('fetch', event => {
           });
         }
         return response;
-      })
-      .catch(() => caches.match(event.request))
+      });
+    })
   );
 });
 
