@@ -453,6 +453,32 @@ async function downloadAllClubData(clubId) {
     localStorage.setItem('users', JSON.stringify(clubUsers));
     console.log(`✅ ${clubUsers.length} usuarios descargados`);
 
+    // 6️⃣ Egresos (expenses)
+    const expensesSnapshot = await window.firebase.getDocs(
+      window.firebase.collection(window.firebase.db, `clubs/${clubId}/expenses`)
+    );
+    
+    const expenses = [];
+    expensesSnapshot.forEach(doc => {
+      expenses.push({ id: doc.id, ...doc.data() });
+    });
+    
+    localStorage.setItem('expenses', JSON.stringify(expenses));
+    console.log(`✅ ${expenses.length} egresos descargados`);
+
+    // 7️⃣ Otros ingresos (thirdPartyIncomes)
+    const thirdPartySnapshot = await window.firebase.getDocs(
+      window.firebase.collection(window.firebase.db, `clubs/${clubId}/thirdPartyIncomes`)
+    );
+    
+    const thirdPartyIncomes = [];
+    thirdPartySnapshot.forEach(doc => {
+      thirdPartyIncomes.push({ id: doc.id, ...doc.data() });
+    });
+    
+    localStorage.setItem('thirdPartyIncomes', JSON.stringify(thirdPartyIncomes));
+    console.log(`✅ ${thirdPartyIncomes.length} otros ingresos descargados`);
+
     showToast('✅ Datos sincronizados correctamente');
     return true;
   } catch (error) {
