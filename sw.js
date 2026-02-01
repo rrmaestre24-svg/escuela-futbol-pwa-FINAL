@@ -1,4 +1,4 @@
-const CACHE_NAME = 'my-club-v1.0.13';
+const CACHE_NAME = 'my-club-v1.0.14';
 
 const urlsToCache = [
   '/',
@@ -14,6 +14,7 @@ const urlsToCache = [
   // JS CORE
   '/js/app.js',
   '/js/auth.js',
+  '/js/firebase-config.js',
   '/js/storage.js',
   '/js/utils.js',
   '/js/install.js',
