@@ -1,10 +1,9 @@
 // ========================================
-// CONFIGURACIÓN DE FIREBASE - AUTO-INICIALIZACIÓN
-// ✅ CON SOPORTE PARA SINCRONIZACIÓN EN TIEMPO REAL
-// ✅ CON PERSISTENCIA DE SESIÓN
+// CONFIGURACION DE FIREBASE - AUTO-INICIALIZACION
+// CON SOPORTE PARA SINCRONIZACION EN TIEMPO REAL
+// CON PERSISTENCIA DE SESION
 // ========================================
 
-// 🔒 Intentar cargar configuración externa, si no existe usar valores por defecto
 const firebaseConfig = window.APP_CONFIG?.firebase || {
   apiKey: "AIzaSyBThVgzEsTLWSW7puKOVErZ_KOLDEq8v3A",
   authDomain: "my-club-fae98.firebaseapp.com",
@@ -15,17 +14,15 @@ const firebaseConfig = window.APP_CONFIG?.firebase || {
   measurementId: "G-5HRKNKEYKY"
 };
 
-// ℹ️ Informar si se está usando config externo o hardcodeado
 if (window.APP_CONFIG?.firebase) {
-  console.log('🔒 Usando configuración desde config.js (seguro)');
+  console.log('[OK] Usando configuracion desde config.js');
 } else {
-  console.warn('⚠️ Usando configuración hardcodeada (no recomendado para producción)');
+  console.warn('[WARN] Usando configuracion hardcodeada');
 }
 
 let db = null;
 let auth = null;
 
-// Inicializar APP_STATE si no existe
 if (!window.APP_STATE) {
   window.APP_STATE = { 
     firebaseReady: false,
@@ -36,11 +33,10 @@ if (!window.APP_STATE) {
 
 async function initFirebase() {
   try {
-    console.log('🔥 Inicializando Firebase...');
+    console.log('[FIREBASE] Inicializando...');
     
     const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js');
     
-    // Importar módulos de Firestore incluyendo onSnapshot
     const firestoreModule = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
     const { 
       getFirestore, 
@@ -61,7 +57,6 @@ async function initFirebase() {
       serverTimestamp 
     } = firestoreModule;
     
-    // Importar módulos de Auth CON PERSISTENCIA
     const authModule = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');
     const { 
       getAuth, 
@@ -78,20 +73,18 @@ async function initFirebase() {
     db = getFirestore(app);
     auth = getAuth(app);
     
-    // 🔐 CONFIGURAR PERSISTENCIA LOCAL (la sesión sobrevive al cerrar el navegador/PWA)
+    // CONFIGURAR PERSISTENCIA LOCAL - La sesion sobrevive al cerrar el navegador/PWA
     try {
       await setPersistence(auth, browserLocalPersistence);
-      console.log('✅ Persistencia de sesión configurada (LOCAL)');
+      console.log('[OK] Persistencia de sesion configurada (LOCAL)');
     } catch (persistError) {
-      console.warn('⚠️ No se pudo configurar persistencia:', persistError);
+      console.warn('[WARN] No se pudo configurar persistencia:', persistError);
     }
     
-    // Exponer Firebase globalmente con todas las funciones necesarias
     window.firebase = {
       app,
       db,
       auth,
-      // Firestore functions
       collection,
       doc,
       getDoc,
@@ -107,7 +100,6 @@ async function initFirebase() {
       onSnapshot,
       runTransaction,
       serverTimestamp,
-      // Auth functions
       signInWithEmailAndPassword,
       createUserWithEmailAndPassword,
       signOut,
@@ -117,24 +109,22 @@ async function initFirebase() {
       browserLocalPersistence
     };
     
-    // 🔄 LISTENER DE ESTADO DE AUTENTICACIÓN
-    // Esto restaura la sesión automáticamente al recargar/reabrir la PWA
+    // LISTENER DE ESTADO DE AUTENTICACION
+    // Restaura la sesion automaticamente al recargar/reabrir la PWA
     onAuthStateChanged(auth, async (user) => {
-      console.log('🔄 Estado de autenticación cambió:', user ? user.email : 'No autenticado');
+      console.log('[AUTH] Estado cambio:', user ? user.email : 'No autenticado');
       
       if (user) {
         window.APP_STATE.currentUser = user;
         
-        // Si hay usuario de Firebase pero no hay sesión local, restaurarla
         const localUser = localStorage.getItem('currentUser');
         if (!localUser) {
-          console.log('🔄 Restaurando sesión desde Firebase Auth...');
+          console.log('[AUTH] Restaurando sesion desde Firebase Auth...');
           
-          // Intentar obtener datos del usuario
           const clubId = localStorage.getItem('clubId');
           if (clubId) {
             try {
-              const userRef = doc(db, `clubs/${clubId}/users`, user.uid);
+              const userRef = doc(db, 'clubs/' + clubId + '/users', user.uid);
               const userSnap = await getDoc(userRef);
               
               if (userSnap.exists()) {
@@ -151,16 +141,15 @@ async function initFirebase() {
                 };
                 
                 localStorage.setItem('currentUser', JSON.stringify(sessionData));
-                console.log('✅ Sesión restaurada automáticamente');
+                console.log('[OK] Sesion restaurada automaticamente');
                 
-                // Recargar si estamos en login
                 const loginScreen = document.getElementById('loginScreen');
                 if (loginScreen && !loginScreen.classList.contains('hidden')) {
                   window.location.reload();
                 }
               }
             } catch (restoreError) {
-              console.warn('⚠️ No se pudo restaurar sesión completa:', restoreError);
+              console.warn('[WARN] No se pudo restaurar sesion completa:', restoreError);
             }
           }
         }
@@ -173,63 +162,39 @@ async function initFirebase() {
     
     window.APP_STATE.firebaseReady = true;
     
-    console.log('✅ Firebase inicializado correctamente');
-    console.log('✅ Estado:', {
-      firebaseReady: window.APP_STATE.firebaseReady,
-      hasAuth: !!window.firebase.auth,
-      hasDb: !!window.firebase.db,
-      hasOnSnapshot: !!window.firebase.onSnapshot,
-      hasPersistence: !!window.firebase.setPersistence
-    });
-    
-    if (typeof showToast === 'function') {
-      showToast('✅ Conectado a Firebase');
-    }
+    console.log('[OK] Firebase inicializado correctamente');
     
     return true;
   } catch (error) {
-    console.error('❌ Error al inicializar Firebase:', error);
-    
-    if (typeof showToast === 'function') {
-      showToast('⚠️ Error de conexión con Firebase');
-    }
-    
+    console.error('[ERROR] Error al inicializar Firebase:', error);
     return false;
   }
 }
 
 async function firebaseLogout() {
   try {
-    // Detener sincronización en tiempo real si existe
     if (typeof stopRealtimeSync === 'function') {
       stopRealtimeSync();
     }
     
-    // Limpiar localStorage
     localStorage.removeItem('currentUser');
     
     if (window.firebase?.auth) {
       await window.firebase.signOut(window.firebase.auth);
       window.APP_STATE.currentUser = null;
-      console.log('✅ Sesión de Firebase cerrada');
+      console.log('[OK] Sesion de Firebase cerrada');
     }
   } catch (error) {
-    console.error('❌ Error al cerrar sesión:', error);
+    console.error('[ERROR] Error al cerrar sesion:', error);
   }
 }
 
-console.log('✅ firebase-config.js cargado (con persistencia de sesión)');
+console.log('[OK] firebase-config.js cargado');
 
-// ✅ AUTO-INICIALIZAR Firebase cuando el DOM esté listo
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => {
-    console.log('🔄 DOM cargado, inicializando Firebase...');
+  document.addEventListener('DOMContentLoaded', function() {
     initFirebase();
   });
 } else {
-  // DOM ya está listo
-  console.log('🔄 DOM ya listo, inicializando Firebase inmediatamente...');
   initFirebase();
 }
-
-console.log('🔥 Firebase se inicializará automáticamente...');

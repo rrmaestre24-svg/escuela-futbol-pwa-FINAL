@@ -453,32 +453,6 @@ async function downloadAllClubData(clubId) {
     localStorage.setItem('users', JSON.stringify(clubUsers));
     console.log(`✅ ${clubUsers.length} usuarios descargados`);
 
-    // 6️⃣ Egresos (expenses)
-    const expensesSnapshot = await window.firebase.getDocs(
-      window.firebase.collection(window.firebase.db, `clubs/${clubId}/expenses`)
-    );
-    
-    const expenses = [];
-    expensesSnapshot.forEach(doc => {
-      expenses.push({ id: doc.id, ...doc.data() });
-    });
-    
-    localStorage.setItem('expenses', JSON.stringify(expenses));
-    console.log(`✅ ${expenses.length} egresos descargados`);
-
-    // 7️⃣ Otros ingresos (thirdPartyIncomes)
-    const thirdPartySnapshot = await window.firebase.getDocs(
-      window.firebase.collection(window.firebase.db, `clubs/${clubId}/thirdPartyIncomes`)
-    );
-    
-    const thirdPartyIncomes = [];
-    thirdPartySnapshot.forEach(doc => {
-      thirdPartyIncomes.push({ id: doc.id, ...doc.data() });
-    });
-    
-    localStorage.setItem('thirdPartyIncomes', JSON.stringify(thirdPartyIncomes));
-    console.log(`✅ ${thirdPartyIncomes.length} otros ingresos descargados`);
-
     showToast('✅ Datos sincronizados correctamente');
     return true;
   } catch (error) {
@@ -1326,7 +1300,7 @@ function copyNavbarClubId() {
   }
 }
 
-// Logout
+// Logout - Limpia TODO al cerrar sesión
 async function logout() {
   if (confirmAction('¿Estás seguro de cerrar sesión?')) {
     try {
@@ -1334,7 +1308,15 @@ async function logout() {
         await window.firebase.signOut(window.firebase.auth);
       }
       
+      // Limpiar TODA la sesión
       clearCurrentUser();
+      localStorage.removeItem('clubId');
+      localStorage.removeItem('players');
+      localStorage.removeItem('payments');
+      localStorage.removeItem('calendarEvents');
+      localStorage.removeItem('users');
+      localStorage.removeItem('schoolSettings');
+      
       showToast('👋 Sesión cerrada');
       
       setTimeout(() => {
@@ -1347,21 +1329,49 @@ async function logout() {
   }
 }
 
-// Verificar sesión al cargar
-window.addEventListener('DOMContentLoaded', function() {
-  const currentUser = getCurrentUser();
-  
+// Verificar sesión al cargar - MEJORADO para esperar Firebase
+window.addEventListener('DOMContentLoaded', async function() {
   const loginScreen = document.getElementById('loginScreen');
   const appContainer = document.getElementById('appContainer');
   
+  // 1. Verificar sesión local primero
+  const currentUser = getCurrentUser();
+  
   if (currentUser) {
+    console.log('[AUTH] Sesion local encontrada:', currentUser.email);
     if (loginScreen) loginScreen.classList.add('hidden');
     if (appContainer) appContainer.classList.remove('hidden');
     initApp();
-  } else {
-    if (loginScreen) loginScreen.classList.remove('hidden');
-    if (appContainer) appContainer.classList.add('hidden');
+    return;
   }
+  
+  // 2. No hay sesión local - esperar a Firebase Auth para ver si restaura
+  console.log('[AUTH] No hay sesion local, esperando Firebase...');
+  
+  // Esperar hasta 3 segundos a que Firebase restaure
+  let waited = 0;
+  const waitInterval = setInterval(async () => {
+    waited += 300;
+    
+    // Revisar si Firebase restauró la sesión
+    const restoredUser = getCurrentUser();
+    if (restoredUser) {
+      clearInterval(waitInterval);
+      console.log('[AUTH] Sesion restaurada:', restoredUser.email);
+      if (loginScreen) loginScreen.classList.add('hidden');
+      if (appContainer) appContainer.classList.remove('hidden');
+      initApp();
+      return;
+    }
+    
+    // Timeout - mostrar login
+    if (waited >= 3000 || window.APP_STATE?.authRestored) {
+      clearInterval(waitInterval);
+      console.log('[AUTH] Mostrando pantalla de login');
+      if (loginScreen) loginScreen.classList.remove('hidden');
+      if (appContainer) appContainer.classList.add('hidden');
+    }
+  }, 300);
 });
 
 // ========================================
