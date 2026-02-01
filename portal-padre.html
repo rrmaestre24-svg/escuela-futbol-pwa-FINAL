@@ -225,8 +225,8 @@
                             </svg>
                         </button>
                     </div>
-                    <!-- Input de archivo mejorado para móviles -->
-                    <input type="file" id="editAvatarInput" accept="image/*" capture="environment" class="hidden" onchange="previewEditAvatar(event)">
+                    <!-- Input de archivo - SIN capture para dar opción de cámara o galería -->
+                    <input type="file" id="editAvatarInput" accept="image/*" class="hidden" onchange="previewEditAvatar(event)">
                     <!-- Botón alternativo grande para móviles -->
                     <button type="button" onclick="document.getElementById('editAvatarInput').click()" class="mt-3 w-full py-2 px-4 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-600 active:bg-gray-300">
                         📷 Cambiar foto
