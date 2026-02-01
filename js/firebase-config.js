@@ -1,5 +1,6 @@
 // ========================================
 // CONFIGURACIÓN DE FIREBASE - AUTO-INICIALIZACIÓN
+// ✅ CON SOPORTE PARA SINCRONIZACIÓN EN TIEMPO REAL
 // ========================================
 
 // 🔒 Intentar cargar configuración externa, si no existe usar valores por defecto
@@ -36,18 +37,70 @@ async function initFirebase() {
     console.log('🔥 Inicializando Firebase...');
     
     const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js');
-    const { getFirestore } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
-    const { getAuth } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');
+    
+    // Importar módulos de Firestore incluyendo onSnapshot
+    const firestoreModule = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
+    const { 
+      getFirestore, 
+      collection, 
+      doc, 
+      getDoc, 
+      getDocs, 
+      setDoc, 
+      addDoc, 
+      updateDoc, 
+      deleteDoc, 
+      query, 
+      where, 
+      orderBy, 
+      limit,
+      onSnapshot,  // 🔄 Para sincronización en tiempo real
+      runTransaction,  // 🔢 Para transacciones (ej: contador de facturas)
+      serverTimestamp 
+    } = firestoreModule;
+    
+    // Importar módulos de Auth
+    const authModule = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');
+    const { 
+      getAuth, 
+      signInWithEmailAndPassword, 
+      createUserWithEmailAndPassword, 
+      signOut, 
+      onAuthStateChanged,
+      sendPasswordResetEmail
+    } = authModule;
     
     const app = initializeApp(firebaseConfig);
     db = getFirestore(app);
     auth = getAuth(app);
     
+    // Exponer Firebase globalmente con todas las funciones necesarias
     window.firebase = {
+      app,
       db,
       auth,
-      ...await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js'),
-      ...await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js')
+      // Firestore functions
+      collection,
+      doc,
+      getDoc,
+      getDocs,
+      setDoc,
+      addDoc,
+      updateDoc,
+      deleteDoc,
+      query,
+      where,
+      orderBy,
+      limit,
+      onSnapshot,  // 🔄 ¡Importante para tiempo real!
+      runTransaction,  // 🔢 Para transacciones
+      serverTimestamp,
+      // Auth functions
+      signInWithEmailAndPassword,
+      createUserWithEmailAndPassword,
+      signOut,
+      onAuthStateChanged,
+      sendPasswordResetEmail
     };
     
     window.APP_STATE.firebaseReady = true;
@@ -56,7 +109,8 @@ async function initFirebase() {
     console.log('✅ Estado:', {
       firebaseReady: window.APP_STATE.firebaseReady,
       hasAuth: !!window.firebase.auth,
-      hasDb: !!window.firebase.db
+      hasDb: !!window.firebase.db,
+      hasOnSnapshot: !!window.firebase.onSnapshot  // Verificar onSnapshot
     });
     
     if (typeof showToast === 'function') {
@@ -77,6 +131,11 @@ async function initFirebase() {
 
 async function firebaseLogout() {
   try {
+    // Detener sincronización en tiempo real si existe
+    if (typeof stopRealtimeSync === 'function') {
+      stopRealtimeSync();
+    }
+    
     if (window.firebase?.auth) {
       await window.firebase.signOut(window.firebase.auth);
       window.APP_STATE.currentUser = null;
@@ -87,7 +146,7 @@ async function firebaseLogout() {
   }
 }
 
-console.log('✅ firebase-config.js cargado');
+console.log('✅ firebase-config.js cargado (con soporte tiempo real)');
 
 // ✅ AUTO-INICIALIZAR Firebase cuando el DOM esté listo
 if (document.readyState === 'loading') {
