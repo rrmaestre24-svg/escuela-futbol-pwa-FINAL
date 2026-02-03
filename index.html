@@ -1921,8 +1921,50 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
         <span class="text-xl">💡</span>
     </button>
 
-</body>
-</html>
+    <!-- Sistema de Vibración para PWA -->
+    <script>
+    // ========================================
+    // 📳 SISTEMA DE VIBRACIÓN - FEEDBACK HÁPTICO
+    // ========================================
+    
+    function vibrate(duration = 10) {
+        if ('vibrate' in navigator) {
+            navigator.vibrate(duration);
+        }
+    }
+    
+    // Vibración al tocar botones
+    document.addEventListener('click', function(e) {
+        const target = e.target;
+        
+        // Vibrar en botones y elementos interactivos
+        if (target.matches('button, [onclick], .cursor-pointer, [role="button"], .nav-item') || 
+            target.closest('button, [onclick], .cursor-pointer, [role="button"], .nav-item')) {
+            vibrate(8);
+        }
+    });
+    
+    // Vibración suave al escribir en inputs
+    document.addEventListener('input', function(e) {
+        if (e.target.matches('input, textarea')) {
+            vibrate(3);
+        }
+    });
+    
+    // Vibración al cambiar checkboxes o selects
+    document.addEventListener('change', function(e) {
+        if (e.target.matches('input[type="checkbox"], input[type="radio"], select')) {
+            vibrate(12);
+        }
+    });
+    
+    // Vibración al enviar formularios
+    document.addEventListener('submit', function(e) {
+        vibrate([20, 50, 20]); // Patrón de vibración
+    });
+    
+    console.log('📳 Sistema de vibración activado');
+    </script>
 
 </body>
 </html>
