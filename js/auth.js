@@ -1354,54 +1354,105 @@ async function logout() {
   }
 }
 
-// Verificar sesión al cargar - VERSIÓN ROBUSTA
+// Verificar sesión al cargar - VERSIÓN MEJORADA PARA MÓVILES
 window.addEventListener('DOMContentLoaded', async function() {
   console.log('[AUTH] Verificando sesion al cargar...');
   
   const loginScreen = document.getElementById('loginScreen');
   const appContainer = document.getElementById('appContainer');
   
+  // Función para mostrar loading
+  function showLoading() {
+    if (loginScreen) {
+      const existingLoader = document.getElementById('sessionLoader');
+      if (!existingLoader) {
+        const loader = document.createElement('div');
+        loader.id = 'sessionLoader';
+        loader.className = 'fixed inset-0 bg-white dark:bg-gray-900 flex items-center justify-center z-50';
+        loader.innerHTML = '<div class="text-center"><div class="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-500 mx-auto mb-4"></div><p class="text-gray-600 dark:text-gray-400">Verificando sesión...</p></div>';
+        document.body.appendChild(loader);
+      }
+    }
+  }
+  
+  // Función para ocultar loading
+  function hideLoading() {
+    const loader = document.getElementById('sessionLoader');
+    if (loader) loader.remove();
+  }
+  
+  // Función para mostrar la app
+  function showApp() {
+    hideLoading();
+    if (loginScreen) loginScreen.classList.add('hidden');
+    if (appContainer) appContainer.classList.remove('hidden');
+    initApp();
+  }
+  
+  // Función para mostrar login
+  function showLogin() {
+    hideLoading();
+    if (loginScreen) loginScreen.classList.remove('hidden');
+    if (appContainer) appContainer.classList.add('hidden');
+  }
+  
   // 1. Verificar sesión local INMEDIATAMENTE
   const currentUser = getCurrentUser();
   
   if (currentUser && currentUser.email) {
     console.log('[AUTH] Sesion local valida:', currentUser.email);
-    if (loginScreen) loginScreen.classList.add('hidden');
-    if (appContainer) appContainer.classList.remove('hidden');
-    initApp();
+    showApp();
     return;
   }
   
-  console.log('[AUTH] No hay sesion local, verificando Firebase Auth...');
+  console.log('[AUTH] No hay sesion local, esperando Firebase Auth...');
+  showLoading();
   
-  // 2. Esperar a que Firebase esté listo y verifique si hay sesión
+  // 2. Esperar a que Firebase esté listo (hasta 15 segundos para móviles)
   let attempts = 0;
-  const maxAttempts = 20; // 10 segundos máximo
+  const maxAttempts = 30; // 15 segundos máximo
   
   const checkAuth = setInterval(async () => {
     attempts++;
     
-    // Verificar si Firebase restauró algo
+    // Verificar si localStorage fue restaurado
     const restoredUser = getCurrentUser();
     if (restoredUser && restoredUser.email) {
       clearInterval(checkAuth);
-      console.log('[AUTH] Sesion restaurada por Firebase:', restoredUser.email);
-      if (loginScreen) loginScreen.classList.add('hidden');
-      if (appContainer) appContainer.classList.remove('hidden');
-      initApp();
+      console.log('[AUTH] Sesion restaurada:', restoredUser.email);
+      showApp();
       return;
     }
     
-    // Verificar si Firebase Auth tiene usuario
+    // Verificar si Firebase Auth tiene usuario activo
     if (window.firebase?.auth?.currentUser) {
       clearInterval(checkAuth);
-      console.log('[AUTH] Firebase tiene usuario activo, restaurando...');
+      const user = window.firebase.auth.currentUser;
+      console.log('[AUTH] Firebase Auth tiene usuario:', user.email);
       
-      // Intentar restaurar sesión completa
-      const clubId = localStorage.getItem('clubId');
+      // Buscar clubId - primero en localStorage, luego en Firebase
+      let clubId = localStorage.getItem('clubId');
+      
+      if (!clubId) {
+        console.log('[AUTH] ClubId no encontrado en localStorage, buscando en Firebase...');
+        try {
+          // Buscar en userClubMapping
+          const mappingRef = window.firebase.doc(window.firebase.db, 'userClubMapping', user.email);
+          const mappingSnap = await window.firebase.getDoc(mappingRef);
+          
+          if (mappingSnap.exists()) {
+            clubId = mappingSnap.data().clubId;
+            localStorage.setItem('clubId', clubId);
+            console.log('[AUTH] ClubId recuperado de Firebase:', clubId);
+          }
+        } catch (err) {
+          console.warn('[AUTH] Error buscando clubId:', err);
+        }
+      }
+      
       if (clubId) {
         try {
-          const user = window.firebase.auth.currentUser;
+          // Restaurar datos del usuario
           const userRef = window.firebase.doc(window.firebase.db, 'clubs/' + clubId + '/users', user.uid);
           const userSnap = await window.firebase.getDoc(userRef);
           
@@ -1419,25 +1470,40 @@ window.addEventListener('DOMContentLoaded', async function() {
             };
             
             setCurrentUser(sessionData);
-            console.log('[AUTH] Sesion restaurada completamente');
+            console.log('[AUTH] Sesion restaurada completamente desde Firebase');
             
-            if (loginScreen) loginScreen.classList.add('hidden');
-            if (appContainer) appContainer.classList.remove('hidden');
-            initApp();
+            // Descargar datos del club
+            if (typeof downloadAllClubData === 'function') {
+              await downloadAllClubData(clubId);
+            }
+            
+            showApp();
             return;
           }
         } catch (err) {
           console.warn('[AUTH] Error restaurando sesion:', err);
         }
       }
+      
+      // Si llegamos aquí, hay usuario en Firebase pero no pudimos restaurar
+      console.log('[AUTH] No se pudo restaurar sesion completa');
+      showLogin();
+      return;
     }
     
-    // Verificar si ya pasó suficiente tiempo o Firebase terminó
-    if (attempts >= maxAttempts || window.APP_STATE?.authRestored) {
+    // Verificar si Firebase ya terminó de verificar (authRestored)
+    if (window.APP_STATE?.authRestored && !window.firebase?.auth?.currentUser) {
       clearInterval(checkAuth);
-      console.log('[AUTH] Timeout o Firebase listo, mostrando login');
-      if (loginScreen) loginScreen.classList.remove('hidden');
-      if (appContainer) appContainer.classList.add('hidden');
+      console.log('[AUTH] Firebase confirmó que no hay sesión');
+      showLogin();
+      return;
+    }
+    
+    // Timeout
+    if (attempts >= maxAttempts) {
+      clearInterval(checkAuth);
+      console.log('[AUTH] Timeout esperando Firebase');
+      showLogin();
     }
   }, 500);
 });
