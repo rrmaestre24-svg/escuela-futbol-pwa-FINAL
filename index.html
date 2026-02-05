@@ -30,6 +30,8 @@
     <!-- jsPDF -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     
+  
+
     <!-- Manifest -->
     <link rel="manifest" href="manifest.json">
     
@@ -218,6 +220,10 @@
             <input type="text" id="playerSearch" placeholder="Buscar jugador..." class="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white">
             <i data-lucide="search" class="w-5 h-5 text-gray-400 absolute left-3 top-2.5"></i>
         </div>
+        <button onclick="showImportModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg flex items-center gap-1" title="Importar desde Excel">
+    <i data-lucide="upload" class="w-5 h-5"></i>
+    <span class="hidden sm:inline">Importar</span>
+</button>
         <button onclick="showAddPlayerModal()" class="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg flex items-center gap-2">
             <i data-lucide="user-plus" class="w-5 h-5"></i>
             Agregar
@@ -1731,6 +1737,7 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
     <script src="js/dashboard.js"></script>
     <script src="js/settings.js"></script>
     <script src="js/club-settings-protection.js"></script>
+    <script src="js/import-players.js"></script>
     
     <!-- 9️⃣ MODALES (depende de varios módulos) -->
     <script src="js/modals.js"></script>
@@ -1965,6 +1972,174 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
     
     console.log('📳 Sistema de vibración activado');
     </script>
+<!-- ========================================
+    MODAL: IMPORTAR JUGADORES MASIVAMENTE
+    Pegar esto ANTES del </body> en index.html
+========================================= -->
+<div id="importPlayersModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-gray-800 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-scale-in">
+        <!-- Header -->
+        <div class="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4 flex items-center justify-between z-10">
+            <h3 class="font-bold text-xl text-gray-800 dark:text-white flex items-center gap-2">
+                <span>📥</span> Importar Jugadores
+            </h3>
+            <button onclick="closeImportModal()" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
+                <i data-lucide="x" class="w-6 h-6 text-gray-600 dark:text-gray-300"></i>
+            </button>
+        </div>
+        
+        <div class="p-4 space-y-4">
+            <!-- PASO 1: Descargar plantilla y subir archivo -->
+            <div id="importStep1" class="space-y-4">
+                <!-- Instrucciones -->
+                <div class="bg-blue-50 dark:bg-blue-900/30 rounded-xl p-4">
+                    <h4 class="font-semibold text-blue-800 dark:text-blue-300 mb-3">📋 Instrucciones</h4>
+                    <ol class="text-sm text-blue-700 dark:text-blue-400 space-y-1 list-decimal list-inside mb-3">
+                        <li>Descarga la plantilla Excel</li>
+                        <li>Completa los datos de los jugadores</li>
+                        <li>Guarda el archivo y súbelo aquí</li>
+                        <li>Revisa la vista previa y confirma</li>
+                    </ol>
+                    
+                    <!-- Campos obligatorios -->
+                    <div class="mt-3 pt-3 border-t border-blue-200 dark:border-blue-700">
+                        <p class="font-semibold text-blue-800 dark:text-blue-300 mb-2 text-sm flex items-center gap-2">
+                            <span>✅</span> Campos Obligatorios:
+                        </p>
+                        <div class="grid grid-cols-1 gap-2 text-sm">
+                            <div class="flex items-center gap-2">
+                                <span class="text-blue-600 dark:text-blue-400">•</span>
+                                <span class="font-medium text-blue-700 dark:text-blue-400">Nombre:</span>
+                                <span class="text-blue-600 dark:text-blue-500">Para identificar al jugador</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-blue-600 dark:text-blue-400">•</span>
+                                <span class="font-medium text-blue-700 dark:text-blue-400">Categoría:</span>
+                                <span class="text-blue-600 dark:text-blue-500">Para organizar por grupos</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-blue-600 dark:text-blue-400">•</span>
+                                <span class="font-medium text-blue-700 dark:text-blue-400">Teléfono:</span>
+                                <span class="text-blue-600 dark:text-blue-500">Para enviar código del Portal de Padres</span>
+                            </div>
+                        </div>
+                        <p class="text-sm text-blue-600 dark:text-blue-500 mt-3 italic">
+                            💡 Los demás campos son opcionales. Los padres podrán completarlos desde el Portal de Padres.
+                        </p>
+                    </div>
+                </div>
+                
+                <!-- Botón descargar plantilla -->
+                <button onclick="downloadExcelTemplate()" class="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all">
+                    <i data-lucide="download" class="w-5 h-5"></i>
+                    Descargar Plantilla Excel
+                </button>
+                
+                <!-- Subir archivo -->
+                <div class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-6 text-center">
+                    <input type="file" id="importFile" accept=".csv,.xlsx,.xls" onchange="handleFileUpload(event)" class="hidden">
+                    <label for="importFile" class="cursor-pointer">
+                        <div class="text-4xl mb-2">📄</div>
+                        <p class="text-gray-600 dark:text-gray-400 font-medium">Click para subir archivo</p>
+                        <p class="text-sm text-gray-400 dark:text-gray-500">CSV o Excel (.xlsx)</p>
+                    </label>
+                </div>
+            </div>
+            
+            <!-- PASO 2: Vista previa -->
+            <div id="importStep2" class="hidden space-y-4">
+                <div id="importPreview" class="hidden">
+                    <!-- Contadores -->
+                    <div class="grid grid-cols-3 gap-3 mb-4">
+                        <div class="bg-gray-100 dark:bg-gray-700 rounded-lg p-3 text-center">
+                            <div class="text-2xl font-bold text-gray-800 dark:text-white" id="previewTotal">0</div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400">Total</div>
+                        </div>
+                        <div class="bg-green-100 dark:bg-green-900/30 rounded-lg p-3 text-center">
+                            <div class="text-2xl font-bold text-green-600" id="previewValid">0</div>
+                            <div class="text-xs text-green-600">Válidos</div>
+                        </div>
+                        <div class="bg-red-100 dark:bg-red-900/30 rounded-lg p-3 text-center">
+                            <div class="text-2xl font-bold text-red-600" id="previewInvalid">0</div>
+                            <div class="text-xs text-red-600">Con errores</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Tabla de vista previa -->
+                    <div class="overflow-x-auto max-h-64 border border-gray-200 dark:border-gray-700 rounded-lg">
+                        <table class="w-full text-sm">
+                            <thead class="bg-gray-50 dark:bg-gray-700 sticky top-0">
+                                <tr>
+                                    <th class="p-2 text-left">
+                                        <input type="checkbox" id="selectAllImport" onchange="toggleAllImport(this)" checked class="rounded">
+                                    </th>
+                                    <th class="p-2 text-left text-gray-600 dark:text-gray-300">Nombre</th>
+                                    <th class="p-2 text-left text-gray-600 dark:text-gray-300">Nacimiento</th>
+                                    <th class="p-2 text-left text-gray-600 dark:text-gray-300">Categoría</th>
+                                    <th class="p-2 text-left text-gray-600 dark:text-gray-300">Teléfono</th>
+                                    <th class="p-2 text-left text-gray-600 dark:text-gray-300">Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody id="importPreviewBody"></tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Seleccionados -->
+                    <p class="text-sm text-gray-500 dark:text-gray-400 text-center mt-2">
+                        <span id="selectedCount">0</span> jugadores seleccionados para importar
+                    </p>
+                </div>
+                
+                <!-- Botones de acción -->
+                <div class="flex gap-3">
+                    <button onclick="resetImportModal()" class="flex-1 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 py-3 rounded-xl font-semibold">
+                        ← Volver
+                    </button>
+                    <button onclick="startImport()" class="flex-1 bg-gradient-to-r from-teal-500 to-blue-600 hover:from-teal-600 hover:to-blue-700 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2">
+                        <i data-lucide="check" class="w-5 h-5"></i>
+                        Importar Jugadores
+                    </button>
+                </div>
+            </div>
+            
+            <!-- PASO 3: Progreso y resultados -->
+            <div id="importStep3" class="hidden space-y-4">
+                <!-- Barra de progreso -->
+                <div class="bg-gray-200 dark:bg-gray-700 rounded-full h-4 overflow-hidden">
+                    <div id="importProgressBar" class="bg-gradient-to-r from-teal-500 to-blue-600 h-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+                <p id="importProgressText" class="text-center text-gray-600 dark:text-gray-400">Procesando...</p>
+                
+                <!-- Resultados -->
+                <div id="importResults" class="hidden bg-green-50 dark:bg-green-900/30 rounded-xl p-4 text-center">
+                    <div class="text-4xl mb-2">✅</div>
+                    <h4 class="font-bold text-green-700 dark:text-green-400 text-lg">¡Importación completada!</h4>
+                    <p class="text-green-600 dark:text-green-500">
+                        <span id="resultSuccess">0</span> jugadores creados correctamente
+                    </p>
+                    <p class="text-red-500 text-sm" id="resultErrorsContainer">
+                        <span id="resultErrors">0</span> errores
+                    </p>
+                    
+                    <!-- Botones de descarga -->
+                    <div class="mt-4 space-y-2">
+                        <button id="downloadCodesBtn" onclick="downloadCodesPDF()" class="hidden w-full bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2">
+                            <i data-lucide="file-text" class="w-5 h-5"></i>
+                            Descargar PDF con Códigos
+                        </button>
+                        <button onclick="shareByWhatsApp()" class="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2">
+                            <span class="text-xl">📱</span>
+                            Compartir por WhatsApp
+                        </button>
+                        <button onclick="closeImportModal()" class="w-full bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 py-3 rounded-xl font-semibold">
+                            Cerrar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
 </body>
 </html>
