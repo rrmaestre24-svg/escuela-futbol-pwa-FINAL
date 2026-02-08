@@ -98,11 +98,8 @@ function resetImportModal() {
 function downloadTemplate(format) {
     const templateData = [
         ['nombre', 'fecha_nacimiento', 'categoria', 'telefono_padre', 'posicion', 'numero_camiseta', 'documento', 'tipo_documento', 'direccion', 'contacto_emergencia', 'tipo_sangre', 'alergias', 'condiciones_medicas'],
-        ['Juan Pérez García', '2015-03-15', 'Categoría 2015', '3001234567', 'Delantero Centro', '10', '1234567890', 'TI', 'Calle 123 #45-67', '3009876543', 'O+', 'Ninguna', 'Ninguna'],
-        ['María López Ruiz', '2016-07-22', 'Categoría 2016', '3112345678', 'Portero', '1', '0987654321', 'RC', 'Carrera 45 #12-34', '3118765432', 'A+', 'Polen', 'Asma leve'],
-        ['Carlos Rodríguez', '2014-11-08', 'Categoría 2014', '3203456789', 'Medio Centro', '8', '', '', '', '', '', '', '']
+        ['AQUI VA EL NOMBRE LO DEMAS DATOS SON EJEMPLOS DE COMO LLENARLOS , DEBEN ELIMINARLOS PARA PONER LOS REALES ', '2015-03-15', 'Categoría 2015', '3001234567', 'Delantero Centro', '10', '1234567890', 'TI', 'Calle 123 #45-67', '3009876543', 'O+', 'Ninguna', 'Ninguna']
     ];
-    
     if (format === 'excel') {
         downloadAsExcel(templateData);
     } else {
@@ -407,6 +404,10 @@ function mapRowToPlayer(headers, row) {
     if (!player.category) {
         player.isValid = false;
         player.errors.push('Categoría requerida');
+    }
+    if (!player.phone) {
+        player.isValid = false;
+        player.errors.push('Teléfono requerido');
     }
     
     return player;
