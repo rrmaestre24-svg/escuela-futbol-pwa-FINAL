@@ -27,8 +27,13 @@
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     
-    <!-- jsPDF -->
+   <!-- jsPDF -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <!-- XLSX para importación de Excel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
+    <!-- Manifest -->
     
     <!-- Manifest -->
     <link rel="manifest" href="manifest.json">
@@ -218,16 +223,21 @@
             <input type="text" id="playerSearch" placeholder="Buscar jugador..." class="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white">
             <i data-lucide="search" class="w-5 h-5 text-gray-400 absolute left-3 top-2.5"></i>
         </div>
+       <button onclick="showImportModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg flex items-center gap-1" title="Importar desde Excel">
+            <i data-lucide="upload" class="w-5 h-5"></i>
+            <span class="hidden sm:inline">Importar</span>
+        </button>
         <button onclick="showAddPlayerModal()" class="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg flex items-center gap-2">
             <i data-lucide="user-plus" class="w-5 h-5"></i>
             Agregar
         </button>
     </div>
 
-    <!-- ⭐ NUEVO: Filtros por estado -->
-    <div class="bg-white dark:bg-gray-800 rounded-xl p-3 shadow-sm">
+   <!-- ⭐ Filtros por estado y categoría -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl p-3 shadow-sm space-y-3">
+        <!-- Filtro por estado -->
         <div class="flex items-center gap-2 overflow-x-auto">
-            <span class="text-sm font-medium text-gray-600 dark:text-gray-400 mr-2">Filtrar:</span>
+            <span class="text-sm font-medium text-gray-600 dark:text-gray-400 mr-2">Estado:</span>
             <button 
                 onclick="filterByStatus('todos')" 
                 data-status-filter="todos"
@@ -251,6 +261,17 @@
                 <span class="text-red-600">●</span>
                 Inactivos
             </button>
+        </div>
+        <!-- Filtro por categoría -->
+        <div class="flex items-center gap-2">
+            <span class="text-sm font-medium text-gray-600 dark:text-gray-400">Categoría:</span>
+            <select 
+                id="categoryFilter" 
+                onchange="filterByCategory(this.value)"
+                class="flex-1 px-3 py-2 rounded-lg text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-2 focus:ring-teal-500 focus:outline-none"
+            >
+                <option value="todas">Todas las categorías</option>
+            </select>
         </div>
     </div>
 
@@ -909,8 +930,12 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
             <div class="grid md:grid-cols-2 gap-4">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Categoría *</label>
-                    <select id="playerCategory" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500">
+                  <select id="playerCategory" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500">
                         <option value="">Seleccionar...</option>
+                        <option value="Categoría 2006">Categoría 2006</option>
+                        <option value="Categoría 2007">Categoría 2007</option>
+                        <option value="Categoría 2008">Categoría 2008</option>
+                        <option value="Categoría 2009">Categoría 2009</option>
                         <option value="Categoría 2010">Categoría 2010</option>
                         <option value="Categoría 2011">Categoría 2011</option>
                         <option value="Categoría 2012">Categoría 2012</option>
@@ -1746,6 +1771,7 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
     
     <script src="js/super-admin-sugerencias.js"></script>
     <script src="js/admin-chat-sugerencias.js"></script>
+    <script src="js/import-players.js"></script>
  <script>
   // Inicializar Firebase automáticamente
   if (typeof initFirebase === 'function') {
@@ -1963,8 +1989,121 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
         vibrate([20, 50, 20]); // Patrón de vibración
     });
     
-    console.log('📳 Sistema de vibración activado');
+console.log('📳 Sistema de vibración activado');
     </script>
+
+    <!-- MODAL: IMPORTAR JUGADORES MASIVAMENTE -->
+    <div id="importPlayersModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-scale-in">
+            <div class="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4 flex items-center justify-between z-10">
+                <h3 class="font-bold text-xl text-gray-800 dark:text-white flex items-center gap-2">
+                    <span>📥</span> Importar Jugadores
+                </h3>
+                <button onclick="closeImportModal()" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
+                    <i data-lucide="x" class="w-6 h-6 text-gray-600 dark:text-gray-300"></i>
+                </button>
+            </div>
+            <div class="p-4 space-y-4">
+                <div id="importStep1" class="space-y-4">
+                    <div class="bg-blue-50 dark:bg-blue-900/30 rounded-xl p-4">
+                        <h4 class="font-semibold text-blue-800 dark:text-blue-300 mb-2">📋 Instrucciones</h4>
+                        <ol class="text-sm text-blue-700 dark:text-blue-400 space-y-1 list-decimal list-inside">
+                            <li>Descarga la plantilla Excel</li>
+                            <li>Completa los datos de los jugadores</li>
+                            <li>Guarda el archivo y súbelo aquí</li>
+                            <li>Revisa la vista previa y confirma</li>
+                        </ol>
+                    </div>
+
+                    <!-- Botones descargar plantilla -->
+                    <div class="grid grid-cols-2 gap-3">
+                        <button onclick="downloadTemplate('excel')" class="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all">
+                            <i data-lucide="file-spreadsheet" class="w-5 h-5"></i>
+                            Excel (.xlsx)
+                        </button>
+                        <button onclick="downloadTemplate('csv')" class="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all">
+                            <i data-lucide="file-text" class="w-5 h-5"></i>
+                            CSV
+                        </button>
+                    </div>
+                    
+                    <p class="text-xs text-gray-500 dark:text-gray-400 text-center">Excel recomendado para mejor compatibilidad</p>
+                    <div class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-6 text-center hover:border-teal-500 transition-colors cursor-pointer" onclick="document.getElementById('importFile').click()">
+                        <input type="file" id="importFile" accept=".csv,.xlsx,.xls" onchange="handleFileUpload(event)" class="hidden">
+                        <div class="text-4xl mb-2">📄</div>
+                        <p class="text-gray-600 dark:text-gray-400 font-medium">Click para subir archivo</p>
+                        <p class="text-sm text-gray-400 dark:text-gray-500">CSV o Excel (.xlsx)</p>
+                    </div>
+                </div>
+                <div id="importStep2" class="hidden space-y-4">
+                    <div id="importPreview" class="hidden">
+                        <div class="grid grid-cols-3 gap-3 mb-4">
+                            <div class="bg-gray-100 dark:bg-gray-700 rounded-lg p-3 text-center">
+                                <div class="text-2xl font-bold text-gray-800 dark:text-white" id="previewTotal">0</div>
+                                <div class="text-xs text-gray-500 dark:text-gray-400">Total</div>
+                            </div>
+                            <div class="bg-green-100 dark:bg-green-900/30 rounded-lg p-3 text-center">
+                                <div class="text-2xl font-bold text-green-600" id="previewValid">0</div>
+                                <div class="text-xs text-green-600">Válidos</div>
+                            </div>
+                            <div class="bg-red-100 dark:bg-red-900/30 rounded-lg p-3 text-center">
+                                <div class="text-2xl font-bold text-red-600" id="previewInvalid">0</div>
+                                <div class="text-xs text-red-600">Con errores</div>
+                            </div>
+                        </div>
+                        <div class="overflow-x-auto max-h-64 border border-gray-200 dark:border-gray-700 rounded-lg">
+                            <table class="w-full text-sm">
+                                <thead class="bg-gray-50 dark:bg-gray-700 sticky top-0">
+                                    <tr>
+                                        <th class="p-2 text-left"><input type="checkbox" id="selectAllImport" onchange="toggleAllImport(this)" checked class="rounded"></th>
+                                        <th class="p-2 text-left text-gray-600 dark:text-gray-300">Nombre</th>
+                                        <th class="p-2 text-left text-gray-600 dark:text-gray-300">Nacimiento</th>
+                                        <th class="p-2 text-left text-gray-600 dark:text-gray-300">Categoría</th>
+                                        <th class="p-2 text-left text-gray-600 dark:text-gray-300">Teléfono</th>
+                                        <th class="p-2 text-left text-gray-600 dark:text-gray-300">Estado</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="importPreviewBody"></tbody>
+                            </table>
+                        </div>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 text-center mt-2">
+                            <span id="selectedCount">0</span> jugadores seleccionados para importar
+                        </p>
+                    </div>
+                    <div class="flex gap-3">
+                        <button onclick="resetImportModal()" class="flex-1 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 py-3 rounded-xl font-semibold">← Volver</button>
+                        <button onclick="startImport()" class="flex-1 bg-gradient-to-r from-teal-500 to-blue-600 hover:from-teal-600 hover:to-blue-700 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2">
+                            <i data-lucide="check" class="w-5 h-5"></i>
+                            Importar Jugadores
+                        </button>
+                    </div>
+                </div>
+                <div id="importStep3" class="hidden space-y-4">
+                    <div class="bg-gray-200 dark:bg-gray-700 rounded-full h-4 overflow-hidden">
+                        <div id="importProgressBar" class="bg-gradient-to-r from-teal-500 to-blue-600 h-full transition-all duration-300" style="width: 0%"></div>
+                    </div>
+                    <p id="importProgressText" class="text-center text-gray-600 dark:text-gray-400">Procesando...</p>
+                    <div id="importResults" class="hidden bg-green-50 dark:bg-green-900/30 rounded-xl p-4 text-center">
+                        <div class="text-4xl mb-2">✅</div>
+                        <h4 class="font-bold text-green-700 dark:text-green-400 text-lg">¡Importación completada!</h4>
+                        <p class="text-green-600 dark:text-green-500"><span id="resultSuccess">0</span> jugadores creados correctamente</p>
+                        <p class="text-red-500 text-sm" id="resultErrorsContainer"><span id="resultErrors">0</span> errores</p>
+                        <div class="mt-4 space-y-2">
+                            <button id="downloadCodesBtn" onclick="downloadCodesPDF()" class="hidden w-full bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2">
+                                <i data-lucide="file-text" class="w-5 h-5"></i>
+                                Descargar PDF con Códigos
+                            </button>
+                            <button onclick="shareByWhatsApp()" class="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2">
+                                <span class="text-xl">📱</span>
+                                Compartir por WhatsApp
+                            </button>
+                            <button onclick="closeImportModal()" class="w-full bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 py-3 rounded-xl font-semibold">Cerrar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
 </body>
 </html>

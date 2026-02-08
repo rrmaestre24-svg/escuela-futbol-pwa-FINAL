@@ -6,6 +6,7 @@
 
 let currentEditingPlayerId = null;
 let currentStatusFilter = 'todos'; // 'todos', 'activo', 'inactivo'
+let currentCategoryFilter = 'todas'; // 'todas' o nombre de categoría
 
 // Mostrar modal agregar jugador
 function showAddPlayerModal() {
@@ -201,6 +202,31 @@ function filterByStatus(status) {
 }
 
 // 🆕 Función para formatear documento de identidad
+// ⭐ FUNCIÓN: Filtrar por categoría
+function filterByCategory(category) {
+  currentCategoryFilter = category;
+  renderPlayersList();
+}
+
+// ⭐ FUNCIÓN: Cargar categorías en el selector
+function loadCategoryFilter() {
+  const players = getPlayers();
+  const categories = [...new Set(players.map(p => p.category).filter(c => c))].sort();
+  
+  const select = document.getElementById('categoryFilter');
+  if (!select) return;
+  
+  // Mantener la opción "Todas"
+  select.innerHTML = '<option value="todas">Todas las categorías</option>';
+  
+  categories.forEach(cat => {
+    const option = document.createElement('option');
+    option.value = cat;
+    option.textContent = cat;
+    if (cat === currentCategoryFilter) option.selected = true;
+    select.appendChild(option);
+  });
+}
 function formatDocument(type, number) {
   if (!type || !number) return 'No registrado';
   return `${type} ${number}`;
@@ -227,12 +253,20 @@ function renderPlayersList() {
   // Filtrar por búsqueda (ahora incluye documento)
   let filtered = filterBySearch(players, searchTerm, ['name', 'category', 'phone', 'email', 'position', 'jerseyNumber', 'documentNumber']);
   
-  // Filtrar por estado
+// Filtrar por estado
   if (currentStatusFilter === 'activo') {
     filtered = filtered.filter(p => p.status === 'Activo');
   } else if (currentStatusFilter === 'inactivo') {
     filtered = filtered.filter(p => p.status === 'Inactivo' || !p.status);
   }
+  
+  // Filtrar por categoría
+  if (currentCategoryFilter !== 'todas') {
+    filtered = filtered.filter(p => p.category === currentCategoryFilter);
+  }
+  
+  // Actualizar selector de categorías
+  loadCategoryFilter();
   
   const sorted = sortBy(filtered, 'name', 'asc');
   
