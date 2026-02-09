@@ -786,7 +786,7 @@ async function saveSchoolUser(userData) {
     }
   }
 }
-// ✅ FUNCIÓN MEJORADA: Eliminar usuario PERMANENTEMENTE
+// ✅ FUNCIÓN MEJORADA: Eliminar usuario COMPLETAMENTE
 async function deleteSchoolUser(userId) {
   const currentUser = getCurrentUser();
   
@@ -808,7 +808,7 @@ async function deleteSchoolUser(userId) {
     return;
   }
   
-  if (!confirmAction(`¿Eliminar PERMANENTEMENTE a ${userToDelete.name}?\n\n⚠️ Esta acción es irreversible.\n⚠️ Se cerrará su sesión y NO podrá volver a ingresar.`)) {
+  if (!confirmAction(`¿Eliminar PERMANENTEMENTE a ${userToDelete.name}?\n\n⚠️ Esta acción es IRREVERSIBLE.\n⚠️ Se cerrará su sesión INMEDIATAMENTE.\n⚠️ NO podrá volver a ingresar.`)) {
     return;
   }
   
@@ -822,20 +822,14 @@ async function deleteSchoolUser(userId) {
       return;
     }
     
-    // 1️⃣ MARCAR COMO ELIMINADO EN FIRESTORE (impide acceso)
+    // 1️⃣ ELIMINAR DOCUMENTO COMPLETAMENTE DE FIRESTORE (NO SOLO MARCAR)
     try {
-      await window.firebase.updateDoc(
-        window.firebase.doc(window.firebase.db, `clubs/${clubId}/users`, userId),
-        {
-          deleted: true,
-          deletedAt: new Date().toISOString(),
-          deletedBy: currentUser.email,
-          status: 'deleted'
-        }
+      await window.firebase.deleteDoc(
+        window.firebase.doc(window.firebase.db, `clubs/${clubId}/users`, userId)
       );
-      console.log('✅ Usuario marcado como eliminado en Firestore');
+      console.log('✅ Usuario ELIMINADO completamente de Firestore (documento borrado)');
     } catch (firestoreError) {
-      console.error('⚠️ Error al marcar como eliminado:', firestoreError);
+      console.error('⚠️ Error al eliminar de Firestore:', firestoreError);
       throw firestoreError;
     }
     
@@ -853,14 +847,15 @@ async function deleteSchoolUser(userId) {
         await window.firebase.deleteDoc(
           window.firebase.doc(window.firebase.db, 'userClubMapping', userToDelete.email)
         );
-        console.log('✅ Mapeo eliminado - Usuario no podrá iniciar sesión');
+        console.log('✅ Mapeo eliminado - Usuario bloqueado completamente');
       } catch (mappingError) {
         console.log('⚠️ No se pudo eliminar el mapeo:', mappingError.code);
       }
     }
     
-    showToast('✅ Usuario eliminado permanentemente - NO podrá volver a ingresar');
+    showToast('✅ Usuario eliminado permanentemente');
     console.log('✅ Eliminación completada. Usuario bloqueado.');
+    console.log('ℹ️ La cuenta de Firebase Authentication seguirá existiendo pero sin acceso al club');
     
   } catch (error) {
     console.error('❌ Error al eliminar usuario:', error);
