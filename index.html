@@ -38,10 +38,10 @@
     <!-- Manifest -->
     <link rel="manifest" href="manifest.json">
     
-    <!-- Icons -->
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚽</text></svg>">
-    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚽</text></svg>">
-    
+   <!-- Icons -->
+<link rel="icon" type="image/png" sizes="32x32" href="assets/icons/icon-96x96.png">
+<link rel="icon" type="image/png" sizes="16x16" href="assets/icons/icon-72x72.png">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/icons/icon-192x192.png">
     <!-- Custom CSS -->
     <link rel="stylesheet" href="css/styles.css">
     <style>
@@ -612,69 +612,120 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
     </div>
   </div>
 
-  <!-- Sección: Personalización -->
-  <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
-    <button onclick="toggleSection('personalizationSection')" class="w-full px-4 py-3 flex items-center justify-between bg-gray-50 dark:bg-gray-700 text-left font-medium">
-      <span>🎨 Recursos Locales </span>
-      <i data-lucide="chevron-down" class="w-5 h-5 text-gray-500 dark:text-gray-400"></i>
-    </button>
-    <div id="personalizationSection" class="p-4 border-t border-gray-200 dark:border-gray-700 hidden">
-      <div class="flex items-center justify-between mb-4">
-        <span class="text-gray-800 dark:text-white">Modo Oscuro</span>
-        <button onclick="toggleDarkMode()" id="darkModeToggle" class="w-12 h-6 bg-gray-300 dark:bg-teal-600 rounded-full relative transition-colors">
-          <div class="w-5 h-5 bg-white rounded-full absolute top-0.5 left-0.5 dark:left-6 transition-all"></div>
-        </button>
+ <!-- Sección: Personalización -->
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+  <button onclick="toggleSection('personalizationSection')" class="w-full px-4 py-3 flex items-center justify-between bg-gray-50 dark:bg-gray-700 text-left font-medium">
+    <span>🎨 Recursos Locales</span>
+    <i data-lucide="chevron-down" class="w-5 h-5 text-gray-500 dark:text-gray-400"></i>
+  </button>
+  <div id="personalizationSection" class="p-4 border-t border-gray-200 dark:border-gray-700 hidden">
+    
+    <!-- Toggle Modo Oscuro -->
+    <div class="flex items-center justify-between mb-4">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
+          <span class="text-xl">🌙</span>
+        </div>
+        <div>
+          <span class="text-gray-800 dark:text-white font-medium">Modo Oscuro</span>
+          <p class="text-xs text-gray-500 dark:text-gray-400">Tema de la aplicación</p>
+        </div>
       </div>
-      <div class="space-y-2">
-        <button onclick="clearAppCache()" class="w-full border border-blue-600 text-blue-600 dark:text-blue-400 py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
-          <i data-lucide="refresh-cw" class="w-5 h-5"></i>
-          Descargar Actualizacion
-        </button>
-        <button onclick="exportData()" class="w-full border border-teal-600 text-teal-600 dark:text-teal-400 py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors">
-          <i data-lucide="download" class="w-5 h-5"></i>
-          Exportar Datos (JSON)
-        </button>
-        <button onclick="openImportDialog()" class="w-full border border-green-600 text-green-600 dark:text-green-400 py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors">
-          <i data-lucide="upload" class="w-5 h-5"></i>
-          Importar Datos (JSON)
-        </button>
+      <label class="relative inline-flex items-center cursor-pointer">
+        <input type="checkbox" id="darkModeToggle" class="sr-only peer" onchange="toggleDarkMode()">
+        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300 dark:peer-focus:ring-teal-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-teal-600"></div>
+      </label>
+    </div>
+
+    <!-- Toggle Vibración Háptica -->
+    <div class="flex items-center justify-between mb-4">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 bg-purple-100 dark:bg-purple-900 rounded-full flex items-center justify-center">
+          <span class="text-xl">📳</span>
+        </div>
+        <div>
+          <span class="text-gray-800 dark:text-white font-medium">Vibración háptica</span>
+          <p class="text-xs text-gray-500 dark:text-gray-400">Feedback al tocar botones</p>
+        </div>
       </div>
+      <label class="relative inline-flex items-center cursor-pointer">
+        <input type="checkbox" id="vibrateToggle" class="sr-only peer" onchange="toggleVibration()">
+        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300 dark:peer-focus:ring-teal-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-teal-600"></div>
+      </label>
+    </div>
+
+    <!-- Botones de Recursos -->
+    <div class="space-y-2">
+      <button onclick="clearAppCache()" class="w-full border border-blue-600 text-blue-600 dark:text-blue-400 py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
+        <i data-lucide="refresh-cw" class="w-5 h-5"></i>
+        Descargar Actualización
+      </button>
+      <button onclick="exportData()" class="w-full border border-teal-600 text-teal-600 dark:text-teal-400 py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors">
+        <i data-lucide="download" class="w-5 h-5"></i>
+        Exportar Datos (JSON)
+      </button>
+      <button onclick="openImportDialog()" class="w-full border border-green-600 text-green-600 dark:text-green-400 py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors">
+        <i data-lucide="upload" class="w-5 h-5"></i>
+        Importar Datos (JSON)
+      </button>
     </div>
   </div>
+</div>
 
   <!-- Sección: Sincronización y Cierre -->
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+  <button onclick="toggleSection('syncSection')" class="w-full px-4 py-3 flex items-center justify-between bg-gray-50 dark:bg-gray-700 text-left font-medium">
+    <span>☁️ Sincronización y Cierre</span>
+    <i data-lucide="chevron-down" class="w-5 h-5 text-gray-500 dark:text-gray-400"></i>
+  </button>
+  <div id="syncSection" class="p-4 border-t border-gray-200 dark:border-gray-700 hidden">
+    
+    <!-- Indicador de Conexión -->
+    <div class="mb-4 p-4 bg-green-50 dark:bg-green-900/20 border-2 border-green-300 dark:border-green-700 rounded-xl">
+      <div class="flex items-center gap-3 mb-2">
+        <div class="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+        <h4 class="font-bold text-green-800 dark:text-green-300">Conectado a Firebase</h4>
+      </div>
+      <p class="text-sm text-green-700 dark:text-green-400 ml-6">
+        Tus datos se sincronizan automáticamente en tiempo real
+      </p>
+    </div>
+    
+    <!-- Botones de Cierre -->
+    <div class="border-t border-gray-300 dark:border-gray-600 pt-3 mt-3">
+      <button onclick="logout()" class="w-full bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg flex items-center justify-center gap-2 transition-colors">
+        <i data-lucide="log-out" class="w-5 h-5"></i>
+        Cerrar Sesión
+      </button>
+      <button onclick="clearAllData()" class="w-full bg-gray-700 hover:bg-gray-800 text-white py-2 rounded-lg flex items-center justify-center gap-2 mt-3 transition-colors">
+        <i data-lucide="trash-2" class="w-5 h-5"></i>
+        Borrar Todos los Datos
+      </button>
+    </div>
+  </div>
+</div>
+  <!-- Sección: Información Legal -->
   <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
-    <button onclick="toggleSection('syncSection')" class="w-full px-4 py-3 flex items-center justify-between bg-gray-50 dark:bg-gray-700 text-left font-medium">
-      <span>☁️ Sincronización y Cierre</span>
+    <button onclick="toggleSection('legalSection')" class="w-full px-4 py-3 flex items-center justify-between bg-gray-50 dark:bg-gray-700 text-left font-medium">
+      <span>📋 Información Legal</span>
       <i data-lucide="chevron-down" class="w-5 h-5 text-gray-500 dark:text-gray-400"></i>
     </button>
-    <div id="syncSection" class="p-4 border-t border-gray-200 dark:border-gray-700 hidden">
-      <div class="mb-4">
-        <h4 class="font-bold text-gray-800 dark:text-white mb-2">Subir a Firebase</h4>
-        <p class="text-sm text-gray-600 dark:text-gray-400">Guarda tus datos en la nube.</p>
-        <button type="button" class="w-full bg-teal-600 hover:bg-teal-700 text-white py-2 rounded-lg"
-        onclick="syncAllToFirebase()">
-          Subir datos
-        </button>
-      </div>
-      <div class="mb-4">
-        <h4 class="font-bold text-gray-800 dark:text-white mb-2">Sincronizar con la nube</h4>
-        <p class="text-sm text-gray-600 dark:text-gray-400">Descarga los datos más recientes desde Firebase.</p>
-        <button
-        onclick="downloadFromFirebase()"
-        class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg flex items-center justify-center gap-2 transition-colors">
-          <span></span>Descargar datos
-        </button>
-      </div>
-      <div class="border-t border-gray-300 dark:border-gray-600 pt-3 mt-3">
-        <button onclick="logout()" class="w-full bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg flex items-center justify-center gap-2 transition-colors">
-          <i data-lucide="log-out" class="w-5 h-5"></i>
-          Cerrar Sesión
-        </button>
-        <button onclick="clearAllData()" class="w-full bg-gray-700 hover:bg-gray-800 text-white py-2 rounded-lg flex items-center justify-center gap-2 mt-3 transition-colors">
-          <i data-lucide="trash-2" class="w-5 h-5"></i>
-          Borrar Todos los Datos
-        </button>
+    <div id="legalSection" class="p-4 border-t border-gray-200 dark:border-gray-700 hidden">
+      <button onclick="showPrivacyPolicy()" class="w-full flex items-center justify-between p-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
+        <div class="flex items-center gap-3">
+          <i data-lucide="shield-check" class="w-5 h-5 text-teal-600"></i>
+          <div class="text-left">
+            <span class="font-medium">Política de Privacidad</span>
+            <p class="text-xs text-gray-500 dark:text-gray-400">Cómo protegemos tus datos</p>
+          </div>
+        </div>
+        <i data-lucide="chevron-right" class="w-5 h-5"></i>
+      </button>
+      <div class="mt-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+        <p class="text-xs text-gray-500 dark:text-gray-400">
+          <strong>MY CLUB</strong> - Versión 1.0<br>
+          Sistema de Gestión para Escuelas de Fútbol
+        </p>
       </div>
     </div>
   </div>
@@ -1949,16 +2000,29 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
 
     <!-- Sistema de Vibración para PWA -->
     <script>
-    // ========================================
-    // 📳 SISTEMA DE VIBRACIÓN - FEEDBACK HÁPTICO
+// ========================================
+    // 📳 SISTEMA DE VIBRACIÓN - FEEDBACK HÁPTICO (SEGURO)
     // ========================================
     
-    function vibrate(duration = 10) {
-        if ('vibrate' in navigator) {
-            navigator.vibrate(duration);
-        }
+ function vibrate(duration = 10) {
+    // ✅ Verificar si el usuario tiene vibración activada
+    const vibrateEnabled = localStorage.getItem('vibrateEnabled') !== 'false'; // Por defecto: true
+    
+    if (!vibrateEnabled) {
+        return; // Usuario la desactivó
     }
     
+    // Verificar soporte del navegador
+    if (!('vibrate' in navigator)) {
+        return;
+    }
+    
+    try {
+        navigator.vibrate(duration);
+    } catch (error) {
+        // Ignorar errores silenciosamente
+    }
+}
     // Vibración al tocar botones
     document.addEventListener('click', function(e) {
         const target = e.target;
@@ -2114,6 +2178,122 @@ console.log('📳 Sistema de vibración activado');
             </div>
         </div>
     </div>
+
+<!-- Modal Política de Privacidad -->
+<div id="privacyPolicyModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-gray-800 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+        <!-- Header -->
+        <div class="bg-gradient-to-r from-teal-600 to-teal-700 text-white p-4 flex justify-between items-center">
+            <h2 class="text-lg font-bold">Política de Privacidad</h2>
+            <button onclick="closePrivacyPolicy()" class="p-1 hover:bg-white/20 rounded-lg transition-colors">
+                <i data-lucide="x" class="w-6 h-6"></i>
+            </button>
+        </div>
+        
+        <!-- Contenido scrolleable -->
+        <div class="flex-1 overflow-y-auto p-5 space-y-4 text-sm text-gray-700 dark:text-gray-300">
+            <p class="text-xs text-gray-500 dark:text-gray-400">Última actualización: Febrero 2025</p>
+            
+            <div>
+                <h3 class="font-bold text-base text-gray-900 dark:text-white mb-2">1. Introducción</h3>
+                <p>MY CLUB se compromete a proteger la privacidad de nuestros usuarios. Esta política describe cómo recopilamos, usamos y protegemos su información.</p>
+            </div>
+            
+            <div>
+                <h3 class="font-bold text-base text-gray-900 dark:text-white mb-2">2. Información que Recopilamos</h3>
+                <p class="mb-2">Recopilamos la información que usted ingresa voluntariamente:</p>
+                <ul class="list-disc pl-5 space-y-1">
+                    <li><strong>Cuenta:</strong> Correo electrónico y contraseña</li>
+                    <li><strong>Club:</strong> Nombre, logo, teléfono, dirección</li>
+                    <li><strong>Jugadores:</strong> Nombre, fecha de nacimiento, categoría, teléfono del acudiente, posición, documento, foto</li>
+                    <li><strong>Información médica:</strong> Tipo de sangre, alergias, condiciones</li>
+                    <li><strong>Pagos:</strong> Montos, fechas, estados</li>
+                    <li><strong>Eventos:</strong> Título, fecha, hora, ubicación</li>
+                </ul>
+            </div>
+            
+            <div>
+                <h3 class="font-bold text-base text-gray-900 dark:text-white mb-2">3. Cómo Usamos la Información</h3>
+                <ul class="list-disc pl-5 space-y-1">
+                    <li>Proporcionar el funcionamiento de la aplicación</li>
+                    <li>Sincronizar datos entre dispositivos</li>
+                    <li>Generar documentos PDF</li>
+                    <li>Facilitar comunicación por WhatsApp</li>
+                    <li>Permitir acceso a padres mediante el portal</li>
+                </ul>
+                <div class="bg-amber-50 dark:bg-amber-900/30 p-3 rounded-lg mt-2">
+                    <p class="text-amber-800 dark:text-amber-300 text-xs"><strong>Importante:</strong> NO vendemos ni compartimos su información con terceros para fines publicitarios.</p>
+                </div>
+            </div>
+            
+            <div>
+                <h3 class="font-bold text-base text-gray-900 dark:text-white mb-2">4. Almacenamiento y Seguridad</h3>
+                <p class="mb-2">Los datos se almacenan en:</p>
+                <ul class="list-disc pl-5 space-y-1">
+                    <li><strong>Dispositivo local:</strong> Para funcionamiento offline</li>
+                    <li><strong>Firebase (Google):</strong> Para sincronización en la nube</li>
+                </ul>
+                <p class="mt-2">Medidas de seguridad:</p>
+                <ul class="list-disc pl-5 space-y-1">
+                    <li>Conexión cifrada HTTPS/SSL</li>
+                    <li>Autenticación segura con Firebase</li>
+                    <li>Contraseñas encriptadas</li>
+                    <li>Códigos únicos para portal de padres</li>
+                </ul>
+            </div>
+            
+            <div>
+                <h3 class="font-bold text-base text-gray-900 dark:text-white mb-2">5. Compartir Información</h3>
+                <p class="mb-2">Sus datos pueden ser accedidos por:</p>
+                <ul class="list-disc pl-5 space-y-1">
+                    <li><strong>Padres:</strong> Con código válido, ven información limitada de sus hijos</li>
+                    <li><strong>Firebase (Google):</strong> Como proveedor de almacenamiento</li>
+                </ul>
+                <p class="mt-2"><strong>NO compartimos datos con:</strong> Empresas de publicidad, brokers de datos, redes sociales.</p>
+            </div>
+            
+            <div>
+                <h3 class="font-bold text-base text-gray-900 dark:text-white mb-2">6. Sus Derechos</h3>
+                <ul class="list-disc pl-5 space-y-1">
+                    <li><strong>Acceso:</strong> Ver todos sus datos en la app</li>
+                    <li><strong>Rectificación:</strong> Editar información</li>
+                    <li><strong>Eliminación:</strong> Borrar registros</li>
+                    <li><strong>Portabilidad:</strong> Exportar datos con respaldo</li>
+                </ul>
+            </div>
+            
+            <div>
+                <h3 class="font-bold text-base text-gray-900 dark:text-white mb-2">7. Datos de Menores</h3>
+                <p>MY CLUB es para administradores (adultos). La información de menores es gestionada por administradores con consentimiento de los padres.</p>
+            </div>
+            
+            <div>
+                <h3 class="font-bold text-base text-gray-900 dark:text-white mb-2">8. Servicios de Terceros</h3>
+                <ul class="list-disc pl-5 space-y-1">
+                    <li><strong>Firebase:</strong> Autenticación y base de datos</li>
+                    <li><strong>Vercel:</strong> Hosting de la aplicación</li>
+                </ul>
+            </div>
+            
+            <div>
+                <h3 class="font-bold text-base text-gray-900 dark:text-white mb-2">9. Contacto</h3>
+                <p>Para preguntas sobre privacidad, contáctenos a través de la función de sugerencias en la app o al correo del administrador.</p>
+            </div>
+            
+            <div>
+                <h3 class="font-bold text-base text-gray-900 dark:text-white mb-2">10. Consentimiento</h3>
+                <p>Al usar MY CLUB, acepta esta política de privacidad y la recopilación de datos según lo descrito.</p>
+            </div>
+        </div>
+        
+        <!-- Footer -->
+        <div class="p-4 border-t border-gray-200 dark:border-gray-700">
+            <button onclick="closePrivacyPolicy()" class="w-full bg-teal-600 hover:bg-teal-700 text-white py-3 rounded-xl font-semibold transition-colors">
+                Entendido
+            </button>
+        </div>
+    </div>
+</div>
 
 </body>
 </html>

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'my-club-v1.0.16';
+const CACHE_NAME = 'my-club-v1.0.17';
 
 const urlsToCache = [
   '/',
@@ -7,6 +7,16 @@ const urlsToCache = [
   '/offline.html',
   '/manifest.json',
   '/parent-manifest.json',
+
+  // ICONOS PWA
+  '/assets/icons/icon-72x72.png',
+  '/assets/icons/icon-96x96.png',
+  '/assets/icons/icon-128x128.png',
+  '/assets/icons/icon-144x144.png',
+  '/assets/icons/icon-152x152.png',
+  '/assets/icons/icon-192x192.png',
+  '/assets/icons/icon-384x384.png',
+  '/assets/icons/icon-512x512.png',
 
   // CSS
   '/css/styles.css',
@@ -42,7 +52,6 @@ const urlsToCache = [
   // PORTAL PADRES
   '/js/parent-portal.js'
 ];
-
 /* ==============================
    INSTALL
 ============================== */

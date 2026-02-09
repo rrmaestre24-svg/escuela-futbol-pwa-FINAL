@@ -131,6 +131,7 @@ function navigateTo(view) {
 function toggleDarkMode() {
   const html = document.documentElement;
   const body = document.body;
+  const toggle = document.getElementById('darkModeToggle');
   const isDark = html.classList.contains('dark');
   
   console.log('🌓 Cambiando modo - Estado actual:', isDark ? 'OSCURO' : 'CLARO');
@@ -140,6 +141,7 @@ function toggleDarkMode() {
     html.classList.remove('dark');
     body.classList.remove('dark');
     localStorage.setItem('darkMode', 'false');
+    if (toggle) toggle.checked = false;
     console.log('☀️ MODO CLARO ACTIVADO');
     showToast('☀️ Modo claro activado');
   } else {
@@ -147,12 +149,10 @@ function toggleDarkMode() {
     html.classList.add('dark');
     body.classList.add('dark');
     localStorage.setItem('darkMode', 'true');
+    if (toggle) toggle.checked = true;
     console.log('🌙 MODO OSCURO ACTIVADO');
     showToast('🌙 Modo oscuro activado');
   }
-  
-  // Actualizar iconos
-  updateDarkModeIcons();
   
   // Forzar repaint
   html.style.display = 'none';
@@ -440,3 +440,32 @@ function handleUserDeleted() {
 }
 
 console.log('✅ Sistema de detección de eliminación cargado');
+
+// ========================================
+// POLÍTICA DE PRIVACIDAD
+// ========================================
+
+// Mostrar política de privacidad
+function showPrivacyPolicy() {
+    const modal = document.getElementById('privacyPolicyModal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        if (typeof lucide !== 'undefined' && lucide.createIcons) {
+            lucide.createIcons();
+        }
+    }
+}
+
+// Cerrar política de privacidad
+function closePrivacyPolicy() {
+    const modal = document.getElementById('privacyPolicyModal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+}
+
+// Exportar funciones
+window.showPrivacyPolicy = showPrivacyPolicy;
+window.closePrivacyPolicy = closePrivacyPolicy;
+
+console.log('✅ Sistema de Política de Privacidad cargado');

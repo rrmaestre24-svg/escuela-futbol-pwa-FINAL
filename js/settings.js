@@ -142,7 +142,7 @@ function loadSettings() {
     console.log('👑 Admin principal: campos editables');
   }
 
-  // ✅ Cargar lista de usuarios (TODOS LOS USUARIOS PUEDEN VERLA)
+// ✅ Cargar lista de usuarios (TODOS LOS USUARIOS PUEDEN VERLA)
   setTimeout(() => {
     renderSchoolUsers();
     const avatarPreview = document.getElementById('schoolUserAvatarPreview');
@@ -150,6 +150,9 @@ function loadSettings() {
       avatarPreview.src = getDefaultAvatar();
     }
   }, 100);
+  
+  // ✅ Cargar configuración de vibración
+  loadVibrationSetting();
 }
 
 document.getElementById('changeAvatar')?.addEventListener('change', function(e) {
@@ -1459,3 +1462,41 @@ async function executeClubDestruction(clubId, currentUser) {
 
 console.log('✅ Función de destrucción total del club cargada');
 
+// ========================================
+// TOGGLE VIBRACIÓN HÁPTICA
+// ========================================
+
+function toggleVibration() {
+  const toggle = document.getElementById('vibrateToggle');
+  const enabled = toggle.checked;
+  
+  localStorage.setItem('vibrateEnabled', enabled);
+  
+  if (enabled) {
+    showToast('📳 Vibración activada');
+    // Vibración de prueba
+    if (typeof vibrate === 'function') {
+      vibrate([30, 50, 30]);
+    }
+  } else {
+    showToast('🔕 Vibración desactivada');
+  }
+  
+  console.log('📳 Vibración:', enabled ? 'ACTIVADA' : 'DESACTIVADA');
+}
+
+// Cargar estado al abrir configuración
+function loadVibrationSetting() {
+  const vibrateEnabled = localStorage.getItem('vibrateEnabled') !== 'false'; // Por defecto: true
+  const toggle = document.getElementById('vibrateToggle');
+  
+  if (toggle) {
+    toggle.checked = vibrateEnabled;
+  }
+}
+
+// Exportar
+window.toggleVibration = toggleVibration;
+window.loadVibrationSetting = loadVibrationSetting;
+
+console.log('✅ Sistema de toggle de vibración cargado');

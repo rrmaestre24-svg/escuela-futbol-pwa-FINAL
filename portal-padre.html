@@ -779,6 +779,26 @@ function showPlayerProfile() {
           ✏️ Editar Datos del Jugador
         </button>
       </div>
+
+      <!-- Toggle Vibración Háptica -->
+      <div class="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-lg mt-4">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 bg-purple-100 dark:bg-purple-900 rounded-xl flex items-center justify-center">
+              <span class="text-2xl">📳</span>
+            </div>
+            <div>
+              <h3 class="font-medium text-gray-800 dark:text-white">Vibración háptica</h3>
+              <p class="text-xs text-gray-500 dark:text-gray-400">Feedback al tocar botones</p>
+            </div>
+          </div>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" id="parentVibrateToggle" class="sr-only peer" onchange="toggleParentVibration()" checked>
+            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300 dark:peer-focus:ring-teal-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-teal-600"></div>
+    </label>
+  </div>
+</div>
+      
       
       <div class="grid grid-cols-2 gap-4">
         <div class="bg-green-50 dark:bg-green-900/30 rounded-xl p-4 text-center">
@@ -871,6 +891,12 @@ function showPlayerProfile() {
   `;
   
   checkInstallPrompt();
+
+  // Cargar estado de vibración
+setTimeout(() => {
+  loadParentVibrationSetting();
+}, 100);
+
 }
 
 // ========================================
@@ -1899,11 +1925,24 @@ function selectFromGallery() {
 // ========================================
 
 function vibrate(duration = 10) {
-  if ('vibrate' in navigator) {
+  // ✅ Verificar si el usuario tiene vibración activada
+  const vibrateEnabled = localStorage.getItem('parentVibrateEnabled') !== 'false'; // Por defecto: true
+  
+  if (!vibrateEnabled) {
+    return; // Usuario la desactivó
+  }
+  
+  // Verificar soporte del navegador
+  if (!('vibrate' in navigator)) {
+    return;
+  }
+  
+  try {
     navigator.vibrate(duration);
+  } catch (error) {
+    // Ignorar errores silenciosamente
   }
 }
-
 // Vibración al tocar botones
 document.addEventListener('click', function(e) {
   const target = e.target;
@@ -1933,6 +1972,36 @@ document.addEventListener('change', function(e) {
 document.addEventListener('submit', function(e) {
   vibrate([20, 50, 20]); // Patrón de vibración
 });
+
+// ========================================
+// TOGGLE VIBRACIÓN HÁPTICA
+// ========================================
+
+function toggleParentVibration() {
+  const toggle = document.getElementById('parentVibrateToggle');
+  const enabled = toggle.checked;
+  
+  localStorage.setItem('parentVibrateEnabled', enabled);
+  
+  if (enabled) {
+    showParentToast('📳 Vibración activada');
+    // Vibración de prueba
+    vibrate([20, 30, 20]);
+  } else {
+    showParentToast('🔕 Vibración desactivada');
+  }
+  
+  console.log('📳 Vibración Portal Padres:', enabled ? 'ACTIVADA' : 'DESACTIVADA');
+}
+
+function loadParentVibrationSetting() {
+  const vibrateEnabled = localStorage.getItem('parentVibrateEnabled') !== 'false'; // Por defecto: true
+  const toggle = document.getElementById('parentVibrateToggle');
+  
+  if (toggle) {
+    toggle.checked = vibrateEnabled;
+  }
+}
 
 console.log('📳 Sistema de vibración activado');
 console.log('📷 Sistema de cámara/galería activado');
