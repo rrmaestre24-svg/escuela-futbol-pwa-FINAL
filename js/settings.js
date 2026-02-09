@@ -1495,3 +1495,121 @@ window.toggleVibration = toggleVibration;
 window.loadVibrationSetting = loadVibrationSetting;
 
 console.log('✅ Sistema de toggle de vibración cargado');
+
+// ========================================
+// SINCRONIZACIÓN MANUAL CON INDICADOR VISUAL
+// ========================================
+
+async function manualSync() {
+  const button = document.getElementById('syncButton');
+  const spinner = document.getElementById('syncSpinner');
+  const icon = document.getElementById('syncIcon');
+  const text = document.getElementById('syncText');
+  const statusText = document.getElementById('syncStatus');
+  const lastSyncTime = document.getElementById('lastSyncTime');
+  
+  if (!button || !spinner || !icon || !text) return;
+  
+  try {
+    // 🔴 ESTADO: SINCRONIZANDO (ROJO)
+    button.disabled = true;
+    button.classList.remove('bg-blue-600', 'hover:bg-blue-700', 'bg-green-600');
+    button.classList.add('bg-red-600', 'cursor-wait');
+    spinner.classList.remove('hidden');
+    icon.classList.add('hidden');
+    text.textContent = 'Sincronizando...';
+    statusText.classList.remove('text-gray-500');
+    statusText.classList.add('text-red-600', 'font-medium');
+    
+    vibrate(10); // Feedback háptico
+    
+    console.log('🔄 Iniciando sincronización manual...');
+    
+    // DESCARGAR DATOS DE FIREBASE
+    if (typeof downloadFromFirebase === 'function') {
+      await downloadFromFirebase();
+      console.log('✅ Datos descargados correctamente');
+    } else {
+      throw new Error('Función downloadFromFirebase no disponible');
+    }
+    
+    // ✅ ESTADO: COMPLETADO (VERDE)
+    button.classList.remove('bg-red-600');
+    button.classList.add('bg-green-600');
+    spinner.classList.add('hidden');
+    icon.classList.remove('hidden');
+    icon.setAttribute('data-lucide', 'check-circle');
+    text.textContent = '¡Sincronizado!';
+    statusText.classList.remove('text-red-600');
+    statusText.classList.add('text-green-600');
+    
+    // Actualizar hora
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+    if (lastSyncTime) {
+      lastSyncTime.textContent = timeStr;
+    }
+    
+    vibrate([20, 50, 20]); // Feedback de éxito
+    showToast('✅ Datos sincronizados correctamente');
+    
+    // Recrear íconos de Lucide
+    if (typeof lucide !== 'undefined' && lucide.createIcons) {
+      lucide.createIcons();
+    }
+    
+    // Volver a estado normal después de 2 segundos
+    setTimeout(() => {
+      button.classList.remove('bg-green-600');
+      button.classList.add('bg-blue-600', 'hover:bg-blue-700');
+      button.disabled = false;
+      button.classList.remove('cursor-wait');
+      icon.setAttribute('data-lucide', 'refresh-cw');
+      text.textContent = 'Sincronizar Datos';
+      statusText.classList.remove('text-green-600', 'font-medium');
+      statusText.classList.add('text-gray-500');
+      
+      if (typeof lucide !== 'undefined' && lucide.createIcons) {
+        lucide.createIcons();
+      }
+    }, 2000);
+    
+  } catch (error) {
+    console.error('❌ Error en sincronización:', error);
+    
+    // ❌ ESTADO: ERROR (MANTENER ROJO)
+    button.classList.remove('bg-green-600');
+    button.classList.add('bg-red-600');
+    spinner.classList.add('hidden');
+    icon.classList.remove('hidden');
+    icon.setAttribute('data-lucide', 'x-circle');
+    text.textContent = 'Error al sincronizar';
+    
+    showToast('❌ Error al sincronizar: ' + error.message);
+    
+    if (typeof lucide !== 'undefined' && lucide.createIcons) {
+      lucide.createIcons();
+    }
+    
+    // Volver a estado normal después de 3 segundos
+    setTimeout(() => {
+      button.classList.remove('bg-red-600');
+      button.classList.add('bg-blue-600', 'hover:bg-blue-700');
+      button.disabled = false;
+      button.classList.remove('cursor-wait');
+      icon.setAttribute('data-lucide', 'refresh-cw');
+      text.textContent = 'Sincronizar Datos';
+      statusText.classList.remove('text-red-600', 'font-medium');
+      statusText.classList.add('text-gray-500');
+      
+      if (typeof lucide !== 'undefined' && lucide.createIcons) {
+        lucide.createIcons();
+      }
+    }, 3000);
+  }
+}
+
+// Exportar
+window.manualSync = manualSync;
+
+console.log('✅ Sistema de sincronización manual cargado');
