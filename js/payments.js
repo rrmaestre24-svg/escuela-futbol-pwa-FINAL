@@ -457,11 +457,11 @@ function renderExpenseCard(expense) {
   `;
 }
 // Marcar pago como pagado
-function markAsPaid(paymentId) {
+async function markAsPaid(paymentId) {
   const payment = getPaymentById(paymentId);
   if (!payment) return;
   
-  const invoiceNumber = getNextInvoiceNumber();
+  const invoiceNumber = await getNextInvoiceNumberFromFirebase();
   
   updatePayment(paymentId, {
     status: 'Pagado',
@@ -873,7 +873,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Manejar submit del formulario de edición
-function saveEditedPayment() {
+async function saveEditedPayment() {
   const paymentId = document.getElementById('editPaymentId').value;
   const playerId = document.getElementById('editPaymentPlayer').value;
   const type = document.getElementById('editPaymentType').value;
@@ -912,7 +912,7 @@ function saveEditedPayment() {
   
   // Si cambió a "Pagado" y no tenía número de factura, generar uno
   if (status === 'Pagado' && !originalPayment.invoiceNumber) {
-    updateData.invoiceNumber = getNextInvoiceNumber();
+    updateData.invoiceNumber = await getNextInvoiceNumberFromFirebase();
   }
   
   // Actualizar en base de datos
