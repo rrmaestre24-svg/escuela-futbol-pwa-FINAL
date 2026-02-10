@@ -2,7 +2,7 @@
   "name": "Portal de Padres - MY CLUB",
   "short_name": "Portal Padres",
   "description": "Consulta el perfil y pagos de tu hijo",
-  "start_url": "/parent-portal.html",
+  "start_url": "/portal-padre.html",
   "scope": "/",
   "display": "standalone",
   "background_color": "#0d9488",
