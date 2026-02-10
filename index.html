@@ -2011,12 +2011,25 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
         </div>
     </button>
 
-    <!-- Botón Flotante de Sugerencias 💡 -->
-    <button onclick="openAdminSuggestionModal()" 
-            class="fixed bottom-24 left-4 z-50 bg-gradient-to-r from-amber-500 to-orange-500 text-white p-4 rounded-full shadow-lg hover:shadow-xl transition-all hover:scale-110"
-            title="Sugerir mejoras de la app">
-        <span class="text-xl">💡</span>
-    </button>
+ <!-- Botón Flotante de Sugerencias 💡 MEJORADO -->
+<button onclick="openAdminSuggestionModal()" 
+        id="suggestionsFloatBtn"
+        class="fixed bottom-24 left-4 z-50 bg-gradient-to-br from-orange-500 via-orange-600 to-amber-600 text-white rounded-full shadow-lg hover:shadow-2xl transition-all duration-300 group overflow-hidden"
+        style="width: 56px; height: 56px;"
+        title="Ideas y sugerencias">
+    <!-- Círculo de brillo animado -->
+    <div class="absolute inset-0 bg-white opacity-0 group-hover:opacity-20 transition-opacity duration-300 rounded-full"></div>
+    
+    <!-- Icono SVG -->
+    <svg class="w-6 h-6 mx-auto relative z-10 transition-transform duration-300 group-hover:scale-110 group-hover:rotate-12" 
+         fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+              d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+    </svg>
+    
+    <!-- Pulso animado -->
+    <span class="absolute inset-0 rounded-full bg-orange-400 opacity-75 animate-ping"></span>
+</button>
 
     <!-- Sistema de Vibración para PWA -->
     <script>
@@ -2311,6 +2324,166 @@ console.log('📳 Sistema de vibración activado');
             <button onclick="closePrivacyPolicy()" class="w-full bg-teal-600 hover:bg-teal-700 text-white py-3 rounded-xl font-semibold transition-colors">
                 Entendido
             </button>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================
+     MODAL DE SUGERENCIAS - VERSIÓN MODERNA
+========================================= -->
+<div id="adminSuggestionModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-gray-800 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-scale-in shadow-2xl">
+        
+        <!-- Header con gradiente -->
+        <div class="bg-gradient-to-r from-orange-500 via-orange-600 to-amber-600 text-white p-6 relative overflow-hidden">
+            <div class="absolute inset-0 bg-white opacity-10"></div>
+            <div class="relative z-10 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 bg-white bg-opacity-20 rounded-full flex items-center justify-center backdrop-blur-sm">
+                        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                  d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-xl">Mejoras de la App</h3>
+                        <p class="text-sm opacity-90">Ayúdanos a mejorar MY CLUB</p>
+                    </div>
+                </div>
+                <button onclick="closeAdminSuggestionModal()" class="p-2 hover:bg-white hover:bg-opacity-20 rounded-lg transition-colors">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="flex border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+            <button 
+                id="tabNew" 
+                onclick="switchSuggestionTab('new')" 
+                class="flex-1 px-4 py-3 font-medium text-gray-600 dark:text-gray-400 border-b-2 border-transparent transition-colors hover:text-orange-600">
+                <div class="flex items-center justify-center gap-2">
+                    <i data-lucide="pencil" class="w-4 h-4"></i>
+                    <span>Nuevo</span>
+                </div>
+            </button>
+            <button 
+                id="tabMy" 
+                onclick="switchSuggestionTab('my')" 
+                class="flex-1 px-4 py-3 font-medium text-gray-600 dark:text-gray-400 border-b-2 border-transparent transition-colors hover:text-orange-600">
+                <div class="flex items-center justify-center gap-2">
+                    <i data-lucide="list" class="w-4 h-4"></i>
+                    <span>Mis sugerencias</span>
+                </div>
+            </button>
+        </div>
+
+        <!-- Contenido scrolleable -->
+        <div class="flex-1 overflow-y-auto">
+            
+            <!-- TAB: Nueva Sugerencia -->
+            <div id="newSuggestionTab" class="p-6">
+                <div class="bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 p-4 mb-6 rounded-r-lg">
+                    <p class="text-sm text-blue-800 dark:text-blue-300 flex items-start gap-2">
+                        <i data-lucide="info" class="w-4 h-4 mt-0.5 flex-shrink-0"></i>
+                        <span>Tu mensaje será enviado al <strong>desarrollador de MY CLUB</strong>, no a la escuela de tu hijo.</span>
+                    </p>
+                </div>
+
+                <form id="suggestionForm" class="space-y-4">
+                    <!-- Nombre -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Tu nombre
+                        </label>
+                        <input 
+                            type="text" 
+                            id="suggestionName" 
+                            required
+                            placeholder="Ej: María García"
+                            class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all">
+                    </div>
+
+                    <!-- Tipo de mensaje -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Tipo de mensaje
+                        </label>
+                        <select 
+                            id="suggestionType" 
+                            required
+                            class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all">
+                            <option value="">Seleccionar...</option>
+                            <option value="suggestion">💡 Sugerencia - Idea para mejorar</option>
+                            <option value="bug">🐛 Error - Encontré un error cuando...</option>
+                            <option value="question">❓ Pregunta - Tengo una duda sobre...</option>
+                            <option value="feature">✨ Nueva función - Me gustaría que...</option>
+                            <option value="other">💬 Otro</option>
+                        </select>
+                    </div>
+
+                    <!-- Mensaje -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Tu mensaje *
+                        </label>
+                        <textarea 
+                            id="suggestionMessage" 
+                            required
+                            rows="5"
+                            minlength="10"
+                            placeholder="Me gustaría que la aplicación tuviera... / Encontré un error cuando..."
+                            class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all resize-none"></textarea>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Mínimo 10 caracteres</p>
+                    </div>
+
+                    <!-- Teléfono -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Teléfono (opcional)
+                        </label>
+                        <input 
+                            type="tel" 
+                            id="suggestionPhone" 
+                            placeholder="+57 300 123 4567"
+                            class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all">
+                    </div>
+
+                    <!-- Botón Enviar -->
+                    <button 
+                        type="submit"
+                        class="w-full bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-semibold py-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-xl">
+                        <i data-lucide="send" class="w-5 h-5"></i>
+                        <span>Enviar al Desarrollador</span>
+                    </button>
+                </form>
+            </div>
+
+            <!-- TAB: Mis Sugerencias -->
+            <div id="mySuggestionsTab" class="hidden p-6">
+                <!-- Estado vacío -->
+                <div id="emptySuggestions" class="text-center py-12">
+                    <div class="w-20 h-20 bg-gradient-to-br from-orange-100 to-amber-100 dark:from-orange-900/30 dark:to-amber-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <svg class="w-10 h-10 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                  d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                        </svg>
+                    </div>
+                    <h4 class="font-bold text-gray-800 dark:text-white mb-2">No has enviado sugerencias aún</h4>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">¿Tienes una idea para mejorar MY CLUB?</p>
+                    <button 
+                        onclick="switchSuggestionTab('new')"
+                        class="inline-flex items-center gap-2 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-semibold px-6 py-3 rounded-xl transition-all shadow-lg">
+                        <i data-lucide="lightbulb" class="w-5 h-5"></i>
+                        <span>Enviar mi primera sugerencia</span>
+                    </button>
+                </div>
+
+                <!-- Lista de sugerencias -->
+                <div id="suggestionsList" class="hidden space-y-3">
+                    <!-- Las sugerencias se cargarán aquí dinámicamente -->
+                </div>
+            </div>
         </div>
     </div>
 </div>

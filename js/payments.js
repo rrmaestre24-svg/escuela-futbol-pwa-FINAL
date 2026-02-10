@@ -1469,7 +1469,7 @@ async function handlePaymentFormSubmit(e) {
     showToast('✅ Pago actualizado');
   } else {
     // 🆕 CREAR: Agregar createdBy
-    const invoiceNumber = status === 'Pagado' ? await getNextInvoiceNumber() : null;
+    const invoiceNumber = status === 'Pagado' ? await getNextInvoiceNumberFromFirebase() : null;
     const newPayment = {
       id: generateId(),
       ...paymentData,
