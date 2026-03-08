@@ -26,87 +26,200 @@
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👨‍👩‍👧</text></svg>">
     <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👨‍👩‍👧</text></svg>">
     
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
     <style>
+        * { font-family: 'Inter', sans-serif; }
+
         @keyframes float {
             0%, 100% { transform: translateY(0); }
             50% { transform: translateY(-10px); }
         }
         .animate-float { animation: float 3s ease-in-out infinite; }
-        
+
         @keyframes slide-up {
             from { transform: translateY(100%); opacity: 0; }
             to { transform: translateY(0); opacity: 1; }
         }
         .animate-slide-up { animation: slide-up 0.3s ease-out; }
-        
+
         @keyframes spin {
             from { transform: rotate(0deg); }
             to { transform: rotate(360deg); }
         }
         .animate-spin { animation: spin 1s linear infinite; }
-        
+
         @keyframes pulse {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
         }
         .animate-pulse { animation: pulse 2s ease-in-out infinite; }
+
+        /* ── Login del portal ── */
+        @keyframes bgShift {
+            0%   { background-position: 0% 50%; }
+            50%  { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        #loginContainer {
+            background: linear-gradient(-45deg, #020617, #0f172a, #0d4a44, #1e3a5f, #0f172a);
+            background-size: 400% 400%;
+            animation: bgShift 18s ease infinite;
+        }
+
+        .portal-glass {
+            background: rgba(2, 6, 23, 0.75);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(13, 148, 136, 0.25);
+            box-shadow: 0 0 0 1px rgba(255,255,255,0.04), 0 25px 50px rgba(0,0,0,0.6), 0 0 80px rgba(13,148,136,0.08);
+        }
+
+        .portal-input {
+            width: 100%;
+            padding: 13px 16px;
+            background: rgba(255,255,255,0.06);
+            border: 1.5px solid rgba(255,255,255,0.12);
+            border-radius: 12px;
+            color: white;
+            font-size: 16px;
+            transition: all 0.25s ease;
+            outline: none;
+        }
+        .portal-input::placeholder { color: rgba(255,255,255,0.35); }
+        .portal-input:focus {
+            border-color: #0d9488;
+            background: rgba(13,148,136,0.08);
+            box-shadow: 0 0 0 3px rgba(13,148,136,0.18);
+        }
+        .portal-input:-webkit-autofill {
+            -webkit-box-shadow: 0 0 0 100px #071918 inset;
+            -webkit-text-fill-color: white;
+        }
+
+        .portal-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            color: rgba(255,255,255,0.6);
+            margin-bottom: 8px;
+        }
+
+        .portal-btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #0d9488 0%, #2563eb 100%);
+            color: white;
+            font-weight: 700;
+            font-size: 16px;
+            border-radius: 12px;
+            transition: all 0.25s ease;
+            box-shadow: 0 4px 20px rgba(13,148,136,0.35);
+            position: relative;
+            overflow: hidden;
+        }
+        .portal-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(13,148,136,0.5);
+        }
+        .portal-btn:active { transform: translateY(0); }
+        .portal-btn::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(255,255,255,0.15), transparent);
+            border-radius: inherit;
+        }
+
+        /* Orbes decorativos solo en el login del portal */
+        .portal-orb {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.15;
+            pointer-events: none;
+            z-index: 0;
+        }
     </style>
 </head>
 <body class="bg-gray-100 dark:bg-gray-900 min-h-screen transition-colors duration-300">
-    
+
     <!-- Contenedor de Login -->
-    <div id="loginContainer" class="min-h-screen flex flex-col items-center justify-center p-4">
-        <!-- Logo animado -->
-        <div class="text-6xl mb-6 animate-float">👨‍👩‍👧</div>
-        
-        <h1 class="text-2xl font-bold text-gray-800 dark:text-white mb-2">Portal de Padres</h1>
-        <p class="text-gray-500 dark:text-gray-400 mb-8 text-center">Accede al perfil de tu hijo</p>
-        
-        <!-- Formulario de Login -->
-        <form id="parentLoginForm" class="w-full max-w-sm space-y-4">
-            <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    🏫 Club ID
-                </label>
-                <input 
-                    type="text" 
-                    id="parentClubId" 
-                    required
-                    placeholder="ej: mi_club_futbol"
-                    class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-teal-500 dark:bg-gray-800 dark:text-white text-lg"
-                >
-            </div>
-            
-            <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    🔐 Código de Acceso
-                </label>
-                <input 
-                    type="text" 
-                    id="parentAccessCode" 
-                    required
-                    placeholder="ej: ABC123"
-                    maxlength="6"
-                    class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-teal-500 dark:bg-gray-800 dark:text-white text-lg uppercase tracking-widest text-center font-mono"
-                >
-            </div>
-            
-            <button 
-                type="submit" 
-                class="w-full bg-gradient-to-r from-teal-600 to-blue-600 hover:from-teal-700 hover:to-blue-700 text-white py-4 rounded-xl font-bold text-lg shadow-lg transition-all transform hover:scale-[1.02]"
-            >
-                Acceder al Perfil
-            </button>
-        </form>
-        
-        <!-- Info -->
-        <div class="mt-8 text-center text-sm text-gray-500 dark:text-gray-400">
-            <p>¿No tienes código?</p>
-            <p>Solicítalo al administrador de la escuela</p>
+    <div id="loginContainer" class="min-h-screen flex flex-col items-center justify-center p-4 relative">
+
+        <!-- Orbes decorativos -->
+        <div class="portal-orb" style="width:450px;height:450px;background:#0d9488;top:-10%;left:-10%;"></div>
+        <div class="portal-orb" style="width:350px;height:350px;background:#2563eb;bottom:-5%;right:-5%;"></div>
+
+        <!-- Badge superior -->
+        <div class="relative z-10 mb-5">
+            <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 14px;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:20px;font-size:12px;color:rgba(255,255,255,0.45);">
+                ⚡ Portal de Padres · MY CLUB
+            </span>
         </div>
-        
+
+        <!-- Card glassmorphism -->
+        <div class="portal-glass rounded-3xl w-full max-w-sm relative z-10 overflow-hidden">
+
+            <!-- Header -->
+            <div class="pt-8 pb-5 px-6 text-center">
+                <div class="inline-flex items-center justify-center w-20 h-20 rounded-2xl mb-4 animate-float"
+                     style="background:linear-gradient(135deg,#0d9488 0%,#2563eb 100%);box-shadow:0 8px 30px rgba(13,148,136,0.4);">
+                    <span style="font-size:36px;">👨‍👩‍👧</span>
+                </div>
+                <h1 class="text-2xl font-bold text-white tracking-tight">Portal de Padres</h1>
+                <p style="font-size:13px;color:rgba(255,255,255,0.45);margin-top:4px;">Accede al perfil de tu hijo</p>
+            </div>
+
+            <!-- Formulario de Login -->
+            <form id="parentLoginForm" class="px-6 pb-8 space-y-4">
+
+                <!-- Club ID -->
+                <div>
+                    <label class="portal-label">🏫 Club ID</label>
+                    <input
+                        type="text"
+                        id="parentClubId"
+                        required
+                        placeholder="ej: mi_club_futbol"
+                        class="portal-input"
+                        autocomplete="off"
+                        autocapitalize="none"
+                    >
+                </div>
+
+                <!-- Código de Acceso -->
+                <div>
+                    <label class="portal-label">🔐 Código de Acceso</label>
+                    <input
+                        type="text"
+                        id="parentAccessCode"
+                        required
+                        placeholder="ABC123"
+                        maxlength="6"
+                        style="text-align:center;letter-spacing:0.35em;font-family:monospace;text-transform:uppercase;"
+                        class="portal-input"
+                        autocomplete="off"
+                    >
+                </div>
+
+                <!-- Botón acceder -->
+                <button type="submit" class="portal-btn">
+                    <span style="position:relative;z-index:1;">Acceder al Perfil →</span>
+                </button>
+
+            </form>
+        </div>
+
+        <!-- Info debajo del card -->
+        <div class="relative z-10 mt-5 text-center" style="font-size:13px;color:rgba(255,255,255,0.3);">
+            <p>¿No tienes código? Solicítalo al administrador</p>
+        </div>
+
         <!-- Toggle Dark Mode -->
-        <button onclick="toggleDarkModeParent()" class="mt-6 p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+        <button onclick="toggleDarkModeParent()" class="relative z-10 mt-4 p-2 rounded-lg transition-colors" style="color:rgba(255,255,255,0.4);">
             <span class="dark:hidden">🌙</span>
             <span class="hidden dark:inline">☀️</span>
         </button>
@@ -239,10 +352,30 @@
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">🔢 Dorsal</label>
                     <input type="number" id="editJerseyNumber" min="1" max="99" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
                 </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">🪪 Tipo de Documento *</label>
+                    <select id="editDocumentType" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+                        <option value="">Seleccionar...</option>
+                        <option value="TI">TI - Tarjeta de Identidad</option>
+                        <option value="RC">RC - Registro Civil</option>
+                        <option value="CC">CC - Cédula de Ciudadanía</option>
+                        <option value="CE">CE - Cédula de Extranjería</option>
+                        <option value="PA">PA - Pasaporte</option>
+                        <option value="NUIP">NUIP</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">🔢 Número de Documento *</label>
+                    <input type="text" id="editDocumentNumber" required placeholder="Ej: 1234567890" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+                </div>
+
+
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">📞 Teléfono</label>
                     <input type="tel" id="editPhone" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
                 </div>
+
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">🏠 Dirección</label>
                     <input type="text" id="editAddress" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
@@ -1478,7 +1611,12 @@ function openEditProfileModal() {
   document.getElementById('editAvatarPreview').src = currentPlayer.avatar || getDefaultAvatarParent();
   document.getElementById('editName').value = currentPlayer.name || '';
   document.getElementById('editBirthDate').value = currentPlayer.birthDate || '';
-  document.getElementById('editJerseyNumber').value = currentPlayer.jerseyNumber || '';
+  document.getElementById('editJerseyNumber').value = currentPlayer.jerseyNumber || ''; 
+
+  document.getElementById('editDocumentType').value = currentPlayer.documentType || '';
+  document.getElementById('editDocumentNumber').value = currentPlayer.documentNumber || '';
+
+
   document.getElementById('editPhone').value = currentPlayer.phone || '';
   document.getElementById('editAddress').value = currentPlayer.address || '';
   document.getElementById('editEmergencyContact').value = currentPlayer.emergencyContact || '';
@@ -1620,6 +1758,10 @@ document.addEventListener('DOMContentLoaded', function() {
           name: document.getElementById('editName').value.trim(),
           birthDate: document.getElementById('editBirthDate').value,
           jerseyNumber: document.getElementById('editJerseyNumber').value,
+
+          documentType: document.getElementById('editDocumentType').value,
+          documentNumber: document.getElementById('editDocumentNumber').value.trim(),
+
           phone: document.getElementById('editPhone').value.trim(),
           address: document.getElementById('editAddress').value.trim(),
           emergencyContact: document.getElementById('editEmergencyContact').value.trim(),

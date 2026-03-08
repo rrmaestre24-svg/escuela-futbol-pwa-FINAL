@@ -3,413 +3,629 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="theme-color" content="#000000">
+    <meta name="theme-color" content="#0d9488">
+    <meta name="description" content="MY CLUB - Gestión de Escuelas de Fútbol">
     <title>MY CLUB - Iniciar Sesión</title>
-    
+
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
-        tailwind.config = {
-            darkMode: 'class'
-        }
+        tailwind.config = { darkMode: 'class' }
     </script>
-    
+
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
-    
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
     <style>
-        /* Fondo animado con gradiente */
-        @keyframes gradient {
-            0% {
-                background-position: 0% 50%;
-            }
-            50% {
-                background-position: 100% 50%;
-            }
-            100% {
-                background-position: 0% 50%;
-            }
+        * { font-family: 'Inter', sans-serif; }
+
+        /* ── Fondo animado ── */
+        @keyframes bgShift {
+            0%   { background-position: 0% 50%; }
+            50%  { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
         }
-        
-        .animated-gradient {
-            background: linear-gradient(-45deg, #000000, #0a0a0a, #0d9488, #14b8a6, #0a0a0a);
+        body {
+            background: linear-gradient(-45deg, #020617, #0f172a, #0d4a44, #1e3a5f, #0f172a);
             background-size: 400% 400%;
-            animation: gradient 15s ease infinite;
+            animation: bgShift 18s ease infinite;
         }
-        
-        /* Glassmorphism - más oscuro */
-        .glass {
-            background: rgba(0, 0, 0, 0.7);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(13, 148, 136, 0.3);
-            box-shadow: 0 8px 32px 0 rgba(13, 148, 136, 0.2);
+
+        /* ── Orbes decorativos ── */
+        @keyframes orbFloat {
+            0%, 100% { transform: translateY(0px) scale(1); }
+            50%       { transform: translateY(-30px) scale(1.05); }
         }
-        
-        /* Animación de entrada */
-        @keyframes fadeInUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-        
-        .fade-in-up {
-            animation: fadeInUp 0.6s ease-out;
-        }
-        
-        /* Animación del logo */
-        @keyframes float {
-            0%, 100% {
-                transform: translateY(0px) rotate(0deg);
-            }
-            50% {
-                transform: translateY(-20px) rotate(10deg);
-            }
-        }
-        
-        .float-animation {
-            animation: float 3s ease-in-out infinite;
-        }
-        
-        /* Input con línea animada */
-        .input-line {
-            position: relative;
-        }
-        
-        .input-line::after {
-            content: '';
+        .orb {
             position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 0;
-            height: 2px;
-            background: linear-gradient(90deg, #0d9488, #2563eb);
-            transition: width 0.3s ease;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.18;
+            animation: orbFloat ease-in-out infinite;
         }
-        
-        .input-line:focus-within::after {
-            width: 100%;
-        }
-        
-        /* Botón con efecto ripple */
-        .btn-ripple {
-            position: relative;
+
+        /* ── Líneas decorativas de campo ── */
+        .field-lines {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
             overflow: hidden;
+            opacity: 0.04;
         }
-        
-        .btn-ripple::before {
+        .field-lines::before {
             content: '';
             position: absolute;
             top: 50%;
             left: 50%;
-            width: 0;
-            height: 0;
-            border-radius: 50%;
-            background: rgba(255, 255, 255, 0.3);
             transform: translate(-50%, -50%);
-            transition: width 0.6s, height 0.6s;
-        }
-        
-        .btn-ripple:active::before {
             width: 300px;
             height: 300px;
+            border-radius: 50%;
+            border: 2px solid white;
         }
-        
-        /* Scroll suave */
-        html {
-            scroll-behavior: smooth;
+        .field-lines::after {
+            content: '';
+            position: absolute;
+            top: 0; bottom: 0;
+            left: 50%;
+            width: 2px;
+            background: white;
         }
-        
-        /* Ocultar scrollbar pero mantener funcionalidad */
-        .hide-scrollbar::-webkit-scrollbar {
-            display: none;
+
+        /* ── Card glassmorphism ── */
+        .glass-card {
+            background: rgba(2, 6, 23, 0.75);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(13, 148, 136, 0.25);
+            box-shadow:
+                0 0 0 1px rgba(255,255,255,0.04),
+                0 25px 50px rgba(0,0,0,0.6),
+                0 0 80px rgba(13, 148, 136, 0.08);
         }
-        
-        .hide-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
+
+        /* ── Animación de entrada ── */
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(24px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .fade-up { animation: fadeInUp 0.65s cubic-bezier(0.16,1,0.3,1) both; }
+        .fade-up-delay-1 { animation-delay: 0.1s; }
+        .fade-up-delay-2 { animation-delay: 0.2s; }
+        .fade-up-delay-3 { animation-delay: 0.3s; }
+
+        /* ── Logo flotante ── */
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50%       { transform: translateY(-10px); }
+        }
+        .logo-float { animation: float 3.5s ease-in-out infinite; }
+
+        /* ── Inputs ── */
+        .input-field {
+            width: 100%;
+            padding: 12px 44px 12px 16px;
+            background: rgba(255,255,255,0.06);
+            border: 1.5px solid rgba(255,255,255,0.12);
+            border-radius: 12px;
+            color: white;
+            font-size: 15px;
+            transition: all 0.25s ease;
+            outline: none;
+        }
+        .input-field::placeholder { color: rgba(255,255,255,0.35); }
+        .input-field:focus {
+            border-color: #0d9488;
+            background: rgba(13,148,136,0.08);
+            box-shadow: 0 0 0 3px rgba(13,148,136,0.18);
+        }
+        .input-field:-webkit-autofill {
+            -webkit-box-shadow: 0 0 0 100px #071918 inset;
+            -webkit-text-fill-color: white;
+        }
+
+        /* ── Tabs ── */
+        .tab-btn {
+            flex: 1;
+            padding: 10px 16px;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.25s ease;
+            cursor: pointer;
+        }
+        .tab-active {
+            background: linear-gradient(135deg, #0d9488, #2563eb);
+            color: white;
+            box-shadow: 0 4px 15px rgba(13,148,136,0.4);
+        }
+        .tab-inactive {
+            background: rgba(255,255,255,0.07);
+            color: rgba(255,255,255,0.55);
+        }
+        .tab-inactive:hover {
+            background: rgba(255,255,255,0.12);
+            color: rgba(255,255,255,0.85);
+        }
+
+        /* ── Botón principal ── */
+        .btn-primary {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #0d9488 0%, #2563eb 100%);
+            color: white;
+            font-weight: 700;
+            font-size: 16px;
+            border-radius: 12px;
+            transition: all 0.25s ease;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(13,148,136,0.35);
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(13,148,136,0.5);
+        }
+        .btn-primary:active { transform: translateY(0px); }
+        .btn-primary::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(255,255,255,0.15), transparent);
+            border-radius: inherit;
+        }
+
+        /* ── Scrollbar oculta ── */
+        .hide-scroll::-webkit-scrollbar { display: none; }
+        .hide-scroll { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* ── Badge "Powered by" ── */
+        .badge-powered {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 20px;
+            font-size: 11px;
+            color: rgba(255,255,255,0.4);
+        }
+
+        /* ── Input con ícono ── */
+        .input-wrapper { position: relative; }
+        .input-icon {
+            position: absolute;
+            right: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: rgba(255,255,255,0.3);
+            pointer-events: none;
+        }
+        .input-icon-btn {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: rgba(255,255,255,0.35);
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 6px;
+            transition: color 0.2s;
+        }
+        .input-icon-btn:hover { color: rgba(255,255,255,0.8); }
+
+        /* ── Separador ── */
+        .divider {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: rgba(255,255,255,0.2);
+            font-size: 12px;
+        }
+        .divider::before, .divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: rgba(255,255,255,0.1);
+        }
+
+        /* ── Label de campo ── */
+        .field-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            color: rgba(255,255,255,0.65);
+            margin-bottom: 8px;
+        }
+
+        /* ── Ripple ── */
+        @keyframes ripple {
+            to { width: 300px; height: 300px; opacity: 0; }
         }
     </style>
 </head>
-<body class="dark animated-gradient min-h-screen flex items-center justify-center p-4">
+<body class="min-h-screen flex items-center justify-center p-4">
 
-    <!-- Partículas decorativas -->
-    <div class="fixed inset-0 overflow-hidden pointer-events-none">
-        <div class="absolute top-1/4 left-1/4 w-72 h-72 bg-teal-600 rounded-full mix-blend-screen filter blur-3xl opacity-10 animate-pulse"></div>
-        <div class="absolute top-1/3 right-1/4 w-72 h-72 bg-teal-500 rounded-full mix-blend-screen filter blur-3xl opacity-10 animate-pulse" style="animation-delay: 2s;"></div>
-        <div class="absolute bottom-1/4 left-1/3 w-72 h-72 bg-green-500 rounded-full mix-blend-screen filter blur-3xl opacity-10 animate-pulse" style="animation-delay: 4s;"></div>
-    </div>
+    <!-- Líneas de campo (decorativas) -->
+    <div class="field-lines"></div>
 
-    <!-- Contenedor Principal -->
-    <div class="w-full max-w-md relative z-10">
-        
-        <!-- Card de Login -->
-        <div class="glass rounded-3xl shadow-2xl overflow-hidden fade-in-up">
-            
-            <!-- Header con Logo -->
-            <div class="text-center py-8 px-6">
-                <div class="inline-block float-animation">
-                    <div class="text-7xl mb-4 transform hover:scale-110 transition-transform duration-300">⚽</div>
+    <!-- Orbes de luz -->
+    <div class="orb" style="width:500px;height:500px;background:#0d9488;top:-10%;left:-10%;animation-duration:8s;"></div>
+    <div class="orb" style="width:400px;height:400px;background:#2563eb;bottom:-10%;right:-5%;animation-duration:11s;animation-delay:-3s;"></div>
+    <div class="orb" style="width:300px;height:300px;background:#7c3aed;top:40%;left:60%;animation-duration:9s;animation-delay:-5s;"></div>
+
+    <!-- Contenedor principal -->
+    <div class="w-full max-w-md relative z-10 fade-up">
+
+        <!-- Badge superior -->
+        <div class="text-center mb-5">
+            <span class="badge-powered">
+                <span>⚡</span> Sistema de Gestión Deportiva
+            </span>
+        </div>
+
+        <!-- Card principal -->
+        <div class="glass-card rounded-3xl overflow-hidden">
+
+            <!-- Header con logo -->
+            <div class="pt-8 pb-6 px-6 text-center">
+                <div class="inline-flex items-center justify-center w-20 h-20 rounded-2xl mb-4 logo-float"
+                     style="background: linear-gradient(135deg, #0d9488 0%, #2563eb 100%); box-shadow: 0 8px 30px rgba(13,148,136,0.4);">
+                    <span style="font-size: 36px;">⚽</span>
                 </div>
-                <h1 class="text-4xl font-bold text-white mb-2">MY CLUB</h1>
-                <p class="text-gray-300 text-sm">Gestión de Escuelas de Fútbol</p>
-                
-                <!-- Botón de instalación -->
-                <button id="installButtonLogin" class="hidden mt-4 bg-gradient-to-r from-teal-600 to-blue-600 text-white px-6 py-2 rounded-lg font-medium flex items-center justify-center gap-2 mx-auto hover:shadow-lg transition-all transform hover:scale-105" onclick="installPWA()">
+                <h1 class="text-3xl font-black text-white tracking-tight">MY CLUB</h1>
+                <p class="text-sm mt-1" style="color: rgba(255,255,255,0.45);">Gestión de Escuelas de Fútbol</p>
+
+                <!-- Botón instalación PWA -->
+                <button id="installButtonLogin"
+                        class="hidden mt-4 mx-auto btn-primary !w-auto !px-5 !py-2 !text-sm !rounded-xl flex items-center gap-2"
+                        onclick="installPWA()">
                     <i data-lucide="download" class="w-4 h-4"></i>
-                    <span class="text-sm">Instalar Aplicación</span>
+                    Instalar App
                 </button>
             </div>
-            
+
             <!-- Tabs -->
-            <div class="flex gap-2 px-6 mb-6">
-                <button onclick="showLoginTab()" id="loginTab" class="flex-1 py-3 px-4 rounded-xl font-medium transition-all bg-gradient-to-r from-teal-600 to-blue-600 text-white shadow-lg">
+            <div class="flex gap-2 px-6 mb-5">
+                <button id="loginTab" class="tab-btn tab-active" onclick="showLoginTab()">
                     Iniciar Sesión
                 </button>
-                <button onclick="showRegisterTab()" id="registerTab" class="flex-1 py-3 px-4 rounded-xl font-medium transition-all bg-white/10 text-gray-300 hover:bg-white/20">
+                <button id="registerTab" class="tab-btn tab-inactive" onclick="showRegisterTab()">
                     Registrarse
                 </button>
             </div>
-            
-            <!-- Login Form -->
-            <form id="loginForm" class="px-6 pb-8 space-y-5">
+
+            <!-- ══════════════════ FORM: LOGIN ══════════════════ -->
+            <form id="loginForm" class="px-6 pb-8 space-y-4">
+
                 <!-- Club ID (opcional) -->
-                <div class="input-line">
-                    <label class="block text-sm font-medium text-gray-300 mb-2">
-                        🆔 ID del Club <span class="text-gray-500">(opcional)</span>
+                <div>
+                    <label class="field-label">
+                        ID del Club <span style="color:rgba(255,255,255,0.3); font-weight:400;">(opcional)</span>
                     </label>
-                    <div class="relative">
-                        <input 
-                            type="text" 
-                            id="loginClubId" 
-                            placeholder="mi_club_123"
-                            class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl focus:outline-none focus:border-teal-500 text-white placeholder-gray-400 transition-all"
-                        >
-                        <i data-lucide="key" class="w-5 h-5 text-gray-400 absolute right-3 top-1/2 transform -translate-y-1/2"></i>
+                    <div class="input-wrapper">
+                        <input type="text" id="loginClubId"
+                               placeholder="mi_club_123"
+                               class="input-field">
+                        <span class="input-icon">
+                            <i data-lucide="hash" class="w-4 h-4"></i>
+                        </span>
                     </div>
-                    <p class="text-xs text-gray-400 mt-1">💡 Si lo sabes, el login será más rápido</p>
+                    <p style="font-size:11px; color:rgba(255,255,255,0.3); margin-top:5px;">
+                        💡 Si lo sabes, el acceso será más rápido
+                    </p>
                 </div>
-                
+
                 <!-- Email -->
-                <div class="input-line">
-                    <label class="block text-sm font-medium text-gray-300 mb-2">📧 Email *</label>
-                    <div class="relative">
-                        <input 
-                            type="email" 
-                            id="loginEmail" 
-                            required
-                            placeholder="tu@email.com"
-                            class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl focus:outline-none focus:border-teal-500 text-white placeholder-gray-400 transition-all"
-                        >
-                        <i data-lucide="mail" class="w-5 h-5 text-gray-400 absolute right-3 top-1/2 transform -translate-y-1/2"></i>
+                <div>
+                    <label class="field-label">Correo Electrónico *</label>
+                    <div class="input-wrapper">
+                        <input type="email" id="loginEmail"
+                               required
+                               placeholder="tu@email.com"
+                               class="input-field">
+                        <span class="input-icon">
+                            <i data-lucide="mail" class="w-4 h-4"></i>
+                        </span>
                     </div>
                 </div>
-                
+
                 <!-- Contraseña -->
-                <div class="input-line">
-                    <label class="block text-sm font-medium text-gray-300 mb-2">🔒 Contraseña *</label>
-                    <div class="relative">
-                        <input 
-                            type="password" 
-                            id="loginPassword" 
-                            required
-                            placeholder="••••••••"
-                            class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl focus:outline-none focus:border-teal-500 text-white placeholder-gray-400 transition-all"
-                        >
-                        <button type="button" onclick="togglePasswordVisibility('loginPassword')" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition-colors">
-                            <i data-lucide="eye" class="w-5 h-5"></i>
+                <div>
+                    <label class="field-label">Contraseña *</label>
+                    <div class="input-wrapper">
+                        <input type="password" id="loginPassword"
+                               required
+                               placeholder="••••••••"
+                               class="input-field">
+                        <button type="button"
+                                class="input-icon-btn"
+                                onclick="togglePasswordVisibility('loginPassword')">
+                            <i data-lucide="eye" class="w-4 h-4"></i>
                         </button>
                     </div>
                 </div>
-                
-                <!-- Botón Entrar -->
-                <button type="submit" class="w-full bg-gradient-to-r from-teal-600 to-blue-600 hover:from-teal-700 hover:to-blue-700 text-white font-bold py-4 rounded-xl transition-all transform hover:scale-105 shadow-lg btn-ripple">
-                    Entrar
+
+                <!-- Olvidé -->
+                <div class="text-right">
+                    <button type="button" onclick="forgotPassword()"
+                            style="font-size:13px; color:#0d9488; transition: color 0.2s;"
+                            onmouseover="this.style.color='#14b8a6'"
+                            onmouseout="this.style.color='#0d9488'">
+                        ¿Olvidaste tu contraseña?
+                    </button>
+                </div>
+
+                <!-- Botón ingresar -->
+                <button type="submit" class="btn-primary flex items-center justify-center gap-2">
+                    <i data-lucide="log-in" class="w-5 h-5" style="position:relative;z-index:1;"></i>
+                    <span style="position:relative;z-index:1;">Ingresar</span>
                 </button>
-                
-                <!-- Olvidé contraseña -->
-                <button type="button" onclick="forgotPassword()" class="w-full text-sm text-teal-400 hover:text-teal-300 transition-colors">
-                    ¿Olvidaste tu contraseña?
-                </button>
+
             </form>
-            
-          <!-- Register Form -->
-            <form id="registerForm" class="hidden px-6 pb-8 space-y-4 max-h-[70vh] overflow-y-auto hide-scrollbar">
-                <p class="text-sm text-gray-300 mb-4">
-                    <strong>📋 Paso 1:</strong> Datos del Club
-                </p>
-                
-                <!-- 🔐 CÓDIGO DE ACTIVACIÓN -->
-                <div class="input-line mb-4">
-                    <label class="block text-sm font-medium text-gray-300 mb-2">
+
+            <!-- ══════════════════ FORM: REGISTRO ══════════════════ -->
+            <form id="registerForm" class="hidden px-6 pb-8 space-y-4 max-h-[72vh] overflow-y-auto hide-scroll">
+
+                <!-- Código de activación -->
+                <div class="p-4 rounded-2xl" style="background: rgba(13,148,136,0.1); border: 1px solid rgba(13,148,136,0.25);">
+                    <label class="field-label" style="color: #5eead4;">
                         🎟️ Código de Activación *
                     </label>
                     <input type="text" id="regActivationCode" required
-                           class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl focus:outline-none focus:border-teal-500 text-white uppercase tracking-wider font-mono text-lg text-center"
+                           class="input-field text-center tracking-[0.35em] font-mono text-lg uppercase"
                            placeholder="XXXX-XXXX"
                            maxlength="9"
                            oninput="this.value = this.value.toUpperCase()">
-                    <p class="text-xs text-gray-400 mt-2">
-                        💡 Si no tienes código, <a href="https://wa.me/+573005452038" target="_blank" class="text-teal-400 hover:underline">contáctanos</a>
+                    <p style="font-size:11px; color:rgba(255,255,255,0.35); margin-top:8px; text-align:center;">
+                        ¿No tienes código?
+                        <a href="https://wa.me/+573005452038" target="_blank"
+                           style="color:#0d9488; text-decoration:underline;">Contáctanos</a>
                     </p>
                 </div>
-                
-                <!-- Logo del Club -->
-                
+
+                <!-- Separador paso 1 -->
+                <div class="divider">📋 Datos del Club</div>
+
                 <!-- Logo del Club -->
                 <div class="text-center">
                     <input type="file" id="regClubLogo" accept="image/*" class="hidden">
-                    <img id="regLogoPreview" class="hidden w-24 h-24 object-cover rounded-xl mx-auto mb-2 border-2 border-teal-500">
-                    <button type="button" onclick="document.getElementById('regClubLogo').click()" class="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg text-sm transition-all">
-                        📷 Subir Logo del Club
-                    </button>
-                    <p class="text-xs text-gray-400 mt-1">Máximo 2MB</p>
-                </div>
-                
-                <!-- Nombre del Club -->
-                <div class="input-line">
-                    <label class="block text-sm font-medium text-gray-300 mb-2">Nombre del Club *</label>
-                    <input type="text" id="regClubName" required class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl focus:outline-none focus:border-teal-500 text-white placeholder-gray-400">
-                </div>
-                
-               <!-- Club ID -->
-                <div class="input-line">
-                    <label class="block text-sm font-medium text-gray-300 mb-2">ID único del Club *</label>
-                    <input type="text" id="regClubId" required placeholder="club_mi_escuela" class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl focus:outline-none focus:border-teal-500 text-white placeholder-gray-400">
-                    <p class="text-xs text-gray-400 mt-1">Este ID identificará tu club en la nube</p>
+                    <div class="inline-block relative">
+                        <img id="regLogoPreview"
+                             class="hidden w-20 h-20 object-cover rounded-xl mx-auto mb-3 border-2 border-teal-500">
+                        <button type="button"
+                                onclick="document.getElementById('regClubLogo').click()"
+                                class="flex items-center gap-2 mx-auto px-4 py-2 rounded-xl text-sm"
+                                style="background:rgba(255,255,255,0.08); color:rgba(255,255,255,0.7); border: 1px solid rgba(255,255,255,0.12); transition: all 0.2s;"
+                                onmouseover="this.style.background='rgba(255,255,255,0.14)'"
+                                onmouseout="this.style.background='rgba(255,255,255,0.08)'">
+                            <i data-lucide="image" class="w-4 h-4"></i>
+                            Subir Logo del Club
+                        </button>
+                        <p style="font-size:11px; color:rgba(255,255,255,0.3); margin-top:4px;">Máximo 2MB</p>
+                    </div>
                 </div>
 
-                
+                <!-- Nombre del Club -->
+                <div>
+                    <label class="field-label">Nombre del Club *</label>
+                    <div class="input-wrapper">
+                        <input type="text" id="regClubName" required
+                               placeholder="Escuela Fútbol Estrella"
+                               class="input-field">
+                        <span class="input-icon"><i data-lucide="shield" class="w-4 h-4"></i></span>
+                    </div>
+                </div>
+
+                <!-- Club ID -->
+                <div>
+                    <label class="field-label">ID único del Club *</label>
+                    <div class="input-wrapper">
+                        <input type="text" id="regClubId" required
+                               placeholder="club_mi_escuela"
+                               class="input-field">
+                        <span class="input-icon"><i data-lucide="at-sign" class="w-4 h-4"></i></span>
+                    </div>
+                    <p style="font-size:11px; color:rgba(255,255,255,0.3); margin-top:5px;">Identificador único en la nube (sin espacios)</p>
+                </div>
+
                 <!-- Color y Moneda -->
                 <div class="grid grid-cols-2 gap-3">
                     <div>
-                        <label class="block text-sm font-medium text-gray-300 mb-2">Color</label>
-                        <input type="color" id="regClubColor" value="#0d9488" class="w-full h-12 bg-white/10 border border-white/20 rounded-xl cursor-pointer">
+                        <label class="field-label">Color del Club</label>
+                        <input type="color" id="regClubColor" value="#0d9488"
+                               class="w-full h-12 rounded-xl cursor-pointer"
+                               style="background:rgba(255,255,255,0.06); border: 1.5px solid rgba(255,255,255,0.12);">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-300 mb-2">Moneda</label>
-                        <select id="regClubCurrency" class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white">
+                        <label class="field-label">Moneda</label>
+                        <select id="regClubCurrency"
+                                class="input-field"
+                                style="padding-right:16px; appearance:none; -webkit-appearance:none;">
                             <option value="COP">COP $</option>
                             <option value="USD">USD $</option>
                             <option value="EUR">EUR €</option>
                         </select>
                     </div>
                 </div>
-                
-                <!-- Cuota Mensual -->
-                <div class="input-line">
-                    <label class="block text-sm font-medium text-gray-300 mb-2">Cuota Mensual *</label>
-                    <input type="number" id="regMonthlyFee" required class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl focus:outline-none focus:border-teal-500 text-white">
+
+                <!-- Cuota mensual -->
+                <div>
+                    <label class="field-label">Cuota Mensual *</label>
+                    <div class="input-wrapper">
+                        <input type="number" id="regMonthlyFee" required
+                               placeholder="150000"
+                               class="input-field">
+                        <span class="input-icon"><i data-lucide="dollar-sign" class="w-4 h-4"></i></span>
+                    </div>
                 </div>
-                
+
                 <!-- Teléfono -->
-                <div class="input-line">
-                    <label class="block text-sm font-medium text-gray-300 mb-2">Teléfono del Club *</label>
-                    <input type="tel" id="regClubPhone" required placeholder="+57 300 1234567" class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl focus:outline-none focus:border-teal-500 text-white placeholder-gray-400">
+                <div>
+                    <label class="field-label">Teléfono del Club *</label>
+                    <div class="input-wrapper">
+                        <input type="tel" id="regClubPhone" required
+                               placeholder="+57 300 1234567"
+                               class="input-field">
+                        <span class="input-icon"><i data-lucide="phone" class="w-4 h-4"></i></span>
+                    </div>
                 </div>
-                
+
                 <!-- Dirección -->
-                <div class="input-line">
-                    <label class="block text-sm font-medium text-gray-300 mb-2">Dirección *</label>
-                    <input type="text" id="regClubAddress" required class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl focus:outline-none focus:border-teal-500 text-white">
+                <div>
+                    <label class="field-label">Dirección *</label>
+                    <div class="input-wrapper">
+                        <input type="text" id="regClubAddress" required
+                               placeholder="Calle 123, Barrio..."
+                               class="input-field">
+                        <span class="input-icon"><i data-lucide="map-pin" class="w-4 h-4"></i></span>
+                    </div>
                 </div>
-                
+
                 <!-- Ciudad y País -->
                 <div class="grid grid-cols-2 gap-3">
-                    <div class="input-line">
-                        <label class="block text-sm font-medium text-gray-300 mb-2">Ciudad</label>
-                        <input type="text" id="regClubCity" class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl focus:outline-none focus:border-teal-500 text-white">
+                    <div>
+                        <label class="field-label">Ciudad</label>
+                        <input type="text" id="regClubCity" placeholder="Bogotá" class="input-field">
                     </div>
-                    <div class="input-line">
-                        <label class="block text-sm font-medium text-gray-300 mb-2">País</label>
-                        <input type="text" id="regClubCountry" value="Colombia" class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl focus:outline-none focus:border-teal-500 text-white">
+                    <div>
+                        <label class="field-label">País</label>
+                        <input type="text" id="regClubCountry" value="Colombia" class="input-field">
                     </div>
                 </div>
-                
-                <!-- Web y Redes -->
-                <div class="input-line">
-                    <label class="block text-sm font-medium text-gray-300 mb-2">Sitio Web</label>
-                    <input type="url" id="regClubWebsite" placeholder="https://miclub.com" class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl focus:outline-none focus:border-teal-500 text-white placeholder-gray-400">
+
+                <!-- Web y Redes (opcionales) -->
+                <div>
+                    <label class="field-label">Sitio Web <span style="color:rgba(255,255,255,0.3); font-weight:400;">(opcional)</span></label>
+                    <div class="input-wrapper">
+                        <input type="url" id="regClubWebsite"
+                               placeholder="https://miclub.com"
+                               class="input-field">
+                        <span class="input-icon"><i data-lucide="globe" class="w-4 h-4"></i></span>
+                    </div>
                 </div>
-                
-                <div class="input-line">
-                    <label class="block text-sm font-medium text-gray-300 mb-2">Redes Sociales</label>
-                    <input type="text" id="regClubSocial" placeholder="@miclub" class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl focus:outline-none focus:border-teal-500 text-white placeholder-gray-400">
+
+                <div>
+                    <label class="field-label">Redes Sociales <span style="color:rgba(255,255,255,0.3); font-weight:400;">(opcional)</span></label>
+                    <div class="input-wrapper">
+                        <input type="text" id="regClubSocial"
+                               placeholder="@miclub"
+                               class="input-field">
+                        <span class="input-icon"><i data-lucide="instagram" class="w-4 h-4"></i></span>
+                    </div>
                 </div>
-                
-                <div class="input-line">
-                    <label class="block text-sm font-medium text-gray-300 mb-2">Año de Fundación</label>
-                    <input type="number" id="regClubFoundedYear" min="1900" max="2024" placeholder="2020" class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl focus:outline-none focus:border-teal-500 text-white">
+
+                <div>
+                    <label class="field-label">Año de Fundación <span style="color:rgba(255,255,255,0.3); font-weight:400;">(opcional)</span></label>
+                    <div class="input-wrapper">
+                        <input type="number" id="regClubFoundedYear"
+                               min="1900" max="2025"
+                               placeholder="2020"
+                               class="input-field">
+                        <span class="input-icon"><i data-lucide="calendar" class="w-4 h-4"></i></span>
+                    </div>
                 </div>
-                
-                <!-- Separador -->
-                <div class="border-t border-white/20 pt-4 mt-4">
-                    <p class="text-sm text-gray-300 mb-4">
-                        <strong>👤 Paso 2:</strong> Datos del Administrador
-                    </p>
-                </div>
-                
+
+                <!-- Separador paso 2 -->
+                <div class="divider">👤 Datos del Administrador</div>
+
                 <!-- Avatar Admin -->
                 <div class="text-center">
                     <input type="file" id="regAdminAvatar" accept="image/*" class="hidden">
-                    <img id="regAvatarPreview" class="hidden w-24 h-24 object-cover rounded-full mx-auto mb-2 border-2 border-teal-500">
-                    <button type="button" onclick="document.getElementById('regAdminAvatar').click()" class="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg text-sm transition-all">
-                        📷 Foto de Perfil
+                    <img id="regAvatarPreview"
+                         class="hidden w-16 h-16 object-cover rounded-full mx-auto mb-3 border-2 border-teal-500">
+                    <button type="button"
+                            onclick="document.getElementById('regAdminAvatar').click()"
+                            class="flex items-center gap-2 mx-auto px-4 py-2 rounded-xl text-sm"
+                            style="background:rgba(255,255,255,0.08); color:rgba(255,255,255,0.7); border: 1px solid rgba(255,255,255,0.12); transition: all 0.2s;"
+                            onmouseover="this.style.background='rgba(255,255,255,0.14)'"
+                            onmouseout="this.style.background='rgba(255,255,255,0.08)'">
+                        <i data-lucide="user" class="w-4 h-4"></i>
+                        Foto de Perfil
                     </button>
-                    <p class="text-xs text-gray-400 mt-1">Máximo 2MB</p>
                 </div>
-                
+
                 <!-- Nombre Admin -->
-                <div class="input-line">
-                    <label class="block text-sm font-medium text-gray-300 mb-2">Nombre Completo *</label>
-                    <input type="text" id="regAdminName" required class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl focus:outline-none focus:border-teal-500 text-white">
+                <div>
+                    <label class="field-label">Nombre Completo *</label>
+                    <div class="input-wrapper">
+                        <input type="text" id="regAdminName" required
+                               placeholder="Tu nombre"
+                               class="input-field">
+                        <span class="input-icon"><i data-lucide="user" class="w-4 h-4"></i></span>
+                    </div>
                 </div>
-                
-                <!-- Fecha Nacimiento -->
-                <div class="input-line">
-                    <label class="block text-sm font-medium text-gray-300 mb-2">Fecha de Nacimiento *</label>
-                    <input type="date" id="regAdminBirthDate" required class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl focus:outline-none focus:border-teal-500 text-white">
+
+                <!-- Fecha de nacimiento -->
+                <div>
+                    <label class="field-label">Fecha de Nacimiento *</label>
+                    <input type="date" id="regAdminBirthDate" required class="input-field">
                 </div>
-                
+
                 <!-- Teléfono Admin -->
-                <div class="input-line">
-                    <label class="block text-sm font-medium text-gray-300 mb-2">Teléfono Personal *</label>
-                    <input type="tel" id="regAdminPhone" required placeholder="+57 300 1234567" class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl focus:outline-none focus:border-teal-500 text-white placeholder-gray-400">
+                <div>
+                    <label class="field-label">Teléfono Personal *</label>
+                    <div class="input-wrapper">
+                        <input type="tel" id="regAdminPhone" required
+                               placeholder="+57 300 1234567"
+                               class="input-field">
+                        <span class="input-icon"><i data-lucide="smartphone" class="w-4 h-4"></i></span>
+                    </div>
                 </div>
-                
+
                 <!-- Email Admin -->
-                <div class="input-line">
-                    <label class="block text-sm font-medium text-gray-300 mb-2">Email Personal *</label>
-                    <input type="email" id="regAdminEmail" required class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl focus:outline-none focus:border-teal-500 text-white">
+                <div>
+                    <label class="field-label">Email Personal *</label>
+                    <div class="input-wrapper">
+                        <input type="email" id="regAdminEmail" required
+                               placeholder="admin@email.com"
+                               class="input-field">
+                        <span class="input-icon"><i data-lucide="mail" class="w-4 h-4"></i></span>
+                    </div>
                 </div>
-                
+
                 <!-- Contraseña Admin -->
-                <div class="input-line">
-                    <label class="block text-sm font-medium text-gray-300 mb-2">Contraseña *</label>
-                    <input type="password" id="regAdminPassword" required minlength="6" class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl focus:outline-none focus:border-teal-500 text-white">
-                    <p class="text-xs text-gray-400 mt-1">Mínimo 6 caracteres</p>
+                <div>
+                    <label class="field-label">Contraseña *</label>
+                    <div class="input-wrapper">
+                        <input type="password" id="regAdminPassword" required minlength="6"
+                               placeholder="Mínimo 6 caracteres"
+                               class="input-field">
+                        <button type="button"
+                                class="input-icon-btn"
+                                onclick="togglePasswordVisibility('regAdminPassword')">
+                            <i data-lucide="eye" class="w-4 h-4"></i>
+                        </button>
+                    </div>
                 </div>
-                
-                <!-- Botón Crear Club -->
-                <button type="submit" class="w-full bg-gradient-to-r from-teal-600 to-blue-600 hover:from-teal-700 hover:to-blue-700 text-white font-bold py-4 rounded-xl transition-all transform hover:scale-105 shadow-lg btn-ripple mt-4">
-                    Crear Club
+
+                <!-- Botón crear club -->
+                <button type="submit" class="btn-primary flex items-center justify-center gap-2 mt-2">
+                    <i data-lucide="shield-check" class="w-5 h-5" style="position:relative;z-index:1;"></i>
+                    <span style="position:relative;z-index:1;">Crear Club</span>
                 </button>
+
             </form>
-            
+
         </div>
-        
+
         <!-- Footer -->
-        <p class="text-center text-gray-400 text-xs mt-6">
-            © 2026 MY CLUB - Gestión de Escuelas de Fútbol
+        <p class="text-center mt-5" style="font-size: 12px; color: rgba(255,255,255,0.25);">
+            © 2026 MY CLUB · Gestión de Escuelas de Fútbol
         </p>
+
     </div>
 
-    <!-- Toast Notifications -->
-    <div id="toast" class="hidden fixed bottom-8 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-lg shadow-lg z-50"></div>
+    <!-- Toast -->
+    <div id="toast"
+         class="hidden fixed bottom-8 left-1/2 -translate-x-1/2 px-5 py-3 rounded-xl shadow-2xl z-50 text-white text-sm font-medium"
+         style="background: rgba(15,23,42,0.95); border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(12px);">
+    </div>
 
     <!-- Scripts -->
     <script src="js/utils.js"></script>
@@ -418,81 +634,74 @@
     <script src="js/phone-utils.js"></script>
     <script src="js/auth.js"></script>
     <script src="js/pwa-icons.js"></script>
-    <!-- AGREGAR ESTA LÍNEA ANTES DE </body> -->
     <script src="js/license-system.js"></script>
-</body>
-</html>
-    
+
     <script>
-        // Mostrar tab de login
+        // ── Switch de tabs ──────────────────────────
         function showLoginTab() {
             document.getElementById('loginForm').classList.remove('hidden');
             document.getElementById('registerForm').classList.add('hidden');
-            document.getElementById('loginTab').className = 'flex-1 py-3 px-4 rounded-xl font-medium transition-all bg-gradient-to-r from-teal-600 to-blue-600 text-white shadow-lg';
-            document.getElementById('registerTab').className = 'flex-1 py-3 px-4 rounded-xl font-medium transition-all bg-white/10 text-gray-300 hover:bg-white/20';
+            document.getElementById('loginTab').className = 'tab-btn tab-active';
+            document.getElementById('registerTab').className = 'tab-btn tab-inactive';
         }
-        
-        // Mostrar tab de registro
+
         function showRegisterTab() {
             document.getElementById('loginForm').classList.add('hidden');
             document.getElementById('registerForm').classList.remove('hidden');
-            document.getElementById('registerTab').className = 'flex-1 py-3 px-4 rounded-xl font-medium transition-all bg-gradient-to-r from-teal-600 to-blue-600 text-white shadow-lg';
-            document.getElementById('loginTab').className = 'flex-1 py-3 px-4 rounded-xl font-medium transition-all bg-white/10 text-gray-300 hover:bg-white/20';
+            document.getElementById('registerTab').className = 'tab-btn tab-active';
+            document.getElementById('loginTab').className = 'tab-btn tab-inactive';
         }
-        
-        // Toggle password visibility
+
+        // ── Mostrar/ocultar contraseña ──────────────
         function togglePasswordVisibility(inputId) {
             const input = document.getElementById(inputId);
-            const icon = input.nextElementSibling?.querySelector('i');
-            
+            const btn = input.nextElementSibling;
+            const icon = btn?.querySelector('i');
+
             if (input.type === 'password') {
                 input.type = 'text';
-                if (icon) icon.setAttribute('data-lucide', 'eye-off');
+                icon?.setAttribute('data-lucide', 'eye-off');
             } else {
                 input.type = 'password';
-                if (icon) icon.setAttribute('data-lucide', 'eye');
+                icon?.setAttribute('data-lucide', 'eye');
             }
-            
             lucide.createIcons();
         }
-        
-        // Preview logo
+
+        // ── Preview logo del club ───────────────────
         document.getElementById('regClubLogo')?.addEventListener('change', function(e) {
             const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    const preview = document.getElementById('regLogoPreview');
-                    preview.src = e.target.result;
-                    preview.classList.remove('hidden');
-                };
-                reader.readAsDataURL(file);
-            }
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const preview = document.getElementById('regLogoPreview');
+                preview.src = e.target.result;
+                preview.classList.remove('hidden');
+            };
+            reader.readAsDataURL(file);
         });
-        
-        // Preview avatar
+
+        // ── Preview avatar admin ────────────────────
         document.getElementById('regAdminAvatar')?.addEventListener('change', function(e) {
             const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    const preview = document.getElementById('regAvatarPreview');
-                    preview.src = e.target.result;
-                    preview.classList.remove('hidden');
-                };
-                reader.readAsDataURL(file);
-            }
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const preview = document.getElementById('regAvatarPreview');
+                preview.src = e.target.result;
+                preview.classList.remove('hidden');
+            };
+            reader.readAsDataURL(file);
         });
-        
-        // Inicializar Lucide Icons
+
+        // ── Init ────────────────────────────────────
         lucide.createIcons();
-        
-        // Inicializar Firebase
+
         if (typeof initFirebase === 'function') {
             initFirebase();
         }
-        
-        console.log('✅ Login moderno cargado');
+
+        console.log('✅ MY CLUB Login cargado correctamente');
     </script>
 </body>
 </html>

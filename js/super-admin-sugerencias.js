@@ -725,4 +725,96 @@ async function submitAdminSuggestion() {
   }
 }
 
+// ========================================
+// 📨 FUNCIÓN PUENTE - FORMULARIO ESTÁTICO DEL MODAL EN INDEX.HTML
+// Los IDs del form HTML son: suggestionName, suggestionType,
+// suggestionMessage, suggestionPhone
+// ========================================
+
+async function submitMainSuggestionForm() {
+  const name    = (document.getElementById('suggestionName')?.value || '').trim();
+  const type    = (document.getElementById('suggestionType')?.value || '').trim();
+  const message = (document.getElementById('suggestionMessage')?.value || '').trim();
+  const phone   = (document.getElementById('suggestionPhone')?.value || '').trim();
+
+  // Validaciones
+  if (!name) {
+    if (typeof showToast === 'function') showToast('❌ Por favor escribe tu nombre');
+    else alert('❌ Por favor escribe tu nombre');
+    return;
+  }
+  if (!type) {
+    if (typeof showToast === 'function') showToast('❌ Selecciona el tipo de mensaje');
+    else alert('❌ Selecciona el tipo de mensaje');
+    return;
+  }
+  if (!message || message.length < 10) {
+    if (typeof showToast === 'function') showToast('❌ El mensaje debe tener al menos 10 caracteres');
+    else alert('❌ El mensaje debe tener al menos 10 caracteres');
+    return;
+  }
+
+  // Verificar Firebase
+  const firebaseInstance = window.firebase || window.firebaseAdmin;
+  if (!firebaseInstance?.db) {
+    if (typeof showToast === 'function') showToast('❌ Error: base de datos no disponible');
+    else alert('❌ Error: base de datos no disponible');
+    return;
+  }
+
+  // Deshabilitar botón para evitar doble envío
+  const btn = document.querySelector('#suggestionForm button[type="button"]');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span>⏳ Enviando...</span>'; }
+
+  try {
+    if (typeof showToast === 'function') showToast('⏳ Enviando sugerencia...');
+
+    const currentUser = typeof getCurrentUser === 'function' ? getCurrentUser() : null;
+    const settings    = typeof getSchoolSettings === 'function' ? getSchoolSettings() : {};
+    const clubId      = localStorage.getItem('clubId') || '';
+
+    const suggestionData = {
+      type:          type,
+      message:       message,
+      status:        'pending',
+      responseRead:  false,
+      createdAt:     new Date().toISOString(),
+      senderName:    name,
+      senderPhone:   phone || null,
+      senderEmail:   currentUser?.email || null,
+      senderType:    'admin',
+      clubId:        clubId,
+      clubName:      settings?.name || currentUser?.schoolName || 'Club sin nombre',
+      playerName:    null,
+      playerId:      null
+    };
+
+    const { db, collection, addDoc } = firebaseInstance;
+    await addDoc(collection(db, 'suggestions'), suggestionData);
+
+    // Limpiar form
+    const form = document.getElementById('suggestionForm');
+    if (form) form.reset();
+
+    // Cerrar modal
+    const modal = document.getElementById('adminSuggestionModal');
+    if (modal) modal.classList.add('hidden');
+
+    if (typeof showToast === 'function') showToast('✅ ¡Sugerencia enviada! Te responderemos pronto');
+
+    console.log('✅ Sugerencia enviada desde formulario principal');
+
+  } catch (error) {
+    console.error('❌ Error al enviar sugerencia:', error);
+    if (typeof showToast === 'function') showToast('❌ Error al enviar: ' + error.message);
+    else alert('❌ Error al enviar: ' + error.message);
+  } finally {
+    // Re-habilitar botón
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<span>Enviar al Desarrollador</span>';
+    }
+  }
+}
+
 console.log('✅ Funciones de envío de sugerencias para admins cargadas correctamente');

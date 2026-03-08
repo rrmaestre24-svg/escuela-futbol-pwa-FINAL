@@ -14,13 +14,11 @@
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Tailwind CSS -->
-<script src="https://cdn.tailwindcss.com"></script>
-<script>
-    tailwind.config = {
-        darkMode: 'class'
-    }
-</script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class'
+        }
+    </script>
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     
@@ -88,24 +86,22 @@
                     </div>
                 </div>
                 <div class="flex items-center gap-2">
-            <!-- Botón de Instalación (solo visible si se puede instalar) -->
-            <div class="flex items-center gap-2">
-            <!-- Botón de Instalación (solo visible si se puede instalar) -->
-            <button id="installButton" class="hidden p-2 rounded-lg bg-teal-600 hover:bg-teal-700 text-white transition-colors animate-pulse" onclick="installPWA()" title="Instalar aplicación">
-                <i data-lucide="download" class="w-5 h-5"></i>
-            </button>
-            
-            <button onclick="toggleDarkMode()" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                <i data-lucide="moon" class="w-5 h-5 text-gray-600 dark:text-gray-300"></i>
-            </button>
-            <button onclick="showNotificationsView()" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors relative">
-            <!-- Ejemplo: en el menú de navegación -->
-        <li class="nav-item" data-nav="notifications">
-        <button class="nav-link flex items-center gap-2">
-            <i data-lucide="bell" class="w-5 h-5"></i>
-            <span id="notificationBadge" class="hidden bg-red-500 text-white text-xs rounded-full px-2 py-1">0</span>
-        </button>
-        </li>  
+                    <!-- Botón de Instalación (solo visible si se puede instalar) -->
+                    <button id="installButton" class="hidden p-2 rounded-lg bg-teal-600 hover:bg-teal-700 text-white transition-colors animate-pulse" onclick="installPWA()" title="Instalar aplicación">
+                        <i data-lucide="download" class="w-5 h-5"></i>
+                    </button>
+
+                    <button onclick="toggleDarkMode()" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                        <i data-lucide="moon" class="w-5 h-5 text-gray-600 dark:text-gray-300"></i>
+                    </button>
+
+                    <button onclick="showNotificationsView()" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors relative">
+                        <i data-lucide="bell" class="w-5 h-5 text-gray-600 dark:text-gray-300"></i>
+                        <span id="notificationBadge" class="hidden bg-red-500 text-white text-xs rounded-full px-2 py-1">0</span>
+                    </button>
+                </div>
+            </div>
+        </div>
     </header>
 
         <!-- Main Content -->
@@ -2390,7 +2386,7 @@ console.log('📳 Sistema de vibración activado');
                     </p>
                 </div>
 
-                <form id="suggestionForm" class="space-y-4">
+                <form id="suggestionForm" class="space-y-4" onsubmit="event.preventDefault(); submitMainSuggestionForm(); return false;">
                     <!-- Nombre -->
                     <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -2451,7 +2447,8 @@ console.log('📳 Sistema de vibración activado');
 
                     <!-- Botón Enviar -->
                     <button 
-                        type="submit"
+                        type="button"
+                        onclick="submitMainSuggestionForm()"
                         class="w-full bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-semibold py-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-xl">
                         <i data-lucide="send" class="w-5 h-5"></i>
                         <span>Enviar al Desarrollador</span>
