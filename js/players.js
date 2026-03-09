@@ -630,73 +630,76 @@ function showParentCodeModal(player, code, isExisting) {
   modal.id = 'parentCodeModal';
   modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
   modal.innerHTML = `
-    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6 animate-fade-in">
+    <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 max-w-md w-full p-6 animate-fade-in font-sans">
       <!-- Header -->
-      <div class="flex justify-between items-center mb-4">
-        <h3 class="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-          👨‍👩‍👧 Acceso para Padres
+      <div class="flex justify-between items-center mb-6 pb-4 border-b border-slate-100 dark:border-slate-800">
+        <h3 class="text-xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+          <i data-lucide="shield-check" class="w-6 h-6 text-emerald-600"></i> Acceso Parental
         </h3>
-        <button onclick="closeParentCodeModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-          <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-          </svg>
+        <button onclick="closeParentCodeModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
+          <i data-lucide="x" class="w-5 h-5"></i>
         </button>
       </div>
       
       <!-- Info del jugador -->
-      <div class="flex items-center gap-3 mb-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-xl">
-        <img src="${player.avatar || getDefaultAvatar()}" alt="${player.name}" class="w-12 h-12 rounded-full object-cover border-2 border-teal-500">
+      <div class="flex items-center gap-4 mb-6">
+        <div class="p-1 rounded-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700">
+          <img src="${player.avatar || getDefaultAvatar()}" alt="${player.name}" class="w-14 h-14 rounded-full object-cover">
+        </div>
         <div>
-          <p class="font-semibold text-gray-800 dark:text-white">${player.name}</p>
-          <p class="text-sm text-gray-500 dark:text-gray-400">${player.category}</p>
+          <p class="font-semibold text-lg text-slate-800 dark:text-white">${player.name}</p>
+          <p class="text-sm font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 rounded-md inline-block mt-0.5">${player.category}</p>
         </div>
       </div>
       
       <!-- Código de acceso -->
-      <div class="bg-gradient-to-r from-teal-500 to-blue-500 rounded-xl p-4 text-white text-center mb-4">
-        <p class="text-sm opacity-90 mb-1">Código de Acceso</p>
-        <p id="parentAccessCode" class="text-3xl font-mono font-bold tracking-widest">${code}</p>
+      <div class="relative bg-slate-900 dark:bg-slate-950 rounded-xl p-6 text-white text-center mb-5 overflow-hidden">
+        <div class="absolute inset-0 opacity-10 bg-[url('data:image/svg+xml,%3Csvg width=\\'60\\' height=\\'60\\' viewBox=\\'0 0 60 60\\' xmlns=\\'http://www.w3.org/2000/svg\\'%3E%3Cg fill=\\'none\\' fill-rule=\\'evenodd\\'%3E%3Cg fill=\\'%23ffffff\\' fill-opacity=\\'1\\'%3E%3Cpath d=\\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')]"></div>
+        <p class="text-xs text-slate-400 font-medium uppercase tracking-widest mb-1 relative z-10">Código de Vinculación</p>
+        <p id="parentAccessCode" class="text-3xl font-mono font-bold tracking-[0.2em] relative z-10">${code}</p>
       </div>
       
-      <!-- Club ID -->
-      <div class="bg-gray-100 dark:bg-gray-700 rounded-xl p-3 mb-4">
-        <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Club ID</p>
-        <p class="font-mono text-gray-800 dark:text-white">${clubId}</p>
-      </div>
-      
-      <!-- Instrucciones -->
-      <div class="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 mb-4">
-        <p class="font-semibold text-blue-800 dark:text-blue-300 mb-2">📱 Instrucciones para el padre:</p>
-        <ol class="text-sm text-blue-700 dark:text-blue-400 space-y-1 list-decimal list-inside">
-          <li>Abrir: <span class="font-mono">${portalURL}</span></li>
-          <li>Ingresar Club ID: <strong>${clubId}</strong></li>
-          <li>Ingresar Código: <strong>${code}</strong></li>
-          <li>¡Listo! Puede instalar la app en su celular</li>
-        </ol>
-      </div>
-      
-      <!-- Botones de acción -->
-      <div class="grid grid-cols-2 gap-3 mb-3">
-        <button onclick="copyParentCode('${code}')" class="flex items-center justify-center gap-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-800 dark:text-white py-2 rounded-lg transition-colors">
-          <i data-lucide="copy" class="w-4 h-4"></i>
-          Copiar Código
-        </button>
-        <button onclick="shareParentCodeWhatsApp('${player.name}', '${clubId}', '${code}', '${player.phone}')" class="flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white py-2 rounded-lg transition-colors">
-          <i data-lucide="message-circle" class="w-4 h-4"></i>
-          WhatsApp
+      <!-- Club ID y Copiar en grid -->
+      <div class="grid grid-cols-2 gap-3 mb-5">
+        <div class="bg-slate-50 dark:bg-slate-800 rounded-lg p-3 border border-slate-100 dark:border-slate-700">
+          <p class="text-xs text-slate-500 dark:text-slate-400 mb-1">Club ID</p>
+          <p class="font-mono text-sm font-semibold text-slate-800 dark:text-slate-200">${clubId}</p>
+        </div>
+        <button onclick="copyParentCode('${code}')" class="flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg border border-slate-100 dark:border-slate-700 text-slate-700 dark:text-slate-300 transition-colors group">
+          <i data-lucide="copy" class="w-4 h-4 text-emerald-600 mb-1 group-hover:scale-110 transition-transform"></i>
+          <span class="text-xs font-medium">Copiar Datos</span>
         </button>
       </div>
       
-      <!-- Regenerar código -->
-      <button onclick="regenerateParentCode('${player.id}')" class="w-full flex items-center justify-center gap-2 border border-orange-500 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 py-2 rounded-lg transition-colors">
-        <i data-lucide="refresh-cw" class="w-4 h-4"></i>
-        Regenerar Código
-      </button>
+      <!-- Instrucciones (Más limpias) -->
+      <div class="bg-blue-50/50 dark:bg-slate-800/50 border-l-4 border-blue-500 rounded-r-lg p-4 mb-6">
+        <p class="font-semibold text-sm text-slate-800 dark:text-slate-200 mb-2 flex items-center gap-2">
+           Instrucciones de acceso:
+        </p>
+        <ul class="text-sm text-slate-600 dark:text-slate-400 space-y-2 list-disc list-inside">
+          <li>Ir a <a href="${portalURL}" target="_blank" class="text-blue-600 dark:text-blue-400 hover:underline">Portal de Padres</a></li>
+          <li>Ingresar el Club ID <span class="font-mono text-xs bg-slate-200 dark:bg-slate-700 px-1 rounded">${clubId}</span></li>
+          <li>Ingresar el Código generado</li>
+        </ul>
+      </div>
+      
+      <!-- Botones de acción principales -->
+      <div class="space-y-3">
+        <button onclick="shareParentCodeWhatsApp('${player.name}', '${clubId}', '${code}', '${player.phone}')" class="w-full flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#128C7E] text-white py-3 rounded-xl font-medium transition-colors shadow-sm">
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+          Enviar Vía WhatsApp
+        </button>
+        
+        <button onclick="regenerateParentCode('${player.id}')" class="w-full flex items-center justify-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 py-3 rounded-xl font-medium transition-colors">
+          <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+          Regenerar Nuevo Código
+        </button>
+      </div>
       
       ${isExisting ? `
-        <p class="text-xs text-center text-gray-500 dark:text-gray-400 mt-3">
-          ⚠️ Este jugador ya tenía un código asignado
-        </p>
+        <div class="mt-4 py-2 px-3 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 rounded-lg text-xs text-center flex items-center justify-center gap-1.5 border border-amber-100 dark:border-amber-800/30">
+          <i data-lucide="info" class="w-3.5 h-3.5"></i> Jugador con código previamente asignado
+        </div>
       ` : ''}
     </div>
   `;
@@ -746,20 +749,20 @@ function shareParentCodeWhatsApp(playerName, clubId, code, phone) {
   // URL del portal de padres - PRODUCCIÓN
   const portalURL = 'https://escuela-futbol-pwa-final.vercel.app/portal-padre.html';
   
-  const message = `🎉 *Acceso al Portal de Padres*
+  const message = `\u{1F389} *Acceso al Portal de Padres*
 
 Hola! Te comparto el acceso para ver la información de *${playerName}* en ${settings.name || 'nuestra escuela de fútbol'}.
 
-📱 *Pasos para acceder:*
+\u{1F4F1} *Pasos para acceder:*
 1. Abre este link: ${portalURL}
 2. Club ID: *${clubId}*
 3. Código: *${code}*
 
-💡 Puedes instalar la app en tu celular para acceder más rápido.
+\u{1F4A1} Puedes instalar la app en tu celular para acceder más rápido.
 
-⚽ ¡Gracias por confiar en nosotros!`;
+\u{26BD} ¡Gracias por confiar en nosotros!`;
 
-  const encodedMessage = encodeURIComponent(message);
+  const encodedMessage = encodeURIComponent(message).replace(/%20/g, '+');
   
   // Si tiene teléfono, enviar directo
   if (phone) {

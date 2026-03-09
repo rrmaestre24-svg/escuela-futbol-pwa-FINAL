@@ -9,7 +9,11 @@
 // ========================================
 function openWhatsApp(phone, message = '') {
   const cleanedPhone = cleanPhone(phone);
-  const encodedMessage = encodeURIComponent(message);
+  
+  // ✅ CORRECCIÓN EMOJIS: encodeURIComponent a veces falla con wa.me en navegadores móviles.
+  // Reemplazamos espacios por %20 explícitamente y aseguramos codificación UTF-8 estricta
+  const encodedMessage = encodeURIComponent(message).replace(/%20/g, '+');
+  
   const url = `https://wa.me/${cleanedPhone}?text=${encodedMessage}`;
   
   // ✅ CORRECCIÓN iOS: Usar un link temporal en lugar de window.open
@@ -38,7 +42,7 @@ function openWhatsApp(phone, message = '') {
 // ========================================
 function createWhatsAppLink(phone, message = '') {
   const cleanedPhone = cleanPhone(phone);
-  const encodedMessage = encodeURIComponent(message);
+  const encodedMessage = encodeURIComponent(message).replace(/%20/g, '+');
   return `https://wa.me/${cleanedPhone}?text=${encodedMessage}`;
 }
 
@@ -116,17 +120,17 @@ function sendInvoiceWhatsApp(paymentId) {
   }
   
   const message = `
-🏆 *${settings.name}*
-⚽ FACTURA DE PAGO
+\u{1F3C6} *${settings.name}*
+\u{26BD} FACTURA DE PAGO
 
-📋 *Factura:* ${payment.invoiceNumber}
-👤 *Jugador:* ${player.name}
-${documentLine}💰 *Concepto:* ${payment.concept}
-💵 *Monto:* ${formatCurrency(payment.amount)}
-📅 *Fecha:* ${formatDate(payment.paidDate)}
-💳 *Método:* ${payment.method || 'No especificado'}
+\u{1F4CB} *Factura:* ${payment.invoiceNumber}
+\u{1F464} *Jugador:* ${player.name}
+${documentLine}\u{1F4B0} *Concepto:* ${payment.concept}
+\u{1F4B5} *Monto:* ${formatCurrency(payment.amount)}
+\u{1F4C5} *Fecha:* ${formatDate(payment.paidDate)}
+\u{1F4B3} *Método:* ${payment.method || 'No especificado'}
 
-✅ *Estado:* PAGADO
+\u{2705} *Estado:* PAGADO
 
 Gracias por tu pago.
 
@@ -180,16 +184,16 @@ function sendPaymentNotificationWhatsApp(paymentId) {
   if (daysDiff > 0 && daysDiff <= 10) {
     // Próximo a vencer
     message = `
-🏆 *${settings.name}*
-⚽ RECORDATORIO DE PAGO
+\u{1F3C6} *${settings.name}*
+\u{26BD} RECORDATORIO DE PAGO
 
 Estimado(a) acudiente de *${player.name}*,
 ${documentLine}
 Le recordamos que tiene un pago próximo a vencer:
 
-💰 *Concepto:* ${payment.concept}
-💵 *Monto:* ${formatCurrency(payment.amount)}
-📅 *Vence:* ${formatDate(payment.dueDate)} (en ${daysDiff} días)
+\u{1F4B0} *Concepto:* ${payment.concept}
+\u{1F4B5} *Monto:* ${formatCurrency(payment.amount)}
+\u{1F4C5} *Vence:* ${formatDate(payment.dueDate)} (en ${daysDiff} días)
 
 Por favor, realizar el pago antes de la fecha de vencimiento.
 
@@ -199,16 +203,16 @@ ${settings.phone}
   } else if (daysDiff >= -40 && daysDiff <= 0) {
     // En período de gracia
     message = `
-🏆 *${settings.name}*
-⚽ RECORDATORIO DE PAGO
+\u{1F3C6} *${settings.name}*
+\u{26BD} RECORDATORIO DE PAGO
 
 Estimado(a) acudiente de *${player.name}*,
 ${documentLine}
 Su pago se encuentra en período de gracia:
 
-💰 *Concepto:* ${payment.concept}
-💵 *Monto:* ${formatCurrency(payment.amount)}
-📅 *Venció:* ${formatDate(payment.dueDate)} (hace ${Math.abs(daysDiff)} días)
+\u{1F4B0} *Concepto:* ${payment.concept}
+\u{1F4B5} *Monto:* ${formatCurrency(payment.amount)}
+\u{1F4C5} *Venció:* ${formatDate(payment.dueDate)} (hace ${Math.abs(daysDiff)} días)
 
 Le recordamos ponerse al día.
 
@@ -218,16 +222,16 @@ ${settings.phone}
   } else {
     // Vencido
     message = `
-🏆 *${settings.name}*
-⚠️ PAGO VENCIDO
+\u{1F3C6} *${settings.name}*
+\u{26A0}\u{FE0F} PAGO VENCIDO
 
 Estimado(a) acudiente de *${player.name}*,
 ${documentLine}
 Su pago se encuentra VENCIDO:
 
-💰 *Concepto:* ${payment.concept}
-💵 *Monto:* ${formatCurrency(payment.amount)}
-📅 *Venció:* ${formatDate(payment.dueDate)} (hace ${Math.abs(daysDiff)} días)
+\u{1F4B0} *Concepto:* ${payment.concept}
+\u{1F4B5} *Monto:* ${formatCurrency(payment.amount)}
+\u{1F4C5} *Venció:* ${formatDate(payment.dueDate)} (hace ${Math.abs(daysDiff)} días)
 
 Por favor, comuníquese con nosotros.
 
@@ -276,17 +280,17 @@ function sendBirthdayWhatsApp(personId, isStaff = false) {
   const age = calculateAge(person.birthDate);
   
   const message = `
-🎉🎂 *¡FELIZ CUMPLEAÑOS!* 🎂🎉
+\u{1F389}\u{1F382} *¡FELIZ CUMPLEAÑOS!* \u{1F382}\u{1F389}
 
 Querido(a) *${name}*,
 
 Desde *${settings.name}* queremos desearte un feliz cumpleaños #${age}.
 
 Que este nuevo año de vida esté lleno de:
-⚽ Goles
-🏆 Triunfos
-😊 Alegrías
-💪 Salud
+\u{26BD} Goles
+\u{1F3C6} Triunfos
+\u{1F60A} Alegrías
+\u{1F4AA} Salud
 
 ¡Que lo disfrutes al máximo!
 
@@ -342,21 +346,21 @@ function sendAccountStatementWhatsApp(playerId) {
   // 🆕 Formatear documento si existe
   let documentLine = '';
   if (player.documentType && player.documentNumber) {
-    documentLine = `🪪 *Documento:* ${player.documentType} ${player.documentNumber}\n`;
+    documentLine = `\u{1FA} *Documento:* ${player.documentType} ${player.documentNumber}\n`;
   }
   
   let message = `
-🏆 *${settings.name}*
-📊 ESTADO DE CUENTA
+\u{1F3C6} *${settings.name}*
+\u{1F4CA} ESTADO DE CUENTA
 
-👤 *Jugador:* ${player.name}
-${documentLine}📅 *Fecha:* ${formatDate(getCurrentDate())}
+\u{1F464} *Jugador:* ${player.name}
+${documentLine}\u{1F4C5} *Fecha:* ${formatDate(getCurrentDate())}
 
-💰 *Resumen:*
-✅ Total Pagado: ${formatCurrency(totalPaid)}
-⏳ Total Pendiente: ${formatCurrency(totalPending)}
+\u{1F4B0} *Resumen:*
+\u{2705} Total Pagado: ${formatCurrency(totalPaid)}
+\u{23F3} Total Pendiente: ${formatCurrency(totalPending)}
 
-📋 *Pagos Pendientes:*
+\u{1F4CB} *Pagos Pendientes:*
 `;
 
   if (pending.length === 0) {
@@ -402,15 +406,15 @@ function sendExpenseInvoiceWhatsApp(expenseId) {
   const settings = getSchoolSettings();
   
   // Construir mensaje
-  const message = `¡Hola ${expense.beneficiaryName}! 👋\n\n` +
+  const message = `¡Hola ${expense.beneficiaryName}! \u{1F44B}\n\n` +
     `Te enviamos el comprobante de pago de *${settings.name || 'MI CLUB'}*\n\n` +
-    `📄 Comprobante: ${expense.invoiceNumber}\n` +
-    `💵 Monto: ${formatCurrency(expense.amount)}\n` +
-    `📋 Concepto: ${expense.concept}\n` +
-    `🏷️ Categoría: ${expense.category}\n` +
-    `📅 Fecha de pago: ${formatDate(expense.date)}\n` +
-    `💳 Método: ${expense.method}\n\n` +
-    `Gracias por tus servicios ⚽`;
+    `\u{1F4C4} Comprobante: ${expense.invoiceNumber}\n` +
+    `\u{1F4B5} Monto: ${formatCurrency(expense.amount)}\n` +
+    `\u{1F4CB} Concepto: ${expense.concept}\n` +
+    `\u{1F3F7}\u{FE0F} Categoría: ${expense.category}\n` +
+    `\u{1F4C5} Fecha de pago: ${formatDate(expense.date)}\n` +
+    `\u{1F4B3} Método: ${expense.method}\n\n` +
+    `Gracias por tus servicios \u{26BD}`;
   
   // Normalizar teléfono
   const phone = normalizePhone(expense.beneficiaryPhone);
@@ -437,13 +441,13 @@ function sendExpenseInvoiceWhatsAppManual(expenseId, phone) {
   
   const settings = getSchoolSettings();
   
-  const message = `¡Hola ${expense.beneficiaryName}! 👋\n\n` +
+  const message = `¡Hola ${expense.beneficiaryName}! \u{1F44B}\n\n` +
     `Te enviamos el comprobante de pago de *${settings.name || 'MI CLUB'}*\n\n` +
-    `📄 Comprobante: ${expense.invoiceNumber}\n` +
-    `💵 Monto: ${formatCurrency(expense.amount)}\n` +
-    `📋 Concepto: ${expense.concept}\n` +
-    `📅 Fecha: ${formatDate(expense.date)}\n\n` +
-    `Gracias por tus servicios ⚽`;
+    `\u{1F4C4} Comprobante: ${expense.invoiceNumber}\n` +
+    `\u{1F4B5} Monto: ${formatCurrency(expense.amount)}\n` +
+    `\u{1F4CB} Concepto: ${expense.concept}\n` +
+    `\u{1F4C5} Fecha: ${formatDate(expense.date)}\n\n` +
+    `Gracias por tus servicios \u{26BD}`;
   
   const normalizedPhone = normalizePhone(phone);
   

@@ -825,7 +825,8 @@ function shareByWhatsApp() {
     
     message += `\n\n💡 _Cada padre debe usar su código para acceder al perfil de su hijo._`;
     
-    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+    const encodedMessage = encodeURIComponent(message).replace(/%20/g, '+');
+    const whatsappUrl = `https://wa.me/?text=${encodedMessage}`;
     window.open(whatsappUrl, '_blank');
 }
 

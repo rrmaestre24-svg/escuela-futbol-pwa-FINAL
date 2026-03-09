@@ -455,7 +455,7 @@ document.addEventListener('DOMContentLoaded', function() {
 async function handleParentLogin(e) {
   e.preventDefault();
   
-  const clubId = document.getElementById('parentClubId').value.trim().toLowerCase();
+  const clubId = document.getElementById('parentClubId').value.trim();
   const accessCode = document.getElementById('parentAccessCode').value.trim().toUpperCase();
   
   if (!clubId || !accessCode) {
@@ -1380,10 +1380,10 @@ async function generatePlayerCard() {
     doc.rect(0, 21, width, height - 21, 'F');
     
     // Logo del club
-    if (currentClubSettings?.logo && currentClubSettings.logo.startsWith('data:image')) {
+    if (currentClubSettings?.logo) {
       try { 
         doc.addImage(currentClubSettings.logo, 'PNG', 4, 3, 14, 14); 
-      } catch (e) {}
+      } catch (e) { console.warn('Logo error:', e); }
     }
     
     // Nombre del club
@@ -1403,10 +1403,10 @@ async function generatePlayerCard() {
     doc.roundedRect(5, 25, 25, 32, 2, 2, 'S');
     
     // Foto del jugador
-    if (currentPlayer.avatar && currentPlayer.avatar.startsWith('data:image')) {
+    if (currentPlayer.avatar) {
       try { 
         doc.addImage(currentPlayer.avatar, 'JPEG', 6, 26, 23, 30); 
-      } catch (e) {}
+      } catch (e) { console.warn('Avatar error:', e); }
     }
     
     // Información del jugador

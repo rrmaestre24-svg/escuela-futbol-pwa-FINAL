@@ -265,90 +265,101 @@ function showPlayerProfile() {
         `).join('')
     : '<p class="text-center text-gray-500 dark:text-gray-400 py-8">No hay pagos registrados</p>';
 
+  // Assuming unreadResponses is defined elsewhere or will be added. For now, setting to 0.
+  const unreadResponses = 0; // Placeholder for unread suggestions count
+
   profileContainer.innerHTML = `
-    <div class="bg-gradient-to-r from-teal-600 to-blue-600 text-white p-4 flex items-center gap-3">
-      <img src="${currentClubSettings?.logo || getDefaultLogoParent()}" alt="Logo" class="w-12 h-12 rounded-lg object-cover">
+    <!-- Header Premium -->
+    <div class="bg-slate-900/95 backdrop-blur-xl border-b border-slate-800/80 text-white p-4 flex items-center gap-3 sticky top-0 z-30 shadow-md">
+      <img src="${currentClubSettings?.logo || getDefaultLogoParent()}" alt="Logo" class="w-11 h-11 rounded-xl object-contain bg-white/5 p-1 border border-white/10">
       <div class="flex-1">
-        <h1 class="font-bold text-lg">${currentClubSettings?.name || 'Escuela de Fútbol'}</h1>
-        <p class="text-sm opacity-90">Portal de Padres</p>
+        <h1 class="font-bold text-lg tracking-tight text-slate-100">${currentClubSettings?.name || 'Escuela de Fútbol'}</h1>
+        <p class="text-xs font-medium text-emerald-400 uppercase tracking-wider">Portal de Padres</p>
       </div>
-      <button onclick="parentLogout()" class="p-2 hover:bg-white/20 rounded-lg transition-colors" title="Cerrar sesión">
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <button onclick="openSuggestionModal()" class="p-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl transition-all border border-slate-700 hover:border-slate-600 relative group" title="Sugerencias">
+        <span class="text-lg group-hover:scale-110 transition-transform block">💡</span>
+        ${unreadResponses > 0 ? `<span class="absolute -top-1.5 -right-1.5 bg-rose-500 text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center border-2 border-slate-900 shadow-sm">${unreadResponses}</span>` : ''}
+      </button>
+      <button onclick="parentLogout()" class="p-2.5 bg-slate-800 hover:bg-rose-900/40 hover:text-rose-400 text-slate-400 rounded-xl transition-all border border-slate-700 hover:border-rose-900/50" title="Cerrar sesión">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
         </svg>
       </button>
     </div>
-    
-    <div class="p-4 space-y-4">
-      <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg text-center">
-        <img src="${currentPlayer.avatar || getDefaultAvatarParent()}" alt="${currentPlayer.name}" 
-             class="w-32 h-32 rounded-full object-cover border-4 border-teal-500 mx-auto mb-4 shadow-lg">
-        <h2 class="text-2xl font-bold text-gray-800 dark:text-white">${currentPlayer.name}</h2>
-        <p class="text-gray-500 dark:text-gray-400">${currentPlayer.category} • ${age} años</p>
-        ${currentPlayer.position ? `<p class="text-teal-600 dark:text-teal-400 font-medium mt-1">${currentPlayer.position} ${currentPlayer.jerseyNumber ? '• Dorsal #' + currentPlayer.jerseyNumber : ''}</p>` : ''}
-        <span class="inline-block mt-2 px-4 py-1 rounded-full text-sm font-medium ${currentPlayer.status === 'Activo' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'}">
-          ${currentPlayer.status || 'Activo'}
-        </span>
+    <!-- Espacio Principal -->
+    <div class="p-4 space-y-5 bg-[#0a0f1c] min-h-screen">
+      
+      <!-- Ficha del Jugador (Glassmorphism) -->
+      <div class="bg-slate-800/60 backdrop-blur-md rounded-[24px] p-6 shadow-2xl border border-slate-700/50 text-center relative overflow-hidden">
+        <!-- Brillo decorativo sutil -->
+        <div class="absolute -top-24 -right-24 w-48 h-48 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="absolute -bottom-24 -left-24 w-48 h-48 bg-blue-500/10 rounded-full blur-3xl pointer-events-none"></div>
+        
+        <div class="relative inline-block">
+          <img src="${currentPlayer.avatar || getDefaultAvatarParent()}" alt="${currentPlayer.name}" 
+               class="w-32 h-32 rounded-full object-cover border-4 border-slate-800 mx-auto mb-4 shadow-[0_8px_30px_rgb(0,0,0,0.5)] ring-2 ring-emerald-500/30">
+          <span class="absolute bottom-4 right-1 w-5 h-5 ${currentPlayer.status === 'Activo' ? 'bg-emerald-500' : 'bg-rose-500'} border-4 border-slate-800 rounded-full"></span>
+        </div>
+        
+        <h2 class="text-2xl font-bold text-slate-100 tracking-tight">${currentPlayer.name}</h2>
+        <p class="text-slate-400 font-medium text-sm mt-1 mb-2">${currentPlayer.category} <span class="mx-1">•</span> ${age} años</p>
+        
+        ${currentPlayer.position ? `<div class="inline-flex items-center gap-2 bg-slate-900/50 border border-slate-700/50 px-3 py-1.5 rounded-lg mb-4"><span class="text-emerald-400 font-semibold text-sm">${currentPlayer.position}</span> ${currentPlayer.jerseyNumber ? '<span class="text-slate-500 text-xs font-mono border-l border-slate-700/50 pl-2">#' + currentPlayer.jerseyNumber + '</span>' : ''}</div>` : ''}
+        
+        <button onclick="openEditProfileModal()" class="w-full mt-2 bg-slate-700/50 hover:bg-slate-700 border border-slate-600/50 text-slate-200 py-3 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 group shadow-sm">
+          <span class="group-hover:rotate-12 transition-transform">✏️</span> Editar Datos
+        </button>
       </div>
       
-      <div class="grid grid-cols-2 gap-4">
-        <div class="bg-green-50 dark:bg-green-900/30 rounded-xl p-4 text-center">
-          <p class="text-xs text-green-600 dark:text-green-400 mb-1">Total Pagado</p>
-          <p class="text-xl font-bold text-green-700 dark:text-green-300">${formatCurrencyParent(totalPaid)}</p>
+      <!-- Resumen Financiero Corporativo -->
+      <div class="grid grid-cols-2 gap-3">
+        <div class="bg-slate-800/80 backdrop-blur-md border border-slate-700/50 rounded-2xl p-4 flex flex-col items-center justify-center">
+          <p class="text-[11px] uppercase tracking-wider text-slate-400 mb-1 font-semibold flex items-center gap-1.5"><span class="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>Abonado</p>
+          <p class="text-lg font-bold text-slate-100">${formatCurrencyParent(totalPaid)}</p>
         </div>
-        <div class="bg-red-50 dark:bg-red-900/30 rounded-xl p-4 text-center">
-          <p class="text-xs text-red-600 dark:text-red-400 mb-1">Pendiente</p>
-          <p class="text-xl font-bold text-red-700 dark:text-red-300">${formatCurrencyParent(totalPending)}</p>
-        </div>
-      </div>
-      
-      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden">
-        <div class="bg-gray-50 dark:bg-gray-700 px-4 py-3 border-b border-gray-200 dark:border-gray-600">
-          <h3 class="font-bold text-gray-800 dark:text-white">💰 Historial de Pagos</h3>
-        </div>
-        <div class="p-4">
-          <div class="space-y-3 max-h-64 overflow-y-auto">${paymentsHTML}</div>
+        <div class="bg-slate-800/80 backdrop-blur-md border border-slate-700/50 rounded-2xl p-4 flex flex-col items-center justify-center relative overflow-hidden">
+          ${totalPending > 0 ? '<div class="absolute top-0 right-0 w-8 h-8 bg-rose-500/20 blur-xl"></div>' : ''}
+          <p class="text-[11px] uppercase tracking-wider text-slate-400 mb-1 font-semibold flex items-center gap-1.5"><span class="w-1.5 h-1.5 bg-rose-500 rounded-full"></span>Deuda</p>
+          <p class="text-lg font-bold ${totalPending > 0 ? 'text-rose-400' : 'text-slate-100'}">${formatCurrencyParent(totalPending)}</p>
         </div>
       </div>
       
-      <!-- Estado de cuenta -->
-      ${totalPending > 0 ? `
-        <div class="bg-orange-50 dark:bg-orange-900/30 rounded-2xl p-4 text-center border-2 border-orange-200 dark:border-orange-800">
-          <span class="text-2xl">⚠️</span>
-          <p class="text-orange-700 dark:text-orange-300 font-medium mt-2">Tienes pagos pendientes</p>
-          <p class="text-sm text-orange-600 dark:text-orange-400">Contacta a la escuela para más información</p>
-        </div>
-      ` : `
-        <div class="bg-green-100 dark:bg-green-900/30 rounded-2xl p-4 text-center">
-          <span class="text-2xl">🎉</span>
-          <p class="text-green-700 dark:text-green-300 font-medium mt-2">¡Todo al día!</p>
-          <p class="text-sm text-green-600 dark:text-green-400">No tienes pagos pendientes</p>
-        </div>
-      `}
+      ${nextPaymentHTML || paymentStatusHTML}
       
-      <!-- 🆕 INFORMACIÓN MÉDICA (si existe) -->
-      ${currentPlayer.medicalInfo?.bloodType || currentPlayer.medicalInfo?.allergies ? `
-        <div class="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-lg">
-          <h3 class="font-bold text-gray-800 dark:text-white mb-3 flex items-center gap-2">
-            🏥 Información Médica
+      <!-- Panel de Pagos Unificado -->
+      <div class="bg-slate-800/60 backdrop-blur-md rounded-2xl border border-slate-700/50 overflow-hidden shadow-lg">
+        <div class="bg-slate-800/80 px-5 py-3.5 border-b border-slate-700/50 flex items-center justify-between">
+          <h3 class="font-bold text-slate-200 text-sm flex items-center gap-2"><span class="text-slate-400">📄</span> Historial de Movimientos</h3>
+        </div>
+        <div class="p-4 bg-slate-800/30">
+          <div class="space-y-3 max-h-[250px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-transparent">
+            ${paymentsHTML}
+          </div>
+        </div>
+      </div>
+      
+      ${currentPlayer.medicalInfo?.bloodType || currentPlayer.medicalInfo?.allergies || currentPlayer.medicalInfo?.conditions ? `
+        <div class="bg-slate-800/60 backdrop-blur-md border border-slate-700/50 rounded-2xl p-5 shadow-lg">
+          <h3 class="font-bold text-slate-200 mb-4 flex items-center gap-2 text-sm border-b border-slate-700/50 pb-3">
+            <span class="p-1.5 bg-rose-500/10 text-rose-400 rounded-lg">🏥</span> Ficha Médica
           </h3>
-          <div class="space-y-2 text-sm">
+          <div class="space-y-3 text-sm">
             ${currentPlayer.medicalInfo?.bloodType ? `
-              <div class="flex justify-between">
-                <span class="text-gray-500 dark:text-gray-400">Tipo de sangre:</span>
-                <span class="font-medium text-gray-800 dark:text-white">${currentPlayer.medicalInfo.bloodType}</span>
+              <div class="flex justify-between items-center bg-slate-900/30 p-2.5 rounded-lg border border-slate-700/30">
+                <span class="text-slate-400">Tipo de sangre</span>
+                <span class="font-bold text-slate-200 bg-slate-700/50 px-2 py-0.5 rounded">${currentPlayer.medicalInfo.bloodType}</span>
               </div>
             ` : ''}
             ${currentPlayer.medicalInfo?.allergies ? `
-              <div class="flex justify-between">
-                <span class="text-gray-500 dark:text-gray-400">Alergias:</span>
-                <span class="font-medium text-red-600 dark:text-red-400">${currentPlayer.medicalInfo.allergies}</span>
+              <div class="flex justify-between items-center bg-rose-500/5 p-2.5 rounded-lg border border-rose-500/20">
+                <span class="text-slate-400">Alergias</span>
+                <span class="font-medium text-rose-400 text-right max-w-[60%] leading-tight">${currentPlayer.medicalInfo.allergies}</span>
               </div>
             ` : ''}
             ${currentPlayer.medicalInfo?.conditions ? `
-              <div class="flex justify-between">
-                <span class="text-gray-500 dark:text-gray-400">Condiciones:</span>
-                <span class="font-medium text-gray-800 dark:text-white">${currentPlayer.medicalInfo.conditions}</span>
+              <div class="flex justify-between items-center bg-slate-900/30 p-2.5 rounded-lg border border-slate-700/30">
+                <span class="text-slate-400">Condiciones</span>
+                <span class="font-medium text-slate-300 text-right max-w-[60%] leading-tight">${currentPlayer.medicalInfo.conditions}</span>
               </div>
             ` : ''}
           </div>
@@ -356,61 +367,45 @@ function showPlayerProfile() {
       ` : ''}
       
       ${currentClubSettings?.phone ? `
-        <div class="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-lg">
-          <h3 class="font-bold text-gray-800 dark:text-white mb-3">📞 Contacto del Club</h3>
+        <div class="bg-gradient-to-r from-emerald-900/60 to-emerald-800/40 backdrop-blur-md border border-emerald-700/30 rounded-2xl p-4 shadow-lg">
           <a href="https://wa.me/${currentClubSettings.phone.replace(/[^0-9+]/g, '')}" target="_blank"
-             class="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/30 rounded-xl hover:bg-green-100 transition-colors">
-            <div class="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center text-white">📱</div>
-            <div>
-              <p class="font-medium text-gray-800 dark:text-white">WhatsApp</p>
-              <p class="text-sm text-gray-500 dark:text-gray-400">${currentClubSettings.phone}</p>
+             class="flex items-center gap-4 group">
+            <div class="w-12 h-12 bg-emerald-500 rounded-xl flex items-center justify-center text-white shadow-lg shadow-emerald-500/20 group-hover:scale-105 transition-transform">
+              <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+            </div>
+            <div class="flex-1">
+              <p class="font-bold text-emerald-100">Dudas o consultas</p>
+              <p class="text-sm text-emerald-400/80">Contactar al club vía WhatsApp</p>
+            </div>
+            <div class="text-emerald-500/50 group-hover:text-emerald-400 group-hover:translate-x-1 transition-all">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
             </div>
           </a>
         </div>
       ` : ''}
       
-      <!-- 🆕 PRÓXIMOS EVENTOS -->
-      ${(currentPlayer.upcomingEvents && currentPlayer.upcomingEvents.length > 0) ? `
-        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden">
-          <div class="bg-blue-50 dark:bg-blue-900/30 px-4 py-3 border-b border-blue-200 dark:border-blue-800">
-            <h3 class="font-bold text-blue-800 dark:text-blue-300 flex items-center gap-2">
-              📅 Próximos Eventos
-            </h3>
-          </div>
-          <div class="p-4 space-y-3">
-            ${currentPlayer.upcomingEvents.map(event => `
-              <div class="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-xl">
-                <div class="text-center min-w-[50px]">
-                  <p class="text-xs text-gray-500 dark:text-gray-400">${new Date(event.date).toLocaleDateString('es-CO', { month: 'short' }).toUpperCase()}</p>
-                  <p class="text-xl font-bold text-gray-800 dark:text-white">${new Date(event.date).getDate()}</p>
-                </div>
-                <div class="flex-1">
-                  <p class="font-medium text-gray-800 dark:text-white">${event.title}</p>
-                  <p class="text-xs text-gray-500 dark:text-gray-400">${event.time || ''} ${event.location ? '• ' + event.location : ''}</p>
-                </div>
-                <span class="text-2xl">${getEventIcon(event.type)}</span>
-              </div>
-            `).join('')}
-          </div>
-        </div>
-      ` : ''}
       
-      <div id="installPrompt" class="hidden bg-gradient-to-r from-purple-500 to-blue-500 rounded-2xl p-4 text-white">
+      <div id="installPrompt" class="hidden bg-slate-800 border border-slate-700 rounded-2xl p-4 shadow-lg item-center justify-between">
         <div class="flex items-center gap-3">
-          <div class="text-3xl">📲</div>
+          <div class="w-10 h-10 bg-slate-700 rounded-xl flex items-center justify-center text-xl">📲</div>
           <div class="flex-1">
-            <p class="font-bold">Instala la App</p>
-            <p class="text-sm opacity-90">Accede más rápido</p>
+            <p class="font-bold text-slate-200 text-sm">Instala la App</p>
+            <p class="text-xs text-slate-400">Acceso directo al portal</p>
           </div>
-          <button onclick="installParentPWA()" class="bg-white text-purple-600 px-4 py-2 rounded-lg font-medium">Instalar</button>
+          <button onclick="installParentPWA()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors">
+            Instalar
+          </button>
         </div>
       </div>
       
-      <!-- 🆕 BOTÓN DESCARGAR CARNET -->
-      <button onclick="generatePlayerCard()" class="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white py-4 rounded-2xl font-bold text-lg shadow-lg flex items-center justify-center gap-3 transition-all transform hover:scale-[1.02]">
-        <span class="text-2xl">🪪</span>
-        Descargar Carnet del Jugador
+      <!-- Botón Descargar Carnet (Corporativo Solido) -->
+      <button onclick="generatePlayerCard()" class="w-full bg-slate-100 hover:bg-white text-slate-900 shadow-md shadow-white/5 py-4 rounded-xl font-bold text-sm flex items-center justify-center gap-3 transition-transform active:scale-95 group mt-8">
+        <svg class="w-5 h-5 text-slate-600 group-hover:text-emerald-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2"></path></svg>
+        Descargar Carnet Virtual
       </button>
+      
+      <!-- Espacio final para scroll cómodo en móvil -->
+      <div class="h-6"></div>
     </div>
   `;
   

@@ -78,7 +78,7 @@ function getWhatsAppLink(phone, message = '') {
   const cleanNumber = normalized.replace(/\+/g, ''); // WhatsApp no usa el +
   
   if (message) {
-    const encodedMessage = encodeURIComponent(message);
+    const encodedMessage = encodeURIComponent(message).replace(/%20/g, '+');
     return `https://wa.me/${cleanNumber}?text=${encodedMessage}`;
   }
   
