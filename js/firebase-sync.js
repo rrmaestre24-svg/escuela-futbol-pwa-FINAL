@@ -305,7 +305,7 @@ async function downloadFromFirebase() {
       window.firebase.collection(window.firebase.db, `clubs/${clubId}/players`)
     );
     const players = [];
-    playersSnapshot.forEach(doc => players.push(doc.data()));
+    playersSnapshot.forEach(doc => players.push({ id: doc.id, ...doc.data() }));
     localStorage.setItem('players', JSON.stringify(players));
     console.log(`✅ ${players.length} jugadores descargados`);
 
