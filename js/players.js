@@ -624,7 +624,7 @@ function showParentCodeModal(player, code, isExisting) {
   const clubId = localStorage.getItem('clubId') || settings.clubId || 'mi-club';
   
   // URL del portal de padres - PRODUCCIÓN
-  const portalURL = 'https://escuela-futbol-pwa-final.vercel.app/portal-padre.html';
+  const portalURL = 'https://myclub-portal-padres.vercel.app';
   
   const modal = document.createElement('div');
   modal.id = 'parentCodeModal';
@@ -747,7 +747,7 @@ function copyParentCode(code) {
 function shareParentCodeWhatsApp(playerName, clubId, code, phone) {
   const settings = getSchoolSettings();
   // URL del portal de padres - PRODUCCIÓN
-  const portalURL = 'https://escuela-futbol-pwa-final.vercel.app/portal-padre.html';
+  const portalURL = 'https://myclub-portal-padres.vercel.app';
   
   const message = `\u{1F389} *Acceso al Portal de Padres*
 
