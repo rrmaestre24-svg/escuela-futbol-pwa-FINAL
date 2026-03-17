@@ -2483,5 +2483,91 @@ console.log('📳 Sistema de vibración activado');
     </div>
 </div>
 
+
+<script>
+function openAdminSuggestionModal() {
+  document.getElementById('adminSuggestionModal').classList.remove('hidden');
+  switchSuggestionTab('new');
+  lucide.createIcons();
+}
+
+function closeAdminSuggestionModal() {
+  document.getElementById('adminSuggestionModal').classList.add('hidden');
+}
+
+function switchSuggestionTab(tab) {
+  const newTab = document.getElementById('newSuggestionTab');
+  const myTab = document.getElementById('mySuggestionsTab');
+  const tabNew = document.getElementById('tabNew');
+  const tabMy = document.getElementById('tabMy');
+
+  if (tab === 'new') {
+    newTab.classList.remove('hidden');
+    myTab.classList.add('hidden');
+    tabNew.classList.add('border-orange-500', 'text-orange-600');
+    tabMy.classList.remove('border-orange-500', 'text-orange-600');
+  } else {
+    myTab.classList.remove('hidden');
+    newTab.classList.add('hidden');
+    tabMy.classList.add('border-orange-500', 'text-orange-600');
+    tabNew.classList.remove('border-orange-500', 'text-orange-600');
+  }
+}
+
+async function submitMainSuggestionForm() {
+  const name = document.getElementById('suggestionName').value.trim();
+  const type = document.getElementById('suggestionType').value;
+  const message = document.getElementById('suggestionMessage').value.trim();
+  const phone = document.getElementById('suggestionPhone').value.trim();
+
+  if (!name || !type || !message) {
+    showToast('❌ Completa todos los campos requeridos');
+    return;
+  }
+
+  if (message.length < 10) {
+    showToast('❌ El mensaje debe tener al menos 10 caracteres');
+    return;
+  }
+
+  try {
+    showToast('⏳ Enviando sugerencia...');
+
+    const settings = getSchoolSettings();
+    const currentUser = getCurrentUser();
+
+    const suggestionData = {
+      senderName: name,
+      senderPhone: phone || null,
+      senderType: 'admin',
+      clubId: localStorage.getItem('clubId') || '',
+      clubName: settings?.name || '',
+      playerId: null,
+      playerName: null,
+      type: type,
+      message: message,
+      status: 'pending',
+      response: null,
+      responseAt: null,
+      responseRead: false,
+      createdAt: new Date().toISOString()
+    };
+
+    if (window.firebase?.db) {
+      const { collection, addDoc } = window.firebase;
+      await addDoc(collection(window.firebase.db, 'suggestions'), suggestionData);
+    }
+
+    showToast('✅ Sugerencia enviada correctamente');
+    document.getElementById('suggestionForm').reset();
+    closeAdminSuggestionModal();
+
+  } catch (error) {
+    console.error('Error al enviar sugerencia:', error);
+    showToast('❌ Error al enviar. Intenta de nuevo.');
+  }
+}
+</script>
+
 </body>
 </html>
