@@ -187,6 +187,220 @@ function showAdminPanel() {
     }
 }
 
+// ✅ NUEVO: Eliminar código de activación
+async function deleteCode(codeId) {
+    if (!confirm(`¿Eliminar el código "${codeId}"?\n\nEsta acción no se puede deshacer.`)) return;
+
+    try {
+        showToast('🗑️ Eliminando código...');
+        const { db, doc, deleteDoc } = window.firebaseAdmin;
+        await deleteDoc(doc(db, 'activation_codes', codeId));
+        await loadCodes();
+        updateStats();
+        showToast('✅ Código eliminado');
+    } catch (error) {
+        console.error('Error al eliminar código:', error);
+        showToast('❌ Error al eliminar código');
+    }
+}
+
+// ✅ NUEVO: Eliminar factura
+async function deleteInvoice(paymentId) {
+    if (!confirm('¿Eliminar esta factura permanentemente?\n\nEsta acción no se puede deshacer.')) return;
+
+    try {
+        showToast('🗑️ Eliminando factura...');
+        const { db, doc, deleteDoc } = window.firebaseAdmin;
+        await deleteDoc(doc(db, 'billing', paymentId));
+        await loadBilling();
+        updateStats();
+        showToast('✅ Factura eliminada');
+    } catch (error) {
+        console.error('Error al eliminar factura:', error);
+        showToast('❌ Error al eliminar factura');
+    }
+}
+
+// ✅ NUEVO: Filtrar escuelas al hacer clic en una card
+let activeCardFilter = null;
+
+function filterByCard(filterType) {
+    // Si ya está activo ese filtro, desactivar (mostrar todos)
+    if (activeCardFilter === filterType) {
+        activeCardFilter = null;
+        resetCardStyles();
+        renderSchoolsTable();
+        showToast('📋 Mostrando todas las escuelas');
+        return;
+    }
+
+    activeCardFilter = filterType;
+    resetCardStyles();
+
+    // Resaltar card activa
+    const card = document.getElementById(`card_${filterType}`);
+    if (card) {
+        card.classList.add('ring-4', 'ring-white', 'ring-opacity-70', 'scale-105');
+        card.style.transform = 'translateY(-4px)';
+    }
+
+    // Filtrar escuelas según el tipo
+    let filtered = [];
+    let label = '';
+
+    switch (filterType) {
+        case 'active':
+            filtered = currentSchools.filter(s => s.status === 'activo');
+            label = 'Escuelas activas';
+            break;
+        case 'inactive':
+            filtered = currentSchools.filter(s => s.status === 'inactivo' || s.status === 'gracia');
+            label = 'Escuelas inactivas';
+            break;
+        case 'expiring':
+            filtered = currentSchools.filter(s => {
+                const days = daysUntil(s.endDate);
+                return days > 0 && days <= 7;
+            });
+            label = 'Próximas a vencer';
+            break;
+        case 'players':
+            // Ordenar por más jugadores
+            filtered = [...currentSchools].sort((a, b) => (b.totalPlayers || 0) - (a.totalPlayers || 0));
+            label = 'Ordenadas por jugadores';
+            break;
+        case 'codes':
+            // No filtra escuelas, va a tab de códigos
+            activeCardFilter = null;
+            resetCardStyles();
+            showTab('codes');
+            return;
+    }
+
+    // Navegar a tab de escuelas y mostrar filtradas
+    showTab('schools');
+
+    const original = currentSchools;
+    currentSchools = filtered;
+    renderSchoolsTable();
+    currentSchools = original;
+
+    showToast(`🔍 ${label}: ${filtered.length} resultado${filtered.length !== 1 ? 's' : ''}`);
+}
+
+function resetCardStyles() {
+    ['card_active', 'card_inactive', 'card_expiring', 'card_players', 'card_codes'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.classList.remove('ring-4', 'ring-white', 'ring-opacity-70', 'scale-105');
+            el.style.transform = '';
+        }
+    });
+}
+
+// ✅ NUEVO: Eliminar club completo con doble confirmación
+async function deleteClub() {
+    if (!currentSchoolData) return;
+
+    const school = currentSchoolData;
+    const clubName = school.clubName || school.clubId;
+    const clubId = school.clubId;
+
+    // Primera confirmación
+    const first = confirm(`⚠️ ¿Estás seguro de que deseas ELIMINAR el club "${clubName}"?\n\nSe eliminará TODO:\n• Jugadores\n• Pagos\n• Eventos\n• Egresos\n• Usuarios\n• Configuración\n• Facturas\n• Licencia`);
+    if (!first) { showToast('✅ Operación cancelada'); return; }
+
+    // Segunda confirmación
+    const second = confirm(`🔴 SEGUNDA CONFIRMACIÓN\n\n¿Confirmas eliminar PERMANENTEMENTE "${clubName}"?\n\nEsta acción NO se puede deshacer.\nSe borrarán TODOS los datos del club.`);
+    if (!second) { showToast('✅ Operación cancelada'); return; }
+
+    try {
+        showToast('🗑️ Eliminando club completo...');
+
+        const { db, doc, deleteDoc, getDocs, collection } = window.firebaseAdmin;
+
+        // Función auxiliar para eliminar toda una subcolección
+        const deleteSubcollection = async (path) => {
+            try {
+                const snapshot = await getDocs(collection(db, path));
+                for (const d of snapshot.docs) {
+                    await deleteDoc(d.ref);
+                }
+                console.log(`✅ ${path}: ${snapshot.size} documentos eliminados`);
+            } catch (e) {
+                console.warn(`⚠️ Error eliminando ${path}:`, e.message);
+            }
+        };
+
+        // 1️⃣ Eliminar mapeos de usuarios (bloquear login primero)
+        try {
+            const usersSnapshot = await getDocs(collection(db, `clubs/${clubId}/users`));
+            for (const userDoc of usersSnapshot.docs) {
+                const userData = userDoc.data();
+                if (userData.email) {
+                    try {
+                        await deleteDoc(doc(db, 'userClubMapping', userData.email));
+                    } catch (e) {
+                        console.warn('No se pudo eliminar mapeo de:', userData.email);
+                    }
+                }
+            }
+            console.log('✅ Mapeos de usuarios eliminados');
+        } catch (e) {
+            console.warn('⚠️ Error eliminando mapeos:', e);
+        }
+
+        // 2️⃣ Eliminar todas las subcolecciones del club
+        await deleteSubcollection(`clubs/${clubId}/players`);
+        await deleteSubcollection(`clubs/${clubId}/payments`);
+        await deleteSubcollection(`clubs/${clubId}/events`);
+        await deleteSubcollection(`clubs/${clubId}/expenses`);
+        await deleteSubcollection(`clubs/${clubId}/users`);
+        await deleteSubcollection(`clubs/${clubId}/settings`);
+        await deleteSubcollection(`clubs/${clubId}/config`);
+        await deleteSubcollection(`clubs/${clubId}/parentCodes`);
+        await deleteSubcollection(`clubs/${clubId}/thirdPartyIncomes`);
+        await deleteSubcollection(`clubs/${clubId}/assets`);
+
+        // 3️⃣ Eliminar documento principal del club
+        try {
+            await deleteDoc(doc(db, 'clubs', clubId));
+            console.log('✅ Documento principal del club eliminado');
+        } catch (e) {
+            console.warn('⚠️ Error eliminando documento principal:', e.message);
+        }
+
+        // 4️⃣ Eliminar licencia
+        try {
+            await deleteDoc(doc(db, 'licenses', clubId));
+            console.log('✅ Licencia eliminada');
+        } catch (e) {
+            console.warn('⚠️ Error eliminando licencia:', e.message);
+        }
+
+        // 5️⃣ Eliminar facturas del club
+        try {
+            const billingToDelete = currentBilling.filter(b => b.clubId === clubId);
+            for (const bill of billingToDelete) {
+                await deleteDoc(doc(db, 'billing', bill.id));
+            }
+            console.log(`✅ ${billingToDelete.length} facturas eliminadas`);
+        } catch (e) {
+            console.warn('⚠️ Error eliminando facturas:', e.message);
+        }
+
+        closeSchoolActionsModal();
+        await loadAllData();
+
+        showToast(`✅ Club "${clubName}" eliminado completamente`);
+        console.log(`🗑️ Club ${clubId} eliminado completamente`);
+
+    } catch (error) {
+        console.error('❌ Error al eliminar club:', error);
+        showToast('❌ Error al eliminar: ' + error.message);
+    }
+}
+
 async function adminLogout() {
     if (confirm('¿Cerrar sesión?')) {
         try {
@@ -355,6 +569,11 @@ function updateStats() {
     document.getElementById('statInactiveSchools').textContent = inactive;
     document.getElementById('statExpiringSoon').textContent = expiring;
     document.getElementById('statPendingCodes').textContent = pendingCodes;
+    
+    // ✅ Total jugadores de todas las escuelas
+    const totalPlayers = currentSchools.reduce((sum, s) => sum + (s.totalPlayers || 0), 0);
+    const statTotalPlayers = document.getElementById('statTotalPlayers');
+    if (statTotalPlayers) statTotalPlayers.textContent = totalPlayers;
     
     // 💰 Stats de facturación
     const now = new Date();
@@ -567,12 +786,18 @@ function renderCodesTable() {
                 <td class="py-4">${statusBadge}</td>
                 <td class="py-4 text-gray-400">${code.usedBy || '-'}</td>
                 <td class="py-4">
+                    <div class="flex gap-2">
                     ${!code.used && !isExpired ? `
                         <button onclick="copyCode('${code.id}')" 
                                 class="bg-teal-600 hover:bg-teal-700 text-white px-3 py-1 rounded text-sm">
                             Copiar
                         </button>
                     ` : ''}
+                    <button onclick="deleteCode('${code.id}')" 
+                            class="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-sm flex items-center gap-1">
+                        <i data-lucide="trash-2" class="w-3 h-3"></i>
+                    </button>
+                    </div>
                 </td>
             </tr>
         `;
@@ -726,9 +951,13 @@ function renderBillingTable(filteredBilling = null) {
                         ${bill.status === 'pendiente' ? `
                             <button onclick="markAsPaid('${bill.id}')" 
                                     class="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-xs">
-                                Marcar Pagado
+                                Pagado
                             </button>
                         ` : ''}
+                        <button onclick="deleteInvoice('${bill.id}')" 
+                                class="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-xs flex items-center gap-1">
+                            <i data-lucide="trash-2" class="w-3 h-3"></i>
+                        </button>
                     </div>
                 </td>
             </tr>
@@ -1002,6 +1231,83 @@ async function extendSubscription(plan) {
     } catch (error) {
         console.error('Error al extender suscripción:', error);
         showToast('❌ Error al extender suscripción');
+    }
+}
+
+// ✅ NUEVO: Mostrar modal de fecha personalizada
+function showCustomDateModal() {
+    if (!currentSchoolData) return;
+    
+    // Establecer fecha mínima como hoy
+    const today = new Date().toISOString().split('T')[0];
+    const customDateInput = document.getElementById('customRenewalDate');
+    if (customDateInput) {
+        customDateInput.min = today;
+        // Prellenar con la fecha actual de vencimiento + 1 año como sugerencia
+        const suggested = new Date(currentSchoolData.endDate || new Date());
+        suggested.setFullYear(suggested.getFullYear() + 1);
+        customDateInput.value = suggested.toISOString().split('T')[0];
+    }
+    
+    document.getElementById('customDateModal').classList.remove('hidden');
+}
+
+function closeCustomDateModal() {
+    document.getElementById('customDateModal').classList.add('hidden');
+}
+
+async function extendToCustomDate() {
+    if (!currentSchoolData) return;
+    
+    const dateInput = document.getElementById('customRenewalDate');
+    const customDate = dateInput?.value;
+    
+    if (!customDate) {
+        showToast('❌ Selecciona una fecha válida');
+        return;
+    }
+    
+    const newEndDate = new Date(customDate);
+    const now = new Date();
+    
+    if (newEndDate <= now) {
+        showToast('❌ La fecha debe ser futura');
+        return;
+    }
+    
+    const clubId = currentSchoolData.clubId;
+    
+    try {
+        showToast('⏳ Actualizando fecha...');
+        
+        const paymentHistory = currentSchoolData.paymentHistory || [];
+        paymentHistory.push({
+            date: new Date().toISOString(),
+            plan: 'personalizado',
+            action: 'custom_extension',
+            newEndDate: newEndDate.toISOString(),
+            extendedBy: currentAdminData?.email || 'Super Admin'
+        });
+        
+        const { db, doc, updateDoc } = window.firebaseAdmin;
+        
+        await updateDoc(doc(db, 'licenses', clubId), {
+            endDate: newEndDate.toISOString(),
+            status: 'activo',
+            paymentHistory: paymentHistory,
+            lastUpdated: new Date().toISOString()
+        });
+        
+        closeCustomDateModal();
+        closeSchoolActionsModal();
+        await loadSchools();
+        updateStats();
+        
+        showToast(`✅ Licencia extendida hasta ${formatDate(newEndDate)}`);
+        
+    } catch (error) {
+        console.error('Error al extender con fecha personalizada:', error);
+        showToast('❌ Error al actualizar la fecha');
     }
 }
 

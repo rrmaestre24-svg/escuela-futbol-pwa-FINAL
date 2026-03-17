@@ -57,6 +57,17 @@ async function initFirebase() {
       serverTimestamp 
     } = firestoreModule;
     
+
+    const storageModule = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js');
+    const {
+      getStorage,
+      ref,
+      uploadString,
+      getDownloadURL,
+      deleteObject
+    } = storageModule;
+
+
     const authModule = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');
     const { 
       getAuth, 
@@ -72,6 +83,7 @@ async function initFirebase() {
     const app = initializeApp(firebaseConfig);
     db = getFirestore(app);
     auth = getAuth(app);
+    const storage = getStorage(app);
     
     // CONFIGURAR PERSISTENCIA LOCAL - La sesion sobrevive al cerrar el navegador/PWA
     try {
@@ -106,7 +118,12 @@ async function initFirebase() {
       onAuthStateChanged,
       sendPasswordResetEmail,
       setPersistence,
-      browserLocalPersistence
+      browserLocalPersistence,
+      storage,
+      ref,
+      uploadString,
+      getDownloadURL,
+      deleteObject
     };
     
     // LISTENER DE ESTADO DE AUTENTICACION

@@ -154,61 +154,75 @@
         <!-- Contenido Principal -->
         <main class="p-6">
             <!-- Stats Cards - Fila 1: Escuelas -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-4">
-                <!-- Total Escuelas -->
-                <div class="stat-card bg-gradient-to-br from-teal-600 to-teal-700 rounded-2xl p-6 transition-all">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
+                <!-- Escuelas Activas -->
+                <div id="card_active" onclick="filterByCard('active')" class="stat-card bg-gradient-to-br from-teal-600 to-teal-700 rounded-2xl p-5 transition-all cursor-pointer select-none">
                     <div class="flex items-center justify-between">
                         <div>
-                            <p class="text-teal-100 text-sm">Escuelas Activas</p>
+                            <p class="text-teal-100 text-xs font-medium uppercase tracking-wide">Escuelas Activas</p>
                             <p id="statActiveSchools" class="text-4xl font-bold text-white mt-1">0</p>
                         </div>
                         <div class="bg-white bg-opacity-20 p-3 rounded-xl">
-                            <i data-lucide="school" class="w-8 h-8 text-white"></i>
+                            <i data-lucide="school" class="w-7 h-7 text-white"></i>
                         </div>
                     </div>
+                    <p class="text-teal-200 text-xs mt-2 opacity-70">Clic para filtrar</p>
                 </div>
                 
                 <!-- Escuelas Inactivas -->
-                <div class="stat-card bg-gradient-to-br from-red-600 to-red-700 rounded-2xl p-6 transition-all">
+                <div id="card_inactive" onclick="filterByCard('inactive')" class="stat-card bg-gradient-to-br from-red-600 to-red-700 rounded-2xl p-5 transition-all cursor-pointer select-none">
                     <div class="flex items-center justify-between">
                         <div>
-                            <p class="text-red-100 text-sm">Escuelas Inactivas</p>
+                            <p class="text-red-100 text-xs font-medium uppercase tracking-wide">Inactivas</p>
                             <p id="statInactiveSchools" class="text-4xl font-bold text-white mt-1">0</p>
                         </div>
                         <div class="bg-white bg-opacity-20 p-3 rounded-xl">
-                            <i data-lucide="alert-circle" class="w-8 h-8 text-white"></i>
+                            <i data-lucide="alert-circle" class="w-7 h-7 text-white"></i>
                         </div>
                     </div>
+                    <p class="text-red-200 text-xs mt-2 opacity-70">Clic para filtrar</p>
                 </div>
                             
                 <!-- Próximos a Vencer -->
-                <div class="stat-card bg-gradient-to-br from-yellow-600 to-orange-600 rounded-2xl p-6 transition-all">
+                <div id="card_expiring" onclick="filterByCard('expiring')" class="stat-card bg-gradient-to-br from-yellow-600 to-orange-600 rounded-2xl p-5 transition-all cursor-pointer select-none">
                     <div class="flex items-center justify-between">
                         <div>
-                            <p class="text-yellow-100 text-sm">Próximos a Vencer (7 días)</p>
+                            <p class="text-yellow-100 text-xs font-medium uppercase tracking-wide">Vencen en 7 días</p>
                             <p id="statExpiringSoon" class="text-4xl font-bold text-white mt-1">0</p>
                         </div>
                         <div class="bg-white bg-opacity-20 p-3 rounded-xl">
-                            <i data-lucide="clock" class="w-8 h-8 text-white"></i>
+                            <i data-lucide="clock" class="w-7 h-7 text-white"></i>
                         </div>
                     </div>
+                    <p class="text-yellow-200 text-xs mt-2 opacity-70">Clic para filtrar</p>
                 </div>
-                <button onclick="showTab('suggestions')" class="relative flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg transition-colors">
-                            💡 Sugerencias
-                            <span id="suggestionBadge" class="hidden absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center animate-pulse"></span>
-                            </button>
-                
-                <!-- Códigos Pendientes -->
-                <div class="stat-card bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl p-6 transition-all">
+
+                <!-- Total Jugadores -->
+                <div id="card_players" onclick="filterByCard('players')" class="stat-card bg-gradient-to-br from-cyan-600 to-blue-600 rounded-2xl p-5 transition-all cursor-pointer select-none">
                     <div class="flex items-center justify-between">
                         <div>
-                            <p class="text-blue-100 text-sm">Códigos Sin Usar</p>
+                            <p class="text-cyan-100 text-xs font-medium uppercase tracking-wide">Total Jugadores</p>
+                            <p id="statTotalPlayers" class="text-4xl font-bold text-white mt-1">0</p>
+                        </div>
+                        <div class="bg-white bg-opacity-20 p-3 rounded-xl">
+                            <i data-lucide="users" class="w-7 h-7 text-white"></i>
+                        </div>
+                    </div>
+                    <p class="text-cyan-200 text-xs mt-2 opacity-70">Clic para ordenar</p>
+                </div>
+                
+                <!-- Códigos Sin Usar -->
+                <div id="card_codes" onclick="filterByCard('codes')" class="stat-card bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl p-5 transition-all cursor-pointer select-none">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-blue-100 text-xs font-medium uppercase tracking-wide">Códigos Sin Usar</p>
                             <p id="statPendingCodes" class="text-4xl font-bold text-white mt-1">0</p>
                         </div>
                         <div class="bg-white bg-opacity-20 p-3 rounded-xl">
-                            <i data-lucide="ticket" class="w-8 h-8 text-white"></i>
+                            <i data-lucide="ticket" class="w-7 h-7 text-white"></i>
                         </div>
                     </div>
+                    <p class="text-blue-200 text-xs mt-2 opacity-70">Clic para ver códigos</p>
                 </div>
             </div>
             
@@ -729,6 +743,12 @@
                         <i data-lucide="plus-circle" class="w-5 h-5"></i>
                         Extender 1 Año
                     </button>
+                    <!-- ✅ NUEVO: Fecha personalizada -->
+                    <button onclick="showCustomDateModal()" 
+                            class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-medium flex items-center justify-center gap-2">
+                        <i data-lucide="calendar" class="w-5 h-5"></i>
+                        Establecer Fecha Personalizada
+                    </button>
                     <button onclick="showNewPaymentModalForSchool()" 
                             class="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-medium flex items-center justify-center gap-2">
                         <i data-lucide="credit-card" class="w-5 h-5"></i>
@@ -744,6 +764,16 @@
                         <i data-lucide="message-circle" class="w-5 h-5"></i>
                         Enviar Recordatorio WhatsApp
                     </button>
+
+                    <!-- ✅ NUEVO: Eliminar club -->
+                    <div class="border-t border-gray-600 pt-3 mt-3">
+                        <button onclick="deleteClub()" 
+                                class="w-full bg-red-700 hover:bg-red-800 text-white py-3 rounded-xl font-medium flex items-center justify-center gap-2 border border-red-500">
+                            <i data-lucide="trash-2" class="w-5 h-5"></i>
+                            Eliminar Club del Sistema
+                        </button>
+                        <p class="text-xs text-gray-500 text-center mt-2">⚠️ Esta acción requiere doble confirmación</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -902,6 +932,52 @@
         </div>
     </div>
     
+    <!-- ✅ NUEVO: Modal Fecha Personalizada -->
+    <div id="customDateModal" class="hidden fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+        <div class="bg-gray-800 rounded-2xl shadow-2xl w-full max-w-sm animate-fade-in border border-indigo-500">
+            <div class="p-5 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-t-2xl">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                        <i data-lucide="calendar" class="w-5 h-5"></i>
+                        Fecha Personalizada
+                    </h3>
+                    <button onclick="closeCustomDateModal()" class="text-white hover:bg-white/20 rounded-lg p-1">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="p-6 space-y-4">
+                <p class="text-gray-400 text-sm">Selecciona la fecha exacta hasta la que deseas extender la licencia.</p>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Nueva fecha de vencimiento</label>
+                    <input type="date" id="customRenewalDate"
+                           class="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                
+                <div class="bg-gray-700 rounded-xl p-3">
+                    <p class="text-xs text-gray-400">
+                        <i data-lucide="info" class="w-3 h-3 inline mr-1"></i>
+                        La licencia quedará activa hasta la fecha seleccionada.
+                    </p>
+                </div>
+                
+                <div class="flex gap-3">
+                    <button onclick="closeCustomDateModal()" 
+                            class="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-3 rounded-xl font-medium">
+                        Cancelar
+                    </button>
+                    <button onclick="extendToCustomDate()" 
+                            class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2">
+                        <i data-lucide="check" class="w-4 h-4"></i>
+                        Confirmar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast -->
     <div id="toast" class="hidden fixed bottom-8 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-lg shadow-lg z-50 border border-gray-700"></div>
     
@@ -933,7 +1009,7 @@
     </script>
     
     <script src="./admin.js"></script>
-    <script src="../js/super-admin-sugerencias.js"></script>
+    <script src="./js/super-admin-sugerencias.js"></script>
     
     <script>
         // Inicializar Lucide Icons

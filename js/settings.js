@@ -210,22 +210,51 @@ document.getElementById('changeClubLogo')?.addEventListener('change', function(e
       
       if (clubLogo) clubLogo.src = compressed;
       if (headerLogo) headerLogo.src = compressed;
-      
-      updateSchoolSettings({ logo: compressed });  // ✅ Guarda comprimido
-      showToast('✅ Logo actualizado');
+
+      // ✅ Guardar base64 local inmediatamente
+      updateSchoolSettings({ logo: compressed });
+      showToast('⏳ Subiendo logo a la nube...');
+
+      // ✅ Subir a Firebase Storage
+// ✅ Guardar logo en documento separado de Firestore
+      try {
+        if (window.firebase?.db) {
+          const settings = getSchoolSettings();
+          const clubId = settings.clubId || localStorage.getItem('clubId') || 'default';
+          
+          await window.firebase.setDoc(
+            window.firebase.doc(window.firebase.db, `clubs/${clubId}/assets`, 'logo'),
+            { 
+              logo: compressed,
+              updatedAt: new Date().toISOString()
+            }
+          );
+          
+          console.log('✅ Logo guardado en Firestore (documento separado)');
+          showToast('✅ Logo actualizado en la nube');
+        } else {
+          showToast('✅ Logo actualizado localmente');
+        }
+      } catch (storageError) {
+        console.error('❌ Error guardando logo:', storageError);
+        showToast('⚠️ Logo guardado solo localmente');
+      }
       
       console.log(`✅ Logo comprimido: ${Math.round(base64.length/1024)}KB → ${Math.round(compressed.length/1024)}KB`);
       
       // ⭐ GENERAR ICONOS PWA CON EL NUEVO LOGO
       if (typeof generatePWAIcons === 'function') {
         console.log('🎨 Regenerando íconos de la PWA...');
+        localStorage.removeItem('pwa_icon_192');
+        localStorage.removeItem('pwa_icon_512');
+        localStorage.removeItem('pwa_icons_updated');
         setTimeout(() => {
           generatePWAIcons();
-        }, 500);
+        }, 800);
       }
-    });
-  }
-});
+    }); 
+  }   
+});   
 
 // Guardar perfil de usuario
 document.getElementById('userProfileForm')?.addEventListener('submit', function(e) {
@@ -471,10 +500,14 @@ document.getElementById('clubSettingsForm')?.addEventListener('submit', function
     monthlyFee: clubMonthlyFee ? parseFloat(clubMonthlyFee.value) : 0
   };
   
-  // Preservar clubId existente (¡nunca se sobrescribe!)
+ // Preservar clubId y logo existentes
   const existing = getSchoolSettings();
   if (existing.clubId) {
     settings.clubId = existing.clubId;
+  }
+  // ✅ Preservar logo (se guarda por separado en el change del input)
+  if (existing.logo) {
+    settings.logo = existing.logo;
   }
 
   // Color primario
@@ -1612,4 +1645,4 @@ async function manualSync() {
 // Exportar
 window.manualSync = manualSync;
 
-console.log('✅ Sistema de sincronización manual cargado');
+console.log('✅ Sistema de sincronización manual cargado')

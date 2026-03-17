@@ -108,13 +108,12 @@ async function downloadAllDataInitially(clubId) {
     config: 0
   };
   
-  // 1️⃣ CONFIGURACIÓN
+// 1️⃣ CONFIGURACIÓN
   try {
     console.log('📥 1/9 - Configuración del club...');
     const settingsDoc = await window.firebase.getDoc(
       window.firebase.doc(window.firebase.db, `clubs/${clubId}/settings`, 'main')
     );
-    
     if (settingsDoc.exists()) {
       const settingsData = settingsDoc.data();
       if (typeof updateSchoolSettings === 'function') {
@@ -128,26 +127,107 @@ async function downloadAllDataInitially(clubId) {
   } catch (error) {
     console.error('⚠️ Error configuración:', error);
   }
+
+  // 1️⃣B - LOGO DEL CLUB (documento separado)
+  try {
+    const logoDoc = await window.firebase.getDoc(
+      window.firebase.doc(window.firebase.db, `clubs/${clubId}/assets`, 'logo')
+    );
+    if (logoDoc.exists()) {
+      const logoData = logoDoc.data();
+      if (logoData.logo) {
+        const currentSettings = JSON.parse(localStorage.getItem('schoolSettings') || '{}');
+        currentSettings.logo = logoData.logo;
+        localStorage.setItem('schoolSettings', JSON.stringify(currentSettings));
+        console.log('✅ Logo cargado desde documento separado');
+      }
+    }
+  } catch (error) {
+    console.error('⚠️ Error cargando logo:', error);
+  }
   
-  // 2️⃣ JUGADORES
+  // 2️⃣ JUGADORES - CON FALLBACK SEGURO Y NORMALIZACIÓN DE STATUS
   try {
     console.log('📥 2/9 - Jugadores...');
-    const playersSnapshot = await window.firebase.getDocs(
+
+    // ✅ PASO 1: Siempre intentar la fuente principal primero
+    const normalizeStatus = (status) => {
+      if (!status) return 'Activo'; // Sin status = Activo (compatibilidad datos viejos)
+      const s = status.toLowerCase().trim();
+      if (s === 'activo' || s === 'active') return 'Activo';
+      if (s === 'inactivo' || s === 'inactive') return 'Inactivo';
+      return status;
+    };
+
+    let finalPlayers = [];
+    let usedSource = clubId;
+
+    const primarySnapshot = await window.firebase.getDocs(
       window.firebase.collection(window.firebase.db, `clubs/${clubId}/players`)
     );
-    
-    const players = [];
-    playersSnapshot.forEach(doc => {
-      players.push({ id: doc.id, ...doc.data() });
-    });
-    
-    if (typeof saveAllPlayers === 'function') {
-      saveAllPlayers(players);
-    } else {
-      localStorage.setItem('players', JSON.stringify(players));
+    primarySnapshot.forEach(doc => finalPlayers.push({ id: doc.id, ...doc.data() }));
+    console.log(`   📊 Fuente principal (${clubId}): ${finalPlayers.length} jugadores`);
+
+    // ✅ PASO 2: Solo si la fuente principal devuelve 0 jugadores, buscar en fuentes alternativas
+    // Esto evita mezclar o sobreescribir datos de escuelas diferentes
+    if (finalPlayers.length === 0) {
+      console.log('⚠️ Fuente principal vacía — buscando en fuentes alternativas...');
+
+      const fallbackIds = [];
+      try {
+        const currentUser = typeof getCurrentUser === 'function'
+          ? getCurrentUser()
+          : JSON.parse(localStorage.getItem('currentUser') || 'null');
+        const settings = JSON.parse(localStorage.getItem('schoolSettings') || '{}');
+
+        if (currentUser?.schoolId && currentUser.schoolId !== clubId)
+          fallbackIds.push(currentUser.schoolId);
+        if (settings?.clubId && settings.clubId !== clubId && !fallbackIds.includes(settings.clubId))
+          fallbackIds.push(settings.clubId);
+        if (settings?.name) {
+          const derivedId = settings.name.toLowerCase().replace(/[^a-z0-9]/g, '_');
+          if (derivedId !== clubId && !fallbackIds.includes(derivedId))
+            fallbackIds.push(derivedId);
+        }
+      } catch (e) {
+        console.warn('⚠️ Error construyendo fuentes alternativas:', e);
+      }
+
+      for (const fallbackId of fallbackIds) {
+        try {
+          const snap = await window.firebase.getDocs(
+            window.firebase.collection(window.firebase.db, `clubs/${fallbackId}/players`)
+          );
+          const players = [];
+          snap.forEach(doc => players.push({ id: doc.id, ...doc.data() }));
+          console.log(`   📊 Alternativa (${fallbackId}): ${players.length} jugadores`);
+
+          if (players.length > 0) {
+            finalPlayers = players;
+            usedSource = fallbackId;
+            console.log(`✅ Usando fuente alternativa: ${fallbackId}`);
+            break; // ✅ Usar la primera alternativa que tenga datos, sin mezclar
+          }
+        } catch (e) {
+          console.warn(`   ⚠️ Error leyendo ${fallbackId}:`, e.message);
+        }
+      }
     }
-    stats.players = players.length;
-    console.log(`✅ ${players.length} jugadores`);
+
+    // ✅ PASO 3: Normalizar status antes de guardar
+    finalPlayers = finalPlayers.map(p => ({
+      ...p,
+      status: normalizeStatus(p.status)
+    }));
+
+    if (typeof saveAllPlayers === 'function') {
+      saveAllPlayers(finalPlayers);
+    } else {
+      localStorage.setItem('players', JSON.stringify(finalPlayers));
+    }
+
+    stats.players = finalPlayers.length;
+    console.log(`✅ ${finalPlayers.length} jugadores cargados desde: ${usedSource}`);
   } catch (error) {
     console.error('⚠️ Error jugadores:', error);
   }
@@ -356,7 +436,18 @@ function startPlayersListener(clubId) {
     (snapshot) => {
       const players = [];
       snapshot.forEach(doc => {
-        players.push({ id: doc.id, ...doc.data() });
+        const data = doc.data();
+        // ✅ Normalizar status al recibir desde Firebase (compatibilidad datos antiguos)
+        const status = data.status;
+        let normalizedStatus;
+        if (!status) normalizedStatus = 'Activo';
+        else {
+          const s = status.toLowerCase().trim();
+          if (s === 'activo' || s === 'active') normalizedStatus = 'Activo';
+          else if (s === 'inactivo' || s === 'inactive') normalizedStatus = 'Inactivo';
+          else normalizedStatus = status;
+        }
+        players.push({ id: doc.id, ...data, status: normalizedStatus });
       });
       
       if (typeof saveAllPlayers === 'function') {
@@ -495,10 +586,29 @@ function startSettingsListener(clubId) {
   
   window.realtimeListeners.settings = window.firebase.onSnapshot(
     settingsRef,
-    (doc) => {
+    async (doc) => {
       if (doc.exists()) {
         const settings = doc.data();
-        
+
+        // ✅ Recuperar logo del documento separado
+        try {
+          const clubId = window.realtimeSyncState.clubId;
+          if (clubId) {
+            const logoDoc = await window.firebase.getDoc(
+              window.firebase.doc(window.firebase.db, `clubs/${clubId}/assets`, 'logo')
+            );
+            if (logoDoc.exists() && logoDoc.data().logo) {
+              settings.logo = logoDoc.data().logo;
+            } else {
+              const local = JSON.parse(localStorage.getItem('schoolSettings') || '{}');
+              if (local.logo) settings.logo = local.logo;
+            }
+          }
+        } catch (e) {
+          const local = JSON.parse(localStorage.getItem('schoolSettings') || '{}');
+          if (local.logo) settings.logo = local.logo;
+        }
+
         if (typeof saveSchoolSettings === 'function') {
           saveSchoolSettings(settings);
         } else {

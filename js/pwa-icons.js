@@ -7,21 +7,36 @@
 (function() {
   console.log('🎨 Inicializando sistema de iconos PWA...');
   
-  // Verificar si ya existe manifest dinámico
   const hasDynamicManifest = localStorage.getItem('pwa_icon_192');
   
   if (!hasDynamicManifest) {
-    console.log('⚠️ No hay iconos guardados, generando ahora...');
-    // Esperar a que storage.js esté disponible
+    console.log('⚠️ No hay iconos guardados, esperando storage...');
     const checkStorage = setInterval(() => {
       if (typeof getSchoolSettings === 'function') {
         clearInterval(checkStorage);
-        generatePWAIcons();
+        const settings = getSchoolSettings();
+        // ✅ Solo generar si hay logo real
+        if (settings.logo && settings.logo.startsWith('data:image')) {
+          generatePWAIcons();
+        } else {
+          console.log('⚠️ No hay logo aún, esperando sincronización...');
+          // Esperar a que Firebase cargue el logo
+          const waitForLogo = setInterval(() => {
+            const s = getSchoolSettings();
+            if (s.logo && s.logo.startsWith('data:image')) {
+              clearInterval(waitForLogo);
+              generatePWAIcons();
+            }
+          }, 1000);
+          // Timeout de 15 segundos para no esperar infinito
+          setTimeout(() => clearInterval(waitForLogo), 15000);
+        }
       }
     }, 100);
   } else {
     console.log('✅ Iconos guardados encontrados, cargando...');
     loadSavedIcons();
+    // ✅ NO regenerar — confiar en los iconos del localStorage
   }
 })();
 
@@ -234,7 +249,13 @@ function loadSavedIcons() {
     updateFavicon(icon192);
     console.log('✅ Iconos PWA cargados desde localStorage');
   } else {
-    console.log('⚠️ No hay iconos guardados en localStorage');
+    console.log('⚠️ No hay iconos, intentando generar...');
+    const checkStorage = setInterval(() => {
+      if (typeof getSchoolSettings === 'function') {
+        clearInterval(checkStorage);
+        generatePWAIcons();
+      }
+    }, 100);
   }
 }
 

@@ -172,7 +172,22 @@ function deletePlayer(playerId) {
 }
 
 function getActivePlayers() {
-  return getPlayers().filter(p => p.status === 'Activo');
+  return getPlayers().filter(p => {
+    // ✅ COMPATIBILIDAD: jugadores sin status (datos antiguos) se tratan como Activo
+    if (!p.status) return true;
+    // ✅ COMPATIBILIDAD: acepta todas las variantes posibles del status
+    const s = p.status.toLowerCase().trim();
+    return s === 'activo' || s === 'active';
+  });
+}
+
+// ✅ UTILIDAD: Normalizar status a formato estándar
+function normalizePlayerStatus(status) {
+  if (!status) return 'Activo';
+  const s = status.toLowerCase().trim();
+  if (s === 'activo' || s === 'active') return 'Activo';
+  if (s === 'inactivo' || s === 'inactive') return 'Inactivo';
+  return status; // Conservar valor original si es desconocido
 }
 
 // ========================================

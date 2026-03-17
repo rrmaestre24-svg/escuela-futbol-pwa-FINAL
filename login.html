@@ -428,10 +428,16 @@
                     <div class="input-wrapper">
                         <input type="text" id="regClubId" required
                                placeholder="club_mi_escuela"
-                               class="input-field">
-                        <span class="input-icon"><i data-lucide="at-sign" class="w-4 h-4"></i></span>
+                               class="input-field"
+                               oninput="onClubIdInput(this.value)"
+                               autocomplete="off">
+                        <span class="input-icon" id="clubIdStatusIcon">
+                            <i data-lucide="at-sign" class="w-4 h-4"></i>
+                        </span>
                     </div>
-                    <p style="font-size:11px; color:rgba(255,255,255,0.3); margin-top:5px;">Identificador único en la nube (sin espacios)</p>
+                    <p id="clubIdFeedback" style="font-size:11px; color:rgba(255,255,255,0.3); margin-top:5px;">
+                        Identificador único en la nube (sin espacios)
+                    </p>
                 </div>
 
                 <!-- Color y Moneda -->

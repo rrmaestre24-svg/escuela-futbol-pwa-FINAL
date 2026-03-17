@@ -237,7 +237,7 @@ function formatClubId(input) {
   return formatted || null;
 }
 
-// ✅ NUEVA FUNCIÓN: Verificar si el Club ID ya existe en Firebase
+// ✅ FUNCIÓN CORREGIDA: Verificar si el Club ID ya existe en Firebase
 async function checkClubIdExists(clubId) {
   if (!window.firebase?.db) {
     console.warn('⚠️ Firebase no disponible para verificar Club ID');
@@ -245,19 +245,27 @@ async function checkClubIdExists(clubId) {
   }
   
   try {
-    // Verificar en la colección 'clubs'
-    const clubRef = window.firebase.doc(window.firebase.db, 'clubs', clubId);
-    const clubSnap = await window.firebase.getDoc(clubRef);
-    
-    if (clubSnap.exists()) {
-      return true; // Ya existe
+    // ✅ RUTA CORRECTA: verificar el documento de settings que SÍ se crea al registrar
+    // (el documento raíz clubs/{clubId} nunca se crea explícitamente)
+    const settingsRef = window.firebase.doc(
+      window.firebase.db, `clubs/${clubId}/settings`, 'main'
+    );
+    const settingsSnap = await window.firebase.getDoc(settingsRef);
+    if (settingsSnap.exists()) {
+      console.log('❌ Club ID ya existe (settings):', clubId);
+      return true;
     }
-    
-    // También verificar en 'licenses' por si acaso
+
+    // ✅ También verificar en 'licenses' (fallback)
     const licenseRef = window.firebase.doc(window.firebase.db, 'licenses', clubId);
     const licenseSnap = await window.firebase.getDoc(licenseRef);
-    
-    return licenseSnap.exists();
+    if (licenseSnap.exists()) {
+      console.log('❌ Club ID ya existe (licenses):', clubId);
+      return true;
+    }
+
+    console.log('✅ Club ID disponible:', clubId);
+    return false;
   } catch (error) {
     console.error('❌ Error al verificar Club ID:', error);
     return false;
