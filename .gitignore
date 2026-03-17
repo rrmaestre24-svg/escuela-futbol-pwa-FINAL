@@ -26,4 +26,5 @@ node_modules/
 
 # Archivos temporales
 .cache/
-.temp/
+.temp/admin/
+js/super-admin-sugerencias.js
