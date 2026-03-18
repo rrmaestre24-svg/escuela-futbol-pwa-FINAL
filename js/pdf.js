@@ -151,6 +151,8 @@ function generateInvoicePDF(paymentId, autoDownload = true) {
     } catch (e) {
       console.log('Logo no disponible');
     }
+
+
     
     // Encabezado del club
     doc.setFontSize(20);
@@ -169,7 +171,9 @@ function generateInvoicePDF(paymentId, autoDownload = true) {
     doc.setFontSize(18);
     doc.setTextColor(...primaryColor);
     doc.setFont(undefined, 'bold');
-    doc.text('FACTURA DE PAGO', 150, 25);
+    const tipoFactura = 'PAGO DE ' + normalizeForPDF(payment.type || payment.category || 'MENSUALIDAD').toUpperCase();
+    doc.setFontSize(13);
+    doc.text(tipoFactura, 195, 25, { align: 'right' });
     
     // Línea separadora
     doc.setDrawColor(...primaryColor);
@@ -177,88 +181,47 @@ function generateInvoicePDF(paymentId, autoDownload = true) {
     doc.line(15, 50, 195, 50);
     
     let yPos = 60;
-    
-    // 📄 Factura
-    doc.setFontSize(11);
-    doc.setFont(undefined, 'bold');
-    doc.setTextColor(...textColor);
-    doc.text('Factura:', 15, yPos);
-    doc.setFont(undefined, 'normal');
-    doc.text(payment.invoiceNumber || 'N/A', 50, yPos);
-    yPos += 8;
-    
-    // 👤 Jugador
-    doc.setFont(undefined, 'bold');
-    doc.text('Jugador:', 15, yPos);
-    doc.setFont(undefined, 'normal');
-    doc.text(normalizeForPDF(player.name), 50, yPos);
-    yPos += 8;
-    
-    // 🆕 🪪 Documento de Identidad
-    const documentText = formatDocumentForPDF(player.documentType, player.documentNumber);
-    if (documentText) {
+
+// Helper para filas con estilo - compatible con todos los sistemas
+    const drawRow = (label, value, valueColor = textColor) => {
+      doc.setFillColor(248, 250, 252);
+      doc.rect(15, yPos - 5, 180, 9, 'F');
+      doc.setDrawColor(229, 231, 235);
+      doc.setLineWidth(0.2);
+      doc.line(15, yPos + 4, 195, yPos + 4);
+      doc.setFontSize(10);
+      doc.setTextColor(...primaryColor);
       doc.setFont(undefined, 'bold');
-      doc.text('Documento:', 15, yPos);
+      doc.text(label, 17, yPos);
+      doc.setTextColor(...valueColor);
       doc.setFont(undefined, 'normal');
-      doc.text(documentText, 50, yPos);
-      yPos += 8;
-    }
-    
-    // 📁 Categoría
-    doc.setFont(undefined, 'bold');
-    doc.text('Categoria:', 15, yPos);
-    doc.setFont(undefined, 'normal');
-    doc.text(normalizeForPDF(player.category), 50, yPos);
-    yPos += 8;
-    
-    // 💰 Concepto
-    doc.setFont(undefined, 'bold');
-    doc.text('Concepto:', 15, yPos);
-    doc.setFont(undefined, 'normal');
-    doc.text(normalizeForPDF(payment.concept), 50, yPos);
-    yPos += 8;
-    
-    // 💵 Monto
-    doc.setFont(undefined, 'bold');
-    doc.text('Monto:', 15, yPos);
-    doc.setFont(undefined, 'normal');
-    doc.setTextColor(...primaryColor);
-    doc.setFontSize(13);
-    doc.setFont(undefined, 'bold');
-    doc.text(formatCurrency(payment.amount), 50, yPos);
-    yPos += 8;
-    
-    // 📅 Fecha
-    doc.setFontSize(11);
-    doc.setTextColor(...textColor);
-    doc.setFont(undefined, 'bold');
-    doc.text('Fecha:', 15, yPos);
-    doc.setFont(undefined, 'normal');
-    doc.text(formatDate(payment.paidDate || payment.dueDate), 50, yPos);
-    yPos += 8;
-    
-    // 💳 Método
-    if (payment.method) {
-      doc.setFont(undefined, 'bold');
-      doc.text('Metodo:', 15, yPos);
-      doc.setFont(undefined, 'normal');
-      doc.text(normalizeForPDF(payment.method), 50, yPos);
+      doc.text(String(value), 75, yPos);
       yPos += 10;
-    }
+    };
+
+drawRow('Factura:', payment.invoiceNumber || 'N/A');
+    drawRow('Jugador:', normalizeForPDF(player.name));
+    const documentText = formatDocumentForPDF(player.documentType, player.documentNumber);
+    if (documentText) drawRow('Documento:', documentText);
+    drawRow('Categoria:', normalizeForPDF(player.category));
+    drawRow('Tipo de Pago:', normalizeForPDF(payment.type || payment.category || 'N/A'));
+    drawRow('Concepto:', normalizeForPDF(payment.concept));
+    drawRow('Monto:', formatCurrency(payment.amount), primaryColor);
+    drawRow('Fecha:', formatDate(payment.paidDate || payment.dueDate));
+    if (payment.method) drawRow('Metodo:', normalizeForPDF(payment.method));
     
-    // ✅ Estado
+    
+    // Estado con barra de color
+    yPos += 3;
+    const estadoColor = payment.status === 'Pagado' ? [22, 163, 74] : [220, 38, 38];
+    doc.setFillColor(...estadoColor);
+    doc.rect(15, yPos - 5, 180, 11, 'F');
+    doc.setFontSize(12);
+    doc.setTextColor(255, 255, 255);
     doc.setFont(undefined, 'bold');
-    if (payment.status === 'Pagado') {
-      doc.setTextColor(22, 163, 74);
-      doc.setFontSize(13);
-      doc.text('Estado: PAGADO', 15, yPos);
-    } else {
-      doc.setTextColor(220, 38, 38);
-      doc.setFontSize(13);
-      doc.text('Estado: PENDIENTE', 15, yPos);
-    }
-    yPos += 20;
-    
+    doc.text(`Estado: ${payment.status === 'Pagado' ? 'PAGADO' : 'PENDIENTE'}`, 105, yPos + 2, { align: 'center' });
+    yPos += 18;
+
     // Mensaje de agradecimiento
     doc.setTextColor(...textColor);
     doc.setFontSize(10);
@@ -283,10 +246,10 @@ function generateInvoicePDF(paymentId, autoDownload = true) {
     }
     
     // 🆕 AGREGAR FIRMA AUTOMÁTICA
-    addSignatureToDocument(doc, yPos + 15);
+    addSignatureToDocument(doc, yPos + 3);
     
     if (autoDownload) {
-      doc.save(`Factura-${payment.invoiceNumber || 'SN'}.pdf`);
+     doc.save(`${payment.invoiceNumber || 'Factura'}.pdf`);
       showToast('✅ Factura descargada');
     }
     
@@ -334,6 +297,8 @@ function generatePaymentNotificationPDF(paymentId) {
     } catch (e) {
       console.log('Logo no disponible');
     }
+
+    
     
     // Encabezado
     doc.setFontSize(20);
@@ -475,6 +440,8 @@ function generatePlayerAccountStatementPDF(playerId) {
     } catch (e) {
       console.log('Logo no disponible');
     }
+
+   
     
     // Encabezado
     doc.setFontSize(20);
@@ -541,7 +508,7 @@ function generatePlayerAccountStatementPDF(playerId) {
     doc.setFont(undefined, 'bold');
     doc.text('HISTORIAL DE PAGOS', 15, yPos);
     
-    yPos += 10;
+    yPos += 7;
     
     doc.setFontSize(9);
     doc.setFillColor(...primaryColor);
@@ -856,7 +823,8 @@ function generateFullAccountingReportPDF() {
       doc.setTextColor(...textColor);
       yPos += 7;
     });
-    
+       
+
     // Pie de página con números
     const pageCount = doc.internal.getNumberOfPages();
     for (let i = 1; i <= pageCount; i++) {
@@ -907,6 +875,8 @@ function generateExpenseInvoicePDF(expenseId, autoDownload = true) {
         doc.addImage(settings.logo, 'PNG', 15, 15, 30, 30);
       }
     } catch (e) {}
+
+    
     
     // Encabezado
     doc.setFontSize(20);
