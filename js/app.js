@@ -243,6 +243,11 @@ async function initApp() {
   if (headerClubName) {
     headerClubName.textContent = settings.name || 'MY CLUB';
   }
+  // ⭐ Logo como marca de agua
+if (settings.logo) {
+  document.documentElement.style.setProperty('--club-logo-url', `url("${settings.logo}")`);
+  document.body.classList.add('has-watermark');
+}
   
   // Aplicar color primario del club
   if (typeof applyPrimaryColor === 'function') {
