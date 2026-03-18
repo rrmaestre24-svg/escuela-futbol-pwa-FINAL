@@ -65,6 +65,22 @@
     .animate-pulse-slow {
         animation: pulse-slow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
     }
+body.has-watermark::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: var(--club-logo-url, none);
+  background-repeat: no-repeat;
+  background-position: center center;
+  background-size: contain;
+  opacity: 0.08;  /* Más bajo para no competir con el contenido */
+  pointer-events: none;
+  z-index: 0;
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  transform: translateZ(0);
+}
+
     </style>
 </head>
 <body class="bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
