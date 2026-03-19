@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manual de Usuario - My Club</title>
+    <!-- Incluimos la librería para generar el PDF directamente en el cliente -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #004d40;
+            --text-color: #333;
+            --bg-color: #fff;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 40px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+        }
+        header {
+            text-align: center;
+            border-bottom: 2px solid var(--primary-color);
+            margin-bottom: 40px;
+            padding-bottom: 20px;
+        }
+        h1 { color: var(--primary-color); font-size: 2.5em; margin-bottom: 10px; }
+        h2 { color: var(--primary-color); border-bottom: 1px solid #ddd; padding-bottom: 5px; margin-top: 40px; page-break-before: always; }
+        h3 { color: #555; margin-top: 25px; }
+        .meta-info { font-style: italic; color: #777; margin-bottom: 30px; text-align: center; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        th { background-color: #f4f4f4; color: var(--primary-color); }
+        blockquote { border-left: 5px solid var(--primary-color); background: #f9f9f9; padding: 15px; margin: 20px 0; }
+        .footer { margin-top: 50px; text-align: center; font-size: 0.9em; color: #888; border-top: 1px solid #eee; padding-top: 20px; }
+        ul, ol { margin-bottom: 20px; }
+        li { margin-bottom: 10px; }
+        
+        /* Estilos para el botón flotante */
+        .no-print {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #004d40;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            font-family: sans-serif;
+            z-index: 1000;
+        }
+        .download-btn {
+            background: #ffffff;
+            color: #004d40;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1.1em;
+            width: 100%;
+            margin-top: 10px;
+            transition: background 0.3s;
+        }
+        .download-btn:hover {
+            background: #e0e0e0;
+        }
+        
+        @media print {
+            body { padding: 0; background: none; }
+            .no-print { display: none !important; }
+            h2 { page-break-before: always; }
+            a { text-decoration: none; color: inherit; }
+            .container { max-width: 100%; padding: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="no-print">
+        <p style="margin: 0 0 10px 0;"><strong>Acciones rápidas:</strong></p>
+        <button id="downloadBtn" class="download-btn">📥 Descargar PDF</button>
+        <button onclick="window.print()" style="margin-top:10px; width:100%; padding: 8px; cursor:pointer; background:transparent; border: 1px solid white; color: white; border-radius: 5px;">🖨️ Imprimir</button>
+    </div>
+
+    <div class="container" id="content-to-print">
+        <header>
+            <h1>MANUAL DE USUARIO</h1>
+            <p>MY CLUB — Sistema de Gestión de Escuelas de Fútbol</p>
+        </header>
+
+        <div class="meta-info">
+            <p><strong>Versión:</strong> 1.0<br>
+            <strong>Fecha:</strong> Marzo 2026<br>
+            <strong>Plataforma:</strong> Web / PWA (Progressive Web App)</p>
+        </div>
+
+        <section id="indice">
+            <h2>ÍNDICE</h2>
+            <ol>
+                <li>Introducción</li>
+                <li>Primeros Pasos — Registro y Configuración</li>
+                <li>Panel Principal (Dashboard)</li>
+                <li>Gestión de Jugadores</li>
+                <li>Sistema de Pagos</li>
+                <li>Contabilidad</li>
+                <li>Calendario de Eventos</li>
+                <li>Cumpleaños</li>
+                <li>Configuración del Club</li>
+                <li>Portal de Padres</li>
+                <li>Instalación como App (PWA)</li>
+                <li>Funcionamiento Offline</li>
+                <li>Sistema de Sugerencias</li>
+                <li>Preguntas Frecuentes</li>
+            </ol>
+        </section>
+
+        <section id="introduccion">
+            <h2>1. INTRODUCCIÓN</h2>
+            <p><strong>MY CLUB</strong> es una aplicación web progresiva (PWA) diseñada para simplificar la gestión administrativa de escuelas de fútbol. Funciona desde cualquier navegador y puede instalarse en el celular o computador como una aplicación nativa.</p>
+            
+            <h3>¿Qué puede hacer MY CLUB?</h3>
+            <table>
+                <thead>
+                    <tr><th>Módulo</th><th>Descripción</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>👥 Jugadores</td><td>Registro, búsqueda, edición y gestión de todos los jugadores</td></tr>
+                    <tr><td>💰 Pagos</td><td>Control de mensualidades, extras y estados de pago</td></tr>
+                    <tr><td>📊 Contabilidad</td><td>Ingresos, egresos y balance financiero del club</td></tr>
+                    <tr><td>📅 Calendario</td><td>Eventos, partidos, entrenamientos y torneos</td></tr>
+                    <tr><td>🎂 Cumpleaños</td><td>Alertas y felicitaciones automáticas</td></tr>
+                    <tr><td>👨‍👩‍👧 Portal de Padres</td><td>Acceso externo para que los padres consulten el perfil de su hijo</td></tr>
+                    <tr><td>⚙️ Configuración</td><td>Personalización completa del club</td></tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section id="primeros-pasos">
+            <h2>2. PRIMEROS PASOS — REGISTRO Y CONFIGURACIÓN</h2>
+            <h3>2.1 Crear una cuenta</h3>
+            <ol>
+                <li>Ingresa a la URL de MY CLUB en tu navegador</li>
+                <li>En la pantalla de inicio de sesión, haz clic en la pestaña <strong>"Registrarse"</strong></li>
+                <li>Completa los datos de ID del Club, correo, contraseña y código de activación.</li>
+                <li>Haz clic en <strong>"Crear Cuenta"</strong></li>
+            </ol>
+            <blockquote>
+                <strong>Importante:</strong> Guarda tu ID del Club y correo electrónico en un lugar seguro. Los necesitarás cada vez que inicies sesión.
+            </blockquote>
+
+            <h3>2.2 Iniciar Sesión</h3>
+            <ol>
+                <li>En la pantalla de login ingresa tu <strong>correo</strong> y <strong>contraseña</strong></li>
+                <li>Haz clic en <strong>"Ingresar"</strong></li>
+            </ol>
+        </section>
+
+        <section id="dashboard">
+            <h2>3. PANEL PRINCIPAL (DASHBOARD)</h2>
+            <p>El Dashboard es la pantalla de inicio. Muestra un resumen rápido del estado del club: jugadores totales, alertas de pagos venciros, próximos eventos y resumen financiero.</p>
+        </section>
+
+        <section id="jugadores">
+            <h2>4. GESTIÓN DE JUGADORES</h2>
+            <h3>4.1 Agregar un jugador</h3>
+            <p>Ve a <strong>"Jugadores"</strong> y haz clic en <strong>"+ Agregar Jugador"</strong>. Puedes cargar foto, documentos, información médica y de contacto.</p>
+            
+            <h3>4.5 Importación masiva</h3>
+            <p>Puedes importar jugadores desde un archivo Excel o CSV usando la plantilla predefinida en la sección de importación.</p>
+        </section>
+
+        <section id="pagos">
+            <h2>5. SISTEMA DE PAGOS</h2>
+            <p>Controla las mensualidades y pagos extras. Puedes generar facturas en PDF y enviar recordatorios directamente por WhatsApp.</p>
+        </section>
+
+        <section id="portales">
+            <h2>10. PORTAL DE PADRES</h2>
+            <p>Aplicación independiente para que los padres consulten el estado de su hijo. Acceso con Club ID y código único del jugador.</p>
+        </section>
+
+        <section id="pwa-info">
+            <h2>11. INSTALACIÓN (PWA)</h2>
+            <p>Escanea el código QR o usa el botón "Instalar" en tu móvil Android o iOS para tener la app siempre a mano.</p>
+        </section>
+
+        <div class="footer">
+            <p>MY CLUB — Sistema de Gestión de Escuelas de Fútbol</p>
+            <p>Generado automáticamente · Versión 1.0 · Marzo 2026</p>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('downloadBtn').addEventListener('click', function () {
+            const element = document.getElementById('content-to-print');
+            const opt = {
+                margin:       10,
+                filename:     'Manual_Usuario_MyClub.pdf',
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2 },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            // Ejecuta html2pdf
+            html2pdf().set(opt).from(element).save();
+        });
+    </script>
+</body>
+</html>

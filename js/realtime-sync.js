@@ -742,40 +742,21 @@ function showSyncIndicator(isActive) {
     indicator.title = 'Sincronización en tiempo real activa';
     
     indicator.innerHTML = `
-      <span class="relative flex h-3 w-3" style="flex-shrink: 0;">
-        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-        <span class="sync-dot relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
-      </span>
-      <span id="syncText" class="text-xs font-medium text-gray-600 dark:text-gray-300 whitespace-nowrap">Nube sincronizada</span>
-    `;
+  <span class="relative flex h-3 w-3" style="flex-shrink: 0;">
+    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+    <span class="sync-dot relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+  </span>
+`;
+
     
     // Click para mostrar/ocultar
-    indicator.onclick = function() {
-      const textEl = document.getElementById('syncText');
-      
-      if (!textEl) return;
-      
-      if (textEl.classList.contains('hidden')) {
-        // Mostrar texto
-        textEl.classList.remove('hidden');
-        indicator.classList.remove('px-2');
-        indicator.classList.add('px-3');
-        
-        // Ocultar de nuevo después de 3 segundos
-        setTimeout(() => {
-          textEl.classList.add('hidden');
-          indicator.classList.remove('px-3');
-          indicator.classList.add('px-2');
-        }, 3000);
-      } else {
-        // Mostrar última sync
-        const state = window.realtimeSyncState;
-        const lastSync = state.lastSync ? new Date(state.lastSync).toLocaleTimeString() : 'N/A';
-        if (typeof showToast === 'function') {
-          showToast(`🔄 Última sync: ${lastSync}`);
-        }
-      }
-    };
+indicator.onclick = function() {
+  const state = window.realtimeSyncState;
+  const lastSync = state.lastSync ? new Date(state.lastSync).toLocaleTimeString() : 'N/A';
+  if (typeof showToast === 'function') {
+    showToast(`🔄 Última sync: ${lastSync}`);
+  }
+};
     
     document.body.appendChild(indicator);
   }
@@ -785,20 +766,7 @@ function showSyncIndicator(isActive) {
     indicator.classList.remove('hidden');
     indicator.style.opacity = '1';
     
-    const textEl = document.getElementById('syncText');
-    if (textEl) {
-      // Mostrar texto inicialmente
-      textEl.classList.remove('hidden');
-      indicator.classList.remove('px-2');
-      indicator.classList.add('px-3');
-      
-      // ⏱️ OCULTAR TEXTO DESPUÉS DE 5 SEGUNDOS
-      setTimeout(() => {
-        textEl.classList.add('hidden');
-        indicator.classList.remove('px-3');
-        indicator.classList.add('px-2');
-      }, 5000);
-    }
+
     
   } else {
     // Ocultar indicador completamente
