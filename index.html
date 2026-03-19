@@ -1903,14 +1903,18 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
        
        // Mostrar loading mientras verificamos
        document.body.insertAdjacentHTML('afterbegin', 
-           '<div id="sessionLoader" class="fixed inset-0 bg-white dark:bg-gray-900 flex items-center justify-center z-[9999]">' +
+           '<div id="sessionLoader" class="fixed inset-0 bg-white dark:bg-gray-900 flex items-center justify-center z-[100]">' +
            '<div class="text-center"><div class="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-500 mx-auto mb-4"></div>' +
            '<p class="text-gray-600 dark:text-gray-400">Cargando...</p></div></div>'
        );
        
        function hideLoader() {
            const loader = document.getElementById('sessionLoader');
-           if (loader) loader.remove();
+           if (loader) {
+               loader.style.transition = 'opacity 0.3s ease';
+               loader.style.opacity = '0';
+               setTimeout(() => loader.remove(), 300);
+           }
        }
        
        // 1. Verificar sesion local primero
