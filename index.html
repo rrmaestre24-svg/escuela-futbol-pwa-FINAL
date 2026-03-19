@@ -973,161 +973,196 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
         <form id="playerForm" class="p-4 space-y-4">
             <input type="hidden" id="playerId">
             
+            <!-- FOTO -->
             <div class="text-center">
                 <input type="file" id="playerAvatar" accept="image/*" class="hidden">
                 <img id="playerAvatarPreview" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%23e5e7eb'/%3E%3Ctext x='50' y='50' text-anchor='middle' dy='.3em' font-size='40' fill='%239ca3af'%3E👤%3C/text%3E%3C/svg%3E" alt="Avatar" class="w-24 h-24 rounded-full mx-auto object-cover border-4 border-teal-500 cursor-pointer" onclick="document.getElementById('playerAvatar').click()">
                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">Click para cambiar foto (máx 2MB)</p>
             </div>
 
-            <div class="grid md:grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre Completo *</label>
-                    <input type="text" id="playerName" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha de Nacimiento *</label>
-                    <input type="date" id="playerBirthDate" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500">
-                </div>
-            </div>
-
-                    <!-- 🆕 DOCUMENTO DE IDENTIDAD -->
-        <div class="grid md:grid-cols-2 gap-4">
-            <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo de Documento</label>
-                <select id="playerDocumentType" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500">
-                    <option value="">Seleccionar...</option>
-                    <option value="TI">TI - Tarjeta de Identidad</option>
-                    <option value="RC">RC - Registro Civil</option>
-                    <option value="CC">CC - Cédula de Ciudadanía</option>
-                    <option value="CE">CE - Cédula de Extranjería</option>
-                    <option value="PA">PA - Pasaporte</option>
-                    <option value="NUIP">NUIP</option>
-                </select>
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Número de Documento</label>
-                <input type="text" id="playerDocumentNumber" placeholder="Ej: 1234567890" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500">
-            </div>
-        </div>
-
-            <div class="grid md:grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Categoría *</label>
-                  <select id="playerCategory" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500">
-                        <option value="">Seleccionar...</option>
-                        <option value="Categoría 2006">Categoría 2006</option>
-                        <option value="Categoría 2007">Categoría 2007</option>
-                        <option value="Categoría 2008">Categoría 2008</option>
-                        <option value="Categoría 2009">Categoría 2009</option>
-                        <option value="Categoría 2010">Categoría 2010</option>
-                        <option value="Categoría 2011">Categoría 2011</option>
-                        <option value="Categoría 2012">Categoría 2012</option>
-                        <option value="Categoría 2013">Categoría 2013</option>
-                        <option value="Categoría 2014">Categoría 2014</option>
-                        <option value="Categoría 2015">Categoría 2015</option>
-                        <option value="Categoría 2016">Categoría 2016</option>
-                        <option value="Categoría 2017">Categoría 2017</option>
-                        <option value="Categoría 2018">Categoría 2018</option>
-                        <option value="Categoría 2019">Categoría 2019</option>
-                        <option value="Categoría 2020">Categoría 2020</option>
-                        <option value="Categoría 2021">Categoría 2021</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Posición</label>
-                    <select id="playerPosition" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500">
-                        <option value="">Seleccionar...</option>
-                        <option value="Portero">Portero</option>
-                        <option value="Defensa Central">Defensa Central</option>
-                        <option value="Lateral Derecho">Lateral Derecho</option>
-                        <option value="Lateral Izquierdo">Lateral Izquierdo</option>
-                        <option value="Medio Centro">Medio Centro</option>
-                        <option value="Medio Defensivo">Medio Defensivo</option>
-                        <option value="Medio Ofensivo">Medio Ofensivo</option>
-                        <option value="Extremo Derecho">Extremo Derecho</option>
-                        <option value="Extremo Izquierdo">Extremo Izquierdo</option>
-                        <option value="Delantero Centro">Delantero Centro</option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="grid md:grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Número de Camiseta</label>
-                    <input type="number" id="playerJerseyNumber" min="1" max="99" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Talla Uniforme</label>
-                    <select id="playerUniformSize" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500">
-                        <option value="">Seleccionar...</option>
-                        <option value="4">4</option>
-                        <option value="6">6</option>
-                        <option value="8">8</option>
-                        <option value="10">10</option>
-                        <option value="12">12</option>
-                        <option value="14">14</option>
-                        <option value="XS">XS</option>
-                        <option value="S">S</option>
-                        <option value="M">M</option>
-                        <option value="L">L</option>
-                        <option value="XL">XL</option>
-                    </select>
+            <!-- ===== SECCIÓN: INFORMACIÓN BÁSICA ===== -->
+            <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-4">
+                <p class="text-xs font-bold text-green-600 dark:text-green-400 uppercase tracking-wider mb-3">⚽ Información Básica</p>
+                <div class="space-y-3">
+                    <div class="grid md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre Completo *</label>
+                            <input type="text" id="playerName" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha de Nacimiento *</label>
+                            <input type="date" id="playerBirthDate" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500">
+                        </div>
+                    </div>
+                    <div class="grid md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Categoría *</label>
+                            <select id="playerCategory" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500">
+                                <option value="">Seleccionar...</option>
+                                <option value="Categoría 2006">Categoría 2006</option>
+                                <option value="Categoría 2007">Categoría 2007</option>
+                                <option value="Categoría 2008">Categoría 2008</option>
+                                <option value="Categoría 2009">Categoría 2009</option>
+                                <option value="Categoría 2010">Categoría 2010</option>
+                                <option value="Categoría 2011">Categoría 2011</option>
+                                <option value="Categoría 2012">Categoría 2012</option>
+                                <option value="Categoría 2013">Categoría 2013</option>
+                                <option value="Categoría 2014">Categoría 2014</option>
+                                <option value="Categoría 2015">Categoría 2015</option>
+                                <option value="Categoría 2016">Categoría 2016</option>
+                                <option value="Categoría 2017">Categoría 2017</option>
+                                <option value="Categoría 2018">Categoría 2018</option>
+                                <option value="Categoría 2019">Categoría 2019</option>
+                                <option value="Categoría 2020">Categoría 2020</option>
+                                <option value="Categoría 2021">Categoría 2021</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Posición</label>
+                            <select id="playerPosition" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500">
+                                <option value="">Seleccionar...</option>
+                                <option value="Portero">Portero</option>
+                                <option value="Defensa Central">Defensa Central</option>
+                                <option value="Lateral Derecho">Lateral Derecho</option>
+                                <option value="Lateral Izquierdo">Lateral Izquierdo</option>
+                                <option value="Medio Centro">Medio Centro</option>
+                                <option value="Medio Defensivo">Medio Defensivo</option>
+                                <option value="Medio Ofensivo">Medio Ofensivo</option>
+                                <option value="Extremo Derecho">Extremo Derecho</option>
+                                <option value="Extremo Izquierdo">Extremo Izquierdo</option>
+                                <option value="Delantero Centro">Delantero Centro</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="grid md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Número de Camiseta</label>
+                            <input type="number" id="playerJerseyNumber" min="1" max="99" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Talla Uniforme</label>
+                            <select id="playerUniformSize" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500">
+                                <option value="">Seleccionar...</option>
+                                <option value="4">4</option>
+                                <option value="6">6</option>
+                                <option value="8">8</option>
+                                <option value="10">10</option>
+                                <option value="12">12</option>
+                                <option value="14">14</option>
+                                <option value="XS">XS</option>
+                                <option value="S">S</option>
+                                <option value="M">M</option>
+                                <option value="L">L</option>
+                                <option value="XL">XL</option>
+                            </select>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <div class="grid md:grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
-                    <input type="email" id="playerEmail" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Teléfono Acudiente *</label>
-                    <input type="tel" id="playerPhone" required placeholder="+57 300 1234567" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500">
-                </div>
-            </div>
-
-            <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Contacto de Emergencia</label>
-                <input type="tel" id="playerEmergencyContact" placeholder="+57 300 1234567" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500">
-            </div>
-
-            <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Dirección</label>
-                <input type="text" id="playerAddress" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500">
-            </div>
-
-            <div class="border-t border-gray-300 dark:border-gray-600 pt-4">
-                <h4 class="font-medium text-gray-800 dark:text-white mb-3 flex items-center gap-2">
-                    <i data-lucide="heart-pulse" class="w-5 h-5 text-red-600"></i>
-                    Información Médica
-                </h4>
+            <!-- ===== SECCIÓN: DOCUMENTO DE IDENTIDAD ===== -->
+            <div class="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-xl p-4">
+                <p class="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider mb-3">🪪 Documento de Identidad</p>
                 <div class="grid md:grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo de Sangre</label>
-                        <select id="playerBloodType" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo de Documento</label>
+                        <select id="playerDocumentType" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500">
                             <option value="">Seleccionar...</option>
-                            <option value="A+">A+</option>
-                            <option value="A-">A-</option>
-                            <option value="B+">B+</option>
-                            <option value="B-">B-</option>
-                            <option value="AB+">AB+</option>
-                            <option value="AB-">AB-</option>
-                            <option value="O+">O+</option>
-                            <option value="O-">O-</option>
+                            <option value="TI">TI - Tarjeta de Identidad</option>
+                            <option value="RC">RC - Registro Civil</option>
+                            <option value="CC">CC - Cédula de Ciudadanía</option>
+                            <option value="CE">CE - Cédula de Extranjería</option>
+                            <option value="PA">PA - Pasaporte</option>
+                            <option value="NUIP">NUIP</option>
                         </select>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Alergias</label>
-                        <input type="text" id="playerAllergies" placeholder="Ninguna" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Número de Documento</label>
+                        <input type="text" id="playerDocumentNumber" placeholder="Ej: 1234567890" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500">
                     </div>
                 </div>
-                <div class="mt-4">
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Medicamentos</label>
-                    <input type="text" id="playerMedications" placeholder="Ninguno" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500">
+            </div>
+
+            <!-- ===== SECCIÓN: CONTACTO ===== -->
+            <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl p-4">
+                <p class="text-xs font-bold text-yellow-600 dark:text-yellow-400 uppercase tracking-wider mb-3">📞 Contacto</p>
+                <div class="space-y-3">
+                    <div class="grid md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
+                            <input type="email" id="playerEmail" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Teléfono Acudiente *</label>
+                            <input type="tel" id="playerPhone" required placeholder="+57 300 1234567" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500">
+                        </div>
+                    </div>
+                    <div class="grid md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Contacto de Emergencia</label>
+                            <input type="tel" id="playerEmergencyContact" placeholder="+57 300 1234567" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Dirección</label>
+                            <input type="text" id="playerAddress" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500">
+                        </div>
+                    </div>
                 </div>
-                <div class="mt-4">
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Condiciones Especiales</label>
-                    <textarea id="playerConditions" rows="2" placeholder="Ninguna" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500"></textarea>
+            </div>
+
+            <!-- ===== SECCIÓN: INFORMACIÓN MÉDICA ===== -->
+            <div class="border-t border-gray-300 dark:border-gray-600 pt-4">
+                <h4 class="font-medium text-gray-800 dark:text-white mb-4 flex items-center gap-2">
+                    <i data-lucide="heart-pulse" class="w-5 h-5 text-red-500"></i>
+                    Información Médica
+                </h4>
+
+                <!-- Bloque: Seguridad Social -->
+                <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4 mb-4">
+                    <p class="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider mb-3">🏥 Seguridad Social</p>
+                    <div class="grid md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo de Sangre</label>
+                            <select id="playerBloodType" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500">
+                                <option value="">Seleccionar...</option>
+                                <option value="A+">A+</option>
+                                <option value="A-">A-</option>
+                                <option value="B+">B+</option>
+                                <option value="B-">B-</option>
+                                <option value="AB+">AB+</option>
+                                <option value="AB-">AB-</option>
+                                <option value="O+">O+</option>
+                                <option value="O-">O-</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">EPS</label>
+                            <input type="text" id="playerEps" placeholder="Ej: Sura, Compensar, Sanitas..." class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Sisbén / Seguro</label>
+                            <input type="text" id="playerSisben" placeholder="Ej: A1, B2, Subsidiado..." class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bloque: Condiciones de Salud -->
+                <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4">
+                    <p class="text-xs font-bold text-red-600 dark:text-red-400 uppercase tracking-wider mb-3">⚠️ Condiciones de Salud</p>
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Alergias</label>
+                            <input type="text" id="playerAllergies" placeholder="Ninguna" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Medicamentos</label>
+                            <input type="text" id="playerMedications" placeholder="Ninguno" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Condiciones Especiales</label>
+                            <textarea id="playerConditions" rows="2" placeholder="Ninguna" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500"></textarea>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -1144,7 +1179,7 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
    </div>
     <!-- Modal Detalles Jugador -->
     <div id="playerDetailsModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-        <div class="bg-white dark:bg-gray-800 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-scale-in">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-scale-in mx-auto">
             <div class="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4 flex items-center justify-between">
                 <h3 class="font-bold text-xl text-gray-800 dark:text-white">Detalles del Jugador</h3>
                 <button onclick="closePlayerDetailsModal()" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">

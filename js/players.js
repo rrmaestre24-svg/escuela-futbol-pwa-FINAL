@@ -43,6 +43,8 @@ function showEditPlayerModal(playerId) {
   document.getElementById('playerAllergies').value = player.medicalInfo?.allergies || '';
   document.getElementById('playerMedications').value = player.medicalInfo?.medications || '';
   document.getElementById('playerConditions').value = player.medicalInfo?.conditions || '';
+  document.getElementById('playerEps').value = player.medicalInfo?.eps || '';        // NUEVO
+  document.getElementById('playerSisben').value = player.medicalInfo?.sisben || '';  // NUEVO
   document.getElementById('playerEmergencyContact').value = player.emergencyContact || '';
   document.getElementById('playerAvatarPreview').src = player.avatar || getDefaultAvatar();
   
@@ -58,7 +60,6 @@ function closePlayerModal() {
   document.getElementById('playerModal').classList.add('hidden');
   currentEditingPlayerId = null;
 }
-
 // Preview de avatar jugador - MEJORADO
 document.getElementById('playerAvatar')?.addEventListener('change', function(e) {
   const file = e.target.files[0];
@@ -108,7 +109,9 @@ document.getElementById('playerForm')?.addEventListener('submit', function(e) {
       bloodType: document.getElementById('playerBloodType').value,
       allergies: document.getElementById('playerAllergies').value,
       medications: document.getElementById('playerMedications').value,
-      conditions: document.getElementById('playerConditions').value
+      conditions: document.getElementById('playerConditions').value,
+      eps: document.getElementById('playerEps').value.trim(),        // NUEVO
+      sisben: document.getElementById('playerSisben').value.trim()   // NUEVO
     }
   };
   
@@ -476,6 +479,18 @@ function showPlayerDetails(playerId) {
             <div>
               <span class="text-gray-500 dark:text-gray-400">Condiciones especiales:</span>
               <p class="text-gray-800 dark:text-white font-medium mt-1">${player.medicalInfo.conditions}</p>
+            </div>
+          ` : ''}
+          ${player.medicalInfo?.eps ? `
+            <div class="flex justify-between">
+              <span class="text-gray-500 dark:text-gray-400">EPS:</span>
+              <span class="text-gray-800 dark:text-white font-medium">${player.medicalInfo.eps}</span>
+            </div>
+          ` : ''}
+          ${player.medicalInfo?.sisben ? `
+            <div class="flex justify-between">
+              <span class="text-gray-500 dark:text-gray-400">Sisbén:</span>
+              <span class="text-gray-800 dark:text-white font-medium">${player.medicalInfo.sisben}</span>
             </div>
           ` : ''}
         </div>
