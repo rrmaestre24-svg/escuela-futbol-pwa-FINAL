@@ -338,7 +338,8 @@ Las categorias de jugadores van desde 2006 hasta 2021 y pueden filtrarse en la v
 
 ## Licencia
 
-Proyecto de codigo abierto para uso en escuelas de futbol.
+Todos los derechos reservados. Este software es propiedad de roberth maestre .
+Queda prohibida su reproducción, distribución o modificación sin autorización expresa del autor.
 
 ## Contacto
 
