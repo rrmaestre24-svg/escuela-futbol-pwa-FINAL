@@ -202,6 +202,11 @@ async function checkLicenseStatus() {
 
     const endDate = new Date(licenseData.endDate);
     const result = calculateLicenseState(endDate);
+
+    // Mostrar botón inventario si el módulo está activo
+    if (licenseData.modulos?.inventario === true) {
+      document.getElementById('btnInventarioWrapper')?.classList.remove('hidden');
+    }
     
     localStorage.setItem('licenseStatus', result.status);
     localStorage.setItem('licenseEndDate', licenseData.endDate);
@@ -429,13 +434,17 @@ async function updatePlayerCount() {
 function listenToLicenseChanges() {
   const clubId = localStorage.getItem('clubId');
   
-  if (!clubId) {
-    console.log('ℹ️ No hay clubId, omitiendo listener de licencia');
-    return;
-  }
+  if (!clubId) return;
 
   if (!window.firebase?.db) {
-    console.log('⏳ Firebase no está listo, reintentando en 2 segundos...');
+    // Máximo 5 intentos para no bloquear la app
+    if (!window._licenseRetries) window._licenseRetries = 0;
+    window._licenseRetries++;
+    if (window._licenseRetries >= 5) {
+      console.warn('⚠️ Firebase no disponible, omitiendo listener de licencia');
+      window._licenseRetries = 0;
+      return;
+    }
     setTimeout(listenToLicenseChanges, 2000);
     return;
   }
@@ -458,7 +467,10 @@ function listenToLicenseChanges() {
 
         console.log('📡 Estado actual:', currentStatus, '→ Nuevo estado:', newStatus);
 
-        if (currentStatus && currentStatus !== newStatus) {
+        const modulosChanged = JSON.stringify(licenseData.modulos) !== localStorage.getItem('licenseModulos');
+localStorage.setItem('licenseModulos', JSON.stringify(licenseData.modulos || {}));
+
+if ((currentStatus && currentStatus !== newStatus) || modulosChanged) {
           console.log('🔄 Estado de licencia cambió, recargando...');
           
           showToast(`🔄 Estado actualizado: ${newStatus === 'activo' ? 'Activado ✅' : 'Desactivado 🔴'}`);
@@ -506,5 +518,12 @@ window.showLicenseBanner = showLicenseBanner;
 window.applyReadOnlyMode = applyReadOnlyMode;
 window.updatePlayerCount = updatePlayerCount;
 window.listenToLicenseChanges = listenToLicenseChanges;
+
+
+function abrirInventario() {
+  const clubId = localStorage.getItem('clubId');
+  window.open('https://myclub-inventario.vercel.app?clubId=' + clubId, '_blank');
+}
+window.abrirInventario = abrirInventario;
 
 console.log('✅ license-system.js cargado correctamente');
