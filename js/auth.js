@@ -685,26 +685,40 @@ document.getElementById('loginForm')?.addEventListener('submit', async function(
     if (downloaded) {
       // 7️⃣ Buscar usuario en la lista descargada
       const users = getUsers();
-      const user = users.find(u => u.email === email);
-      
-      if (user) {
-        // Actualizar password local
-        updateUser(user.id, { password: password });
-        
-        // Establecer sesión
-        const { password: _, ...userWithoutPassword } = user;
-        setCurrentUser(userWithoutPassword);
-        
-        showToast('✅ Bienvenido ' + user.name);
-        
-        // Redireccionar al dashboard
-        setTimeout(() => {
-          window.location.href = 'index.html';
-        }, 500);
-      } else {
-        showToast('⚠️ Usuario no encontrado en el club');
-        await window.firebase.signOut(window.firebase.auth);
+      let user = users.find(u => u.email === email);
+
+      // ✅ Fallback: si no lo encuentra localmente, construir sesión desde Firebase
+      if (!user) {
+        console.warn('⚠️ Usuario no encontrado localmente, usando datos de Firebase Auth');
+        user = {
+          id: firebaseUid,
+          email: email,
+          name: userCredential.user.displayName || email.split('@')[0],
+          schoolId: clubId,
+          role: 'admin',
+          isMainAdmin: false,
+          avatar: '',
+          phone: ''
+        };
       }
+
+      // Actualizar password local si existe en lista
+      if (users.find(u => u.email === email)) {
+        updateUser(user.id, { password: password });
+      }
+
+      // Establecer sesión
+      const { password: _, ...userWithoutPassword } = user;
+      setCurrentUser(userWithoutPassword);
+
+      showToast('✅ Bienvenido ' + user.name);
+
+      // Redireccionar al dashboard
+      setTimeout(() => {
+        window.location.href = 'index.html';
+      }, 500);
+
+      
     } else {
       showToast('❌ Error al descargar datos del club');
       await window.firebase.signOut(window.firebase.auth);
@@ -1422,6 +1436,12 @@ window.addEventListener('DOMContentLoaded', async function() {
   
   const checkAuth = setInterval(async () => {
     attempts++;
+
+    // Si no estamos en el dashboard (login.html no tiene appContainer), salir
+    if (!document.getElementById('appContainer') && !document.getElementById('loginScreen')) {
+      clearInterval(checkAuth);
+      return;
+    }
     
     // Verificar si localStorage fue restaurado
     const restoredUser = getCurrentUser();

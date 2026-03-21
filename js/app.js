@@ -1,7 +1,8 @@
 // Estado global de la app
 window.APP_STATE = {
   firebaseReady: false,
-  currentUser: null
+  currentUser: null,
+  authRestored: false
 };
 
 // ========================================
