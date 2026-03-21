@@ -1,4 +1,4 @@
-const CACHE_NAME = 'my-club-v1.0.23';
+const CACHE_NAME = 'my-club-v1.0.24';
 
 const urlsToCache = [
   '/',
@@ -130,11 +130,15 @@ self.addEventListener('fetch', event => {
           return response;
         })
         .catch(() => {
-          // Si falla, intentar desde cache
-          return caches.match(event.request).then(cached => {
+          // 1. Intentar archivo exacto ignorando parámetros (?homescreen=1 etc)
+          return caches.match(event.request, { ignoreSearch: true }).then(cached => {
             if (cached) return cached;
-            // Si no hay cache, mostrar offline.html
-            return caches.match('/offline.html');
+            // 2. Si es navegación y falló, intentar forzar el index.html
+            return caches.match('/index.html').then(idxCached => {
+              if (idxCached) return idxCached;
+              // 3. Fallback final al offline.html
+              return caches.match('/offline.html');
+            });
           });
         })
     );
