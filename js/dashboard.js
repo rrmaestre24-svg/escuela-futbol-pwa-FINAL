@@ -209,16 +209,30 @@ function updateDashboardNotifications() {
           </div>
           <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-1">${notif.message}</p>
         </div>
+        
         <div class="flex items-center gap-2">
+          <!-- Botón Omitir (Discreto) -->
+          <button 
+            onclick="dismissNotification('${notif.id}')"
+            title="Omitir esta notificación"
+            class="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-lg transition-all duration-200"
+          >
+            <i data-lucide="eye-off" class="w-4 h-4"></i>
+          </button>
+
           ${!notif.isVirtual ? `
-            <button onclick="downloadPaymentPDF('${notif.paymentId}')" class="p-2 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full hover:scale-110 transition-transform" title="PDF">
+            <button onclick="downloadPaymentPDF('${notif.paymentId}')" class="p-1.5 text-blue-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all duration-200" title="PDF">
               <i data-lucide="file-text" class="w-4 h-4"></i>
             </button>
-            <button onclick="markAsPaid('${notif.paymentId}')" class="p-2 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-full hover:scale-110 transition-transform" title="Marcar pagado">
+            <button onclick="markAsPaid('${notif.paymentId}')" class="p-1.5 text-gray-500 hover:text-gray-600 hover:bg-gray-50 dark:hover:bg-gray-900/20 rounded-lg transition-all duration-200" title="Marcar pagado">
               <i data-lucide="check-circle" class="w-4 h-4"></i>
             </button>
           ` : ''}
-          <button onclick="${actionOnClick}" class="p-2 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-full hover:scale-110 transition-transform" title="Enviar WhatsApp">
+          <!-- Botón WhatsApp -->
+          <button 
+            onclick="${notif.isVirtual ? `sendVirtualReminderWhatsApp('${notif.playerId}', '${notif.nextDueDate}')` : `sendPaymentNotificationWhatsApp('${notif.paymentId}')`}"
+            class="p-1.5 text-green-500 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-all duration-200"
+          >
             <i data-lucide="message-circle" class="w-4 h-4"></i>
           </button>
         </div>

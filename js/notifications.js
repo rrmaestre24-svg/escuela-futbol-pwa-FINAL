@@ -19,6 +19,27 @@ function updateNotifications() {
     badge.classList.add('hidden');
   }
 }
+// 🆕 Gestión de notificaciones omitidas (persistencia)
+function getDismissedNotifications() {
+  const dismissed = localStorage.getItem('dismissedNotifications');
+  return dismissed ? JSON.parse(dismissed) : [];
+}
+
+window.dismissNotification = function(notifId) {
+  const dismissed = getDismissedNotifications();
+  if (!dismissed.includes(notifId)) {
+    dismissed.push(notifId);
+    localStorage.setItem('dismissedNotifications', JSON.stringify(dismissed));
+    showToast('👁️ Notificación omitida');
+    // Refrescar vistas
+    if (typeof updateNotifications === 'function') updateNotifications();
+    if (typeof updateDashboardNotifications === 'function') updateDashboardNotifications();
+  }
+};
+
+function isDismissed(notifId) {
+  return getDismissedNotifications().includes(notifId);
+}
 
 // Obtener notificaciones de pagos (REALES + VIRTUALES)
 function getPaymentNotifications() {
@@ -28,6 +49,8 @@ function getPaymentNotifications() {
   
   // 1. Notificaciones de facturas Reales (Pendientes)
   payments.forEach(payment => {
+    if (isDismissed(payment.id)) return; // 🆕 Filtrar si fue omitida
+    
     const dueDate = new Date(payment.dueDate);
     const daysDiff = daysBetween(today, dueDate);
     
@@ -106,18 +129,38 @@ function getVirtualNotifications() {
   players.forEach(player => {
     const playerPayments = allPayments.filter(p => p.playerId === player.id);
     
+    // 🆕 Lógica: Solo avisar desde la primera factura del niño
+    let firstPaymentDate = null;
+    if (playerPayments.length > 0) {
+      const dates = playerPayments.map(p => new Date(p.date).getTime());
+      firstPaymentDate = new Date(Math.min(...dates));
+    }
+    
     // Buscar para cada mes objetivo si está cubierto
     for (const target of targets) {
+      const notifId = `virtual_${player.id}_${target.month}_${target.year}`;
+      
+      // 🆕 1. Ignorar si está omitida manualmente
+      if (isDismissed(notifId)) continue;
+      
+      // 🆕 2. Ignorar meses anteriores a su ingreso (primera factura)
+      if (firstPaymentDate) {
+        const targetMonthStart = new Date(target.year, target.month, 1).getTime();
+        const startMonthStart = new Date(firstPaymentDate.getFullYear(), firstPaymentDate.getMonth(), 1).getTime();
+        if (targetMonthStart < startMonthStart) continue;
+      }
+
+      const pConcept = target.name.toLowerCase();
       const isPaid = playerPayments.some(p => {
-        const pDate = parseLocalDate(p.dueDate || p.paidDate);
-        const pConcept = (p.concept || '').toLowerCase();
+        const pDate = new Date(p.date);
+        const pConceptStr = (p.concept || '').toLowerCase();
         
         // Cubierto si:
         // 1. Es mensualidad y la fecha coincide con el mes/año
         // 2. O el concepto menciona el nombre del mes
-        const isMonthly = p.type === 'Mensualidad' || pConcept.includes('mensua');
+        const isMonthly = p.type === 'Mensualidad' || pConceptStr.includes('mensua');
         const sameMonth = pDate.getMonth() === target.month && pDate.getFullYear() === target.year;
-        const mentionsMonth = pConcept.includes(target.name);
+        const mentionsMonth = pConceptStr.includes(pConcept);
         
         return isMonthly && (sameMonth || mentionsMonth) && (p.status === 'Pagado' || p.status === 'Pendiente');
       });
@@ -125,7 +168,7 @@ function getVirtualNotifications() {
       if (!isPaid) {
         // Generar alerta para el primer mes no pagado
         const targetDateStr = `${target.year}-${String(target.month + 1).padStart(2, '0')}-10`;
-        const daysDiff = daysBetween(getCurrentDate(), targetDateStr);
+        const daysDiff = daysBetween(today, targetDateStr);
         
         let type = '';
         let priority = '';
@@ -145,7 +188,7 @@ function getVirtualNotifications() {
         if (type) {
            console.log(`✅ Alerta creada para ${player.name}: ${message}`);
            virtualNotifs.push({
-            id: `virtual_${player.id}_${target.month}_${target.year}`,
+            id: notifId,
             playerId: player.id,
             type,
             priority,
