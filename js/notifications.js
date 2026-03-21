@@ -200,7 +200,7 @@ function renderNotifications() {
   }
   
   container.innerHTML = notifications.map(notif => {
-    const player = getPlayerById(notif.payment.playerId);
+    const player = notif.player || getPlayerById(notif.payment?.playerId || notif.playerId);
     if (!player) return '';
     
     const colors = {
