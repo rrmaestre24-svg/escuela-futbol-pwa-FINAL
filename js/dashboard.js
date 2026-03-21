@@ -197,7 +197,12 @@ function updateDashboardNotifications() {
       : `sendPaymentNotificationWhatsApp('${notif.paymentId}')`;
     
     return `
-      <div class="flex items-start gap-4 p-3 hover:bg-gray-100/50 dark:hover:bg-gray-700/50 rounded-xl transition-all duration-200 border-b border-gray-100 dark:border-gray-700 last:border-0">
+      <div class="notif-card flex items-start gap-4 p-3 hover:bg-gray-100/50 dark:hover:bg-gray-700/50 rounded-xl transition-all duration-200 border-b border-gray-100 dark:border-gray-700 last:border-0"
+           onmousedown="this.classList.add('is-expanded')" 
+           onmouseup="this.classList.remove('is-expanded')"
+           onmouseleave="this.classList.remove('is-expanded')"
+           ontouchstart="this.classList.add('is-expanded')" 
+           ontouchend="this.classList.remove('is-expanded')">
         <div class="p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
           <i data-lucide="${notif.isVirtual ? 'calendar-clock' : 'alert-circle'}" class="w-5 h-5 ${colors[notif.type]} flex-shrink-0"></i>
         </div>

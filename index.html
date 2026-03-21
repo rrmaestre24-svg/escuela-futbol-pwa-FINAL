@@ -81,6 +81,34 @@ body.has-watermark::before {
   transform: translateZ(0);
 }
 
+        /* 🆕 Notificaciones Expansibles (Press to Peek) */
+        .notif-card {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            -webkit-user-select: none;
+            user-select: none;
+            position: relative;
+        }
+        .notif-card.is-expanded {
+            background-color: white !important;
+            transform: scale(1.01);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            z-index: 10;
+            border-color: #0d9488 !important;
+        }
+        .dark .notif-card.is-expanded {
+            background-color: #1f2937 !important;
+        }
+        .notif-card.is-expanded .truncate {
+            white-space: normal !important;
+            overflow: visible !important;
+        }
+        .notif-card.is-expanded .line-clamp-1 {
+            display: block !important;
+            -webkit-line-clamp: unset !important;
+            line-clamp: unset !important;
+        }
+
     </style>
 </head>
 <body class="bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
@@ -121,12 +149,12 @@ body.has-watermark::before {
     </header>
 
         <!-- Main Content -->
-        <main class="pt-16 pb-20 min-h-screen">
+        <main class="pt-24 pb-20 min-h-screen">
             
             <!-- ========================================
                  VISTA: DASHBOARD
             ========================================= -->
-            <div id="dashboardView" class="p-4 space-y-4">
+            <div id="dashboardView" class="p-4 space-y-6">
                 <!-- Stats Cards -->
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
