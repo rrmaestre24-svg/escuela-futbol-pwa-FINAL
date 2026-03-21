@@ -1,4 +1,4 @@
-const CACHE_NAME = 'my-club-v1.0.22';
+const CACHE_NAME = 'my-club-v1.0.23';
 
 const urlsToCache = [
   '/',
@@ -6,7 +6,6 @@ const urlsToCache = [
   '/login.html',
   '/offline.html',
   '/manifest.json',
-  '/parent-manifest.json',
 
   // ICONOS PWA
   '/assets/icons/icon-72x72.png',
@@ -47,7 +46,6 @@ const urlsToCache = [
   '/js/club-settings-protection.js',
   '/js/pdf.js',
   '/js/whatsapp.js',
-  '/js/sugerencias-admin.js',
 
   // PORTAL PADRES
   '/js/parent-portal.js'
