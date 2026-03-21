@@ -253,6 +253,73 @@ ${settings.phone}
 }
 
 // ========================================
+// 🆕 RECORDATORIO VIRTUAL (POR HISTORIAL)
+// ========================================
+function sendVirtualReminderWhatsApp(playerId, nextDueDate) {
+  const player = getPlayerById(playerId);
+  if (!player) {
+    showToast('❌ Jugador no encontrado');
+    return;
+  }
+  
+  const settings = getSchoolSettings();
+  const today = new Date();
+  const dueDate = new Date(nextDueDate);
+  const daysDiff = daysBetween(today, dueDate);
+  
+  let documentLine = '';
+  if (player.documentType && player.documentNumber) {
+    documentLine = `🪪 *Documento:* ${player.documentType} ${player.documentNumber}\n`;
+  }
+  
+  const monthName = parseLocalDate(nextDueDate).toLocaleString('es-ES', {month: 'long'});
+  const yearName = parseLocalDate(nextDueDate).getFullYear();
+  
+  let header = '';
+  let footer = '';
+  
+  if (daysDiff > 0) {
+    header = `\u{26BD} PRÓXIMO VENCIMIENTO - ${monthName.toUpperCase()}`;
+    footer = `Le recordamos estar al día para continuar con los entrenamientos.`;
+  } else {
+    header = `\u{26A0}\u{FE0F} PAGO PENDIENTE - ${monthName.toUpperCase()}`;
+    footer = `Vemos en nuestro sistema que el pago presenta ${Math.abs(daysDiff)} días de retraso. Por favor ponerse al día a la brevedad.`;
+  }
+
+  const message = `
+\u{1F3C6} *${settings.name}*
+${header}
+
+Estimado(a) acudiente de *${player.name}*,
+${documentLine}
+Le enviamos este recordatorio automático basado en su último pago:
+
+\u{1F4B0} *Concepto:* Mensualidad ${monthName} ${yearName}
+\u{1F4C5} *Fecha Sugerida:* ${formatDate(nextDueDate)}
+${daysDiff < 0 ? `\u{23F3} *Estado:* ${Math.abs(daysDiff)} días de atraso` : `\u{23F3} *Estado:* Vence en ${daysDiff} días`}
+
+${footer}
+
+_Cualquier duda, por favor responda a este mensaje._
+
+_${settings.name}_
+${settings.phone}
+  `.trim();
+  
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  if (isIOS) {
+    openWhatsAppWithConfirm(player.phone, message, player.name);
+  } else {
+    openWhatsApp(player.phone, message);
+  }
+  
+  showToast('✅ Preparando Recordatorio...');
+}
+
+// Hacer funciones globales
+window.sendVirtualReminderWhatsApp = sendVirtualReminderWhatsApp;
+
+// ========================================
 // FELICITAR CUMPLEAÑOS
 // ========================================
 function sendBirthdayWhatsApp(personId, isStaff = false) {

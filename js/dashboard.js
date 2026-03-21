@@ -154,7 +154,7 @@ function updateDashboardNotifications() {
   }
   
   container.innerHTML = notifications.map(notif => {
-    const player = getPlayerById(notif.payment.playerId);
+    const player = notif.player || getPlayerById(notif.payment?.playerId || notif.playerId);
     if (!player) return '';
     
     const colors = {
@@ -163,14 +163,18 @@ function updateDashboardNotifications() {
       'info': 'text-blue-600'
     };
     
+    const actionOnClick = notif.isVirtual 
+      ? `sendVirtualReminderWhatsApp('${notif.playerId}', '${notif.nextDueDate}')`
+      : `sendPaymentNotificationWhatsApp('${notif.paymentId}')`;
+    
     return `
       <div class="flex items-start gap-3 p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors">
-        <i data-lucide="alert-circle" class="w-5 h-5 ${colors[notif.type]} flex-shrink-0 mt-0.5"></i>
+        <i data-lucide="${notif.isVirtual ? 'calendar-clock' : 'alert-circle'}" class="w-5 h-5 ${colors[notif.type]} flex-shrink-0 mt-0.5"></i>
         <div class="flex-1 min-w-0">
-          <p class="text-sm font-medium text-gray-800 dark:text-white">${player.name}</p>
+          <p class="text-sm font-medium text-gray-800 dark:text-white truncate">${player.name}</p>
           <p class="text-xs text-gray-500 dark:text-gray-400">${notif.message}</p>
         </div>
-        <button onclick="sendPaymentNotificationWhatsApp('${notif.paymentId}')" class="bg-green-100 dark:bg-green-900/30 hover:bg-green-200 dark:hover:bg-green-800/50 text-green-600 dark:text-green-400 p-2 rounded-full transition-colors flex-shrink-0" title="Enviar recordatorio por WhatsApp">
+        <button onclick="${actionOnClick}" class="bg-green-100 dark:bg-green-900/30 hover:bg-green-200 dark:hover:bg-green-800/50 text-green-600 dark:text-green-400 p-2 rounded-full transition-colors flex-shrink-0" title="Enviar recordatorio por WhatsApp">
           <i data-lucide="message-circle" class="w-4 h-4"></i>
         </button>
       </div>

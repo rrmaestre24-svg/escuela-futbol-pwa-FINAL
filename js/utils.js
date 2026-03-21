@@ -18,14 +18,24 @@ function parseLocalDate(dateString) {
   // Si ya es un objeto Date, devolverlo
   if (dateString instanceof Date) return dateString;
   
-  // Si es formato YYYY-MM-DD, parsear manualmente
+  // Si es formato ISO YYYY-MM-DD
   if (typeof dateString === 'string' && dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
     const [year, month, day] = dateString.split('-').map(Number);
     return new Date(year, month - 1, day);
   }
   
+  // 🆕 Si es formato DD/MM/YYYY
+  if (typeof dateString === 'string' && dateString.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
+    const [day, month, year] = dateString.split('/').map(Number);
+    return new Date(year, month - 1, day);
+  }
+  
   // Para otros formatos, usar Date normal
-  return new Date(dateString);
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) {
+    console.warn('⚠️ Fecha inválida detectada:', dateString);
+  }
+  return date;
 }
 
 // ✅ Formatear fecha a dd/mm/yyyy (CORREGIDO)
@@ -108,6 +118,23 @@ function getCurrentDate() {
   const year = today.getFullYear();
   const month = String(today.getMonth() + 1).padStart(2, '0');
   const day = String(today.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+// ✅ Añadir meses a una fecha (YYYY-MM-DD)
+function addMonths(dateStr, months) {
+  const date = parseLocalDate(dateStr);
+  const d = date.getDate();
+  date.setMonth(date.getMonth() + parseInt(months));
+  
+  // Manejo de fin de mes (ej: 31 de enero + 1 mes -> 28/29 de febrero)
+  if (date.getDate() != d) {
+    date.setDate(0);
+  }
+  
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
 
