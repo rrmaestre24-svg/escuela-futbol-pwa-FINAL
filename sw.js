@@ -1,4 +1,4 @@
-const CACHE_NAME = 'my-club-v1.0.24';
+const CACHE_NAME = 'my-club-v1.0.25';
 
 const urlsToCache = [
   '/',
@@ -58,11 +58,13 @@ self.addEventListener('install', event => {
 
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => {
-      return cache.addAll(urlsToCache).catch(err => {
-        console.warn('⚠️ Algunos archivos no se pudieron cachear:', err);
-        // Continuar aunque algunos archivos fallen
-        return Promise.resolve();
-      });
+      return Promise.allSettled(
+        urlsToCache.map(url =>
+          cache.add(url).catch(err => {
+            console.warn('⚠️ No se pudo cachear:', url, err.message);
+          })
+        )
+      );
     })
   );
 
@@ -170,7 +172,7 @@ self.addEventListener('fetch', event => {
   event.respondWith(
     caches.match(event.request).then(cached => {
       if (cached) return cached;
-      
+
       return fetch(event.request).then(response => {
         if (response && response.status === 200) {
           const clone = response.clone();
