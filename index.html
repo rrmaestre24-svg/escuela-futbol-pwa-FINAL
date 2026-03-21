@@ -2020,10 +2020,22 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
                }
                
                // Usuario en Firebase pero no pudimos restaurar
+               // Usuario en Firebase pero no pudimos restaurar
+               // Cerrar sesión para evitar bucle infinito
+               try {
+                   if (window.firebase?.auth) {
+                       await window.firebase.signOut(window.firebase.auth);
+                   }
+               } catch(e) {}
+               localStorage.removeItem('currentUser');
+               localStorage.removeItem('clubId');
+               sessionStorage.clear();
                hideLoader();
                window.location.href = 'login.html';
                return;
            }
+           
+           // Firebase confirmo que no hay sesion
            
            // Firebase confirmo que no hay sesion
            if (window.APP_STATE && window.APP_STATE.authRestored && !(window.firebase && window.firebase.auth && window.firebase.auth.currentUser)) {

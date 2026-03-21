@@ -162,8 +162,8 @@ async function initFirebase() {
                 
                 const loginScreen = document.getElementById('loginScreen');
                 if (loginScreen && !loginScreen.classList.contains('hidden')) {
-                  window.location.reload();
-                }
+                console.log('[AUTH] Sesión restaurada, esperando flujo normal');
+}
               }
             } catch (restoreError) {
               console.warn('[WARN] No se pudo restaurar sesion completa:', restoreError);
