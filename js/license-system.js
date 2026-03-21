@@ -203,11 +203,13 @@ async function checkLicenseStatus() {
     const endDate = new Date(licenseData.endDate);
     const result = calculateLicenseState(endDate);
 
-    // Mostrar botón inventario si el módulo está activo
+    // Mostrar botones de módulos si están activos
     if (licenseData.modulos?.inventario === true) {
       document.getElementById('btnInventarioWrapper')?.classList.remove('hidden');
     }
-    
+    if (licenseData.modulos?.portal_padres === true) {
+      document.getElementById('btnPortalPadresWrapper')?.classList.remove('hidden');
+    }
     localStorage.setItem('licenseStatus', result.status);
     localStorage.setItem('licenseEndDate', licenseData.endDate);
     localStorage.setItem('licensePlan', licenseData.plan);
@@ -471,15 +473,20 @@ function listenToLicenseChanges() {
 localStorage.setItem('licenseModulos', JSON.stringify(licenseData.modulos || {}));
 
 if ((currentStatus && currentStatus !== newStatus) || modulosChanged) {
-          console.log('🔄 Estado de licencia cambió, recargando...');
-          
-          showToast(`🔄 Estado actualizado: ${newStatus === 'activo' ? 'Activado ✅' : 'Desactivado 🔴'}`);
+          console.log('🔄 Estado de licencia cambió...');
           
           localStorage.setItem('licenseStatus', newStatus);
-          
-          setTimeout(() => {
-            window.location.reload();
-          }, 2000);
+
+          // Solo recargar si la licencia fue DESACTIVADA
+          if (newStatus !== 'activo') {
+            showToast(`🔴 Licencia desactivada. Contacta al administrador.`);
+            setTimeout(() => {
+              window.location.reload();
+            }, 2000);
+          } else {
+            // Si se activó, solo mostrar mensaje sin recargar
+            showToast(`✅ Licencia activada correctamente`);
+          }
         } else {
           localStorage.setItem('licenseStatus', newStatus);
         }
