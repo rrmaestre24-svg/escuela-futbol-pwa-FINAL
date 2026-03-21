@@ -170,6 +170,9 @@ function updateDashboardNotifications() {
           <p class="text-sm font-medium text-gray-800 dark:text-white">${player.name}</p>
           <p class="text-xs text-gray-500 dark:text-gray-400">${notif.message}</p>
         </div>
+        <button onclick="sendPaymentNotificationWhatsApp('${notif.paymentId}')" class="bg-green-100 dark:bg-green-900/30 hover:bg-green-200 dark:hover:bg-green-800/50 text-green-600 dark:text-green-400 p-2 rounded-full transition-colors flex-shrink-0" title="Enviar recordatorio por WhatsApp">
+          <i data-lucide="message-circle" class="w-4 h-4"></i>
+        </button>
       </div>
     `;
   }).join('');
