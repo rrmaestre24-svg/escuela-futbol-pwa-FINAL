@@ -204,6 +204,7 @@ function updateDashboardNotifications() {
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2">
             <p class="text-sm font-bold text-gray-800 dark:text-white truncate">${player.name}</p>
+            <span class="text-[10px] text-gray-500 font-medium bg-gray-100 dark:bg-gray-700 px-1 rounded">Cat. ${player.category || 'N/A'}</span>
             ${notif.isVirtual ? '<span class="px-1.5 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-[10px] font-bold rounded uppercase tracking-wider">Auto</span>' : ''}
           </div>
           <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-1">${notif.message}</p>

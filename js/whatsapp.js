@@ -179,66 +179,32 @@ function sendPaymentNotificationWhatsApp(paymentId) {
     documentLine = `🪪 *Documento:* ${player.documentType} ${player.documentNumber}\n`;
   }
   
-  let message = '';
-  
-  if (daysDiff > 0 && daysDiff <= 10) {
-    // Próximo a vencer
-    message = `
-\u{1F3C6} *${settings.name}*
-\u{26BD} RECORDATORIO DE PAGO
+  const stateText = daysDiff < 0 
+    ? `⏱️ *Estado:* ${Math.abs(daysDiff)} días de atraso` 
+    : `📅 *Estado:* Próximo a vencer en ${daysDiff} días`;
+
+  const message = `
+📌 *${settings.name}*
+💳 *Recordatorio de pago - ${payment.concept.toUpperCase()}*
 
 Estimado(a) acudiente de *${player.name}*,
-${documentLine}
-Le recordamos que tiene un pago próximo a vencer:
 
-\u{1F4B0} *Concepto:* ${payment.concept}
-\u{1F4B5} *Monto:* ${formatCurrency(payment.amount)}
-\u{1F4C5} *Vence:* ${formatDate(payment.dueDate)} (en ${daysDiff} días)
+Le compartimos un recordatorio amable sobre el siguiente pago pendiente:
 
-Por favor, realizar el pago antes de la fecha de vencimiento.
+📄 *Documento:* ${player.documentType || 'DNI'} ${player.documentNumber || 'N/A'}
+⚽ *Categoría:* ${player.category || 'N/A'}
+📘 *Concepto:* ${payment.concept}
+💰 *Monto:* ${formatCurrency(payment.amount)}
+📅 *Fecha sugerida de pago:* ${formatDate(payment.dueDate)}
+${stateText}
 
-_${settings.name}_
-${settings.phone}
-    `.trim();
-  } else if (daysDiff >= -40 && daysDiff <= 0) {
-    // En período de gracia
-    message = `
-\u{1F3C6} *${settings.name}*
-\u{26BD} RECORDATORIO DE PAGO
+Sabemos que en ocasiones pueden presentarse imprevistos. Le agradeceríamos ponerse al día cuando le sea posible o comunicarse con nosotros si necesita apoyo.
 
-Estimado(a) acudiente de *${player.name}*,
-${documentLine}
-Su pago se encuentra en período de gracia:
+Quedamos atentos a cualquier inquietud. 🤝
 
-\u{1F4B0} *Concepto:* ${payment.concept}
-\u{1F4B5} *Monto:* ${formatCurrency(payment.amount)}
-\u{1F4C5} *Venció:* ${formatDate(payment.dueDate)} (hace ${Math.abs(daysDiff)} días)
-
-Le recordamos ponerse al día.
-
-_${settings.name}_
-${settings.phone}
-    `.trim();
-  } else {
-    // Vencido
-    message = `
-\u{1F3C6} *${settings.name}*
-\u{26A0}\u{FE0F} PAGO VENCIDO
-
-Estimado(a) acudiente de *${player.name}*,
-${documentLine}
-Su pago se encuentra VENCIDO:
-
-\u{1F4B0} *Concepto:* ${payment.concept}
-\u{1F4B5} *Monto:* ${formatCurrency(payment.amount)}
-\u{1F4C5} *Venció:* ${formatDate(payment.dueDate)} (hace ${Math.abs(daysDiff)} días)
-
-Por favor, comuníquese con nosotros.
-
-_${settings.name}_
-${settings.phone}
-    `.trim();
-  }
+*${settings.name}*
+📞 ${settings.phone}
+  `.trim();
   
   // ✅ Usar la versión con confirmación para iOS
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
@@ -267,43 +233,33 @@ function sendVirtualReminderWhatsApp(playerId, nextDueDate) {
   const dueDate = new Date(nextDueDate);
   const daysDiff = daysBetween(today, dueDate);
   
-  let documentLine = '';
-  if (player.documentType && player.documentNumber) {
-    documentLine = `🪪 *Documento:* ${player.documentType} ${player.documentNumber}\n`;
-  }
-  
   const monthName = parseLocalDate(nextDueDate).toLocaleString('es-ES', {month: 'long'});
   const yearName = parseLocalDate(nextDueDate).getFullYear();
   
-  let header = '';
-  let footer = '';
-  
-  if (daysDiff > 0) {
-    header = `\u{26BD} PRÓXIMO VENCIMIENTO - ${monthName.toUpperCase()}`;
-    footer = `Le recordamos estar al día para continuar con los entrenamientos.`;
-  } else {
-    header = `\u{26A0}\u{FE0F} PAGO PENDIENTE - ${monthName.toUpperCase()}`;
-    footer = `Vemos en nuestro sistema que el pago presenta ${Math.abs(daysDiff)} días de retraso. Por favor ponerse al día a la brevedad.`;
-  }
+  const stateText = daysDiff < 0 
+    ? `⏱️ *Estado:* ${Math.abs(daysDiff)} días de atraso` 
+    : `📅 *Estado:* Próximo a vencer en ${daysDiff} días`;
 
   const message = `
-\u{1F3C6} *${settings.name}*
-${header}
+📌 *${settings.name}*
+💳 *Recordatorio de pago - ${monthName.toUpperCase()}*
 
 Estimado(a) acudiente de *${player.name}*,
-${documentLine}
-Le enviamos este recordatorio automático basado en su último pago:
 
-\u{1F4B0} *Concepto:* Mensualidad ${monthName} ${yearName}
-\u{1F4C5} *Fecha Sugerida:* ${formatDate(nextDueDate)}
-${daysDiff < 0 ? `\u{23F3} *Estado:* ${Math.abs(daysDiff)} días de atraso` : `\u{23F3} *Estado:* Vence en ${daysDiff} días`}
+Le compartimos un recordatorio amable sobre el siguiente pago pendiente:
 
-${footer}
+📄 *Documento:* ${player.documentType || 'DNI'} ${player.documentNumber || 'N/A'}
+⚽ *Categoría:* ${player.category || 'N/A'}
+📘 *Concepto:* Mensualidad ${monthName} ${yearName}
+📅 *Fecha sugerida de pago:* ${formatDate(nextDueDate)}
+${stateText}
 
-_Cualquier duda, por favor responda a este mensaje._
+Sabemos que en ocasiones pueden presentarse imprevistos. Le agradeceríamos ponerse al día cuando le sea posible o comunicarse con nosotros si necesita apoyo.
 
-_${settings.name}_
-${settings.phone}
+Quedamos atentos a cualquier inquietud. 🤝
+
+*${settings.name}*
+📞 ${settings.phone}
   `.trim();
   
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
@@ -313,7 +269,7 @@ ${settings.phone}
     openWhatsApp(player.phone, message);
   }
   
-  showToast('✅ Preparando Recordatorio...');
+  showToast('✅ Preparando Recordatorio Amable...');
 }
 
 // Hacer funciones globales
