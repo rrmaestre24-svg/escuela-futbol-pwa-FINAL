@@ -204,13 +204,13 @@ body.has-watermark::before {
                 </div>
 
                 <!-- Notificaciones Recientes -->
-                <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+                <div id="dashboardNotificationsSection" class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
                     <div class="flex items-center justify-between mb-3">
                         <h3 class="font-bold text-gray-800 dark:text-white flex items-center gap-2">
                             <i data-lucide="bell-ring" class="w-5 h-5 text-red-600"></i>
                             Notificaciones Recientes
                         </h3>
-                        <button onclick="showNotificationsView()" class="text-sm text-teal-600 dark:text-teal-400">Ver todas</button>
+                        <button id="viewAllNotificationsBtn" onclick="toggleNotificationsExpansion()" class="text-sm text-teal-600 dark:text-teal-400">Ver todas</button>
                     </div>
                     <div id="dashboardNotificationsList" class="space-y-4"></div>
                 </div>

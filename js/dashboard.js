@@ -139,10 +139,39 @@ function updateDashboardEvents() {
   lucide.createIcons();
 }
 
+// Variable de estado para expansión
+let allNotificationsExpanded = false;
+
+// 🆕 Alternar expansión de notificaciones
+window.toggleNotificationsExpansion = function(forceShow = false) {
+  if (forceShow === true) {
+    allNotificationsExpanded = true;
+  } else {
+    allNotificationsExpanded = !allNotificationsExpanded;
+  }
+  updateDashboardNotifications();
+  
+  // Si se expandió, hacer scroll suave hasta la sección
+  if (allNotificationsExpanded) {
+    const section = document.getElementById('dashboardNotificationsSection');
+    if (section) {
+      section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
+};
+
 // Actualizar notificaciones recientes
 function updateDashboardNotifications() {
-  const notifications = getPaymentNotifications().slice(0, 3);
+  const allNotifs = getPaymentNotifications();
+  // Mostrar todas si está expandido, de lo contrario solo 3
+  const notifications = allNotificationsExpanded ? allNotifs : allNotifs.slice(0, 3);
   const container = document.getElementById('dashboardNotificationsList');
+  
+  // Actualizar el texto del botón "Ver todas"
+  const viewAllBtn = document.getElementById('viewAllNotificationsBtn');
+  if (viewAllBtn) {
+    viewAllBtn.textContent = allNotificationsExpanded ? 'Ver menos' : 'Ver todas';
+  }
   
   if (notifications.length === 0) {
     container.innerHTML = `
@@ -168,20 +197,37 @@ function updateDashboardNotifications() {
       : `sendPaymentNotificationWhatsApp('${notif.paymentId}')`;
     
     return `
-      <div class="flex items-start gap-3 p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors">
-        <i data-lucide="${notif.isVirtual ? 'calendar-clock' : 'alert-circle'}" class="w-5 h-5 ${colors[notif.type]} flex-shrink-0 mt-0.5"></i>
-        <div class="flex-1 min-w-0">
-          <p class="text-sm font-medium text-gray-800 dark:text-white truncate">${player.name}</p>
-          <p class="text-xs text-gray-500 dark:text-gray-400">${notif.message}</p>
+      <div class="flex items-start gap-4 p-3 hover:bg-gray-100/50 dark:hover:bg-gray-700/50 rounded-xl transition-all duration-200 border-b border-gray-100 dark:border-gray-700 last:border-0">
+        <div class="p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
+          <i data-lucide="${notif.isVirtual ? 'calendar-clock' : 'alert-circle'}" class="w-5 h-5 ${colors[notif.type]} flex-shrink-0"></i>
         </div>
-        <button onclick="${actionOnClick}" class="bg-green-100 dark:bg-green-900/30 hover:bg-green-200 dark:hover:bg-green-800/50 text-green-600 dark:text-green-400 p-2 rounded-full transition-colors flex-shrink-0" title="Enviar recordatorio por WhatsApp">
-          <i data-lucide="message-circle" class="w-4 h-4"></i>
-        </button>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2">
+            <p class="text-sm font-bold text-gray-800 dark:text-white truncate">${player.name}</p>
+            ${notif.isVirtual ? '<span class="px-1.5 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-[10px] font-bold rounded uppercase tracking-wider">Auto</span>' : ''}
+          </div>
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-1">${notif.message}</p>
+        </div>
+        <div class="flex items-center gap-2">
+          ${!notif.isVirtual ? `
+            <button onclick="downloadPaymentPDF('${notif.paymentId}')" class="p-2 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full hover:scale-110 transition-transform" title="PDF">
+              <i data-lucide="file-text" class="w-4 h-4"></i>
+            </button>
+            <button onclick="markAsPaid('${notif.paymentId}')" class="p-2 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-full hover:scale-110 transition-transform" title="Marcar pagado">
+              <i data-lucide="check-circle" class="w-4 h-4"></i>
+            </button>
+          ` : ''}
+          <button onclick="${actionOnClick}" class="p-2 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-full hover:scale-110 transition-transform" title="Enviar WhatsApp">
+            <i data-lucide="message-circle" class="w-4 h-4"></i>
+          </button>
+        </div>
       </div>
     `;
   }).join('');
-  
-  lucide.createIcons();
+
+  if (window.lucide) {
+    window.lucide.createIcons();
+  }
 }
 
 console.log('✅ dashboard.js cargado (CON OTROS INGRESOS)');

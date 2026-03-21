@@ -166,21 +166,20 @@ function getVirtualNotifications() {
 
 // Mostrar vista de notificaciones
 function showNotificationsView() {
-  // Ocultar todas las vistas
-  document.querySelectorAll('#appContainer > main > div').forEach(div => {
-    div.classList.add('hidden');
-  });
-  
-  // Mostrar vista de notificaciones
-  document.getElementById('notificationsView').classList.remove('hidden');
-  document.getElementById('headerViewName').textContent = 'Notificaciones';
-  
-  // Actualizar navegación
-  document.querySelectorAll('.nav-item').forEach(item => {
-    item.classList.remove('active');
-  });
-  
-  renderNotifications();
+  // 🆕 Ahora en lugar de cambiar de vista, redirigimos al Dashboard y expandimos
+  if (typeof navigateTo === 'function') {
+    navigateTo('dashboard');
+    
+    // Esperar a que el dashboard cargue y aplicar la expansión
+    setTimeout(() => {
+      if (typeof toggleNotificationsExpansion === 'function') {
+        toggleNotificationsExpansion(true);
+      }
+    }, 150);
+  } else {
+    // Fallback por si acaso
+    renderNotifications();
+  }
 }
 
 // Renderizar notificaciones
