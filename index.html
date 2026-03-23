@@ -866,6 +866,18 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
                             </div>
                         </div>
                         <i data-lucide="chevron-right" class="w-5 h-5"></i>
+
+                        <!-- Manual de Usuario -->
+                    <button onclick="showUserManual()"
+                        class="w-full flex items-center justify-between p-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors mt-1">
+                        <div class="flex items-center gap-3">
+                            <i data-lucide="book-open" class="w-5 h-5 text-teal-600"></i>
+                            <div class="text-left">
+                                <span class="font-medium">Manual de Usuario</span>
+                                <p class="text-xs text-gray-500 dark:text-gray-400">Guía completa de la aplicación</p>
+                            </div>
+                        </div>
+                        <i data-lucide="chevron-right" class="w-5 h-5"></i>
                     </button>
                     <div class="mt-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                         <p class="text-xs text-gray-500 dark:text-gray-400">
@@ -876,6 +888,8 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
                 </div>
             </div>
         </div>
+
+
 
         <!-- ========================================
                  VISTA: CUMPLEAÑOS
@@ -902,6 +916,8 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
                 <div id="notificationsList" class="space-y-3"></div>
             </div>
         </div>
+
+        
 
         <!-- ======================================== 
                 VISTA DE CONTABILIDAD - CON EGRESOS
@@ -2169,6 +2185,8 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
     <script src="js/cache.js"></script>
     <script src="js/pwa-icons.js"></script>
     <script src="js/license-system.js"></script>
+<script src="js/manual-usuario.js"></script>
+
     <!-- ⭐ APP (SIEMPRE DE ÚLTIMO - Inicializa todo) -->
     <script src="js/app.js"></script>
 
@@ -3164,7 +3182,239 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
             }
         }
     </script>
+    
+<!-- ============================================================
+  MODAL: MANUAL DE USUARIO
+  Pegar justo antes de </body>
+============================================================= -->
+<div id="userManualModal"
+  class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+  <div class="bg-white dark:bg-gray-800 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+
+    <!-- Header -->
+    <div class="bg-gradient-to-r from-teal-600 to-teal-700 text-white p-4 flex justify-between items-center flex-shrink-0">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 bg-white/20 rounded-lg flex items-center justify-center">
+          <i data-lucide="book-open" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h2 class="text-lg font-bold">Manual de Usuario</h2>
+          <p class="text-xs text-teal-100">MY CLUB · Versión 1.0</p>
+        </div>
+      </div>
+      <button onclick="closeUserManual()" class="p-1 hover:bg-white/20 rounded-lg transition-colors">
+        <i data-lucide="x" class="w-6 h-6"></i>
+      </button>
+    </div>
+
+    <!-- Contenido scrolleable -->
+    <div class="flex-1 overflow-y-auto p-5 space-y-5 text-sm text-gray-700 dark:text-gray-300">
+
+      <div class="bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800 rounded-xl p-4">
+        <p class="text-teal-800 dark:text-teal-300 text-sm">
+          <strong>MY CLUB</strong> es una app PWA para gestión de escuelas de fútbol. Funciona desde el navegador y se puede instalar en cualquier celular o computador.
+        </p>
+      </div>
+
+      <!-- 1. Dashboard -->
+      <div>
+        <h3 class="font-bold text-base text-gray-900 dark:text-white mb-2 flex items-center gap-2">
+          <span class="w-6 h-6 bg-teal-600 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">1</span>
+          Panel Principal (Inicio)
+        </h3>
+        <p class="text-gray-600 dark:text-gray-400 mb-2">Al ingresar verás un resumen rápido del club:</p>
+        <ul class="space-y-1 pl-4">
+          <li class="flex items-start gap-2"><span class="text-teal-500 mt-0.5">•</span><span><strong>Jugadores activos</strong> registrados en el sistema</span></li>
+          <li class="flex items-start gap-2"><span class="text-teal-500 mt-0.5">•</span><span><strong>Pagos pendientes</strong> del mes</span></li>
+          <li class="flex items-start gap-2"><span class="text-teal-500 mt-0.5">•</span><span><strong>Ingresos del mes</strong></span></li>
+          <li class="flex items-start gap-2"><span class="text-teal-500 mt-0.5">•</span><span><strong>Próximos eventos</strong> del calendario</span></li>
+          <li class="flex items-start gap-2"><span class="text-teal-500 mt-0.5">•</span><span><strong>Notificaciones</strong> de pagos vencidos con acceso rápido a WhatsApp</span></li>
+        </ul>
+      </div>
+
+      <hr class="border-gray-200 dark:border-gray-700">
+
+      <!-- 2. Jugadores -->
+      <div>
+        <h3 class="font-bold text-base text-gray-900 dark:text-white mb-2 flex items-center gap-2">
+          <span class="w-6 h-6 bg-teal-600 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">2</span>
+          Gestión de Jugadores
+        </h3>
+        <div class="space-y-3">
+          <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
+            <p class="font-semibold text-gray-800 dark:text-white mb-1">➕ Agregar jugador</p>
+            <p class="text-gray-600 dark:text-gray-400">Ve a <strong>Jugadores → Agregar</strong>. Completa nombre, fecha de nacimiento, categoría y teléfono del acudiente. Puedes agregar foto, documento, información médica (EPS, sisbén, alergias) y talla de uniforme.</p>
+          </div>
+          <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
+            <p class="font-semibold text-gray-800 dark:text-white mb-1">✏️ Editar / Ver detalles</p>
+            <p class="text-gray-600 dark:text-gray-400">En la lista toca <strong>Editar</strong> (lápiz) o <strong>Ver</strong> para abrir el perfil completo con historial de pagos e información médica.</p>
+          </div>
+          <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
+            <p class="font-semibold text-gray-800 dark:text-white mb-1">🔄 Estado Activo / Inactivo</p>
+            <p class="text-gray-600 dark:text-gray-400">Toca el badge <strong>Activo/Inactivo</strong> en la tarjeta del jugador para cambiar su estado.</p>
+          </div>
+          <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
+            <p class="font-semibold text-gray-800 dark:text-white mb-1">📥 Importación masiva</p>
+            <p class="text-gray-600 dark:text-gray-400">Usa el botón <strong>Importar</strong> para cargar jugadores desde Excel o CSV. Descarga la plantilla, completa los datos y súbela.</p>
+          </div>
+        </div>
+      </div>
+
+      <hr class="border-gray-200 dark:border-gray-700">
+
+      <!-- 3. Pagos -->
+      <div>
+        <h3 class="font-bold text-base text-gray-900 dark:text-white mb-2 flex items-center gap-2">
+          <span class="w-6 h-6 bg-teal-600 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">3</span>
+          Sistema de Pagos
+        </h3>
+        <div class="space-y-3">
+          <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
+            <p class="font-semibold text-gray-800 dark:text-white mb-1">💵 Registrar pago</p>
+            <p class="text-gray-600 dark:text-gray-400">Ve a <strong>Pagos → Registrar Pago</strong>. Selecciona el tipo: <em>Ingreso</em> (mensualidades, uniformes), <em>Egreso</em> (salarios, servicios) u <em>Otro Ingreso</em> (rifas, torneos).</p>
+          </div>
+          <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
+            <p class="font-semibold text-gray-800 dark:text-white mb-1">📄 Factura PDF + WhatsApp</p>
+            <p class="text-gray-600 dark:text-gray-400">Desde el historial puedes generar una factura en PDF y enviarla por WhatsApp al acudiente con un solo toque.</p>
+          </div>
+          <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
+            <p class="font-semibold text-gray-800 dark:text-white mb-1">🔔 Notificaciones automáticas</p>
+            <p class="text-gray-600 dark:text-gray-400">El sistema detecta pagos vencidos y los muestra en el Dashboard. Puedes enviar recordatorios por WhatsApp desde la notificación.</p>
+          </div>
+        </div>
+      </div>
+
+      <hr class="border-gray-200 dark:border-gray-700">
+
+      <!-- 4. Contabilidad -->
+      <div>
+        <h3 class="font-bold text-base text-gray-900 dark:text-white mb-2 flex items-center gap-2">
+          <span class="w-6 h-6 bg-teal-600 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">4</span>
+          Contabilidad
+        </h3>
+        <p class="text-gray-600 dark:text-gray-400">Accede desde <strong>"Ver Contabilidad Completa"</strong> en el Dashboard. Verás total ingresos, egresos, utilidad neta, gráficos de los últimos 12 meses, estado de cuenta por jugador y opciones para exportar a PDF o CSV.</p>
+      </div>
+
+      <hr class="border-gray-200 dark:border-gray-700">
+
+      <!-- 5. Calendario -->
+      <div>
+        <h3 class="font-bold text-base text-gray-900 dark:text-white mb-2 flex items-center gap-2">
+          <span class="w-6 h-6 bg-teal-600 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">5</span>
+          Calendario de Eventos
+        </h3>
+        <p class="text-gray-600 dark:text-gray-400">Registra partidos, entrenamientos, torneos y otros eventos. Cada tipo tiene su color. Los próximos eventos aparecen en el Dashboard automáticamente.</p>
+      </div>
+
+      <hr class="border-gray-200 dark:border-gray-700">
+
+      <!-- 6. Portal de Padres -->
+      <div>
+        <h3 class="font-bold text-base text-gray-900 dark:text-white mb-2 flex items-center gap-2">
+          <span class="w-6 h-6 bg-teal-600 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">6</span>
+          Portal de Padres
+        </h3>
+        <div class="space-y-3">
+          <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
+            <p class="font-semibold text-gray-800 dark:text-white mb-1">🔑 Generar acceso individual</p>
+            <p class="text-gray-600 dark:text-gray-400">En el perfil de un jugador toca <strong>"Generar Acceso para Padres"</strong>. Se crea un código único que puedes enviar por WhatsApp.</p>
+          </div>
+          <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
+            <p class="font-semibold text-gray-800 dark:text-white mb-1">📨 Envío masivo</p>
+            <p class="text-gray-600 dark:text-gray-400">Desde el Dashboard toca <strong>"Gestión de Acceso a Padres"</strong> para enviar códigos a todos los padres uno por uno.</p>
+          </div>
+          <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
+            <p class="text-amber-800 dark:text-amber-300 text-xs"><strong>¿Cómo acceden los padres?</strong> Abrir <em>myclub-portal-padres.vercel.app</em>, ingresar el Club ID y el código del jugador.</p>
+          </div>
+        </div>
+      </div>
+
+      <hr class="border-gray-200 dark:border-gray-700">
+
+      <!-- 7. Inventario -->
+      <div>
+        <h3 class="font-bold text-base text-gray-900 dark:text-white mb-2 flex items-center gap-2">
+          <span class="w-6 h-6 bg-purple-600 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">7</span>
+          Inventario y Facturación <span class="text-xs bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 px-2 py-0.5 rounded-full font-medium">Módulo adicional</span>
+        </h3>
+        <p class="text-gray-600 dark:text-gray-400">Gestión de productos con tallas (uniformes, tenis), punto de venta con carrito, descuentos, recibo PDF y WhatsApp. Accede desde <strong>"Ver Inventario y Facturación"</strong> en el Dashboard.</p>
+      </div>
+
+      <hr class="border-gray-200 dark:border-gray-700">
+
+      <!-- 8. Configuración -->
+      <div>
+        <h3 class="font-bold text-base text-gray-900 dark:text-white mb-2 flex items-center gap-2">
+          <span class="w-6 h-6 bg-teal-600 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">8</span>
+          Configuración
+        </h3>
+        <ul class="space-y-1 pl-4">
+          <li class="flex items-start gap-2"><span class="text-teal-500 mt-0.5">•</span><span><strong>Mi Perfil:</strong> foto, nombre, teléfono y fecha de nacimiento</span></li>
+          <li class="flex items-start gap-2"><span class="text-teal-500 mt-0.5">•</span><span><strong>Datos del Club:</strong> logo, nombre, color, cuota mensual y código de asistencia</span></li>
+          <li class="flex items-start gap-2"><span class="text-teal-500 mt-0.5">•</span><span><strong>Usuarios:</strong> agrega hasta 5 administradores adicionales</span></li>
+          <li class="flex items-start gap-2"><span class="text-teal-500 mt-0.5">•</span><span><strong>Modo oscuro:</strong> activa desde Recursos Locales o el botón 🌙 en el encabezado</span></li>
+        </ul>
+      </div>
+
+      <hr class="border-gray-200 dark:border-gray-700">
+
+      <!-- 9. PWA -->
+      <div>
+        <h3 class="font-bold text-base text-gray-900 dark:text-white mb-2 flex items-center gap-2">
+          <span class="w-6 h-6 bg-teal-600 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">9</span>
+          Instalar la App (PWA)
+        </h3>
+        <div class="grid grid-cols-2 gap-3">
+          <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
+            <p class="font-semibold text-gray-800 dark:text-white mb-1">📱 Android</p>
+            <p class="text-gray-600 dark:text-gray-400 text-xs">Toca el botón <strong>Instalar</strong> en el encabezado, o menú del navegador → "Instalar aplicación".</p>
+          </div>
+          <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
+            <p class="font-semibold text-gray-800 dark:text-white mb-1">🍎 iPhone/iPad</p>
+            <p class="text-gray-600 dark:text-gray-400 text-xs">En Safari toca ⬆️ → "Agregar a pantalla de inicio".</p>
+          </div>
+        </div>
+      </div>
+
+      <hr class="border-gray-200 dark:border-gray-700">
+
+      <!-- 10. FAQ -->
+      <div>
+        <h3 class="font-bold text-base text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+          <span class="w-6 h-6 bg-teal-600 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">10</span>
+          Preguntas Frecuentes
+        </h3>
+        <div class="space-y-3">
+          <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+            <div class="bg-gray-50 dark:bg-gray-700 px-3 py-2"><p class="font-semibold text-gray-800 dark:text-white text-xs">¿Puedo usar MY CLUB sin internet?</p></div>
+            <div class="px-3 py-2"><p class="text-gray-600 dark:text-gray-400 text-xs">Sí. Los datos se guardan localmente y se sincronizan cuando vuelva la conexión.</p></div>
+          </div>
+          <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+            <div class="bg-gray-50 dark:bg-gray-700 px-3 py-2"><p class="font-semibold text-gray-800 dark:text-white text-xs">¿Cuántos administradores puedo agregar?</p></div>
+            <div class="px-3 py-2"><p class="text-gray-600 dark:text-gray-400 text-xs">Hasta 5 usuarios adicionales. Ve a Configuración → Gestión de Usuarios.</p></div>
+          </div>
+          <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+            <div class="bg-gray-50 dark:bg-gray-700 px-3 py-2"><p class="font-semibold text-gray-800 dark:text-white text-xs">¿Cómo reporto un problema?</p></div>
+            <div class="px-3 py-2"><p class="text-gray-600 dark:text-gray-400 text-xs">Usa el botón 💡 naranja flotante (abajo a la izquierda) para enviar sugerencias al desarrollador.</p></div>
+          </div>
+        </div>
+      </div>
+
+      <p class="text-xs text-gray-400 dark:text-gray-500 text-center pt-2">MY CLUB · Manual de Usuario v1.0 · Marzo 2026</p>
+    </div>
+
+    <!-- Footer -->
+    <div class="p-4 border-t border-gray-200 dark:border-gray-700 flex-shrink-0">
+      <button onclick="closeUserManual()"
+        class="w-full bg-teal-600 hover:bg-teal-700 text-white py-3 rounded-xl font-semibold transition-colors">
+        Entendido
+      </button>
+    </div>
+  </div>
+</div>
 
 </body>
 
 </html>
+
+
