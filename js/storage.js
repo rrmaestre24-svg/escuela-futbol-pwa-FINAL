@@ -36,6 +36,7 @@ function initStorage() {
       socialMedia: '',
       foundedYear: '',
       monthlyFee: 0,
+      coachCode: '',
       currency: 'COP',
       primaryColor: '#0d9488'
     }));
@@ -470,6 +471,14 @@ function updateSchoolSettings(settings) {
         window.firebase.doc(window.firebase.db, `clubs/${clubId}/settings`, "main"),
         { ...updated, lastUpdated: new Date().toISOString() }
       ).catch(err => console.warn('⚠️ No se pudo sincronizar configuración:', err));
+
+      // 🆕 Sincronizar coachCode por separado para la App de Asistencia
+      if (settings.coachCode !== undefined) {
+        window.firebase.setDoc(
+          window.firebase.doc(window.firebase.db, `clubs/${clubId}/settings`, "attendance"),
+          { coachCode: settings.coachCode, updatedAt: new Date().toISOString() }
+        ).catch(err => console.warn('⚠️ No se pudo sincronizar código de asistencia:', err));
+      }
     }
   }
 }

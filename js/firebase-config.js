@@ -54,7 +54,8 @@ async function initFirebase() {
       limit,
       onSnapshot,
       runTransaction,
-      serverTimestamp 
+      serverTimestamp,
+      deleteField 
     } = firestoreModule;
     
 
@@ -123,7 +124,8 @@ async function initFirebase() {
       ref,
       uploadString,
       getDownloadURL,
-      deleteObject
+      deleteObject,
+      deleteField
     };
     
     // LISTENER DE ESTADO DE AUTENTICACION

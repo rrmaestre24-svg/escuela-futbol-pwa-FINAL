@@ -43,7 +43,8 @@ function loadSettings() {
     clubWebsite: document.getElementById('clubWebsite'),
     clubSocial: document.getElementById('clubSocial'),
     clubFoundedYear: document.getElementById('clubFoundedYear'),
-    clubMonthlyFee: document.getElementById('clubMonthlyFee')
+    clubMonthlyFee: document.getElementById('clubMonthlyFee'),
+    coachCode: document.getElementById('coachCode')
   };
   
   if (clubElements.clubLogo) clubElements.clubLogo.src = settings.logo || getDefaultLogo();
@@ -57,6 +58,7 @@ function loadSettings() {
   if (clubElements.clubSocial) clubElements.clubSocial.value = settings.socialMedia || '';
   if (clubElements.clubFoundedYear) clubElements.clubFoundedYear.value = settings.foundedYear || '';
   if (clubElements.clubMonthlyFee) clubElements.clubMonthlyFee.value = settings.monthlyFee || '';
+  if (clubElements.coachCode) clubElements.coachCode.value = settings.coachCode || '';
   
   // ✅ Cargar clubId (solo lectura para todos)
   let clubId = settings.clubId;
@@ -497,7 +499,8 @@ document.getElementById('clubSettingsForm')?.addEventListener('submit', function
     website: clubWebsite ? clubWebsite.value : '',
     socialMedia: clubSocial ? clubSocial.value : '',
     foundedYear: clubFoundedYear ? clubFoundedYear.value : '',
-    monthlyFee: clubMonthlyFee ? parseFloat(clubMonthlyFee.value) : 0
+    monthlyFee: clubMonthlyFee ? parseFloat(clubMonthlyFee.value) : 0,
+    coachCode: document.getElementById('coachCode') ? document.getElementById('coachCode').value : ''
   };
   
  // Preservar clubId y logo existentes

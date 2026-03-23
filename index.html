@@ -662,8 +662,13 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
                             <input type="number" id="clubFoundedYear" placeholder="Año de fundación" min="1900"
                                 max="2024"
                                 class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
-                            <input type="number" id="clubMonthlyFee" placeholder="Cuota mensual"
-                                class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+                            <div>
+                                <input type="number" id="clubMonthlyFee" placeholder="Cuota mensual"
+                                    class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+                                <input type="password" id="coachCode" placeholder="Código Asistencia (6 dígitos)" maxlength="6"
+                                    class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white mt-2">
+                                <p class="text-[10px] text-gray-500 mt-1 pl-1">Código para la App de Asistencia</p>
+                            </div>
                         </div>
                         <!-- Color Primario -->
                         <div>
@@ -2591,20 +2596,18 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
                 </button>
             </div>
             <div class="p-6 overflow-y-auto space-y-6">
-                <!-- Resumen de Estados -->
+                <!-- Estadísticas Rápidas -->
                 <div class="grid grid-cols-2 gap-4">
                     <div class="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-2xl border border-gray-100 dark:border-gray-700">
-                        <p class="text-xs text-gray-500 dark:text-gray-400 uppercase font-bold tracking-wider mb-1">Sin Acceso</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 uppercase font-bold tracking-wider mb-1">Total Alumnos</p>
                         <div class="flex items-end gap-2">
-                            <span id="parentsWithoutAccessCount" class="text-3xl font-black text-gray-800 dark:text-white">0</span>
-                            <span class="text-xs text-gray-400 mb-1">padres</span>
+                            <span id="totalParentsCount" class="text-3xl font-black text-gray-800 dark:text-white">0</span>
                         </div>
                     </div>
                     <div class="bg-emerald-50 dark:bg-emerald-900/20 p-4 rounded-2xl border border-emerald-100 dark:border-emerald-800">
-                        <p class="text-xs text-emerald-600 dark:text-emerald-400 uppercase font-bold tracking-wider mb-1">Con Acceso</p>
+                        <p class="text-xs text-emerald-600 dark:text-emerald-400 uppercase font-bold tracking-wider mb-1">Con Acceso / Enviados</p>
                         <div class="flex items-end gap-2">
-                            <span id="parentsWithAccessCount" class="text-3xl font-black text-emerald-600 dark:text-emerald-400">0</span>
-                            <span class="text-xs text-emerald-400 mb-1">padres</span>
+                            <span id="processedParentsCount" class="text-3xl font-black text-emerald-600 dark:text-emerald-400">0</span>
                         </div>
                     </div>
                 </div>
@@ -2615,14 +2618,37 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
                             <i data-lucide="info" class="w-6 h-6"></i>
                         </div>
                         <p class="text-sm text-blue-800 dark:text-blue-300 leading-relaxed">
-                            Al enviar, el sistema generará un código único para cada padre y abrirá WhatsApp con un mensaje personalizado.
+                            Al enviar, el sistema generará un código único para cada padre y abrirá WhatsApp con el mensaje.
                         </p>
                     </div>
                 </div>
 
+                <!-- Pestañas de Filtro -->
+                <div class="flex gap-1 p-1 bg-gray-100 dark:bg-gray-900 rounded-xl">
+                    <button onclick="filterParentAccessList('all')" id="tab_parent_all" 
+                            class="flex-1 py-2 px-3 rounded-lg text-sm font-bold transition-all bg-emerald-600 text-white shadow-sm">
+                        Todos
+                    </button>
+                    <button onclick="filterParentAccessList('pending')" id="tab_parent_pending" 
+                            class="flex-1 py-2 px-3 rounded-lg text-sm font-bold transition-all text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-800">
+                        Pendientes
+                    </button>
+                    <button onclick="filterParentAccessList('sent')" id="tab_parent_sent" 
+                            class="flex-1 py-2 px-3 rounded-lg text-sm font-bold transition-all text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-800">
+                        Enviados
+                    </button>
+                </div>
+
                 <div class="space-y-3">
-                    <h4 class="font-bold text-gray-700 dark:text-gray-300 text-sm">Pendientes por notificar</h4>
-                    <div id="parentAccessPendingList" class="space-y-2 max-h-60 overflow-y-auto pr-2 scrollbar-thin">
+                    <div class="flex items-center justify-between text-sm">
+                        <h4 class="font-bold text-gray-700 dark:text-gray-300" id="parentListTitle">Lista de Alumnos</h4>
+                        <button onclick="confirmResetAllParentAccess()" 
+                                class="text-red-500 hover:text-red-400 flex items-center gap-1 font-bold transition-colors">
+                            <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                            Reiniciar Envíos
+                        </button>
+                    </div>
+                    <div id="parentAccessList" class="space-y-2 max-h-60 overflow-y-auto pr-2 scrollbar-thin">
                         <div class="text-center py-8 text-gray-500">Cargando datos...</div>
                     </div>
                 </div>
