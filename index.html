@@ -523,7 +523,7 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
                             class="w-20 h-20 rounded-full object-cover border-4 border-teal-500">
                         <div>
                             <input type="file" id="changeAvatar" accept="image/*" class="hidden">
-                            <button type="button" onclick="document.getElementById('changeAvatar').click()"
+                            <button type="button" onclick="showPhotoPickerModal('userAvatar','changeAvatar')"
                                 class="text-sm text-teal-600 dark:text-teal-400 underline">Cambiar foto</button>
                         </div>
                     </div>
@@ -1105,7 +1105,7 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
                         src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%23e5e7eb'/%3E%3Ctext x='50' y='50' text-anchor='middle' dy='.3em' font-size='40' fill='%239ca3af'%3E👤%3C/text%3E%3C/svg%3E"
                         alt="Avatar"
                         class="w-24 h-24 rounded-full mx-auto object-cover border-4 border-teal-500 cursor-pointer"
-                        onclick="document.getElementById('playerAvatar').click()">
+                        onclick="showPhotoPickerModal('playerAvatarPreview','playerAvatar')">
                     <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">Click para cambiar foto (máx 2MB)</p>
                 </div>
 
