@@ -1,12 +1,15 @@
 /**
- * PARENT PORTAL AUTOMATION - BATCH PROCESSING
- * Handles generation and distribution of access codes.
+ * PARENT PORTAL AUTOMATION - PHASE 2 (ADVANCED CONTROL)
+ * Handles generation, distribution, and management of access codes.
  */
 
 let parentAccessData = {
     players: [],
     codes: {},
-    isProcessing: false
+    isProcessing: false,
+    currentFilter: 'all', // all, pending, sent
+    currentIndex: 0,
+    batchPlayers: []
 };
 
 /**
@@ -16,7 +19,6 @@ async function showParentAccessAutomation() {
     const clubId = localStorage.getItem('clubId');
     if (!clubId) return showToast('❌ Error: No se encontró ID del club');
 
-    // Show modal quickly
     const modal = document.getElementById('parentAccessModal');
     if (modal) modal.classList.remove('hidden');
 
@@ -31,6 +33,10 @@ async function showParentAccessAutomation() {
 
 function closeParentAccessModal() {
     document.getElementById('parentAccessModal')?.classList.add('hidden');
+    // FIX 1: Resetear estado del batch si el modal se cierra a la mitad
+    if (parentAccessData.isProcessing) {
+        resetBatchState();
+    }
 }
 
 /**
@@ -40,10 +46,8 @@ async function loadParentAccessStatus() {
     const clubId = localStorage.getItem('clubId');
     if (!window.firebase?.db) return;
 
-    // 1. Get Players from localStorage
     const players = JSON.parse(localStorage.getItem('players') || '[]');
     
-    // 2. Get Codes from Firebase to be sure we have the latest
     const codesRef = window.firebase.collection(window.firebase.db, `clubs/${clubId}/parentCodes`);
     const codesSnapshot = await window.firebase.getDocs(codesRef);
     
@@ -61,175 +65,340 @@ async function loadParentAccessStatus() {
     parentAccessData.players = players;
     parentAccessData.codes = codesByPlayer;
 
-    // Update counts
-    const withAccess = players.filter(p => codesByPlayer[p.id]).length;
-    const withoutAccess = players.length - withAccess;
+    const total     = players.length;
+    const processed = players.filter(p => codesByPlayer[p.id]?.sentAt).length;
 
-    const withAccessElem = document.getElementById('parentsWithAccessCount');
-    const withoutAccessElem = document.getElementById('parentsWithoutAccessCount');
+    const totalElem     = document.getElementById('totalParentsCount');
+    const processedElem = document.getElementById('processedParentsCount');
     
-    if (withAccessElem) withAccessElem.textContent = withAccess;
-    if (withoutAccessElem) withoutAccessElem.textContent = withoutAccess;
+    if (totalElem)     totalElem.textContent     = total;
+    if (processedElem) processedElem.textContent = processed;
 }
 
 /**
- * Render the list of players pending access or notification
+ * Filter the list based on status
+ */
+function filterParentAccessList(filter) {
+    parentAccessData.currentFilter = filter;
+    
+    ['all', 'pending', 'sent'].forEach(f => {
+        const btn = document.getElementById(`tab_parent_${f}`);
+        if (btn) {
+            btn.classList.toggle('bg-emerald-600', f === filter);
+            btn.classList.toggle('text-white',     f === filter);
+            btn.classList.toggle('text-gray-500',  f !== filter);
+            btn.classList.toggle('dark:text-gray-400', f !== filter);
+            btn.classList.remove('shadow-sm');
+            if (f === filter) btn.classList.add('shadow-sm');
+        }
+    });
+
+    renderParentAccessList();
+}
+
+/**
+ * Render the list of players based on current filter
  */
 function renderParentAccessList() {
-    const list = document.getElementById('parentAccessPendingList');
+    const list = document.getElementById('parentAccessList');
     if (!list) return;
 
-    const players = parentAccessData.players;
-    const codes = parentAccessData.codes;
+    const { players, codes, currentFilter: filter } = parentAccessData;
 
-    if (players.length === 0) {
-        list.innerHTML = '<div class="text-center py-8 text-gray-500">No hay jugadores registrados</div>';
+    let filteredPlayers = players;
+    if (filter === 'pending') {
+        filteredPlayers = players.filter(p => !codes[p.id] || !codes[p.id].sentAt);
+    } else if (filter === 'sent') {
+        filteredPlayers = players.filter(p => codes[p.id]?.sentAt);
+    }
+
+    const titleElem = document.getElementById('parentListTitle');
+    if (titleElem) {
+        const labels = { all: 'Todos los Alumnos', pending: 'Pendientes por Notificar', sent: 'Notificados Exitosamente' };
+        titleElem.textContent = `${labels[filter]} (${filteredPlayers.length})`;
+    }
+
+    if (filteredPlayers.length === 0) {
+        list.innerHTML = `
+            <div class="text-center py-12 text-gray-500 bg-gray-50 dark:bg-gray-700/20 rounded-2xl border-2 border-dashed border-gray-100 dark:border-gray-700">
+                <p class="text-sm">No hay alumnos en esta categoría</p>
+            </div>`;
         return;
     }
 
-    // Sort: No code first, then alphabetical
-    const sortedPlayers = [...players].sort((a, b) => {
-        const hasA = codes[a.id] ? 1 : 0;
-        const hasB = codes[b.id] ? 1 : 0;
-        if (hasA !== hasB) return hasA - hasB;
-        return a.name.localeCompare(b.name);
-    });
+    const sortedPlayers = [...filteredPlayers].sort((a, b) => a.name.localeCompare(b.name));
 
     list.innerHTML = sortedPlayers.map(player => {
         const access = codes[player.id];
-        const statusClass = access ? 'bg-emerald-50 dark:bg-emerald-900/10' : 'bg-gray-50 dark:bg-gray-700/30';
+        const hasCode = !!access;
+        const isSent  = !!access?.sentAt;
+        // FIX 2: Escapar comillas en el nombre para evitar romper el onclick
+        const safeName = (player.name || '').replace(/'/g, "\\'");
         const phone = player.phone || 'Sin teléfono';
         
         return `
-            <div class="flex items-center justify-between p-3 rounded-xl ${statusClass} border border-transparent hover:border-teal-500/30 transition-all">
+            <div data-player-id="${player.id}" class="group flex items-center justify-between p-3 rounded-2xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 hover:border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/5 transition-all">
                 <div class="flex items-center gap-3">
-                    <img src="${player.avatar || 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 100 100\'%3E%3Ccircle cx=\'50\' cy=\'50\' r=\'50\' fill=\'%23e5e7eb\'/%3E%3C/svg%3E'}" 
-                         class="w-10 h-10 rounded-full object-cover shadow-sm">
-                    <div class="max-w-[150px] sm:max-w-xs overflow-hidden">
+                    <div class="relative">
+                        <img src="${player.avatar || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(player.name) + '&background=random'}" 
+                             class="w-11 h-11 rounded-full object-cover border-2 border-white dark:border-gray-700 shadow-sm"
+                             onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(player.name)}&background=random'">
+                        ${isSent ? `
+                            <span class="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full border-2 border-white dark:border-gray-800 flex items-center justify-center">
+                                <i data-lucide="check" class="w-3 h-3 text-white"></i>
+                            </span>` : ''}
+                    </div>
+                    <div>
                         <p class="font-bold text-gray-800 dark:text-white text-sm truncate">${player.name}</p>
-                        <p class="text-[10px] text-gray-500 truncate">${phone}</p>
+                        <div class="flex items-center gap-2">
+                            <p class="text-[10px] text-gray-500 flex items-center gap-1">
+                                <i data-lucide="phone" class="w-3 h-3"></i> ${phone}
+                            </p>
+                            ${hasCode ? `<span class="text-[10px] font-mono font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-1.5 rounded">#${access.code}</span>` : ''}
+                        </div>
                     </div>
                 </div>
-                <div class="text-right shrink-0">
-                    ${access ? 
-                        `<div class="flex flex-col items-end gap-1">
-                            <span class="text-[10px] font-bold text-emerald-600 bg-emerald-100 dark:bg-emerald-900/40 px-2 py-0.5 rounded-full uppercase">Código: ${access.code}</span>
-                            ${access.sentAt ? `<span class="text-[9px] text-emerald-500 flex items-center gap-0.5"><i data-lucide="check" class="w-3 h-3"></i> Enviado</span>` : ''}
-                        </div>` : 
-                        `<span class="text-[10px] font-bold text-gray-400 bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded-full uppercase">Pendiente</span>`
-                    }
+                
+                <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onclick="resendParentCode('${player.id}')" 
+                            title="${isSent ? 'Volver a enviar' : 'Enviar ahora'}"
+                            class="p-2 rounded-xl text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/40 transition-colors">
+                        <i data-lucide="send" class="w-5 h-5"></i>
+                    </button>
+                    <button onclick="regenerateParentCode('${player.id}')" 
+                            title="Regenerar nuevo código"
+                            class="p-2 rounded-xl text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/40 transition-colors">
+                        <i data-lucide="refresh-cw" class="w-5 h-5"></i>
+                    </button>
                 </div>
             </div>
         `;
     }).join('');
     
-    // Re-run Lucide icons
     if (window.lucide) window.lucide.createIcons();
 }
 
 /**
- * Process access codes and open WhatsApp for each
+ * Resend existing code via WhatsApp
  */
-async function processBatchParentAccess() {
-    if (parentAccessData.isProcessing) return;
-    
-    const clubId = localStorage.getItem('clubId');
-    if (!clubId) return showToast('❌ No se encontró ID del club');
+async function resendParentCode(playerId) {
+    const player = parentAccessData.players.find(p => p.id === playerId);
+    if (!player) return;
 
+    let access = parentAccessData.codes[playerId];
+    
+    if (!access) {
+        showToast('⏳ Generando código nuevo...');
+        const newCode = window.generateParentAccessCode
+            ? window.generateParentAccessCode()
+            : Math.random().toString(36).substring(2, 8).toUpperCase();
+
+        if (window.saveParentCode) await window.saveParentCode(playerId, newCode);
+        
+        access = { playerId, code: newCode, createdAt: new Date().toISOString() };
+        parentAccessData.codes[playerId] = access;
+    }
+
+    await openWhatsAppForParent(player, access);
+    await loadParentAccessStatus();
+    renderParentAccessList();
+}
+
+/**
+ * Generate a NEW code and send via WhatsApp
+ */
+async function regenerateParentCode(playerId) {
+    const player = parentAccessData.players.find(p => p.id === playerId);
+    if (!player) return;
+
+    if (!confirm(`¿Estás seguro de REGENERAR el código para ${player.name}?\n\nEl código anterior dejará de funcionar.`)) return;
+
+    showToast('⏳ Generando nuevo código...');
+    const newCode = window.generateParentAccessCode
+        ? window.generateParentAccessCode()
+        : Math.random().toString(36).substring(2, 8).toUpperCase();
+    
+    if (window.saveParentCode) await window.saveParentCode(playerId, newCode);
+    
+    const access = { playerId, code: newCode, createdAt: new Date().toISOString() };
+    parentAccessData.codes[playerId] = access;
+
+    await openWhatsAppForParent(player, access);
+    await loadParentAccessStatus();
+    renderParentAccessList();
+    showToast('✅ Código regenerado y enviado');
+}
+
+/**
+ * Common WhatsApp Opener
+ */
+async function openWhatsAppForParent(player, access) {
+    const clubId   = localStorage.getItem('clubId');
     const settings = JSON.parse(localStorage.getItem('schoolSettings') || '{}');
     const clubName = settings.name || 'Mi Escuela de Fútbol';
     
-    // Filter players: not notified (either no code or never sent)
-    const playersToNotify = parentAccessData.players.filter(p => {
-        const access = parentAccessData.codes[p.id];
-        return !access || !access.sentAt;
-    });
-
-    if (playersToNotify.length === 0) {
-        return showToast('✅ Todos los padres ya tienen acceso notificado');
+    const phone = (player.phone || '').replace(/[^0-9+]/g, '');
+    if (!phone || phone.replace(/[^0-9]/g, '').length < 7) {
+        showToast(`❌ Teléfono inválido para ${player.name}`);
+        return;
     }
 
-    if (!confirm(`Se enviarán ${playersToNotify.length} mensajes. ¿Deseas empezar?`)) return;
+    const message =
+        `⚽ *Acceso al Portal de Padres - ${clubName}* ⚽\n\n` +
+        `Hola! Te compartimos el acceso oficial para consultar el progreso de *${player.name}*, ver su carnet digital y reportar pagos.\n\n` +
+        `🔗 *Ingresa aquí:* https://myclub-portal-padres.vercel.app/\n\n` +
+        `📍 *Club ID:* ${clubId}\n` +
+        `🔑 *Código de Acceso:* ${access.code}\n\n` +
+        `¡Te esperamos en la plataforma!`;
+    
+    const waUrl = `https://wa.me/${phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(message)}`;
+    
+    // Marcar como enviado en Firebase
+    try {
+        const updateRef = window.firebase.doc(window.firebase.db, `clubs/${clubId}/parentCodes`, player.id);
+        const sentAt = new Date().toISOString();
+        await window.firebase.updateDoc(updateRef, { sentAt });
+        if (parentAccessData.codes[player.id]) {
+            parentAccessData.codes[player.id].sentAt = sentAt;
+        }
+    } catch (e) {
+        console.warn('No se pudo marcar como enviado en Firebase:', e);
+    }
 
-    parentAccessData.isProcessing = true;
-    const btn = document.getElementById('btnProcessBatchAccess');
-    const originalText = btn.innerHTML;
-    btn.disabled = true;
+    window.open(waUrl, '_blank');
+}
+
+/**
+ * Reset all "Sent" markers
+ * FIX 3: deleteField ya viene desestructurado — no necesita typeof
+ */
+async function confirmResetAllParentAccess() {
+    if (!confirm(
+        '⚠️ ¿Estás seguro de REINICIAR todos los envíos?\n\n' +
+        'Esto permitirá volver a enviar el código a TODOS los padres. Los códigos NO cambian.'
+    )) return;
+    
+    if (!confirm('🔴 SEGUNDA CONFIRMACIÓN:\nEsto marcará todos como "Pendientes". ¿Confirmas?')) return;
 
     try {
-        for (let i = 0; i < playersToNotify.length; i++) {
-            const player = playersToNotify[i];
-            btn.innerHTML = `<span class="animate-spin mr-2">⏳</span> Enviando (${i + 1}/${playersToNotify.length})...`;
-            
-            let access = parentAccessData.codes[player.id];
-            
-            // 1. Generate code if it doesn't exist (using storage.js utility)
-            if (!access) {
-                console.log(`🆕 Generando código para ${player.name}`);
-                const newCode = window.generateParentAccessCode ? window.generateParentAccessCode() : Math.random().toString(36).substring(2, 8).toUpperCase();
-                
-                // saveParentCode handles localStorage and Firebase sync
-                if (window.saveParentCode) {
-                    window.saveParentCode(player.id, newCode);
-                }
-                
-                access = {
-                    playerId: player.id,
-                    code: newCode,
-                    createdAt: new Date().toISOString()
-                };
-                parentAccessData.codes[player.id] = access;
-            }
-
-            // 2. Prepare WhatsApp Message
-            const phone = player.phone || '';
-            if (phone && phone.length > 5) {
-                const message = `⚽ *Acceso al Portal de Padres - ${clubName}* ⚽\n\nHola! Te compartimos el acceso oficial para consultar el progreso de *${player.name}*, ver su carnet digital, reportar pagos y recibir notificaciones.\n\n🔗 *Ingresa aquí:* https://myclub-pwa.vercel.app\n\n📍 *Club ID:* ${clubId}\n🔑 *Código de Acceso:* ${access.code}\n\n¡Te esperamos en la plataforma!`;
-                
-                const waUrl = `https://wa.me/${phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(message)}`;
-                
-                // Mark as sent in Firebase
-                const updateRef = window.firebase.doc(window.firebase.db, `clubs/${clubId}/parentCodes`, player.id);
-                const sentAt = new Date().toISOString();
-                await window.firebase.updateDoc(updateRef, { sentAt });
-                
-                // Update local status
-                parentAccessData.codes[player.id].sentAt = sentAt;
-
-                // Open window
-                window.open(waUrl, '_blank');
-                
-                // Wait for UI to catch up
-                renderParentAccessList();
-
-                // Wait for user to send and come back
-                if (i < playersToNotify.length - 1) {
-                    const proceed = await new Promise(resolve => {
-                        const confirmBox = confirm(`Mensaje para ${player.name} abierto en WhatsApp.\n\n¿Continuar con el siguiente (${i + 2}/${playersToNotify.length})?`);
-                        resolve(confirmBox);
-                    });
-                    if (!proceed) break;
-                }
-            } else {
-                console.warn(`⚠️ Jugador ${player.name} no tiene teléfono válido`);
-            }
-        }
+        showToast('⏳ Reiniciando historial de envíos...');
+        const clubId = localStorage.getItem('clubId');
+        const { db, getDocs, collection, doc, updateDoc, deleteField } = window.firebase;
         
-        showToast('✅ Proceso completado');
+        const snapshot = await getDocs(collection(db, `clubs/${clubId}/parentCodes`));
+        
+        await Promise.all(
+            snapshot.docs.map(d =>
+                // FIX 3: deleteField directo, sin typeof
+                updateDoc(doc(db, `clubs/${clubId}/parentCodes`, d.id), { sentAt: deleteField() })
+            )
+        );
+        
+        showToast('✅ Historial reiniciado correctamente');
         await loadParentAccessStatus();
         renderParentAccessList();
-        
     } catch (error) {
-        console.error('Error in batch processing:', error);
-        showToast('❌ Error en el proceso');
-    } finally {
-        parentAccessData.isProcessing = false;
-        btn.innerHTML = originalText;
-        btn.disabled = false;
+        console.error('Error resetting parent access:', error);
+        showToast('❌ Error al reiniciar envíos');
     }
 }
 
+/**
+ * Batch Process — uno por uno con confirmación del usuario
+ */
+async function processBatchParentAccess() {
+    const mainBtn = document.getElementById('btnProcessBatchAccess');
+    if (!mainBtn) return;
+
+    // Fase 1: Inicializar
+    if (!parentAccessData.isProcessing) {
+        const playersToNotify = parentAccessData.players.filter(p => {
+            const access = parentAccessData.codes[p.id];
+            return !access || !access.sentAt;
+        });
+
+        if (playersToNotify.length === 0) {
+            return showToast('✅ Todos los alumnos ya están notificados');
+        }
+
+        if (!confirm(
+            `Se prepararán ${playersToNotify.length} envíos.\n` +
+            `Deberás pulsar el botón para cada alumno (requerido por el navegador).\n\n¿Empezar?`
+        )) return;
+
+        parentAccessData.isProcessing  = true;
+        parentAccessData.batchPlayers  = playersToNotify;
+        parentAccessData.currentIndex  = 0;
+        
+        updateBatchButtonUI();
+        return;
+    }
+
+    // Fase 2: Procesar el índice actual
+    const player = parentAccessData.batchPlayers[parentAccessData.currentIndex];
+    if (!player) return;
+
+    await resendParentCode(player.id);
+    parentAccessData.currentIndex++;
+    
+    if (parentAccessData.currentIndex < parentAccessData.batchPlayers.length) {
+        updateBatchButtonUI();
+    } else {
+        showToast('✅ ¡Todos los mensajes enviados!');
+        resetBatchState();
+    }
+}
+
+function updateBatchButtonUI() {
+    const mainBtn = document.getElementById('btnProcessBatchAccess');
+    if (!mainBtn) return;
+
+    const nextPlayer = parentAccessData.batchPlayers[parentAccessData.currentIndex];
+    const total      = parentAccessData.batchPlayers.length;
+    const current    = parentAccessData.currentIndex + 1;
+
+    mainBtn.innerHTML = `
+        <div class="flex flex-col items-center">
+            <span class="text-sm font-bold">Enviar a: ${nextPlayer.name}</span>
+            <span class="text-[10px] opacity-80">Alumno ${current} de ${total} · Pulsa para continuar</span>
+        </div>
+    `;
+    mainBtn.className = 'w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-4 px-6 rounded-2xl flex items-center justify-center gap-3 transition-all transform active:scale-95 shadow-lg shadow-emerald-500/20';
+    
+    // Highlight del alumno actual en la lista
+    const playerRow = document.querySelector(`[data-player-id="${nextPlayer.id}"]`);
+    if (playerRow) {
+        playerRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        playerRow.classList.add('ring-2', 'ring-emerald-500', 'bg-emerald-50', 'dark:bg-emerald-900/20');
+        // FIX 4: Mantener highlight hasta que se procese, no por tiempo fijo
+        setTimeout(() => {
+            playerRow.classList.remove('ring-2', 'ring-emerald-500', 'bg-emerald-50', 'dark:bg-emerald-900/20');
+        }, 8000);
+    }
+}
+
+function resetBatchState() {
+    const mainBtn = document.getElementById('btnProcessBatchAccess');
+    if (mainBtn) {
+        mainBtn.innerHTML = `
+            <i data-lucide="send" class="w-5 h-5"></i>
+            <span>Empezar a enviar por WhatsApp</span>
+        `;
+        mainBtn.className = 'w-full bg-gradient-to-r from-teal-600 via-teal-700 to-emerald-700 hover:from-teal-700 hover:to-emerald-800 text-white font-bold py-4 px-6 rounded-2xl flex items-center justify-center gap-3 transition-all transform active:scale-95 shadow-xl shadow-teal-500/20';
+    }
+    parentAccessData.isProcessing = false;
+    parentAccessData.batchPlayers = [];
+    parentAccessData.currentIndex = 0;
+    if (window.lucide) window.lucide.createIcons();
+}
+
 // Global exposure
-window.showParentAccessAutomation = showParentAccessAutomation;
-window.closeParentAccessModal = closeParentAccessModal;
-window.processBatchParentAccess = processBatchParentAccess;
+window.showParentAccessAutomation   = showParentAccessAutomation;
+window.closeParentAccessModal       = closeParentAccessModal;
+window.processBatchParentAccess     = processBatchParentAccess;
+window.filterParentAccessList       = filterParentAccessList;
+window.resendParentCode             = resendParentCode;
+window.regenerateParentCode         = regenerateParentCode;
+window.confirmResetAllParentAccess  = confirmResetAllParentAccess;
+
+console.log('✅ parent-automation.js cargado');

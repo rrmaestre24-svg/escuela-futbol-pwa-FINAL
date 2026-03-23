@@ -250,4 +250,33 @@ function updateDashboardNotifications() {
   }
 }
 
-console.log('✅ dashboard.js cargado (CON OTROS INGRESOS)');
+// ========================================
+// 🆕 ABRIR INVENTARIO
+// Detecta si la PWA de inventario está instalada
+// Si sí → intenta abrirla como app nativa
+// Si no → abre la URL web normal
+// ========================================
+function abrirInventario() {
+  const INVENTARIO_URL = 'https://myclub-inventario.vercel.app';
+
+  // Obtener el clubId del usuario actual para pasarlo como parámetro
+  const clubId = localStorage.getItem('clubId') || '';
+  const urlConClub = clubId
+    ? `${INVENTARIO_URL}/login.html?clubId=${clubId}`
+    : `${INVENTARIO_URL}/login.html`;
+
+  // Intentar abrir como PWA instalada primero
+  // El navegador la abrirá en modo standalone si está instalada
+  const ventana = window.open(urlConClub, '_blank');
+
+  // Si el navegador bloqueó el popup (ej: iOS Safari sin interacción)
+  if (!ventana || ventana.closed || typeof ventana.closed === 'undefined') {
+    // Fallback: redirigir en la misma pestaña
+    window.location.href = urlConClub;
+  }
+}
+
+// Exportar para uso global
+window.abrirInventario = abrirInventario;
+
+console.log('✅ dashboard.js cargado (CON OTROS INGRESOS + INVENTARIO)');
