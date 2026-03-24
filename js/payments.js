@@ -80,6 +80,11 @@ function showAddPaymentModal() {
     // Resetear formulario
     const form = document.getElementById('paymentForm');
     if (form) form.reset();
+
+    // Auto-fecha editable
+    const dueDateInput = document.getElementById('paymentDueDate');
+    
+    if (dueDateInput) dueDateInput.value = getCurrentDate();
     
     const paymentId = document.getElementById('paymentId');
     if (paymentId) paymentId.value = '';
