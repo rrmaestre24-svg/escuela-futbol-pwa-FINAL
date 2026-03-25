@@ -747,12 +747,22 @@ async function generatePlayerCard() {
     
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(180, 0, 0);
-    doc.text('CONTACTO DE EMERGENCIA:', 5, medY + 1);
+    doc.text('PADRE / ACUDIENTE:', 5, medY + 1);
     
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(60, 60, 60);
-    const emergencyContact = currentPlayer.emergencyContact || currentPlayer.phone || 'No especificado';
-    doc.text(emergencyContact, 5, medY + 6);
+    const fatherPhone = currentPlayer.phone || 'No especificado';
+    doc.text(fatherPhone, 5, medY + 6);
+    
+    if (currentPlayer.emergencyContact) {
+      medY += 8;
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(180, 0, 0);
+      doc.text('MADRE:', 5, medY + 1);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(60, 60, 60);
+      doc.text(currentPlayer.emergencyContact, 5, medY + 6);
+    }
     
     // Contacto del club
     medY += 16;

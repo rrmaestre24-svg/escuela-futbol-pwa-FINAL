@@ -96,18 +96,193 @@ function resetImportModal() {
 // ========================================
 
 function downloadTemplate(format) {
-    const templateData = [
-        ['nombre', 'fecha_nacimiento', 'categoria', 'telefono_padre', 'posicion', 'numero_camiseta', 'documento', 'tipo_documento', 'direccion', 'contacto_emergencia', 'tipo_sangre', 'alergias', 'condiciones_medicas'],
-        ['AQUI VA EL NOMBRE LO DEMAS DATOS SON EJEMPLOS DE COMO LLENARLOS , DEBEN ELIMINARLOS PARA PONER LOS REALES ', '2015-03-15', 'Categoría 2015', '3001234567', 'Delantero Centro', '10', '1234567890', 'TI', 'Calle 123 #45-67', '3009876543', 'O+', 'Ninguna', 'Ninguna']
+    // 📋 ENCABEZADOS CON TODOS LOS CAMPOS ACTUALES
+    const headers = [
+        '🔴 nombre',
+        '🔴 fecha_nacimiento',
+        '🔴 categoria',
+        'posicion',
+        'numero_camiseta',
+        'talla_uniforme',
+        'tipo_documento',
+        'numero_documento',
+        'email',
+        '🔴 telefono_padre',
+        'telefono_madre',
+        'direccion',
+        'telefono_emergencia',
+        'tipo_sangre',
+        'eps',
+        'sisben',
+        'alergias',
+        'medicamentos',
+        'condiciones_medicas'
     ];
+    
+    // 📝 EJEMPLO DE LLENADO CON TODOS LOS DATOS Y MÚLTIPLES FORMATOS DE FECHA
+    const examples = [
+        // Ejemplo 1: Fecha en formato YYYY-MM-DD (ISO)
+        ['Juan Pérez García', '2015-03-15', 'Categoría 2015', 'Delantero Centro', '10', 'M', 'CC', '1234567890', 'padre@email.com', '3001234567', '3009876543', 'Calle 123 #45-67', '3201234567', 'O+', 'Sura', 'A1', 'Ninguna', 'Ninguno', 'Ninguna'],
+        // Ejemplo 2: Fecha en formato DD/MM/YYYY (español)
+        ['María López Torres', '15/03/2015', 'Categoría 2015', 'Delantera', '7', 'M', 'TI', '9876543210', 'madre@email.com', '3109876543', '3109999999', 'Carrera 45 #12-34', '3201111111', 'A+', 'Famisanar', 'A2', 'Ninguna', 'Ninguno', 'Ninguna'],
+        // Ejemplo 3: Fecha en formato DD-MM-YYYY (con guiones)
+        ['Carlos Rodríguez Díaz', '20-05-2014', 'Categoría 2014', 'Lateral', '3', 'S', 'CC', '5555555555', 'carlos@email.com', '3214567890', '3214444444', 'Avenida 99 #88-77', '3202222222', 'B-', 'Ascendis', 'B', 'Penicilina', 'Asma inhaler', 'Ninguna'],
+        // Ejemplo 4: Fecha alternativa DD/MM/YYYY
+        ['Laura Martínez Silva', '10/11/2016', 'Categoría 2016', 'Portera', '1', 'XS', 'RC', '7777777777', 'laura@email.com', '3001111111', '', 'Pasaje 5 #10-20', '', 'AB+', 'EPS Sanitas', 'C', 'Ninguna', 'Ninguno', 'Asma']
+    ];
+    
+    // 📌 DESCRIPCIÓN DE CAMPOS (segunda hoja para referencia)
+    const descripciones = [
+        ['CAMPO', 'DESCRIPCIÓN', 'FORMATOS ACEPTADOS', 'OBLIGATORIO'],
+        ['nombre', 'Nombre completo del jugador', 'Texto (ej: Juan Pérez García)', 'SÍ'],
+        ['fecha_nacimiento', 'Fecha de nacimiento del jugador', 'YYYY-MM-DD, DD/MM/YYYY, DD-MM-YYYY, "15 de marzo de 2015"', 'SÍ'],
+        ['categoria', 'Categoría o año de nacimiento', 'Texto (ej: Categoría 2015, Sub-12)', 'SÍ'],
+        ['posicion', 'Posición en la cancha', 'Delantero, Lateral, Portero, Mediocampista, Defensa', 'NO'],
+        ['numero_camiseta', 'Número de camiseta', '1-99', 'NO'],
+        ['talla_uniforme', 'Talla del uniforme', '4, 6, 8, 10, 12, 14, XS, S, M, L, XL, XXL', 'NO'],
+        ['tipo_documento', 'Tipo de documento de identidad', 'TI, RC, CC, CE, PA, NUIP', 'NO'],
+        ['numero_documento', 'Número de documento sin espacios', '10 dígitos aprox', 'NO'],
+        ['email', 'Correo electrónico del acudiente', 'formato@email.com', 'NO'],
+        ['telefono_padre', 'Teléfono del acudiente principal', '10 dígitos (3001234567)', 'SÍ'],
+        ['telefono_madre', 'Teléfono del segundo acudiente', '10 dígitos', 'NO'],
+        ['direccion', 'Dirección residencial', 'Texto completo', 'NO'],
+        ['telefono_emergencia', 'Teléfono de emergencia', '10 dígitos', 'NO'],
+        ['tipo_sangre', 'Tipo de sangre', 'A+, A-, B+, B-, AB+, AB-, O+, O-', 'NO'],
+        ['eps', 'Empresa Promotora de Salud', 'Sura, Famisanar, Ascendis, etc', 'NO'],
+        ['sisben', 'Clasificación SISBEN', 'A1, A2, B, C', 'NO'],
+        ['alergias', 'Alergias conocidas', 'Texto (ej: Penicilina, Maní, Ninguna)', 'NO'],
+        ['medicamentos', 'Medicamentos habituales', 'Texto (ej: Asma inhaler, Ninguno)', 'NO'],
+        ['condiciones_medicas', 'Condiciones médicas importantes', 'Texto (ej: Asma, Diabetes, Ninguna)', 'NO']
+    ];
+    
+    // Crear datos para Excel
+    const allExamples = [headers, ...examples];
+    
     if (format === 'excel') {
-        downloadAsExcel(templateData);
+        downloadAsExcelMejorado(allExamples, descripciones);
     } else {
-        downloadAsCSV(templateData);
+        downloadAsCSV(allExamples);
     }
 }
 
-// Descargar como Excel (.xlsx)
+// 🆕 Descargar como Excel (.xlsx) - MEJORADO CON 2 HOJAS
+function downloadAsExcelMejorado(dataJugadores, dataDescripciones) {
+    if (typeof XLSX === 'undefined') {
+        if (typeof showToast === 'function') {
+            showToast('⚠️ Librería Excel no disponible. Descargando CSV...');
+        }
+        downloadAsCSV(dataJugadores);
+        return;
+    }
+    
+    try {
+        // Crear libro de trabajo
+        const wb = XLSX.utils.book_new();
+        
+        // ========== HOJA 1: DATOS DE JUGADORES ==========
+        const ws1 = XLSX.utils.aoa_to_sheet(dataJugadores);
+        
+        // Ajustar ancho de columnas
+        const colWidths = dataJugadores[0].map((col, i) => {
+            const maxLen = Math.max(...dataJugadores.map(row => String(row[i] || '').length));
+            return { wch: Math.max(maxLen + 2, 14) };
+        });
+        ws1['!cols'] = colWidths;
+        
+        // Formatear encabezado (primera fila en azul)
+        ws1['A1'].s = {
+            fill: { fgColor: { rgb: '4472C4' } },
+            font: { bold: true, color: { rgb: 'FFFFFF' } },
+            alignment: { horizontal: 'center', vertical: 'center', wrapText: true }
+        };
+        
+        // Agregar hoja al libro
+        XLSX.utils.book_append_sheet(wb, ws1, 'Jugadores');
+        
+        // ========== HOJA 2: INSTRUCCIONES Y REFERENCIAS ==========
+        const ws2 = XLSX.utils.aoa_to_sheet([
+            ['📋 INSTRUCCIONES PARA COMPLETAR EL FORMULARIO'],
+            [''],
+            ['1️⃣ CAMPOS OBLIGATORIOS (🔴 DEBEN SER LLENADOS):'],
+            ['   • nombre - Nombre completo del jugador'],
+            ['   • fecha_nacimiento - Se acepta en MÚLTIPLES FORMATOS (ver abajo)'],
+            ['   • categoria - Categoría del jugador (ejemplo: Categoría 2015, Sub-12)'],
+            ['   • telefono_padre - Teléfono del acudiente (10 dígitos sin espacios)'],
+            [''],
+            ['2️⃣ CAMPOS OPCIONALES (pueden dejarse en blanco):'],
+            ['   • posicion, numero_camiseta, talla_uniforme'],
+            ['   • tipo_documento, numero_documento, email'],
+            ['   • telefono_madre, direccion, telefono_emergencia'],
+            ['   • tipo_sangre, eps, sisben, alergias, medicamentos, condiciones_medicas'],
+            [''],
+            ['3️⃣ FORMATOS DE FECHA ACEPTADOS (fecha_nacimiento) - ¡ELIGE EL QUE PREFIERAS!'],
+            ['   ✅ YYYY-MM-DD  →  2015-03-15'],
+            ['   ✅ DD/MM/YYYY  →  15/03/2015 (formato español común)'],
+            ['   ✅ DD-MM-YYYY  →  15-03-2015 (con guiones)'],
+            ['   ✅ Texto       →  "15 de marzo de 2015" o "15 de Mar 2015"'],
+            ['   ✅ Números de Excel  →  Se convierten automáticamente'],
+            ['   📌 RECOMENDACIÓN: Usa DD/MM/YYYY si trabajas con Excel en español'],
+            [''],
+            ['4️⃣ FORMATO DE DATOS ESPERADO (OTROS CAMPOS):'],
+            ['   • Nombres: Texto completo (Ej: Juan Pérez García)'],
+            ['   • Teléfonos: 10 dígitos SIN espacios ni guiones (Ej: 3001234567)'],
+            ['   • Tipo de sangre: A+, A-, B+, B-, AB+, AB-, O+, O-'],
+            ['   • Email: formato válido (Ej: usuario@email.com)'],
+            [''],
+            ['5️⃣ DOCUMENTO DE IDENTIDAD (CÓDIGOS VÁLIDOS):'],
+            ['   • TI = Tarjeta de Identidad'],
+            ['   • RC = Registro Civil'],
+            ['   • CC = Cédula de Ciudadanía'],
+            ['   • CE = Cédula de Extranjería'],
+            ['   • PA = Pasaporte'],
+            ['   • NUIP = Número Único de Identificación Personal'],
+            [''],
+            ['6️⃣ RECOMENDACIONES IMPORTANTES:'],
+            ['   • No modifiques los nombres de las columnas (encabezados)'],
+            ['   • Completa al menos los campos obligatorios (🔴)'],
+            ['   • Verifica que TODOS los datos sean correctos antes de subir'],
+            ['   • Usa la hoja "Descripción de Campos" para referencia detallada'],
+            ['   • Si una fecha no se reconoce, intenta con otro formato'],
+            [''],
+            ['7️⃣ EJEMPLOS DE MÚLTIPLES FORMATOS DE FECHA:'],
+            ['   Los siguientes valores son IGUALES - el sistema los convierte igual:'],
+            ['   • 2015-03-15  ↔  15/03/2015  ↔  15-03-2015  ↔  15 de marzo de 2015'],
+            [''],
+            ['⚠️ SI ALGO NO ESTÁ CLARO, CONSULTA LA HOJA "Descripción de Campos"']
+        ]);
+        
+        ws2['!cols'] = [{ wch: 80 }];
+        XLSX.utils.book_append_sheet(wb, ws2, 'Instrucciones');
+        
+        // ========== HOJA 3: DESCRIPCIÓN DETALLADA DE CAMPOS ==========
+        const ws3 = XLSX.utils.aoa_to_sheet(dataDescripciones);
+        
+        const colWidths3 = [
+            { wch: 20 },  // CAMPO
+            { wch: 50 },  // DESCRIPCIÓN
+            { wch: 30 },  // EJEMPLO
+            { wch: 15 }   // OBLIGATORIO
+        ];
+        ws3['!cols'] = colWidths3;
+        
+        XLSX.utils.book_append_sheet(wb, ws3, 'Descripción de Campos');
+        
+        // Descargar
+        XLSX.writeFile(wb, 'plantilla_jugadores_completa_myclub.xlsx');
+        
+        if (typeof showToast === 'function') {
+            showToast('✅ Plantilla Excel descargada (3 hojas: Jugadores, Instrucciones, Descripción)');
+        }
+    } catch (error) {
+        console.error('Error generando Excel mejorado:', error);
+        if (typeof showToast === 'function') {
+            showToast('❌ Error al generar Excel. Descargando CSV...');
+        }
+        downloadAsCSV(dataJugadores);
+    }
+}
+
+// Versión anterior (compatibilidad)
 function downloadAsExcel(data) {
     if (typeof XLSX === 'undefined') {
         if (typeof showToast === 'function') {
@@ -305,20 +480,30 @@ function parseImportCSV(text) {
     return rows;
 }
 
-// Mapear fila a objeto jugador
+// Mapear fila a objeto jugador - MEJORADO CON TODOS LOS CAMPOS
 function mapRowToPlayer(headers, row) {
     const player = {
         name: '',
         birthDate: '',
         category: '',
         phone: '',
+        phoneParent2: '',
+        emergencyContact: '',
+        email: '',
         position: '',
         jerseyNumber: '',
+        uniformSize: '',
         documentNumber: '',
         documentType: '',
         address: '',
-        emergencyContact: '',
-        medicalInfo: { bloodType: '', allergies: '', conditions: '' },
+        medicalInfo: { 
+            bloodType: '', 
+            allergies: '', 
+            medications: '', 
+            conditions: '', 
+            eps: '', 
+            sisben: '' 
+        },
         isValid: true,
         errors: []
     };
@@ -326,118 +511,227 @@ function mapRowToPlayer(headers, row) {
     headers.forEach((header, index) => {
         const value = String(row[index] || '').trim();
         
-        switch(header) {
-            case 'nombre':
-            case 'name':
-            case 'nombre_completo':
-                player.name = value;
-                break;
-            case 'fecha_nacimiento':
-            case 'birthdate':
-            case 'birth_date':
-            case 'nacimiento':
-            case 'fecha':
-                player.birthDate = formatImportDate(value);
-                break;
-            case 'categoria':
-            case 'category':
-                player.category = value;
-                break;
-            case 'telefono':
-            case 'telefono_padre':
-            case 'phone':
-            case 'celular':
-            case 'tel':
-                player.phone = value;
-                break;
-            case 'posicion':
-            case 'position':
-                player.position = value;
-                break;
-            case 'numero_camiseta':
-            case 'numero':
-            case 'dorsal':
-            case 'jersey':
-                player.jerseyNumber = value;
-                break;
-            case 'documento':
-            case 'numero_documento':
-            case 'doc':
-                player.documentNumber = value;
-                break;
-            case 'tipo_documento':
-            case 'tipo_doc':
-                player.documentType = value;
-                break;
-            case 'direccion':
-            case 'address':
-            case 'dir':
-                player.address = value;
-                break;
-            case 'contacto_emergencia':
-            case 'emergencia':
-            case 'emergency':
-                player.emergencyContact = value;
-                break;
-            case 'tipo_sangre':
-            case 'sangre':
-            case 'blood':
-                player.medicalInfo.bloodType = value;
-                break;
-            case 'alergias':
-            case 'allergies':
-                player.medicalInfo.allergies = value;
-                break;
-            case 'condiciones_medicas':
-            case 'condiciones':
-            case 'conditions':
-                player.medicalInfo.conditions = value;
-                break;
+        // Normalizar el nombre de la columna
+        const normalizedHeader = header.toLowerCase().replace(/[^\w]/g, '');
+        
+        // NOMBRE
+        if (['nombre', 'name', 'nombrecompleto'].includes(normalizedHeader)) {
+            player.name = value;
+        }
+        // FECHA NACIMIENTO
+        else if (['fechanacimiento', 'birthdate', 'birthdate', 'nacimiento', 'fecha'].includes(normalizedHeader)) {
+            player.birthDate = formatImportDate(value);
+        }
+        // CATEGORÍA
+        else if (['categoria', 'category', 'categoriaaño'].includes(normalizedHeader)) {
+            player.category = value;
+        }
+        // TELÉFONO PADRE (PRINCIPAL)
+        else if (['telefonopadre', 'phone', 'celular', 'tel'].includes(normalizedHeader)) {
+            player.phone = normalizePhoneImport(value);
+        }
+        // TELÉFONO MADRE (SEGUNDO CONTACTO)
+        else if (['telefonmadre', 'telefonomother', 'contactoemergencia', 'emergencia'].includes(normalizedHeader)) {
+            player.phoneParent2 = normalizePhoneImport(value);
+        }
+        // TELÉFONO EMERGENCIA
+        else if (['telefonoemergencia', 'emergencyphone', 'emergency'].includes(normalizedHeader)) {
+            player.emergencyContact = normalizePhoneImport(value);
+        }
+        // EMAIL
+        else if (['email', 'correo', 'mail'].includes(normalizedHeader)) {
+            player.email = value;
+        }
+        // POSICIÓN
+        else if (['posicion', 'position', 'puesto'].includes(normalizedHeader)) {
+            player.position = value;
+        }
+        // NÚMERO CAMISETA
+        else if (['numerocamiseta', 'numero', 'dorsal', 'jersey'].includes(normalizedHeader)) {
+            player.jerseyNumber = value;
+        }
+        // TALLA UNIFORME
+        else if (['tallauniforme', 'talla', 'uniformsize', 'size'].includes(normalizedHeader)) {
+            player.uniformSize = value;
+        }
+        // NÚMERO DOCUMENTO
+        else if (['numerodocumento', 'documento', 'doc', 'identification'].includes(normalizedHeader)) {
+            player.documentNumber = value;
+        }
+        // TIPO DOCUMENTO
+        else if (['tipodocumento', 'tipodoc', 'doctype'].includes(normalizedHeader)) {
+            player.documentType = value;
+        }
+        // DIRECCIÓN
+        else if (['direccion', 'address', 'dir', 'domicilio'].includes(normalizedHeader)) {
+            player.address = value;
+        }
+        // TIPO SANGRE
+        else if (['tiposangre', 'sangre', 'blood', 'bloodtype'].includes(normalizedHeader)) {
+            player.medicalInfo.bloodType = value;
+        }
+        // EPS
+        else if (normalizedHeader === 'eps') {
+            player.medicalInfo.eps = value;
+        }
+        // SISBEN
+        else if (['sisben', 'seguro'].includes(normalizedHeader)) {
+            player.medicalInfo.sisben = value;
+        }
+        // ALERGIAS
+        else if (['alergias', 'allergies', 'alergica'].includes(normalizedHeader)) {
+            player.medicalInfo.allergies = value;
+        }
+        // MEDICAMENTOS
+        else if (['medicamentos', 'medications', 'meds'].includes(normalizedHeader)) {
+            player.medicalInfo.medications = value;
+        }
+        // CONDICIONES MÉDICAS
+        else if (['condicionesmedicas', 'condiciones', 'conditions', 'medicalconditions'].includes(normalizedHeader)) {
+            player.medicalInfo.conditions = value;
         }
     });
     
-    // Validaciones
-    if (!player.name) {
+    // ✅ VALIDACIONES MEJORADAS
+    
+    // Campo obligatorio: NOMBRE
+    if (!player.name || player.name.length < 3) {
         player.isValid = false;
-        player.errors.push('Nombre requerido');
+        player.errors.push('❌ Nombre completo requerido (mínimo 3 caracteres)');
     }
-    if (!player.category) {
+    
+    // Campo obligatorio: FECHA NACIMIENTO
+    if (!player.birthDate) {
         player.isValid = false;
-        player.errors.push('Categoría requerida');
+        player.errors.push('❌ Fecha de nacimiento requerida (YYYY-MM-DD)');
+    } else if (!/^\d{4}-\d{2}-\d{2}$/.test(player.birthDate)) {
+        player.isValid = false;
+        player.errors.push('❌ Fecha de nacimiento en formato incorrecto (debe ser YYYY-MM-DD)');
     }
+    
+    // Campo obligatorio: CATEGORÍA
+    if (!player.category || player.category.length < 2) {
+        player.isValid = false;
+        player.errors.push('❌ Categoría requerida (ej: Categoría 2015, Sub-12)');
+    }
+    
+    // Campo obligatorio: TELÉFONO PADRE
     if (!player.phone) {
         player.isValid = false;
-        player.errors.push('Teléfono requerido');
+        player.errors.push('❌ Teléfono padre requerido (10 dígitos)');
+    } else if (player.phone.length !== 10 || !/^\d{10}$/.test(player.phone)) {
+        player.isValid = false;
+        player.errors.push(`❌ Teléfono padre inválido: "${player.phone}" (debe ser 10 dígitos sin espacios)`);
+    }
+    
+    // Validaciones opcionales pero recomendadas
+    if (player.email && !isValidEmail(player.email)) {
+        player.errors.push(`⚠️ Email con formato incorrecto: "${player.email}"`);
+    }
+    
+    if (player.phoneParent2 && player.phoneParent2.length !== 10) {
+        player.errors.push(`⚠️ Teléfono madre debe tener 10 dígitos: "${player.phoneParent2}"`);
+    }
+    
+    if (player.emergencyContact && player.emergencyContact.length !== 10) {
+        player.errors.push(`⚠️ Teléfono emergencia debe tener 10 dígitos: "${player.emergencyContact}"`);
+    }
+    
+    // Validar tipo de sangre si está presente
+    const tiposSangreValidos = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+    if (player.medicalInfo.bloodType && !tiposSangreValidos.includes(player.medicalInfo.bloodType.toUpperCase())) {
+        player.errors.push(`⚠️ Tipo de sangre no válido: "${player.medicalInfo.bloodType}"`);
     }
     
     return player;
 }
 
-// Formatear fecha para input
+// Normalizar teléfono (remover espacios, guiones, etc)
+function normalizePhoneImport(phone) {
+    if (!phone) return '';
+    return String(phone).replace(/\D/g, '').slice(-10);
+}
+
+// Validar email
+function isValidEmail(email) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+// Formatear fecha para input - MEJORADO PARA EXCEL
 function formatImportDate(dateStr) {
     if (!dateStr) return '';
     
     const str = String(dateStr).trim();
     
-    // Ya está en formato YYYY-MM-DD
-    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
-    
-    // Formato DD/MM/YYYY o DD-MM-YYYY
-    const match = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
-    if (match) {
-        return `${match[3]}-${match[2].padStart(2,'0')}-${match[1].padStart(2,'0')}`;
+    // 1️⃣ Si ya está en formato YYYY-MM-DD, devolverlo tal cual
+    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+        return str;
     }
     
-    // Número de Excel (días desde 1899-12-30)
+    // 2️⃣ Formato DD/MM/YYYY (muy común en Excel español)
+    const match1 = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+    if (match1) {
+        const day = match1[1].padStart(2, '0');
+        const month = match1[2].padStart(2, '0');
+        const year = match1[3];
+        return `${year}-${month}-${day}`;
+    }
+    
+    // 3️⃣ Formato YYYY/MM/DD o YYYY-MM-DD (con guiones)
+    const match2 = str.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
+    if (match2) {
+        const year = match2[1];
+        const month = match2[2].padStart(2, '0');
+        const day = match2[3].padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+    
+    // 4️⃣ Número de Excel (días desde 1899-12-30)
     const num = parseFloat(str);
     if (!isNaN(num) && num > 0 && num < 100000) {
-        const excelDate = new Date((num - 25569) * 86400 * 1000);
-        if (!isNaN(excelDate.getTime())) {
-            return excelDate.toISOString().split('T')[0];
+        try {
+            // Fórmula de Excel: número de días desde 1899-12-30
+            const excelDate = new Date((num - 25569) * 86400 * 1000);
+            if (!isNaN(excelDate.getTime())) {
+                const year = excelDate.getFullYear();
+                const month = String(excelDate.getMonth() + 1).padStart(2, '0');
+                const day = String(excelDate.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            }
+        } catch (e) {
+            console.error('Error parsing Excel date:', e);
         }
     }
     
-    return str;
+    // 5️⃣ Formato de texto: "15 de marzo de 2015", "15 de Mar 2015", etc.
+    const months = {
+        enero: '01', febrero: '02', marzo: '03', abril: '04', mayo: '05', junio: '06',
+        julio: '07', agosto: '08', septiembre: '09', octubre: '10', noviembre: '11', diciembre: '12',
+        jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06',
+        jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12',
+        january: '01', february: '02', march: '03', april: '04', june: '06',
+        july: '07', august: '08', october: '10', december: '12'
+    };
+    
+    const monthMatch = str.match(/(\d{1,2})\s+(?:de\s+)?([a-záéíóúñ]+)\s+(?:de\s+)?(\d{4})/i);
+    if (monthMatch) {
+        const day = monthMatch[1].padStart(2, '0');
+        const monthName = monthMatch[2].toLowerCase();
+        const year = monthMatch[3];
+        const month = months[monthName];
+        if (month) {
+            return `${year}-${month}-${day}`;
+        }
+    }
+    
+    // 6️⃣ Formato "2015/03/15" o "2015-03-15" (ISO alternativo)
+    const isoMatch = str.match(/^(\d{4})[\/\-](\d{2})[\/\-](\d{2})$/);
+    if (isoMatch) {
+        return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
+    }
+    
+    console.warn('⚠️ No se pudo convertir la fecha:', str);
+    return '';
 }
 
 // ========================================
@@ -613,7 +907,9 @@ async function createImportedPlayer(playerData) {
             category: playerData.category,
             position: playerData.position || '',
             jerseyNumber: playerData.jerseyNumber || '',
+            uniformSize: playerData.uniformSize || '',
             phone: playerData.phone || '',
+            email: playerData.email || '',
             address: playerData.address || '',
             emergencyContact: playerData.emergencyContact || '',
             documentType: playerData.documentType || '',
@@ -621,13 +917,14 @@ async function createImportedPlayer(playerData) {
             medicalInfo: {
                 bloodType: playerData.medicalInfo?.bloodType || '',
                 allergies: playerData.medicalInfo?.allergies || '',
-                medications: '',
-                conditions: playerData.medicalInfo?.conditions || ''
+                medications: playerData.medicalInfo?.medications || '',
+                conditions: playerData.medicalInfo?.conditions || '',
+                eps: playerData.medicalInfo?.eps || '',
+                sisben: playerData.medicalInfo?.sisben || ''
             },
             status: 'Activo',
             avatar: '',
-            enrollmentDate: getImportCurrentDate(),
-            email: ''
+            enrollmentDate: getImportCurrentDate()
         };
         
         // Guardar jugador usando función existente

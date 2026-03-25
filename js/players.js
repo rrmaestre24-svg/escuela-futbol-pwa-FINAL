@@ -422,12 +422,12 @@ function showPlayerDetails(playerId) {
             <span class="text-gray-800 dark:text-white font-medium">${formatDate(player.birthDate)}</span>
           </div>
           <div class="flex justify-between">
-            <span class="text-gray-500 dark:text-gray-400">Teléfono:</span>
+            <span class="text-gray-500 dark:text-gray-400">👨 Tel. Padre / Acudiente:</span>
             <a href="${getWhatsAppLink(player.phone)}" target="_blank" class="text-teal-600 dark:text-teal-400 font-medium hover:underline">${formatPhoneDisplay(player.phone)}</a>
           </div>
           ${player.emergencyContact ? `
             <div class="flex justify-between">
-              <span class="text-gray-500 dark:text-gray-400">Contacto emergencia:</span>
+              <span class="text-gray-500 dark:text-gray-400">👩 Tel. Madre:</span>
               <a href="${getWhatsAppLink(player.emergencyContact)}" target="_blank" class="text-teal-600 dark:text-teal-400 font-medium hover:underline">${formatPhoneDisplay(player.emergencyContact)}</a>
             </div>
           ` : ''}
