@@ -210,6 +210,9 @@ async function checkLicenseStatus() {
     if (licenseData.modulos?.portal_padres === true) {
       document.getElementById('btnPortalPadresWrapper')?.classList.remove('hidden');
     }
+    if (licenseData.modulos?.asistencias === true) {
+      document.getElementById('btnAsistenciasWrapper')?.classList.remove('hidden');
+    }
     localStorage.setItem('licenseStatus', result.status);
     localStorage.setItem('licenseEndDate', licenseData.endDate);
     localStorage.setItem('licensePlan', licenseData.plan);
@@ -532,5 +535,11 @@ function abrirInventario() {
   window.open('https://myclub-inventario.vercel.app?clubId=' + clubId, '_blank');
 }
 window.abrirInventario = abrirInventario;
+
+function abrirAsistencias() {
+  const clubId = localStorage.getItem('clubId');
+  window.open('https://myclub-asistencia.vercel.app/admin.html?clubId=' + clubId, '_blank');
+}
+window.abrirAsistencias = abrirAsistencias;
 
 console.log('✅ license-system.js cargado correctamente');

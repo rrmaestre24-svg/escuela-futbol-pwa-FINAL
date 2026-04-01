@@ -279,4 +279,29 @@ function abrirInventario() {
 // Exportar para uso global
 window.abrirInventario = abrirInventario;
 
-console.log('✅ dashboard.js cargado (CON OTROS INGRESOS + INVENTARIO)');
+// ========================================
+// 🆕 ABRIR ASISTENCIAS
+// Detecta si la App de Asistencias está instalada
+// Si sí → intenta abrirla como app nativa
+// Si no → abre la URL web normal
+// ========================================
+function abrirAsistencias() {
+  const ASISTENCIAS_URL = 'https://myclub-asistencia.vercel.app';
+
+  // Obtener el clubId del usuario actual para pasarlo como parámetro
+  const clubId = localStorage.getItem('clubId') || '';
+  const urlConClub = clubId
+    ? `${ASISTENCIAS_URL}/admin.html?clubId=${clubId}`
+    : `${ASISTENCIAS_URL}/admin.html`;
+
+  const ventana = window.open(urlConClub, '_blank');
+
+  if (!ventana || ventana.closed || typeof ventana.closed === 'undefined') {
+    window.location.href = urlConClub;
+  }
+}
+
+// Exportar para uso global
+window.abrirAsistencias = abrirAsistencias;
+
+console.log('✅ dashboard.js cargado (CON OTROS INGRESOS + INVENTARIO + ASISTENCIAS)');
