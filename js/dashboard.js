@@ -287,17 +287,18 @@ window.abrirInventario = abrirInventario;
 // ========================================
 function abrirAsistencias() {
   const ASISTENCIAS_URL = 'https://myclub-asistencia.vercel.app';
-
-  // Obtener el clubId del usuario actual para pasarlo como parámetro
   const clubId = localStorage.getItem('clubId') || '';
   const urlConClub = clubId
     ? `${ASISTENCIAS_URL}/admin.html?clubId=${clubId}`
     : `${ASISTENCIAS_URL}/admin.html`;
 
-  const ventana = window.open(urlConClub, '_blank');
-
-  if (!ventana || ventana.closed || typeof ventana.closed === 'undefined') {
-    window.location.href = urlConClub;
+  // En Android forzar Chrome nativo para que muestre el botón de instalación PWA
+  const isAndroid = /android/i.test(navigator.userAgent);
+  if (isAndroid) {
+    const path = urlConClub.replace('https://', '');
+    window.location.href = `intent://${path}#Intent;scheme=https;package=com.android.chrome;end`;
+  } else {
+    window.open(urlConClub, '_blank');
   }
 }
 
