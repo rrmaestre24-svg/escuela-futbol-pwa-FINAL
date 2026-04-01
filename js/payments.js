@@ -81,10 +81,12 @@ function showAddPaymentModal() {
     const form = document.getElementById('paymentForm');
     if (form) form.reset();
 
-    // Auto-fecha editable
+    // Auto-fecha editable (hoy por defecto)
     const dueDateInput = document.getElementById('paymentDueDate');
-    
     if (dueDateInput) dueDateInput.value = getCurrentDate();
+
+    // Auto-concepto según tipo seleccionado
+    autoFillNewConcept();
     
     const paymentId = document.getElementById('paymentId');
     if (paymentId) paymentId.value = '';
@@ -813,30 +815,31 @@ function createEditPaymentModal() {
   return modal;
 }
 
-// Auto-completar concepto al cambiar tipo (modo edición)
+// Devuelve el concepto sugerido según el tipo de pago
+function getConceptoSugerido(type) {
+  const mes = getMonthName(new Date().getMonth());
+  const año = new Date().getFullYear();
+  if (type === 'Mensualidad')  return `Mensualidad ${mes} ${año}`;
+  if (type === 'Uniforme')     return 'Uniforme completo';
+  if (type === 'Torneo')       return 'Inscripción torneo';
+  if (type === 'Equipamiento') return 'Equipamiento deportivo';
+  return '';
+}
+
+// Auto-completar concepto en formulario NUEVO (solo si está vacío)
+function autoFillNewConcept() {
+  const type    = document.getElementById('paymentType')?.value;
+  const input   = document.getElementById('paymentConcept');
+  if (!input || input.value.trim() !== '') return;
+  input.value = getConceptoSugerido(type);
+}
+
+// Auto-completar concepto en formulario EDITAR (solo si está vacío)
 function autoFillEditConcept() {
-  const type = document.getElementById('editPaymentType').value;
-  const conceptInput = document.getElementById('editPaymentConcept');
-  const settings = getSchoolSettings();
-  
-  // Solo auto-completar si el campo está vacío
-  if (conceptInput.value.trim() !== '') {
-    // Preguntar si quiere reemplazar
-    if (!confirm('¿Deseas actualizar el concepto según el tipo seleccionado?')) {
-      return;
-    }
-  }
-  
-  if (type === 'Mensualidad') {
-    const currentMonth = getMonthName(new Date().getMonth());
-    conceptInput.value = `Mensualidad ${currentMonth}`;
-  } else if (type === 'Uniforme') {
-    conceptInput.value = 'Uniforme completo';
-  } else if (type === 'Torneo') {
-    conceptInput.value = 'Inscripción torneo';
-  } else if (type === 'Equipamiento') {
-    conceptInput.value = 'Equipamiento deportivo';
-  }
+  const type  = document.getElementById('editPaymentType')?.value;
+  const input = document.getElementById('editPaymentConcept');
+  if (!input || input.value.trim() !== '') return;
+  input.value = getConceptoSugerido(type);
 }
 
 // Toggle campos de pago según estado
