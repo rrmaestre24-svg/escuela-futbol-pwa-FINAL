@@ -16,6 +16,19 @@ function showAddPlayerModal() {
   document.getElementById('playerId').value = '';
   document.getElementById('playerAvatarPreview').src = getDefaultAvatar();
   document.getElementById('playerModal').classList.remove('hidden');
+
+  // Restaurar datos si Android reinició la app al volver de la cámara
+  const backup = sessionStorage.getItem('_cameraFormBackup');
+  if (backup) {
+    try {
+      const saved = JSON.parse(backup);
+      Object.entries(saved).forEach(([id, val]) => {
+        const el = document.getElementById(id);
+        if (el) el.value = val;
+      });
+    } catch(e) {}
+    sessionStorage.removeItem('_cameraFormBackup');
+  }
 }
 
 // Mostrar modal editar jugador

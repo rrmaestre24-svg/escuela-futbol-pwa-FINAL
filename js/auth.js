@@ -719,6 +719,23 @@ document.getElementById('loginForm')?.addEventListener('submit', async function(
       const { password: _, ...userWithoutPassword } = user;
       setCurrentUser(userWithoutPassword);
 
+      // Registrar acceso en audit_log para estadísticas del super admin
+      // No se espera (sin await) para no retrasar el login
+      try {
+        const now = new Date();
+        window.firebase.addDoc(
+          window.firebase.collection(window.firebase.db, `clubs/${clubId}/audit_log`),
+          {
+            action: 'login',
+            userEmail: email,
+            userName: user.name || email,
+            role: user.role || 'admin',
+            date: now.toISOString().split('T')[0],
+            timestamp: now.toISOString()
+          }
+        );
+      } catch(e) {}
+
       showToast('✅ Bienvenido ' + user.name);
 
       // Redireccionar al dashboard
