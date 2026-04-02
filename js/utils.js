@@ -121,6 +121,17 @@ function getCurrentDate() {
   return `${year}-${month}-${day}`;
 }
 
+// Obtener el último día del mes actual en formato YYYY-MM-DD (para vencimientos mensuales)
+function getEndOfMonth() {
+  const today = new Date();
+  // día 0 del mes siguiente = último día del mes actual
+  const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+  const year = lastDay.getFullYear();
+  const month = String(lastDay.getMonth() + 1).padStart(2, '0');
+  const day = String(lastDay.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 // ✅ Añadir meses a una fecha (YYYY-MM-DD)
 function addMonths(dateStr, months) {
   const date = parseLocalDate(dateStr);

@@ -81,9 +81,9 @@ function showAddPaymentModal() {
     const form = document.getElementById('paymentForm');
     if (form) form.reset();
 
-    // Auto-fecha editable (hoy por defecto)
+    // Fecha de vencimiento = fin del mes actual (pago mensual), editable
     const dueDateInput = document.getElementById('paymentDueDate');
-    if (dueDateInput) dueDateInput.value = getCurrentDate();
+    if (dueDateInput) dueDateInput.value = getEndOfMonth();
 
     // Auto-concepto según tipo seleccionado
     autoFillNewConcept();
@@ -91,11 +91,13 @@ function showAddPaymentModal() {
     const paymentId = document.getElementById('paymentId');
     if (paymentId) paymentId.value = '';
     
+    // Mostrar campos de pago y auto-rellenar fecha de pago con hoy (siempre al abrir)
     const paidContainer = document.getElementById('paidDateContainer');
-    if (paidContainer) paidContainer.classList.add('hidden');
-    
     const methodContainer = document.getElementById('paymentMethodContainer');
-    if (methodContainer) methodContainer.classList.add('hidden');
+    if (paidContainer) paidContainer.classList.remove('hidden');
+    if (methodContainer) methodContainer.classList.remove('hidden');
+    const paidDateInput = document.getElementById('paymentPaidDate');
+    if (paidDateInput) paidDateInput.value = getCurrentDate();
     
     // Resetear buscador
     selectedPlayerId = null;
