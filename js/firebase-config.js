@@ -38,24 +38,25 @@ async function initFirebase() {
     const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js');
     
     const firestoreModule = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
-    const { 
-      getFirestore, 
-      collection, 
-      doc, 
-      getDoc, 
-      getDocs, 
-      setDoc, 
-      addDoc, 
-      updateDoc, 
-      deleteDoc, 
-      query, 
-      where, 
-      orderBy, 
+    const {
+      getFirestore,
+      enableIndexedDbPersistence,
+      collection,
+      doc,
+      getDoc,
+      getDocs,
+      setDoc,
+      addDoc,
+      updateDoc,
+      deleteDoc,
+      query,
+      where,
+      orderBy,
       limit,
       onSnapshot,
       runTransaction,
       serverTimestamp,
-      deleteField 
+      deleteField
     } = firestoreModule;
     
 
@@ -85,7 +86,15 @@ async function initFirebase() {
     db = getFirestore(app);
     auth = getAuth(app);
     const storage = getStorage(app);
-    
+
+    // Persistencia de datos offline — los datos quedan en IndexedDB del dispositivo
+    // No se espera (no hay await) para no bloquear el inicio de la app
+    enableIndexedDbPersistence(db).catch(err => {
+      if (err.code !== 'failed-precondition' && err.code !== 'unimplemented') {
+        console.warn('[DB] Persistencia offline no disponible:', err.code);
+      }
+    });
+
     // CONFIGURAR PERSISTENCIA LOCAL - La sesion sobrevive al cerrar el navegador/PWA
     try {
       await setPersistence(auth, browserLocalPersistence);
