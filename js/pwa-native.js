@@ -210,9 +210,6 @@
   // ─── INIT ────────────────────────────────────────────────────────────────────
 
   document.addEventListener('DOMContentLoaded', function () {
-    // Aplicar bloqueo de orientación si está activado
-    applyOrientationLock();
-
     // Sincronizar estado del toggle si existe en esta página
     var toggle = document.getElementById('orientationLockToggle');
     if (toggle) {
