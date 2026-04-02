@@ -1,26 +1,18 @@
-const CACHE_NAME = 'my-club-v1.0.39';
+// ========================================
+// SERVICE WORKER — escuela-futbol-pwa-FINAL v2
+// Estrategia: Cache First con actualización en segundo plano
+// ========================================
 
-const urlsToCache = [
+const CACHE_NAME = 'my-club-v2.0.0';
+
+const LOCAL_ASSETS = [
   '/',
   '/index.html',
   '/login.html',
   '/offline.html',
   '/manifest.json',
-
-  // ICONOS PWA
-  '/assets/icons/icon-72x72.png',
-  '/assets/icons/icon-96x96.png',
-  '/assets/icons/icon-128x128.png',
-  '/assets/icons/icon-144x144.png',
-  '/assets/icons/icon-152x152.png',
-  '/assets/icons/icon-192x192.png',
-  '/assets/icons/icon-384x384.png',
-  '/assets/icons/icon-512x512.png',
-
-  // CSS
+  '/css/tailwind.min.css',
   '/css/styles.css',
-
-  // JS CORE
   '/js/app.js',
   '/js/auth.js',
   '/js/firebase-config.js',
@@ -30,8 +22,6 @@ const urlsToCache = [
   '/js/cache.js',
   '/js/pwa-icons.js',
   '/js/license-system.js',
-
-  // JS FEATURES
   '/js/players.js',
   '/js/payments.js',
   '/js/expenses.js',
@@ -46,161 +36,112 @@ const urlsToCache = [
   '/js/club-settings-protection.js',
   '/js/pdf.js',
   '/js/whatsapp.js',
-
-  // PORTAL PADRES
-  '/js/parent-portal.js'
+  '/js/pwa-native.js',
+  '/assets/icons/icon-192x192.png',
+  '/assets/icons/icon-512x512.png'
 ];
-/* ==============================
-   INSTALL
-============================== */
-self.addEventListener('install', event => {
-  console.log('⚽ SW instalando:', CACHE_NAME);
 
+// CDNs externos — se pre-cachean para funcionar sin internet
+const CDN_ASSETS = [
+  'https://unpkg.com/lucide@latest',
+  'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
+  'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js',
+  'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js',
+  'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js',
+  'https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js'
+];
+
+// ── INSTALACIÓN ──────────────────────────────────────────────────────────────
+self.addEventListener('install', (event) => {
+  console.log('[SW] Instalando my-club-v2.0.0...');
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => {
-      return Promise.allSettled(
-        urlsToCache.map(url =>
-          cache.add(url).catch(err => {
-            console.warn('⚠️ No se pudo cachear:', url, err.message);
-          })
+    caches.open(CACHE_NAME).then(cache =>
+      Promise.allSettled(
+        [...LOCAL_ASSETS, ...CDN_ASSETS].map(url =>
+          cache.add(url).catch(err =>
+            console.warn('[SW] No cacheado:', url, err.message)
+          )
         )
-      );
+      )
+    ).then(() => {
+      console.log('[SW] Instalación completa');
+      self.skipWaiting();
     })
   );
-
-  self.skipWaiting();
 });
 
-/* ==============================
-   ACTIVATE
-============================== */
-self.addEventListener('activate', event => {
-  console.log('⚽ SW activando:', CACHE_NAME);
-
+// ── ACTIVACIÓN ───────────────────────────────────────────────────────────────
+self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then(cacheNames => {
-      return Promise.all(
-        cacheNames.map(cache => {
-          if (cache !== CACHE_NAME) {
-            console.log('🗑️ Eliminando cache antigua:', cache);
-            return caches.delete(cache);
-          }
+    caches.keys().then(keys =>
+      Promise.all(
+        keys.filter(k => k !== CACHE_NAME).map(k => {
+          console.log('[SW] Eliminando caché vieja:', k);
+          return caches.delete(k);
         })
-      );
-    }).then(() => self.clients.claim())
+      )
+    ).then(() => self.clients.claim())
   );
 });
 
-/* ==============================
-   FETCH
-============================== */
-self.addEventListener('fetch', event => {
-  // Ignorar peticiones que no son HTTP/HTTPS
-  if (!event.request.url.startsWith('http')) return;
+// ── FETCH ────────────────────────────────────────────────────────────────────
+self.addEventListener('fetch', (event) => {
+  const url = event.request.url;
 
-  // Ignorar peticiones a Firebase, APIs externas, etc.
+  if (event.request.method !== 'GET') return;
+
+  // Datos de Firestore/Auth van siempre a la red — Firestore maneja su propio offline
   if (
-    event.request.url.includes('firebaseio.com') ||
-    event.request.url.includes('googleapis.com') ||
-    event.request.url.includes('gstatic.com') ||
-    event.request.url.includes('firebase') ||
-    event.request.url.includes('unpkg.com') ||
-    event.request.url.includes('cdn.tailwindcss.com') ||
-    event.request.url.includes('cdn.jsdelivr.net') ||
-    event.request.url.includes('cdnjs.cloudflare.com')
-  ) {
-    return;
-  }
+    url.includes('firebaseio.com') ||
+    url.includes('identitytoolkit') ||
+    url.includes('securetoken.google.com')
+  ) return;
 
-  /* 🔴 NO cachear métodos que no son GET */
-  if (event.request.method !== 'GET') {
-    return;
-  }
-
-  /* 🟢 NAVEGACIÓN (HTML) */
-  if (event.request.mode === 'navigate') {
-    event.respondWith(
-      fetch(event.request)
-        .then(response => {
-          // Cachear la respuesta
-          if (response && response.status === 200) {
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then(cache => {
-              cache.put(event.request, clone);
-            });
-          }
-          return response;
-        })
-        .catch(() => {
-          // 1. Intentar archivo exacto ignorando parámetros (?homescreen=1 etc)
-          return caches.match(event.request, { ignoreSearch: true }).then(cached => {
-            if (cached) return cached;
-            // 2. Si es navegación y falló, intentar forzar el index.html
-            return caches.match('/index.html').then(idxCached => {
-              if (idxCached) return idxCached;
-              // 3. Fallback final al offline.html
-              return caches.match('/offline.html');
-            });
-          });
-        })
-    );
-    return;
-  }
-
-  /* 🟡 JS / CSS → Network First */
-  if (
-    event.request.url.endsWith('.js') ||
-    event.request.url.endsWith('.css')
-  ) {
-    event.respondWith(
-      fetch(event.request)
-        .then(response => {
-          if (response && response.status === 200) {
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then(cache => {
-              cache.put(event.request, clone);
-            });
-          }
-          return response;
-        })
-        .catch(() => caches.match(event.request))
-    );
-    return;
-  }
-
-  /* 🔵 OTROS ARCHIVOS (imágenes, JSON, etc.) → Cache First */
   event.respondWith(
     caches.match(event.request).then(cached => {
-      if (cached) return cached;
+      if (cached) {
+        // Servir desde caché y actualizar en segundo plano
+        fetch(event.request).then(fresh => {
+          if (fresh && fresh.status === 200) {
+            caches.open(CACHE_NAME).then(cache =>
+              cache.put(event.request, fresh)
+            );
+          }
+        }).catch(() => {});
+        return cached;
+      }
 
+      // No está en caché — ir a la red y guardar
       return fetch(event.request).then(response => {
         if (response && response.status === 200) {
           const clone = response.clone();
-          caches.open(CACHE_NAME).then(cache => {
-            cache.put(event.request, clone);
-          });
+          caches.open(CACHE_NAME).then(cache =>
+            cache.put(event.request, clone)
+          );
         }
         return response;
+      }).catch(() => {
+        // Sin internet y sin caché
+        if (event.request.mode === 'navigate') {
+          return caches.match('/index.html').then(r => r || caches.match('/offline.html'));
+        }
       });
     })
   );
 });
 
-/* ==============================
-   MENSAJES
-============================== */
-self.addEventListener('message', event => {
-  if (event.data?.type === 'SKIP_WAITING') {
-    self.skipWaiting();
-  }
-
+// ── MENSAJES ─────────────────────────────────────────────────────────────────
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
   if (event.data?.type === 'CLEAR_ALL_CACHE') {
     event.waitUntil(
-      caches.keys().then(names => {
-        return Promise.all(names.map(n => caches.delete(n)));
-      })
+      caches.keys().then(names =>
+        Promise.all(names.map(n => caches.delete(n)))
+      )
     );
   }
 });
 
-console.log('✅ Service Worker listo:', CACHE_NAME);
+console.log('[SW] my-club v2.0.0 listo');
