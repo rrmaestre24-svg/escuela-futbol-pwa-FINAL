@@ -7,32 +7,6 @@
 (function () {
   'use strict';
 
-  // ─── BLOQUE 1: BLOQUEO DE ORIENTACIÓN ──────────────────────────────────────
-  // Bloquea la pantalla en portrait cuando el usuario lo activa
-  // Solo funciona en PWA instalada (limitación del sistema operativo)
-
-  function applyOrientationLock() {
-    const locked = localStorage.getItem('orientationLock') === 'true';
-    if (!locked) return;
-    if (screen.orientation && screen.orientation.lock) {
-      screen.orientation.lock('portrait').catch(() => {
-        // Silencioso — el navegador puede rechazarlo si no es PWA standalone
-      });
-    }
-  }
-
-  window.toggleOrientationLock = function () {
-    const toggle = document.getElementById('orientationLockToggle');
-    const enabled = toggle ? toggle.checked : false;
-    localStorage.setItem('orientationLock', enabled ? 'true' : 'false');
-    if (enabled) {
-      applyOrientationLock();
-    } else {
-      if (screen.orientation && screen.orientation.unlock) {
-        try { screen.orientation.unlock(); } catch (e) {}
-      }
-    }
-  };
 
   // ─── BLOQUE 2: TRANSICIONES SUAVES ──────────────────────────────────────────
   // Inyecta CSS de animación sin tocar el HTML existente
