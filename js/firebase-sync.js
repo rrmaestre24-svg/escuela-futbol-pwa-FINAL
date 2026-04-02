@@ -3,50 +3,69 @@
 // ========================================
 
 /**
- * ✅ Comprimir imagen base64 para Firebase (máximo 800KB)
+ * Comprimir imagen base64 — garantiza máximo 200KB de salida.
+ * Usa un loop progresivo: baja calidad en pasos hasta lograrlo.
+ * base64.length < 270000 ≈ 200KB (el encoding base64 añade ~33% overhead)
  */
-function compressImageForFirebase(base64, maxWidth = 400, quality = 0.6) {
+function compressImageForFirebase(base64, maxWidth = 300, quality = 0.7) {
   return new Promise((resolve) => {
-    // Si no es una imagen base64, devolver vacío
     if (!base64 || !base64.startsWith('data:image')) {
       resolve('');
       return;
     }
-    
-    // Si ya es pequeña (menos de 500KB), no comprimir
-    if (base64.length < 500000) {
+
+    // Si ya está bajo el límite no hace falta tocarla
+    const TARGET = 270000; // ≈ 200KB
+    if (base64.length <= TARGET) {
       resolve(base64);
       return;
     }
-    
+
     const img = new Image();
     img.onload = function() {
       const canvas = document.createElement('canvas');
       let width = img.width;
       let height = img.height;
-      
-      // Redimensionar si es muy grande
+
+      // Redimensionar si supera el ancho máximo
       if (width > maxWidth) {
-        height = (height * maxWidth) / width;
+        height = Math.round(height * maxWidth / width);
         width = maxWidth;
       }
-      
+
       canvas.width = width;
       canvas.height = height;
       const ctx = canvas.getContext('2d');
       ctx.drawImage(img, 0, 0, width, height);
-      
-      // Comprimir a JPEG con calidad reducida
-      const compressed = canvas.toDataURL('image/jpeg', quality);
-      console.log(`🗜️ Imagen comprimida: ${Math.round(base64.length/1024)}KB → ${Math.round(compressed.length/1024)}KB`);
-      resolve(compressed);
+
+      // Loop progresivo: baja calidad de 0.7 hasta 0.2 en pasos de 0.1
+      let result = base64;
+      let q = quality;
+      while (q >= 0.2) {
+        result = canvas.toDataURL('image/jpeg', q);
+        if (result.length <= TARGET) break;
+        q = Math.round((q - 0.1) * 10) / 10;
+      }
+
+      // Si aún supera el límite, reducir dimensiones y comprimir al mínimo
+      if (result.length > TARGET) {
+        const reducedWidth = Math.round(width * 0.6);
+        const reducedHeight = Math.round(height * 0.6);
+        canvas.width = reducedWidth;
+        canvas.height = reducedHeight;
+        ctx.drawImage(img, 0, 0, reducedWidth, reducedHeight);
+        result = canvas.toDataURL('image/jpeg', 0.2);
+      }
+
+      console.log(`[IMG] ${Math.round(base64.length / 1024)}KB → ${Math.round(result.length / 1024)}KB`);
+      resolve(result);
     };
-    
+
     img.onerror = function() {
-      console.warn('⚠️ Error al comprimir imagen, usando original');
+      console.warn('[IMG] Error al comprimir, usando original');
       resolve(base64);
     };
-    
+
     img.src = base64;
   });
 }
