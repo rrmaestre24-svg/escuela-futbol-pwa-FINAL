@@ -4,6 +4,15 @@
 // CON PERSISTENCIA DE SESION
 // ========================================
 
+// Silenciar console.log en producción — no rompe nada, solo deja de imprimir
+// Para ver logs en desarrollo: abre consola y escribe: window._debugMode = true
+(function() {
+  var _log = console.log.bind(console);
+  var _warn = console.warn.bind(console);
+  console.log  = function() { if (window._debugMode) _log.apply(console, arguments); };
+  console.warn = function() { if (window._debugMode) _warn.apply(console, arguments); };
+})();
+
 const firebaseConfig = window.APP_CONFIG?.firebase || {
   apiKey: "AIzaSyBThVgzEsTLWSW7puKOVErZ_KOLDEq8v3A",
   authDomain: "my-club-fae98.firebaseapp.com",
