@@ -180,9 +180,23 @@ function showPhotoPickerModal(targetImgId, targetInputId, onSelect) {
         </div>
       </div>
 
-      <!-- Inputs ocultos para cámara y galería -->
-      <input type="file" id="_photoPickerCamera"  accept="image/*" class="hidden"
-             onchange="photoPickerHandleFile(this)">
+      <!-- Visor de cámara inline — se muestra al presionar "Tomar foto" -->
+      <div id="_cameraViewer" class="hidden">
+        <video id="_cameraStream" autoplay playsinline
+          class="w-full rounded-xl bg-black" style="max-height:260px;object-fit:cover;"></video>
+        <div class="flex gap-2 mt-3">
+          <button onclick="photoCameraCapture()"
+            class="flex-1 bg-blue-500 hover:bg-blue-600 active:scale-95 text-white rounded-xl py-3 font-bold transition-all">
+            📸 Capturar
+          </button>
+          <button onclick="photoCameraStop()"
+            class="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 active:scale-95 text-gray-700 dark:text-gray-200 rounded-xl px-4 py-3 font-semibold transition-all">
+            Cancelar
+          </button>
+        </div>
+      </div>
+
+      <!-- Input solo para galería -->
       <input type="file" id="_photoPickerGallery" accept="image/*" class="hidden"
              onchange="photoPickerHandleFile(this)">
     `;
@@ -194,12 +208,85 @@ function showPhotoPickerModal(targetImgId, targetInputId, onSelect) {
 }
 
 function closePhotoPickerModal() {
+  // Detener cámara si estaba activa
+  if (window._cameraStream) photoCameraStop();
   const modal = document.getElementById('photoPickerModal');
   if (modal) modal.classList.add('hidden');
 }
 
+// Abre el visor de cámara inline dentro del modal — sin salir del PWA
 function photoPickerCapture() {
-  document.getElementById('_photoPickerCamera')?.click();
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    // Fallback: navegador sin soporte (muy raro) — abre selector de archivo
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.capture = 'environment';
+    input.onchange = () => photoPickerHandleFile(input);
+    input.click();
+    return;
+  }
+
+  // Ocultar los botones de opciones y mostrar el visor
+  const optionsDiv = document.querySelector('#photoPickerModal .px-4.pb-5');
+  const viewer = document.getElementById('_cameraViewer');
+  if (optionsDiv) optionsDiv.classList.add('hidden');
+  if (viewer) viewer.classList.remove('hidden');
+
+  // Iniciar stream de cámara trasera
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false })
+    .then(stream => {
+      window._cameraStream = stream;
+      const video = document.getElementById('_cameraStream');
+      if (video) {
+        video.srcObject = stream;
+        video.play();
+      }
+    })
+    .catch(() => {
+      // Si niega el permiso o falla, cerrar visor y mostrar opciones
+      photoCameraStop();
+      showToast('❌ No se pudo acceder a la cámara');
+    });
+}
+
+// Captura el frame actual del video como foto
+function photoCameraCapture() {
+  const video = document.getElementById('_cameraStream');
+  if (!video) return;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+
+  const base64 = canvas.toDataURL('image/jpeg', 0.9);
+  photoCameraStop();
+
+  const ctx = window._photoPickerCtx || {};
+  if (ctx.targetImgId) {
+    const img = document.getElementById(ctx.targetImgId);
+    if (img) img.src = base64;
+  }
+  if (typeof ctx.onSelect === 'function') ctx.onSelect(base64, null);
+
+  showToast('✅ Foto tomada');
+  closePhotoPickerModal();
+}
+
+// Detiene el stream y restaura los botones de opciones
+function photoCameraStop() {
+  if (window._cameraStream) {
+    window._cameraStream.getTracks().forEach(t => t.stop());
+    window._cameraStream = null;
+  }
+  const video = document.getElementById('_cameraStream');
+  if (video) video.srcObject = null;
+
+  const optionsDiv = document.querySelector('#photoPickerModal .px-4.pb-5');
+  const viewer = document.getElementById('_cameraViewer');
+  if (optionsDiv) optionsDiv.classList.remove('hidden');
+  if (viewer) viewer.classList.add('hidden');
 }
 
 function photoPickerGallery() {
@@ -271,6 +358,8 @@ window.closePhotoPickerModal  = closePhotoPickerModal;
 window.photoPickerCapture     = photoPickerCapture;
 window.photoPickerGallery     = photoPickerGallery;
 window.photoPickerHandleFile  = photoPickerHandleFile;
+window.photoCameraCapture     = photoCameraCapture;
+window.photoCameraStop        = photoCameraStop;
 window.showInvoiceProgressModal  = showInvoiceProgressModal;
 window.closeInvoiceProgressModal = closeInvoiceProgressModal;
 window.showManualWhatsAppModal   = showManualWhatsAppModal;
