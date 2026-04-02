@@ -13,8 +13,9 @@
     <title>MY CLUB - Gestión Escuelas de Fútbol</title>
 
 
-    <!-- Tailwind CSS — archivo local, funciona sin internet -->
-    <link rel="stylesheet" href="css/tailwind.min.css">
+    <!-- Tailwind CSS vía CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>tailwind.config = { darkMode: 'class', theme: { extend: { colors: { primary: '#0d9488', secondary: '#2563eb' } } } }</script>
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
 
@@ -2590,7 +2591,6 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
                 .then(reg => console.log('✅ Service Worker registrado', reg))
                 .catch(err => console.log('❌ Error al registrar SW', err));
         }
-    </script>
     </script>
 
     <!-- Botón Flotante de Instalación -->

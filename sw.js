@@ -3,7 +3,7 @@
 // Estrategia: Cache First con actualización en segundo plano
 // ========================================
 
-const CACHE_NAME = 'my-club-v2.0.0';
+const CACHE_NAME = 'my-club-v2.1.0';
 
 const LOCAL_ASSETS = [
   '/',
@@ -11,7 +11,6 @@ const LOCAL_ASSETS = [
   '/login.html',
   '/offline.html',
   '/manifest.json',
-  '/css/tailwind.min.css',
   '/css/styles.css',
   '/js/app.js',
   '/js/auth.js',
@@ -43,6 +42,7 @@ const LOCAL_ASSETS = [
 
 // CDNs externos — se pre-cachean para funcionar sin internet
 const CDN_ASSETS = [
+  'https://cdn.tailwindcss.com',
   'https://unpkg.com/lucide@latest',
   'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
@@ -100,7 +100,8 @@ self.addEventListener('fetch', (event) => {
   ) return;
 
   event.respondWith(
-    caches.match(event.request).then(cached => {
+    // ignoreSearch:true maneja cleanUrls de Vercel (?v=xxx, ?homescreen=1 etc.)
+    caches.match(event.request, { ignoreSearch: true }).then(cached => {
       if (cached) {
         // Servir desde caché y actualizar en segundo plano
         fetch(event.request).then(fresh => {
@@ -122,11 +123,23 @@ self.addEventListener('fetch', (event) => {
           );
         }
         return response;
-      }).catch(() => {
-        // Sin internet y sin caché
+      }).catch(async () => {
+        // Sin internet y sin caché — intentar varios fallbacks
         if (event.request.mode === 'navigate') {
-          return caches.match('/index.html').then(r => r || caches.match('/offline.html'));
+          // Vercel con cleanUrls sirve '/' como index — buscar ambos
+          const fallbacks = ['/', '/index.html', '/offline.html'];
+          for (const fb of fallbacks) {
+            const r = await caches.match(fb, { ignoreSearch: true });
+            if (r) return r;
+          }
+          // Último recurso — respuesta mínima para no dar ERR_FAILED
+          return new Response(
+            '<html><body><h2>Sin conexión</h2><p>Abre la app con internet una vez para activar el modo offline.</p></body></html>',
+            { headers: { 'Content-Type': 'text/html' } }
+          );
         }
+        // Para recursos no navegación devolver respuesta vacía en vez de undefined
+        return new Response('', { status: 503 });
       });
     })
   );
@@ -144,4 +157,4 @@ self.addEventListener('message', (event) => {
   }
 });
 
-console.log('[SW] my-club v2.0.0 listo');
+console.log('[SW] my-club v2.1.0 listo');
