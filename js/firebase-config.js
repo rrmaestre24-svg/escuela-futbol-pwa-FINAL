@@ -38,25 +38,24 @@ async function initFirebase() {
     const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js');
     
     const firestoreModule = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
-    const {
-      getFirestore,
-      collection,
-      doc,
-      getDoc,
-      getDocs,
-      setDoc,
-      addDoc,
-      updateDoc,
-      deleteDoc,
-      query,
-      where,
-      orderBy,
+    const { 
+      getFirestore, 
+      collection, 
+      doc, 
+      getDoc, 
+      getDocs, 
+      setDoc, 
+      addDoc, 
+      updateDoc, 
+      deleteDoc, 
+      query, 
+      where, 
+      orderBy, 
       limit,
       onSnapshot,
       runTransaction,
       serverTimestamp,
-      deleteField,
-      enableIndexedDbPersistence
+      deleteField 
     } = firestoreModule;
     
 
@@ -86,7 +85,7 @@ async function initFirebase() {
     db = getFirestore(app);
     auth = getAuth(app);
     const storage = getStorage(app);
-
+    
     // CONFIGURAR PERSISTENCIA LOCAL - La sesion sobrevive al cerrar el navegador/PWA
     try {
       await setPersistence(auth, browserLocalPersistence);
@@ -94,13 +93,6 @@ async function initFirebase() {
     } catch (persistError) {
       console.warn('[WARN] No se pudo configurar persistencia:', persistError);
     }
-
-    // PERSISTENCIA OFFLINE DE FIRESTORE — datos disponibles sin internet
-    enableIndexedDbPersistence(db).catch(err => {
-      if (err.code !== 'failed-precondition' && err.code !== 'unimplemented') {
-        console.warn('[OFFLINE] No se pudo activar persistencia Firestore:', err.code);
-      }
-    });
     
     window.firebase = {
       app,
