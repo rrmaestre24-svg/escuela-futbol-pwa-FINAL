@@ -5,7 +5,7 @@
 // ========================================
 
 let currentEditingPlayerId = null;
-let currentStatusFilter = 'todos'; // 'todos', 'activo', 'inactivo'
+let currentStatusFilter = 'activo'; // 'todos', 'activo', 'inactivo' — por defecto solo activos
 let currentCategoryFilter = 'todas'; // 'todas' o nombre de categoría
 
 // Mostrar modal agregar jugador
