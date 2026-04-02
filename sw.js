@@ -1,4 +1,4 @@
-const CACHE_NAME = 'my-club-v1.0.42';
+const CACHE_NAME = 'my-club-v1.0.41';
 
 const urlsToCache = [
   '/',
@@ -118,35 +118,75 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  /* 🔴 Solo GET */
-  if (event.request.method !== 'GET') return;
+  /* 🔴 NO cachear métodos que no son GET */
+  if (event.request.method !== 'GET') {
+    return;
+  }
 
-  /* 🟢 CACHE FIRST — igual que inventario (que sí funciona offline)
-     Sirve desde caché inmediatamente, actualiza en segundo plano cuando hay internet */
-  event.respondWith(
-    caches.match(event.request, { ignoreSearch: true }).then(cached => {
-      if (cached) {
-        // Actualizar en segundo plano sin bloquear
-        fetch(event.request).then(fresh => {
-          if (fresh && fresh.status === 200) {
-            caches.open(CACHE_NAME).then(cache => cache.put(event.request, fresh));
+  /* 🟢 NAVEGACIÓN (HTML) */
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .then(response => {
+          // Cachear la respuesta
+          if (response && response.status === 200) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then(cache => {
+              cache.put(event.request, clone);
+            });
           }
-        }).catch(() => {});
-        return cached;
-      }
+          return response;
+        })
+        .catch(() => {
+          // 1. Intentar archivo exacto ignorando parámetros (?homescreen=1 etc)
+          return caches.match(event.request, { ignoreSearch: true }).then(cached => {
+            if (cached) return cached;
+            // 2. Si es navegación y falló, intentar forzar el index.html
+            return caches.match('/index.html').then(idxCached => {
+              if (idxCached) return idxCached;
+              // 3. Fallback final al offline.html
+              return caches.match('/offline.html');
+            });
+          });
+        })
+    );
+    return;
+  }
 
-      // No está en caché — ir a la red y guardar
+  /* 🟡 JS / CSS → Network First */
+  if (
+    event.request.url.endsWith('.js') ||
+    event.request.url.endsWith('.css')
+  ) {
+    event.respondWith(
+      fetch(event.request)
+        .then(response => {
+          if (response && response.status === 200) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then(cache => {
+              cache.put(event.request, clone);
+            });
+          }
+          return response;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  /* 🔵 OTROS ARCHIVOS (imágenes, JSON, etc.) → Cache First */
+  event.respondWith(
+    caches.match(event.request).then(cached => {
+      if (cached) return cached;
+
       return fetch(event.request).then(response => {
         if (response && response.status === 200) {
           const clone = response.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+          caches.open(CACHE_NAME).then(cache => {
+            cache.put(event.request, clone);
+          });
         }
         return response;
-      }).catch(() => {
-        // Sin internet y sin caché — fallback para navegación
-        if (event.request.mode === 'navigate') {
-          return caches.match('/index.html') || caches.match('/offline.html');
-        }
       });
     })
   );
