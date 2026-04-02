@@ -521,7 +521,7 @@ async function getNextInvoiceNumber() {
   return `INV-${year}-${String(nextNumber).padStart(4, '0')}`;
 }
 // ========================================
-// 🆕 EXPORTAR DATOS - INCLUYE OTROS INGRESOS
+// EXPORTAR DATOS JSON (respaldo completo — mantiene compatibilidad con importar)
 // ========================================
 function exportAllData() {
   const data = {
@@ -529,14 +529,140 @@ function exportAllData() {
     players: getPlayers(),
     payments: getPayments(),
     expenses: getExpenses(),
-    thirdPartyIncomes: getThirdPartyIncomes(), // 🆕 Incluir otros ingresos
+    thirdPartyIncomes: getThirdPartyIncomes(),
     calendarEvents: getCalendarEvents(),
     schoolSettings: getSchoolSettings(),
     exportDate: new Date().toISOString()
   };
-  
   downloadJSON(data, `my-club-backup-${getCurrentDate()}.json`);
   showToast('✅ Datos exportados correctamente');
+}
+
+// ========================================
+// EXPORTAR EXCEL — Solo admin principal
+// Genera un archivo .xlsx con hojas separadas por tema
+// ========================================
+async function exportDataExcel() {
+  // Solo el admin principal puede exportar
+  const user = getCurrentUser();
+  if (!user || !user.isMainAdmin) {
+    showToast('❌ Solo el administrador principal puede exportar datos');
+    return;
+  }
+
+  showToast('⏳ Generando Excel...');
+
+  try {
+    const wb = XLSX.utils.book_new();
+    const today = getCurrentDate();
+
+    // ── Hoja 1: Jugadores ──────────────────────────────────────────
+    const players = getPlayers().map(p => ({
+      'Nombre':         p.name || '',
+      'Categoría':      p.category || '',
+      'Estado':         p.status || 'Activo',
+      'Posición':       p.position || '',
+      'Camiseta':       p.jerseyNumber || '',
+      'Teléfono':       p.phone || '',
+      'Email':          p.email || '',
+      'Fecha Registro': p.createdAt ? p.createdAt.split('T')[0] : ''
+    }));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(players), 'Jugadores');
+
+    // ── Hoja 2: Pagos ──────────────────────────────────────────────
+    const allPlayers = getPlayers();
+    const payments = getPayments().map(p => {
+      const jugador = allPlayers.find(j => j.id === p.playerId);
+      return {
+        'Jugador':          jugador ? jugador.name : (p.playerName || ''),
+        'Categoría':        jugador ? jugador.category : '',
+        'Concepto':         p.concept || p.description || '',
+        'Monto':            p.amount || 0,
+        'Estado':           p.status || '',
+        'Fecha Pago':       p.paidDate || p.date || '',
+        'Fecha Vencimiento':p.dueDate || '',
+        'Método Pago':      p.paymentMethod || ''
+      };
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(payments), 'Pagos');
+
+    // ── Hoja 3: Egresos ────────────────────────────────────────────
+    const expenses = getExpenses().map(e => ({
+      'Descripción': e.description || e.concept || '',
+      'Categoría':   e.category || '',
+      'Monto':       e.amount || 0,
+      'Fecha':       e.date || '',
+      'Notas':       e.notes || ''
+    }));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(expenses), 'Egresos');
+
+    // ── Hoja 4: Eventos del calendario ────────────────────────────
+    const events = getCalendarEvents().map(e => ({
+      'Título':    e.title || '',
+      'Tipo':      e.type || '',
+      'Fecha':     e.date || '',
+      'Hora':      e.time || '',
+      'Lugar':     e.location || '',
+      'Categoría': e.category || 'Todas'
+    }));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(events), 'Eventos');
+
+    // ── Hoja 5: Asistencias (últimos 90 días desde Firestore) ──────
+    const attendanceRows = await _fetchAttendanceForExport(user.schoolId);
+    if (attendanceRows.length > 0) {
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(attendanceRows), 'Asistencias');
+    }
+
+    // Descargar el archivo
+    XLSX.writeFile(wb, `myclub-backup-${today}.xlsx`);
+    showToast('✅ Excel descargado correctamente');
+
+  } catch (err) {
+    console.error('[EXPORT] Error al generar Excel:', err);
+    showToast('❌ Error al generar el archivo');
+  }
+}
+
+// Lee asistencias de los últimos 90 días desde Firestore
+async function _fetchAttendanceForExport(clubId) {
+  if (!clubId || !window.firebase?.db) return [];
+
+  try {
+    const { collection, query, where, getDocs, orderBy } = window.firebase;
+    const db = window.firebase.db;
+
+    // Fecha límite: hace 90 días
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 90);
+    const cutoffStr = cutoff.toISOString().split('T')[0];
+
+    const attendanceRef = collection(db, `clubs/${clubId}/attendance`);
+    const q = query(attendanceRef, where('date', '>=', cutoffStr), orderBy('date', 'desc'));
+    const snap = await getDocs(q);
+
+    const rows = [];
+    snap.forEach(doc => {
+      const d = doc.data();
+      // Cada documento tiene records{} con un entry por jugador
+      const records = d.records || {};
+      Object.entries(records).forEach(([playerName, status]) => {
+        rows.push({
+          'Fecha':       d.date || '',
+          'Categoría':   d.category || '',
+          'Turno':       d.turn || '',
+          'Entrenador':  d.coachName || d.coachId || '',
+          'Jugador':     playerName,
+          'Estado':      typeof status === 'object' ? (status.status || '') : status,
+          'Motivo Excusa': typeof status === 'object' ? (status.excuseReason || '') : ''
+        });
+      });
+    });
+
+    return rows;
+  } catch (err) {
+    console.warn('[EXPORT] No se pudieron cargar asistencias:', err);
+    return [];
+  }
 }
 
 // ========================================

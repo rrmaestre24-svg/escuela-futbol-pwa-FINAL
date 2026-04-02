@@ -275,6 +275,14 @@ async function checkClubIdExists(clubId) {
 // Inicializar app
 function initApp() {
   console.log('✅ App inicializada');
+
+  // Mostrar botón de Export Excel solo al admin principal
+  const user = getCurrentUser();
+  const btnExcel = document.getElementById('btnExportExcel');
+  if (btnExcel && user && user.isMainAdmin) {
+    btnExcel.classList.remove('hidden');
+  }
+
   // Cargar contenido del dashboard si existe
   if (typeof loadDashboard === 'function') {
     loadDashboard();

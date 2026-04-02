@@ -786,6 +786,12 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
                             <i data-lucide="refresh-cw" class="w-5 h-5"></i>
                             Descargar Actualización
                         </button>
+                        <!-- Botón Excel — solo admin principal -->
+                        <button onclick="exportDataExcel()" id="btnExportExcel"
+                            class="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg flex items-center justify-center gap-2 transition-colors hidden">
+                            <i data-lucide="file-spreadsheet" class="w-5 h-5"></i>
+                            Exportar Backup Excel
+                        </button>
                         <button onclick="exportData()"
                             class="w-full border border-teal-600 text-teal-600 dark:text-teal-400 py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors">
                             <i data-lucide="download" class="w-5 h-5"></i>
