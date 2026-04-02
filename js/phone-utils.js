@@ -179,9 +179,21 @@ function getPhoneType(phone) {
   return 'desconocido';
 }
 
-// â­ FUNCIÃ"N LEGACY: Mantener compatibilidad con cÃ³digo existente
+// Limpiar número para usar en URL de wa.me — funciona con cualquier país
 function cleanPhone(phone) {
-  return normalizePhone(phone).replace(/\+/g, '');
+  if (!phone) return '';
+
+  // Quitar todo excepto dígitos
+  const digitsOnly = phone.replace(/\D/g, '');
+
+  // Si ya viene con código de país (más de 10 dígitos) → usarlo tal cual
+  if (digitsOnly.length > 10) return digitsOnly;
+
+  // Si son exactamente 10 dígitos y empieza con 3 → número colombiano sin código de país
+  if (digitsOnly.length === 10 && digitsOnly.startsWith('3')) return '57' + digitsOnly;
+
+  // Cualquier otro caso → devolver los dígitos tal cual
+  return digitsOnly;
 }
 
 // ========================================

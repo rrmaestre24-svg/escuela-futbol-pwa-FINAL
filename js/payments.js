@@ -481,11 +481,9 @@ async function markAsPaid(paymentId) {
   });
   
   showToast('✅ Pago marcado como pagado');
-  
-  // 🚀 AUTO-REDIRECT: Generar PDF + WhatsApp
-  setTimeout(() => {
-    generateInvoicePDFWithWhatsApp(paymentId);
-  }, 500);
+
+  // Mostrar modal de opción WhatsApp/PDF
+  setTimeout(() => mostrarOpcionWAPayment(paymentId), 500);
   
   renderPayments();
   updateDashboard();
@@ -602,6 +600,110 @@ function generateInvoicePDFWithWhatsApp(paymentId) {
     // NO tiene WhatsApp → Pedir número manual
     showManualWhatsAppModal(paymentId, 'payment');
   }
+}
+
+// ========================================
+// MODAL DE OPCIÓN WHATSAPP (igual al de inventario)
+// ========================================
+
+function mostrarOpcionWAPayment(paymentId) {
+  const payment = getPaymentById(paymentId);
+  if (!payment) return;
+
+  const player    = getPlayerById(payment.playerId);
+  const tieneWA   = !!(player?.phone && player.phone.trim() !== '');
+  const nombre    = player?.name || 'Cliente';
+  const telefono  = player?.phone || '';
+
+  // Color del club configurado por el admin (fallback teal si no hay)
+  const clubColor = getSchoolSettings()?.primaryColor || '#0d9488';
+
+  // Eliminar overlay anterior si existe
+  document.getElementById('waOverlayPayment')?.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'waOverlayPayment';
+  overlay.className = 'fixed inset-0 bg-black/60 z-[200] flex items-center justify-center p-4';
+
+  overlay.innerHTML = `
+    <div class="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-xs shadow-2xl overflow-hidden">
+
+      <!-- Header con color del club -->
+      <div style="background: ${clubColor}" class="px-5 py-4 text-white">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 bg-white/20 rounded-full flex items-center justify-center">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+            </svg>
+          </div>
+          <div>
+            <p class="font-bold text-sm">¡Pago registrado!</p>
+            <p class="text-xs text-white/70">${payment.invoiceNumber || ''}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Resumen -->
+      <div class="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
+        <p class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Resumen</p>
+        <div class="flex justify-between text-xs mb-1">
+          <span class="text-gray-700 dark:text-gray-300">${nombre}</span>
+          <span class="font-semibold text-gray-800 dark:text-white">${formatCurrency(payment.amount)}</span>
+        </div>
+        <div class="text-xs text-gray-500 dark:text-gray-400">${payment.concept || ''}</div>
+        <div class="flex justify-between items-center mt-2 pt-2 border-t border-gray-100 dark:border-gray-700">
+          <span class="text-xs text-gray-400">${payment.method || ''}</span>
+          <span class="font-bold text-sm" style="color:${clubColor}">${formatCurrency(payment.amount)}</span>
+        </div>
+      </div>
+
+      <!-- Pregunta WhatsApp -->
+      ${tieneWA ? `
+      <div class="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
+        <p class="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">¿Enviar recibo por WhatsApp?</p>
+        <p class="text-xs text-gray-400">${nombre} · ${telefono}</p>
+        <p class="text-xs text-gray-400 mt-0.5">El PDF se descargará automáticamente</p>
+      </div>` : ''}
+
+      <!-- Botones -->
+      <div class="p-4 space-y-2">
+        ${tieneWA ? `
+        <button onclick="enviarWADesdeOverlayPayment('${paymentId}')"
+          class="w-full bg-green-500 hover:bg-green-600 active:scale-95 text-white py-3 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2">
+          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+          Sí, enviar por WhatsApp
+        </button>` : ''}
+
+        <button onclick="soloDescargarPDFPayment('${paymentId}')"
+          style="background:${clubColor}"
+          class="w-full active:scale-95 text-white py-2.5 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+          Solo descargar PDF
+        </button>
+
+        <button onclick="document.getElementById('waOverlayPayment').remove()"
+          class="w-full text-gray-500 dark:text-gray-400 py-2 text-sm hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
+          Cerrar sin descargar
+        </button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+}
+
+function soloDescargarPDFPayment(paymentId) {
+  document.getElementById('waOverlayPayment')?.remove();
+  generateInvoicePDF(paymentId, true);
+}
+
+function enviarWADesdeOverlayPayment(paymentId) {
+  document.getElementById('waOverlayPayment')?.remove();
+  // Genera el PDF y luego abre WhatsApp
+  generateInvoicePDF(paymentId, true);
+  setTimeout(() => sendInvoiceWhatsApp(paymentId), 400);
 }
 
 console.log('✅ payments.js cargado (UNIFICADO CON AUTO-REDIRECT)');
@@ -1491,11 +1593,9 @@ async function handlePaymentFormSubmit(e) {
     savePayment(newPayment);
     showToast('✅ Pago registrado');
     
-    // 🚀 AUTO-REDIRECT: Si está pagado, generar PDF + WhatsApp
+    // Mostrar modal de opción WhatsApp/PDF si está pagado
     if (status === 'Pagado') {
-      setTimeout(() => {
-        generateInvoicePDFWithWhatsApp(newPayment.id);
-      }, 500);
+      setTimeout(() => mostrarOpcionWAPayment(newPayment.id), 500);
     }
   }
   

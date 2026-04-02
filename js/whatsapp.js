@@ -9,30 +9,28 @@
 // ========================================
 function openWhatsApp(phone, message = '') {
   const cleanedPhone = cleanPhone(phone);
-  
-  // ✅ CORRECCIÓN EMOJIS: encodeURIComponent a veces falla con wa.me en navegadores móviles.
-  // Reemplazamos espacios por %20 explícitamente y aseguramos codificación UTF-8 estricta
-  const encodedMessage = encodeURIComponent(message).replace(/%20/g, '+');
-  
+  const encodedMessage = encodeURIComponent(message);
+
+  // wa.me funciona en navegador y PWA — abre WhatsApp normal o Business indistintamente
   const url = `https://wa.me/${cleanedPhone}?text=${encodedMessage}`;
-  
-  // ✅ CORRECCIÓN iOS: Usar un link temporal en lugar de window.open
-  // window.open() es bloqueado en iOS cuando no es resultado directo de click
-  
-  // Detectar si es iOS
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-  
-  if (isIOS) {
-    // ✅ Para iOS: Usar location.href (funciona mejor)
+
+  const isIOS     = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  const isAndroid = /Android/.test(navigator.userAgent);
+  const isPWA     = window.matchMedia('(display-mode: standalone)').matches
+                    || window.navigator.standalone === true;
+
+  if (isPWA || isIOS) {
+    // En PWA instalada o iOS: location.href es más confiable que window.open
     window.location.href = url;
-  } else {
-    // Para Android/Desktop: Intentar abrir en nueva pestaña
+  } else if (isAndroid) {
+    // En Android navegador: intentar nueva pestaña, fallback a location.href
     const newWindow = window.open(url, '_blank');
-    
-    // Si el popup fue bloqueado, usar location.href como fallback
     if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
       window.location.href = url;
     }
+  } else {
+    // Desktop: abrir en nueva pestaña
+    window.open(url, '_blank');
   }
 }
 
@@ -42,7 +40,7 @@ function openWhatsApp(phone, message = '') {
 // ========================================
 function createWhatsAppLink(phone, message = '') {
   const cleanedPhone = cleanPhone(phone);
-  const encodedMessage = encodeURIComponent(message).replace(/%20/g, '+');
+  const encodedMessage = encodeURIComponent(message);
   return `https://wa.me/${cleanedPhone}?text=${encodedMessage}`;
 }
 
