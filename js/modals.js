@@ -181,9 +181,9 @@ function showPhotoPickerModal(targetImgId, targetInputId, onSelect) {
       </div>
 
       <!-- Inputs ocultos para cámara y galería -->
-      <input type="file" id="_photoPickerCamera"  accept="image/*" capture="environment" class="hidden"
+      <input type="file" id="_photoPickerCamera"  accept="image/*" class="hidden"
              onchange="photoPickerHandleFile(this)">
-      <input type="file" id="_photoPickerGallery" accept="image/*"                       class="hidden"
+      <input type="file" id="_photoPickerGallery" accept="image/*" class="hidden"
              onchange="photoPickerHandleFile(this)">
     `;
     document.body.appendChild(modal);
