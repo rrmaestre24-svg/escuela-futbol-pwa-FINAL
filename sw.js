@@ -1,4 +1,4 @@
-const CACHE_NAME = 'my-club-v1.0.41';
+const CACHE_NAME = 'my-club-v1.0.40';
 
 const urlsToCache = [
   '/',
@@ -48,13 +48,7 @@ const urlsToCache = [
   '/js/whatsapp.js',
 
   // PORTAL PADRES
-  '/js/parent-portal.js',
-
-  // SDK de Firebase — necesarios para el arranque sin internet
-  'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js',
-  'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js',
-  'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js',
-  'https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js'
+  '/js/parent-portal.js'
 ];
 /* ==============================
    INSTALL
@@ -104,13 +98,12 @@ self.addEventListener('fetch', event => {
   // Ignorar peticiones que no son HTTP/HTTPS
   if (!event.request.url.startsWith('http')) return;
 
-  // Ignorar solo las llamadas de datos — estas siempre van a la red
-  // Los archivos SDK de Firebase (gstatic.com/firebasejs) SÍ se cachean
+  // Ignorar peticiones a Firebase, APIs externas, etc.
   if (
     event.request.url.includes('firebaseio.com') ||
     event.request.url.includes('googleapis.com') ||
-    event.request.url.includes('identitytoolkit') ||
-    event.request.url.includes('securetoken.google.com') ||
+    event.request.url.includes('gstatic.com') ||
+    event.request.url.includes('firebase') ||
     event.request.url.includes('unpkg.com') ||
     event.request.url.includes('cdn.jsdelivr.net') ||
     event.request.url.includes('cdnjs.cloudflare.com')
