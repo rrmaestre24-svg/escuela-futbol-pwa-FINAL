@@ -2587,9 +2587,20 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
 
         // Registrar Service Worker
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js')
-                .then(reg => console.log('✅ Service Worker registrado', reg))
-                .catch(err => console.log('❌ Error al registrar SW', err));
+            navigator.serviceWorker.register('sw.js').then(registration => {
+                // Detectar nueva versión disponible
+                registration.addEventListener('updatefound', () => {
+                    const newWorker = registration.installing;
+                    newWorker.addEventListener('statechange', () => {
+                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                            if (confirm('🔄 Hay una nueva versión disponible. ¿Actualizar ahora?')) {
+                                newWorker.postMessage({ type: 'SKIP_WAITING' });
+                                window.location.reload();
+                            }
+                        }
+                    });
+                });
+            }).catch(err => console.log('❌ Error al registrar SW', err));
         }
     </script>
 
