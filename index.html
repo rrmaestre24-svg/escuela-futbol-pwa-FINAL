@@ -858,6 +858,224 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
                     </div>
                 </div>
             </div>
+            <!-- Sección: Ayuda y Manual de Usuario -->
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+                <button onclick="toggleSection('helpSection')"
+                    class="w-full px-4 py-3 flex items-center justify-between bg-gray-50 dark:bg-gray-700 text-left font-medium">
+                    <span>❓ Ayuda y Manual de Usuario</span>
+                    <i data-lucide="chevron-down" class="w-5 h-5 text-gray-500 dark:text-gray-400"></i>
+                </button>
+                <div id="helpSection" class="border-t border-gray-200 dark:border-gray-700 hidden">
+
+                    <!-- Intro -->
+                    <div class="px-4 pt-4 pb-2">
+                        <p class="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                            Bienvenido a <strong class="text-teal-600">MY CLUB</strong>. Aquí encontrarás todo lo que necesitas saber para usar la plataforma. Toca cada tema para expandirlo.
+                        </p>
+                    </div>
+
+                    <!-- Sub-acordeón: Primeros Pasos -->
+                    <div class="mx-4 mb-2 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600">
+                        <button onclick="toggleSection('help-inicio')" class="w-full px-3 py-2.5 flex items-center justify-between bg-gray-50 dark:bg-gray-700 text-left text-sm font-medium text-gray-800 dark:text-gray-200">
+                            <span>🚀 Primeros Pasos</span>
+                            <i data-lucide="chevron-down" class="w-4 h-4 text-gray-500"></i>
+                        </button>
+                        <div id="help-inicio" class="hidden px-3 py-3 bg-white dark:bg-gray-800 text-sm text-gray-600 dark:text-gray-300 space-y-2">
+                            <p class="font-medium text-gray-800 dark:text-white">¿Cómo empezar?</p>
+                            <ol class="space-y-1.5 list-none">
+                                <li class="flex gap-2"><span class="text-teal-500 font-bold">1.</span> Inicia sesión con tu correo y contraseña de administrador.</li>
+                                <li class="flex gap-2"><span class="text-teal-500 font-bold">2.</span> Ve a <strong>Configuración → Datos del Club</strong> y completa el nombre, logo y colores de tu club.</li>
+                                <li class="flex gap-2"><span class="text-teal-500 font-bold">3.</span> Agrega tus jugadores desde la sección <strong>Jugadores</strong> del menú principal.</li>
+                                <li class="flex gap-2"><span class="text-teal-500 font-bold">4.</span> Crea las cuentas de tus entrenadores desde <strong>Configuración → Gestión de Usuarios</strong>.</li>
+                                <li class="flex gap-2"><span class="text-teal-500 font-bold">5.</span> Listo — tus entrenadores ya pueden ingresar a tomar asistencia.</li>
+                            </ol>
+                            <p class="text-xs text-gray-400 pt-1">💡 Tip: Instala la app en tu celular desde el navegador → "Agregar a pantalla de inicio".</p>
+                        </div>
+                    </div>
+
+                    <!-- Sub-acordeón: Panel Principal -->
+                    <div class="mx-4 mb-2 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600">
+                        <button onclick="toggleSection('help-panel')" class="w-full px-3 py-2.5 flex items-center justify-between bg-gray-50 dark:bg-gray-700 text-left text-sm font-medium text-gray-800 dark:text-gray-200">
+                            <span>🏠 Panel Principal</span>
+                            <i data-lucide="chevron-down" class="w-4 h-4 text-gray-500"></i>
+                        </button>
+                        <div id="help-panel" class="hidden px-3 py-3 bg-white dark:bg-gray-800 text-sm text-gray-600 dark:text-gray-300 space-y-2">
+                            <p>El panel de inicio es tu centro de control. Desde aquí puedes:</p>
+                            <ul class="space-y-1.5 list-none">
+                                <li class="flex gap-2"><span class="text-teal-500">→</span> Ver el <strong>resumen del club</strong>: jugadores activos, pagos pendientes, próximos eventos.</li>
+                                <li class="flex gap-2"><span class="text-teal-500">→</span> Acceder a los módulos externos: <strong>Asistencias</strong> e <strong>Inventario</strong> con un toque.</li>
+                                <li class="flex gap-2"><span class="text-teal-500">→</span> Navegar entre secciones con los botones del menú inferior: Inicio, Jugadores, Pagos, Calendario, Config.</li>
+                                <li class="flex gap-2"><span class="text-teal-500">→</span> Ver alertas de pagos vencidos y cumpleaños desde el ícono de campana.</li>
+                            </ul>
+                            <p class="text-xs text-gray-400 pt-1">💡 Tip: Si tienes la app instalada, puedes deslizar el dedo horizontalmente para cambiar de sección.</p>
+                        </div>
+                    </div>
+
+                    <!-- Sub-acordeón: Jugadores -->
+                    <div class="mx-4 mb-2 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600">
+                        <button onclick="toggleSection('help-jugadores')" class="w-full px-3 py-2.5 flex items-center justify-between bg-gray-50 dark:bg-gray-700 text-left text-sm font-medium text-gray-800 dark:text-gray-200">
+                            <span>👥 Jugadores y Categorías</span>
+                            <i data-lucide="chevron-down" class="w-4 h-4 text-gray-500"></i>
+                        </button>
+                        <div id="help-jugadores" class="hidden px-3 py-3 bg-white dark:bg-gray-800 text-sm text-gray-600 dark:text-gray-300 space-y-2">
+                            <p class="font-medium text-gray-800 dark:text-white">Agregar un jugador</p>
+                            <ol class="space-y-1.5 list-none">
+                                <li class="flex gap-2"><span class="text-teal-500 font-bold">1.</span> Ve a la sección <strong>Jugadores</strong> en el menú inferior.</li>
+                                <li class="flex gap-2"><span class="text-teal-500 font-bold">2.</span> Toca el botón <strong>"+ Agregar"</strong>.</li>
+                                <li class="flex gap-2"><span class="text-teal-500 font-bold">3.</span> Completa nombre, categoría (año de nacimiento), posición y número de camiseta.</li>
+                                <li class="flex gap-2"><span class="text-teal-500 font-bold">4.</span> Guarda — el jugador aparece en la lista al instante.</li>
+                            </ol>
+                            <p class="font-medium text-gray-800 dark:text-white pt-1">Estados de un jugador</p>
+                            <ul class="space-y-1 list-none">
+                                <li class="flex gap-2"><span class="text-green-500">●</span> <strong>Activo</strong> — aparece en listas de asistencia y pagos.</li>
+                                <li class="flex gap-2"><span class="text-yellow-500">●</span> <strong>Lesionado</strong> — visible pero marcado, no afecta estadísticas.</li>
+                                <li class="flex gap-2"><span class="text-red-500">●</span> <strong>Inactivo</strong> — se oculta de las listas sin eliminarlo.</li>
+                            </ul>
+                            <p class="text-xs text-gray-400 pt-1">💡 Las categorías van de 2006 a 2021 según el año de nacimiento del jugador.</p>
+                        </div>
+                    </div>
+
+                    <!-- Sub-acordeón: Entrenadores -->
+                    <div class="mx-4 mb-2 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600">
+                        <button onclick="toggleSection('help-entrenadores')" class="w-full px-3 py-2.5 flex items-center justify-between bg-gray-50 dark:bg-gray-700 text-left text-sm font-medium text-gray-800 dark:text-gray-200">
+                            <span>👨‍🏫 Entrenadores</span>
+                            <i data-lucide="chevron-down" class="w-4 h-4 text-gray-500"></i>
+                        </button>
+                        <div id="help-entrenadores" class="hidden px-3 py-3 bg-white dark:bg-gray-800 text-sm text-gray-600 dark:text-gray-300 space-y-2">
+                            <p class="font-medium text-gray-800 dark:text-white">Crear cuenta de entrenador</p>
+                            <ol class="space-y-1.5 list-none">
+                                <li class="flex gap-2"><span class="text-teal-500 font-bold">1.</span> Ve a <strong>Configuración → Gestión de Usuarios</strong>.</li>
+                                <li class="flex gap-2"><span class="text-teal-500 font-bold">2.</span> Toca <strong>"+ Nuevo Entrenador"</strong>.</li>
+                                <li class="flex gap-2"><span class="text-teal-500 font-bold">3.</span> Asigna nombre, código de acceso, categorías que maneja y foto (opcional).</li>
+                                <li class="flex gap-2"><span class="text-teal-500 font-bold">4.</span> El entrenador entra al módulo de Asistencias con su código — sin correo ni contraseña.</li>
+                            </ol>
+                            <p class="font-medium text-gray-800 dark:text-white pt-1">Tipos de acceso</p>
+                            <ul class="space-y-1 list-none">
+                                <li class="flex gap-2"><span class="text-teal-500">→</span> <strong>Básico</strong> — solo puede tomar asistencia.</li>
+                                <li class="flex gap-2"><span class="text-teal-500">→</span> <strong>Completo</strong> — puede ver historial y estadísticas.</li>
+                            </ul>
+                            <p class="text-xs text-gray-400 pt-1">💡 Tip: Puedes desactivar un entrenador sin eliminarlo — solo cambia su estado a "Inactivo".</p>
+                        </div>
+                    </div>
+
+                    <!-- Sub-acordeón: Asistencias -->
+                    <div class="mx-4 mb-2 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600">
+                        <button onclick="toggleSection('help-asistencias')" class="w-full px-3 py-2.5 flex items-center justify-between bg-gray-50 dark:bg-gray-700 text-left text-sm font-medium text-gray-800 dark:text-gray-200">
+                            <span>✅ Módulo de Asistencias</span>
+                            <i data-lucide="chevron-down" class="w-4 h-4 text-gray-500"></i>
+                        </button>
+                        <div id="help-asistencias" class="hidden px-3 py-3 bg-white dark:bg-gray-800 text-sm text-gray-600 dark:text-gray-300 space-y-2">
+                            <p class="font-medium text-gray-800 dark:text-white">Flujo del entrenador</p>
+                            <ol class="space-y-1.5 list-none">
+                                <li class="flex gap-2"><span class="text-teal-500 font-bold">1.</span> El entrenador ingresa su <strong>código</strong> en el módulo de Asistencias.</li>
+                                <li class="flex gap-2"><span class="text-teal-500 font-bold">2.</span> Selecciona el <strong>turno</strong> (mañana, tarde, noche, etc.).</li>
+                                <li class="flex gap-2"><span class="text-teal-500 font-bold">3.</span> Selecciona la <strong>categoría</strong> (año).</li>
+                                <li class="flex gap-2"><span class="text-teal-500 font-bold">4.</span> Marca a cada jugador: <strong>P</strong> (Presente), <strong>F</strong> (Falta), <strong>Exc</strong> (Excusa), <strong>T</strong> (Tarde).</li>
+                                <li class="flex gap-2"><span class="text-teal-500 font-bold">5.</span> Toca <strong>"Guardar"</strong> — queda registrado en la nube.</li>
+                            </ol>
+                            <p class="font-medium text-gray-800 dark:text-white pt-1">Como administrador puedes:</p>
+                            <ul class="space-y-1 list-none">
+                                <li class="flex gap-2"><span class="text-teal-500">→</span> Ver el historial de asistencia por entrenador o categoría.</li>
+                                <li class="flex gap-2"><span class="text-teal-500">→</span> Configurar qué turnos están activos desde <strong>Config → Turnos</strong>.</li>
+                                <li class="flex gap-2"><span class="text-teal-500">→</span> Exportar reportes de asistencia a PDF.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Sub-acordeón: Pagos -->
+                    <div class="mx-4 mb-2 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600">
+                        <button onclick="toggleSection('help-pagos')" class="w-full px-3 py-2.5 flex items-center justify-between bg-gray-50 dark:bg-gray-700 text-left text-sm font-medium text-gray-800 dark:text-gray-200">
+                            <span>💰 Pagos y Facturación</span>
+                            <i data-lucide="chevron-down" class="w-4 h-4 text-gray-500"></i>
+                        </button>
+                        <div id="help-pagos" class="hidden px-3 py-3 bg-white dark:bg-gray-800 text-sm text-gray-600 dark:text-gray-300 space-y-2">
+                            <p class="font-medium text-gray-800 dark:text-white">Registrar un pago</p>
+                            <ol class="space-y-1.5 list-none">
+                                <li class="flex gap-2"><span class="text-teal-500 font-bold">1.</span> Ve a la sección <strong>Pagos</strong>.</li>
+                                <li class="flex gap-2"><span class="text-teal-500 font-bold">2.</span> Busca al jugador o toca su nombre en la lista.</li>
+                                <li class="flex gap-2"><span class="text-teal-500 font-bold">3.</span> Toca <strong>"+ Nuevo Pago"</strong>.</li>
+                                <li class="flex gap-2"><span class="text-teal-500 font-bold">4.</span> El sistema auto-completa la fecha de hoy y la fecha de vencimiento (fin de mes).</li>
+                                <li class="flex gap-2"><span class="text-teal-500 font-bold">5.</span> Confirma y elige si enviar comprobante por <strong>WhatsApp</strong> o descargar PDF.</li>
+                            </ol>
+                            <p class="font-medium text-gray-800 dark:text-white pt-1">Estados de pago</p>
+                            <ul class="space-y-1 list-none">
+                                <li class="flex gap-2"><span class="text-green-500">●</span> <strong>Pagado</strong> — al día.</li>
+                                <li class="flex gap-2"><span class="text-yellow-500">●</span> <strong>Pendiente</strong> — registrado pero sin confirmar pago.</li>
+                                <li class="flex gap-2"><span class="text-red-500">●</span> <strong>Vencido</strong> — pasó la fecha límite sin pagar, aparece en alertas.</li>
+                            </ul>
+                            <p class="text-xs text-gray-400 pt-1">💡 Los jugadores con pagos vencidos aparecen marcados automáticamente en la lista.</p>
+                        </div>
+                    </div>
+
+                    <!-- Sub-acordeón: Inventario -->
+                    <div class="mx-4 mb-2 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600">
+                        <button onclick="toggleSection('help-inventario')" class="w-full px-3 py-2.5 flex items-center justify-between bg-gray-50 dark:bg-gray-700 text-left text-sm font-medium text-gray-800 dark:text-gray-200">
+                            <span>📦 Módulo de Inventario</span>
+                            <i data-lucide="chevron-down" class="w-4 h-4 text-gray-500"></i>
+                        </button>
+                        <div id="help-inventario" class="hidden px-3 py-3 bg-white dark:bg-gray-800 text-sm text-gray-600 dark:text-gray-300 space-y-2">
+                            <p class="font-medium text-gray-800 dark:text-white">Agregar productos al catálogo</p>
+                            <ol class="space-y-1.5 list-none">
+                                <li class="flex gap-2"><span class="text-teal-500 font-bold">1.</span> Abre el módulo de <strong>Inventario</strong> desde el panel principal.</li>
+                                <li class="flex gap-2"><span class="text-teal-500 font-bold">2.</span> Ve a la pestaña <strong>Productos</strong> y toca <strong>"+ Agregar"</strong>.</li>
+                                <li class="flex gap-2"><span class="text-teal-500 font-bold">3.</span> Completa nombre, categoría, precio y stock disponible.</li>
+                            </ol>
+                            <p class="font-medium text-gray-800 dark:text-white pt-1">Hacer una venta (POS)</p>
+                            <ol class="space-y-1.5 list-none">
+                                <li class="flex gap-2"><span class="text-teal-500 font-bold">1.</span> Ve a la pestaña <strong>Vender</strong>.</li>
+                                <li class="flex gap-2"><span class="text-teal-500 font-bold">2.</span> Toca los productos que el cliente quiere comprar.</li>
+                                <li class="flex gap-2"><span class="text-teal-500 font-bold">3.</span> Revisa el total y toca <strong>"Confirmar Venta"</strong>.</li>
+                                <li class="flex gap-2"><span class="text-teal-500 font-bold">4.</span> El stock se descuenta automáticamente y puedes enviar el recibo por WhatsApp.</li>
+                            </ol>
+                            <p class="text-xs text-gray-400 pt-1">💡 La fecha de la factura se llena automáticamente pero puedes cambiarla si es necesario.</p>
+                        </div>
+                    </div>
+
+                    <!-- Sub-acordeón: Portal de Padres -->
+                    <div class="mx-4 mb-2 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600">
+                        <button onclick="toggleSection('help-padres')" class="w-full px-3 py-2.5 flex items-center justify-between bg-gray-50 dark:bg-gray-700 text-left text-sm font-medium text-gray-800 dark:text-gray-200">
+                            <span>👪 Portal de Padres</span>
+                            <i data-lucide="chevron-down" class="w-4 h-4 text-gray-500"></i>
+                        </button>
+                        <div id="help-padres" class="hidden px-3 py-3 bg-white dark:bg-gray-800 text-sm text-gray-600 dark:text-gray-300 space-y-2">
+                            <p>El portal de padres es una app separada donde los padres pueden consultar información de sus hijos sin necesidad de pedirte a ti.</p>
+                            <p class="font-medium text-gray-800 dark:text-white pt-1">¿Cómo acceden los padres?</p>
+                            <ol class="space-y-1.5 list-none">
+                                <li class="flex gap-2"><span class="text-teal-500 font-bold">1.</span> Comparte el enlace del portal con los padres del club.</li>
+                                <li class="flex gap-2"><span class="text-teal-500 font-bold">2.</span> El padre ingresa con su número de teléfono registrado.</li>
+                                <li class="flex gap-2"><span class="text-teal-500 font-bold">3.</span> Puede ver asistencia, pagos pendientes y eventos del club.</li>
+                            </ol>
+                            <p class="font-medium text-gray-800 dark:text-white pt-1">¿Qué ven los padres?</p>
+                            <ul class="space-y-1 list-none">
+                                <li class="flex gap-2"><span class="text-teal-500">→</span> Asistencias del mes de su hijo.</li>
+                                <li class="flex gap-2"><span class="text-teal-500">→</span> Estado de pagos (si está al día o tiene deuda).</li>
+                                <li class="flex gap-2"><span class="text-teal-500">→</span> Próximos eventos y partidos.</li>
+                            </ul>
+                            <p class="text-xs text-gray-400 pt-1">💡 Los padres solo ven información de sus propios hijos, no la de los demás.</p>
+                        </div>
+                    </div>
+
+                    <!-- Sub-acordeón: Configuración Avanzada -->
+                    <div class="mx-4 mb-4 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600">
+                        <button onclick="toggleSection('help-config')" class="w-full px-3 py-2.5 flex items-center justify-between bg-gray-50 dark:bg-gray-700 text-left text-sm font-medium text-gray-800 dark:text-gray-200">
+                            <span>⚙️ Configuración Avanzada</span>
+                            <i data-lucide="chevron-down" class="w-4 h-4 text-gray-500"></i>
+                        </button>
+                        <div id="help-config" class="hidden px-3 py-3 bg-white dark:bg-gray-800 text-sm text-gray-600 dark:text-gray-300 space-y-2">
+                            <ul class="space-y-2 list-none">
+                                <li class="flex gap-2"><span class="text-teal-500">→</span> <strong>Datos del Club</strong> — nombre, logo, colores. Los colores se aplican a toda la app y a los comprobantes de WhatsApp.</li>
+                                <li class="flex gap-2"><span class="text-teal-500">→</span> <strong>Seguridad</strong> — cambia tu contraseña de administrador cuando quieras.</li>
+                                <li class="flex gap-2"><span class="text-teal-500">→</span> <strong>Gestión de Usuarios</strong> — administra entrenadores y sus permisos.</li>
+                                <li class="flex gap-2"><span class="text-teal-500">→</span> <strong>Recursos Locales</strong> — activa o desactiva la vibración, modo oscuro y otras preferencias.</li>
+                                <li class="flex gap-2"><span class="text-teal-500">→</span> <strong>Sincronización</strong> — cierra sesión o fuerza una sincronización con la nube.</li>
+                            </ul>
+                            <p class="text-xs text-gray-400 pt-1">💡 Todos los datos se guardan automáticamente en la nube — no necesitas hacer copias de seguridad manuales.</p>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
             <!-- Sección: Información Legal -->
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
                 <button onclick="toggleSection('legalSection')"
