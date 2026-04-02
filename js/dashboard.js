@@ -252,28 +252,37 @@ function updateDashboardNotifications() {
 
 // ========================================
 // 🆕 ABRIR INVENTARIO
+// Abre un módulo externo respetando si está instalado como PWA en el dispositivo
+function abrirModuloPWA(url) {
+  const isAndroid = /android/i.test(navigator.userAgent);
+  const isIOS     = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isPWA     = window.matchMedia('(display-mode: standalone)').matches
+                    || window.navigator.standalone === true;
+
+  if (isAndroid) {
+    // intent:// fuerza Chrome nativo y abre la PWA instalada si existe
+    const path = url.replace('https://', '');
+    window.location.href = `intent://${path}#Intent;scheme=https;package=com.android.chrome;end`;
+  } else if (isIOS || isPWA) {
+    window.location.href = url;
+  } else {
+    // Desktop: nueva pestaña
+    window.open(url, '_blank');
+  }
+}
+
 // Detecta si la PWA de inventario está instalada
 // Si sí → intenta abrirla como app nativa
 // Si no → abre la URL web normal
 // ========================================
 function abrirInventario() {
   const INVENTARIO_URL = 'https://myclub-inventario.vercel.app';
-
-  // Obtener el clubId del usuario actual para pasarlo como parámetro
   const clubId = localStorage.getItem('clubId') || '';
   const urlConClub = clubId
     ? `${INVENTARIO_URL}/login.html?clubId=${clubId}`
     : `${INVENTARIO_URL}/login.html`;
 
-  // Intentar abrir como PWA instalada primero
-  // El navegador la abrirá en modo standalone si está instalada
-  const ventana = window.open(urlConClub, '_blank');
-
-  // Si el navegador bloqueó el popup (ej: iOS Safari sin interacción)
-  if (!ventana || ventana.closed || typeof ventana.closed === 'undefined') {
-    // Fallback: redirigir en la misma pestaña
-    window.location.href = urlConClub;
-  }
+  abrirModuloPWA(urlConClub);
 }
 
 // Exportar para uso global
@@ -292,14 +301,7 @@ function abrirAsistencias() {
     ? `${ASISTENCIAS_URL}/admin.html?clubId=${clubId}`
     : `${ASISTENCIAS_URL}/admin.html`;
 
-  // En Android forzar Chrome nativo para que muestre el botón de instalación PWA
-  const isAndroid = /android/i.test(navigator.userAgent);
-  if (isAndroid) {
-    const path = urlConClub.replace('https://', '');
-    window.location.href = `intent://${path}#Intent;scheme=https;package=com.android.chrome;end`;
-  } else {
-    window.open(urlConClub, '_blank');
-  }
+  abrirModuloPWA(urlConClub);
 }
 
 // Exportar para uso global
