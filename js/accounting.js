@@ -53,10 +53,10 @@ function showAccountingView() {
 
 // Renderizar todo
 function renderAccounting() {
-  console.log('📊 Renderizando contabilidad...');
   renderAccountingSummary();
   renderAccountingCharts();
   renderAccountingPlayersTable();
+  renderVoidedPayments();
 }
 
 // 🆕 RESUMEN MEJORADO - CON EGRESOS Y OTROS INGRESOS
@@ -665,10 +665,91 @@ function exportFullReportCSV() {
   console.log('  - Utilidad:', formatCurrency(totalIngresos - totalEgresos));
 }
 
+// ========================================
+// FACTURAS ANULADAS
+// ========================================
+
+async function renderVoidedPayments() {
+  const container = document.getElementById('voidedPaymentsList');
+  if (!container) return;
+
+  container.innerHTML = '<p class="text-gray-400 text-sm text-center py-4">Cargando...</p>';
+
+  try {
+    if (!window.firebase?.db) {
+      container.innerHTML = '<p class="text-gray-400 text-sm text-center py-4">Sin conexión</p>';
+      return;
+    }
+
+    const clubId = localStorage.getItem('clubId');
+    if (!clubId) return;
+
+    const snap = await window.firebase.getDocs(
+      window.firebase.query(
+        window.firebase.collection(window.firebase.db, `clubs/${clubId}/voided_payments`),
+        window.firebase.orderBy('voidedAt', 'desc')
+      )
+    );
+
+    if (snap.empty) {
+      container.innerHTML = '<p class="text-gray-400 text-sm text-center py-4">Sin facturas anuladas</p>';
+      return;
+    }
+
+    // Guardar para exportar
+    window._voidedPaymentsCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    container.innerHTML = window._voidedPaymentsCache.map(v => `
+      <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-3">
+        <div class="flex justify-between items-start">
+          <div>
+            <span class="text-xs font-bold text-red-600 dark:text-red-400">${v.invoiceNumber}</span>
+            <span class="text-xs text-gray-500 ml-2">${formatDate(v.voidedAt)}</span>
+          </div>
+          <span class="text-sm font-bold text-red-600 dark:text-red-400">${formatCurrency(v.amount)}</span>
+        </div>
+        <p class="text-sm text-gray-700 dark:text-gray-300 mt-1">${v.playerName} · ${v.concept}</p>
+        <div class="flex justify-between mt-1">
+          <p class="text-xs text-gray-500"><span class="font-medium">Motivo:</span> ${v.reason}</p>
+          <p class="text-xs text-gray-400">Por: ${v.voidedBy}</p>
+        </div>
+      </div>
+    `).join('');
+
+  } catch (err) {
+    container.innerHTML = '<p class="text-red-400 text-sm text-center py-4">Error al cargar</p>';
+  }
+}
+
+function exportVoidedCSV() {
+  const voided = window._voidedPaymentsCache || [];
+  if (voided.length === 0) {
+    showToast('⚠️ No hay facturas anuladas para exportar');
+    return;
+  }
+
+  const csvData = voided.map(v => ({
+    'Tipo': 'ANULADA',
+    'Factura': v.invoiceNumber,
+    'Fecha Anulación': formatDate(v.voidedAt),
+    'Jugador': v.playerName,
+    'Categoría': v.playerCategory || 'N/A',
+    'Concepto': v.concept,
+    'Monto': v.amount,
+    'Motivo': v.reason,
+    'Anulado por': v.voidedBy
+  }));
+
+  downloadCSV(csvData, `Facturas-Anuladas-${getCurrentDate()}.csv`);
+  showToast('✅ Exportado');
+}
+
 // Hacer funciones globales
 window.exportCSV = exportCSV;
 window.exportExpensesCSV = exportExpensesCSV;
 window.exportPlayersSummaryCSV = exportPlayersSummaryCSV;
 window.exportFullReportCSV = exportFullReportCSV;
+window.renderVoidedPayments = renderVoidedPayments;
+window.exportVoidedCSV = exportVoidedCSV;
 
 console.log('✅ accounting.js cargado correctamente CON DOCUMENTO DE IDENTIDAD');

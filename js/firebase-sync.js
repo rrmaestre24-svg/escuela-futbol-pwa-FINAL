@@ -865,28 +865,53 @@ async function syncInvoiceCounter() {
   if (!clubId) return;
 
   try {
-    // ✅ Contar SOLO las facturas de payments (pagos de jugadores)
+    const counterRef = window.firebase.doc(window.firebase.db, `clubs/${clubId}/config`, 'invoiceCounter');
+
+    // Contar pagos actuales en Firebase
     const paymentsSnap = await window.firebase.getDocs(
       window.firebase.collection(window.firebase.db, `clubs/${clubId}/payments`)
     );
+    const totalInvoices = paymentsSnap.size;
 
-    const totalInvoices = paymentsSnap.size; // ✅ Solo facturas de pagos
+    // Leer el contador actual en Firebase
+    const counterSnap = await window.firebase.getDoc(counterRef);
+    const currentCounter = counterSnap.exists() ? (counterSnap.data().lastNumber || 0) : 0;
 
-    console.log(`📊 Facturas de pagos en Firebase: ${totalInvoices}`);
+    // El contador NUNCA retrocede — solo avanza si hay más pagos que el contador actual
+    // Esto evita duplicados cuando se eliminan pagos
+    const safeNumber = Math.max(currentCounter, totalInvoices);
 
-    // Actualizar contador
-    const counterRef = window.firebase.doc(window.firebase.db, `clubs/${clubId}/config`, 'invoiceCounter');
     await window.firebase.setDoc(counterRef, {
-      lastNumber: totalInvoices,
+      lastNumber: safeNumber,
       lastUpdated: new Date().toISOString(),
       syncedAt: new Date().toISOString()
     });
 
-    console.log(`✅ Contador sincronizado: ${totalInvoices} facturas de pago`);
-    showToast(`✅ Contador sincronizado: ${totalInvoices} facturas de pago`);
+    console.log(`✅ Contador sincronizado: ${safeNumber} (pagos: ${totalInvoices}, anterior: ${currentCounter})`);
+    showToast(`✅ Contador sincronizado: ${safeNumber} facturas`);
 
   } catch (error) {
     console.error('❌ Error al sincronizar contador:', error);
+  }
+}
+
+/**
+ * Guardar factura anulada en Firebase — registro permanente de auditoría
+ */
+async function saveVoidedPaymentToFirebase(voidedData) {
+  if (!checkFirebaseReady()) return false;
+  const clubId = getClubId();
+  if (!clubId) return false;
+
+  try {
+    await window.firebase.addDoc(
+      window.firebase.collection(window.firebase.db, `clubs/${clubId}/voided_payments`),
+      voidedData
+    );
+    return true;
+  } catch (error) {
+    console.error('❌ Error guardando factura anulada:', error);
+    return false;
   }
 }
 
@@ -894,6 +919,7 @@ async function syncInvoiceCounter() {
 window.getNextInvoiceNumberFromFirebase = getNextInvoiceNumberFromFirebase;
 window.getNextInvoiceNumberLocal = getNextInvoiceNumberLocal;
 window.syncInvoiceCounter = syncInvoiceCounter;
+window.saveVoidedPaymentToFirebase = saveVoidedPaymentToFirebase;
 
 // ========================================
 // 🔄 SINCRONIZACIÓN AUTOMÁTICA DEL CONTADOR

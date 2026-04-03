@@ -559,15 +559,88 @@ function renderPaymentsHistory(payments, expenses) {
   }).join('');
 }
 
-// Eliminar pago
+// Eliminar pago — abre modal para pedir motivo de anulación
 function deletePaymentConfirm(paymentId) {
-  if (confirmAction('¿Estás seguro de eliminar este pago?')) {
-    deletePayment(paymentId);
-    showToast('✅ Pago eliminado');
-    renderPayments();
-    updateDashboard();
-    updateNotifications();
+  const payment = getPayments().find(p => p.id === paymentId);
+  if (!payment) return;
+
+  const player = getPlayerById(payment.playerId);
+  const playerName = player ? player.name : 'Jugador desconocido';
+
+  // Guardar el ID para usarlo al confirmar
+  window._pendingVoidPaymentId = paymentId;
+
+  // Mostrar info del pago en el modal
+  const info = document.getElementById('voidPaymentInfo');
+  if (info) {
+    info.textContent = `${payment.invoiceNumber || 'Sin factura'} · ${playerName} · ${formatCurrency(payment.amount || 0)}`;
   }
+
+  // Resetear selects
+  const select = document.getElementById('voidReasonSelect');
+  const other = document.getElementById('voidReasonOther');
+  if (select) select.value = '';
+  if (other) { other.value = ''; other.classList.add('hidden'); }
+
+  document.getElementById('voidPaymentModal').classList.remove('hidden');
+  if (window.lucide) lucide.createIcons();
+}
+
+function toggleVoidOtherReason() {
+  const select = document.getElementById('voidReasonSelect');
+  const other = document.getElementById('voidReasonOther');
+  if (!select || !other) return;
+  if (select.value === 'Otro') {
+    other.classList.remove('hidden');
+    other.focus();
+  } else {
+    other.classList.add('hidden');
+  }
+}
+
+function closeVoidPaymentModal() {
+  document.getElementById('voidPaymentModal').classList.add('hidden');
+  window._pendingVoidPaymentId = null;
+}
+
+async function confirmVoidPayment() {
+  const paymentId = window._pendingVoidPaymentId;
+  if (!paymentId) return;
+
+  const select = document.getElementById('voidReasonSelect');
+  const other = document.getElementById('voidReasonOther');
+  const reason = select?.value === 'Otro' ? (other?.value?.trim() || '') : (select?.value || '');
+
+  if (!reason) {
+    showToast('❌ Selecciona o escribe el motivo de anulación');
+    return;
+  }
+
+  closeVoidPaymentModal();
+
+  // Guardar en Firebase como factura anulada antes de eliminar
+  const payment = getPayments().find(p => p.id === paymentId);
+  if (payment && typeof saveVoidedPaymentToFirebase === 'function') {
+    const player = getPlayerById(payment.playerId);
+    await saveVoidedPaymentToFirebase({
+      originalPaymentId: paymentId,
+      invoiceNumber: payment.invoiceNumber || 'N/A',
+      amount: payment.amount || 0,
+      concept: payment.concept || payment.type || 'N/A',
+      playerId: payment.playerId || '',
+      playerName: player ? player.name : 'Desconocido',
+      playerCategory: player ? player.category : 'N/A',
+      voidedAt: new Date().toISOString(),
+      voidedBy: (typeof getCurrentUser === 'function' ? getCurrentUser()?.name : null) || 'Admin',
+      reason: reason
+    });
+  }
+
+  deletePayment(paymentId);
+  showToast('✅ Factura anulada y registrada');
+  renderPayments();
+  updateDashboard();
+  updateNotifications();
 }
 
 // ========================================
