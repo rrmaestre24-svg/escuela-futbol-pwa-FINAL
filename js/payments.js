@@ -376,9 +376,11 @@ function renderPaymentCard(payment, player) {
             Marcar Pagado
           </button>
         `}
+        ${getCurrentUser()?.isMainAdmin ? `
         <button onclick="deletePaymentConfirm('${payment.id}')" class="bg-red-600 hover:bg-red-700 text-white text-sm py-2 px-3 rounded-lg">
           <i data-lucide="trash-2" class="w-4 h-4"></i>
         </button>
+        ` : ''}
       </div>
     </div>
   `;
@@ -559,8 +561,13 @@ function renderPaymentsHistory(payments, expenses) {
   }).join('');
 }
 
-// Eliminar pago — abre modal para pedir motivo de anulación
+// Eliminar pago — abre modal para pedir motivo de anulación (solo admin principal)
 function deletePaymentConfirm(paymentId) {
+  // Solo el admin principal puede anular facturas
+  if (!getCurrentUser()?.isMainAdmin) {
+    showToast('❌ Solo el administrador principal puede anular facturas');
+    return;
+  }
   const payment = getPayments().find(p => p.id === paymentId);
   if (!payment) return;
 
@@ -1212,11 +1219,13 @@ function renderPaymentCard(payment, player) {
             Marcar Pagado
           </button>
         `}
-        <button onclick="deletePaymentConfirm('${payment.id}')" 
+        ${getCurrentUser()?.isMainAdmin ? `
+        <button onclick="deletePaymentConfirm('${payment.id}')"
           class="bg-red-600 hover:bg-red-700 text-white text-sm py-2 px-3 rounded-lg"
           title="Eliminar pago">
           <i data-lucide="trash-2" class="w-4 h-4"></i>
         </button>
+        ` : ''}
       </div>
     </div>
   `;
