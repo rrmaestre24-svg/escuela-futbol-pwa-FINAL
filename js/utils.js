@@ -121,14 +121,14 @@ function getCurrentDate() {
   return `${year}-${month}-${day}`;
 }
 
-// Obtener el último día del mes actual en formato YYYY-MM-DD (para vencimientos mensuales)
+// Obtener la fecha de vencimiento = mismo día del mes siguiente
+// Ej: si hoy es 02/04/2026, vence el 02/05/2026
 function getEndOfMonth() {
   const today = new Date();
-  // día 0 del mes siguiente = último día del mes actual
-  const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-  const year = lastDay.getFullYear();
-  const month = String(lastDay.getMonth() + 1).padStart(2, '0');
-  const day = String(lastDay.getDate()).padStart(2, '0');
+  const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, today.getDate());
+  const year = nextMonth.getFullYear();
+  const month = String(nextMonth.getMonth() + 1).padStart(2, '0');
+  const day = String(nextMonth.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
 
