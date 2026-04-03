@@ -158,17 +158,27 @@ function deletePlayer(playerId) {
   let players = getPlayers();
   players = players.filter(p => p.id !== playerId);
   localStorage.setItem('players', JSON.stringify(players));
-  
-  // También eliminar pagos asociados
+
+  // Eliminar pagos del jugador de localStorage Y de Firebase
   let payments = getPayments();
+  const orphanPayments = payments.filter(p => p.playerId === playerId);
   payments = payments.filter(p => p.playerId !== playerId);
   localStorage.setItem('payments', JSON.stringify(payments));
-  
-  // ⭐ SINCRONIZACIÓN AUTOMÁTICA
+
+  // Borrar jugador de Firebase
   if (typeof deletePlayerFromFirebase === 'function') {
-    deletePlayerFromFirebase(playerId).catch(err => 
+    deletePlayerFromFirebase(playerId).catch(err =>
       console.warn('⚠️ No se pudo eliminar jugador de Firebase:', err)
     );
+  }
+
+  // Borrar también sus pagos de Firebase para evitar pagos huérfanos
+  if (typeof deletePaymentFromFirebase === 'function') {
+    orphanPayments.forEach(payment => {
+      deletePaymentFromFirebase(payment.id).catch(err =>
+        console.warn('⚠️ No se pudo eliminar pago huérfano de Firebase:', err)
+      );
+    });
   }
 }
 

@@ -180,15 +180,12 @@ async function downloadAllDataInitially(clubId) {
           : JSON.parse(localStorage.getItem('currentUser') || 'null');
         const settings = JSON.parse(localStorage.getItem('schoolSettings') || '{}');
 
+        // Solo usar IDs explícitos guardados — nunca derivar el ID del nombre del club
+        // (derivar del nombre puede cargar jugadores del club equivocado)
         if (currentUser?.schoolId && currentUser.schoolId !== clubId)
           fallbackIds.push(currentUser.schoolId);
         if (settings?.clubId && settings.clubId !== clubId && !fallbackIds.includes(settings.clubId))
           fallbackIds.push(settings.clubId);
-        if (settings?.name) {
-          const derivedId = settings.name.toLowerCase().replace(/[^a-z0-9]/g, '_');
-          if (derivedId !== clubId && !fallbackIds.includes(derivedId))
-            fallbackIds.push(derivedId);
-        }
       } catch (e) {
         console.warn('⚠️ Error construyendo fuentes alternativas:', e);
       }
