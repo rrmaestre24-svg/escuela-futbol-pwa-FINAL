@@ -487,24 +487,30 @@ function setupUserDeletionListener() {
 // Función para manejar usuario eliminado
 function handleUserDeleted() {
   console.log('🚪 Procesando eliminación de usuario...');
-  
+
+  // Cancelar el listener ANTES de redirigir para no dejar conexiones huérfanas
+  if (typeof window.userDeletionUnsubscribe === 'function') {
+    window.userDeletionUnsubscribe();
+    window.userDeletionUnsubscribe = null;
+  }
+
   showToast('⚠️ Tu acceso ha sido revocado por el administrador', 'error');
-  
+
   setTimeout(async () => {
     try {
       // Cerrar sesión de Firebase
       if (window.firebase?.auth) {
         await window.firebase.signOut(window.firebase.auth);
       }
-      
+
       // Limpiar todo el almacenamiento local
       clearCurrentUser();
       localStorage.clear();
       sessionStorage.clear();
-      
+
       // Redirigir al login
       window.location.href = 'login.html';
-      
+
     } catch (error) {
       console.error('Error al cerrar sesión:', error);
       // Forzar redirección de todas formas

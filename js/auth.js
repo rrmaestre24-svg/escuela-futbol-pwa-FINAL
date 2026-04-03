@@ -1374,11 +1374,17 @@ function copyNavbarClubId() {
 async function logout() {
   if (confirmAction('¿Estás seguro de cerrar sesión?')) {
     try {
+      // Cancelar listener de eliminación de usuario antes de salir
+      if (typeof window.userDeletionUnsubscribe === 'function') {
+        window.userDeletionUnsubscribe();
+        window.userDeletionUnsubscribe = null;
+      }
+
       // Primero cerrar Firebase Auth
       if (window.firebase?.auth) {
         await window.firebase.signOut(window.firebase.auth);
       }
-      
+
       // Luego limpiar TODA la sesión local
       clearCurrentUser();
       localStorage.removeItem('clubId');
