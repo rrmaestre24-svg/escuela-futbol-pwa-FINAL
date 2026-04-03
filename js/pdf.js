@@ -825,6 +825,98 @@ function generateFullAccountingReportPDF() {
     });
        
 
+    // PÁGINA: FACTURAS ANULADAS
+    const voidedList = window._voidedPaymentsCache || [];
+    if (voidedList.length > 0) {
+      doc.addPage();
+
+      doc.setFontSize(18);
+      doc.setTextColor(220, 38, 38); // rojo
+      doc.setFont(undefined, 'bold');
+      doc.text('FACTURAS ANULADAS', 15, 30);
+
+      doc.setFontSize(9);
+      doc.setTextColor(...textColor);
+      doc.setFont(undefined, 'normal');
+      doc.text(`Total anuladas: ${voidedList.length}`, 15, 40);
+
+      yPos = 50;
+
+      // Encabezado de tabla
+      doc.setFillColor(220, 38, 38);
+      doc.rect(15, yPos, 180, 8, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(7);
+      doc.setFont(undefined, 'bold');
+      doc.text('Factura', 17, yPos + 5);
+      doc.text('Fecha', 50, yPos + 5);
+      doc.text('Jugador', 75, yPos + 5);
+      doc.text('Concepto', 115, yPos + 5);
+      doc.text('Monto', 155, yPos + 5);
+      doc.text('Por', 172, yPos + 5);
+      yPos += 8;
+
+      doc.setFont(undefined, 'normal');
+      doc.setTextColor(...textColor);
+
+      voidedList.forEach((v, index) => {
+        if (yPos > 260) {
+          doc.addPage();
+          yPos = 20;
+          // Repetir encabezado
+          doc.setFillColor(220, 38, 38);
+          doc.rect(15, yPos, 180, 8, 'F');
+          doc.setTextColor(255, 255, 255);
+          doc.setFont(undefined, 'bold');
+          doc.text('Factura', 17, yPos + 5);
+          doc.text('Fecha', 50, yPos + 5);
+          doc.text('Jugador', 75, yPos + 5);
+          doc.text('Concepto', 115, yPos + 5);
+          doc.text('Monto', 155, yPos + 5);
+          doc.text('Por', 172, yPos + 5);
+          yPos += 8;
+          doc.setFont(undefined, 'normal');
+          doc.setTextColor(...textColor);
+        }
+
+        const bgColor = index % 2 === 0 ? [254, 242, 242] : [255, 255, 255];
+        doc.setFillColor(...bgColor);
+        doc.rect(15, yPos, 180, 12, 'F');
+
+        // Número de factura
+        doc.setTextColor(220, 38, 38);
+        doc.text(normalizeForPDF(v.invoiceNumber || '-'), 17, yPos + 5);
+
+        // Fecha anulación
+        doc.setTextColor(...textColor);
+        const voidDate = v.voidedAt ? new Date(v.voidedAt).toLocaleDateString('es-CO') : '-';
+        doc.text(voidDate, 50, yPos + 5);
+
+        // Jugador
+        doc.text(normalizeForPDF((v.playerName || '-').substring(0, 20)), 75, yPos + 5);
+
+        // Concepto
+        doc.text(normalizeForPDF((v.concept || '-').substring(0, 18)), 115, yPos + 5);
+
+        // Monto
+        doc.text(formatCurrency(v.amount || 0), 155, yPos + 5);
+
+        // Anulado por
+        doc.text(normalizeForPDF((v.voidedBy || '-').substring(0, 12)), 172, yPos + 5);
+
+        // Motivo en segunda línea
+        if (v.reason) {
+          doc.setFontSize(6);
+          doc.setTextColor(150, 50, 50);
+          doc.text(`Motivo: ${normalizeForPDF(v.reason)}`, 17, yPos + 10);
+          doc.setFontSize(7);
+          doc.setTextColor(...textColor);
+        }
+
+        yPos += 13;
+      });
+    }
+
     // Pie de página con números
     const pageCount = doc.internal.getNumberOfPages();
     for (let i = 1; i <= pageCount; i++) {
@@ -833,7 +925,7 @@ function generateFullAccountingReportPDF() {
       doc.setTextColor(100, 100, 100);
       doc.text(`Pagina ${i} de ${pageCount}`, 105, 290, { align: 'center' });
     }
-    
+
     doc.save(`Reporte-Contable-${getCurrentDate()}.pdf`);
     showToast('✅ Reporte completo descargado');
     

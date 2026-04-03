@@ -218,10 +218,22 @@ function savePayment(payment) {
   const payments = getPayments();
   payments.push(payment);
   localStorage.setItem('payments', JSON.stringify(payments));
-  
+
+  // Registrar en el log de movimientos
+  const player = getPlayerById(payment.playerId);
+  addPaymentLogEntry({
+    action: 'Creado',
+    invoiceNumber: payment.invoiceNumber || '-',
+    playerName: player ? player.name : 'Desconocido',
+    concept: payment.concept || payment.type || '-',
+    amount: payment.amount || 0,
+    adminName: (typeof getCurrentUser === 'function' && getCurrentUser()?.name) || 'Sistema',
+    reason: ''
+  });
+
   // ⭐ SINCRONIZACIÓN AUTOMÁTICA
   if (typeof savePaymentToFirebase === 'function') {
-    savePaymentToFirebase(payment).catch(err => 
+    savePaymentToFirebase(payment).catch(err =>
       console.warn('⚠️ No se pudo sincronizar pago con Firebase:', err)
     );
   }
@@ -948,3 +960,36 @@ window.validateParentCode = validateParentCode;
 window.deleteParentCode = deleteParentCode;
 
 console.log('✅ Sistema de códigos de padres cargado');
+
+// ========================================
+// REGISTRO DE MOVIMIENTOS DE PAGOS
+// Guarda cada acción sobre facturas en localStorage.
+// Persiste aunque el pago se elimine.
+// ========================================
+
+function getPaymentLog() {
+  const raw = localStorage.getItem('paymentMovementLog');
+  return raw ? JSON.parse(raw) : [];
+}
+
+// Agrega una entrada nueva al log
+function addPaymentLogEntry(entry) {
+  const log = getPaymentLog();
+  log.unshift({
+    id: 'log_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+    timestamp: new Date().toISOString(),
+    action: entry.action || 'Acción',
+    invoiceNumber: entry.invoiceNumber || '-',
+    playerName: entry.playerName || 'Desconocido',
+    concept: entry.concept || '-',
+    amount: entry.amount || 0,
+    adminName: entry.adminName || 'Sistema',
+    reason: entry.reason || ''
+  });
+  // Máximo 500 entradas para no saturar el localStorage
+  if (log.length > 500) log.splice(500);
+  localStorage.setItem('paymentMovementLog', JSON.stringify(log));
+}
+
+window.getPaymentLog = getPaymentLog;
+window.addPaymentLogEntry = addPaymentLogEntry;

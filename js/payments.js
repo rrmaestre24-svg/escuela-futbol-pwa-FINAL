@@ -223,6 +223,7 @@ function renderPayments() {
   } else if (currentPaymentTab === 'history') {
     document.getElementById('historyPaymentsContent').classList.remove('hidden');
     renderPaymentsHistory(payments, expenses);
+    renderPaymentMovementLog();
   }
 }
 // Renderizar mensualidades
@@ -561,6 +562,50 @@ function renderPaymentsHistory(payments, expenses) {
   }).join('');
 }
 
+// Renderizar tabla de log de movimientos en el Historial
+function renderPaymentMovementLog() {
+  const tbody = document.getElementById('paymentMovementLogTable');
+  if (!tbody) return;
+
+  const log = typeof getPaymentLog === 'function' ? getPaymentLog() : [];
+
+  if (log.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="7" class="text-center py-8 text-gray-500 dark:text-gray-400">
+          No hay movimientos registrados aún
+        </td>
+      </tr>`;
+    return;
+  }
+
+  // Colores y emojis según la acción
+  const actionStyle = {
+    'Creado':     { color: 'text-green-600 dark:text-green-400',  emoji: '✅' },
+    'Modificado': { color: 'text-blue-600 dark:text-blue-400',    emoji: '✏️' },
+    'Anulado':    { color: 'text-red-600 dark:text-red-400',      emoji: '🚫' }
+  };
+
+  tbody.innerHTML = log.map((entry, i) => {
+    const style = actionStyle[entry.action] || { color: 'text-gray-600', emoji: '•' };
+    const date = new Date(entry.timestamp);
+    const dateStr = date.toLocaleDateString('es-CO', { day:'2-digit', month:'2-digit', year:'numeric' });
+    const timeStr = date.toLocaleTimeString('es-CO', { hour:'2-digit', minute:'2-digit' });
+    const rowBg = i % 2 === 0 ? '' : 'bg-gray-50 dark:bg-gray-700/30';
+
+    return `
+      <tr class="border-b border-gray-100 dark:border-gray-700 ${rowBg}">
+        <td class="py-2 px-3 text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap">${dateStr} ${timeStr}</td>
+        <td class="py-2 px-3 text-gray-700 dark:text-gray-300 font-mono text-xs">${entry.invoiceNumber}</td>
+        <td class="py-2 px-3 text-gray-800 dark:text-white">${entry.playerName}</td>
+        <td class="py-2 px-3 font-medium ${style.color}">${style.emoji} ${entry.action}</td>
+        <td class="py-2 px-3 text-gray-600 dark:text-gray-400 text-xs">${entry.reason || '-'}</td>
+        <td class="py-2 px-3 text-right font-medium text-gray-700 dark:text-gray-300">${formatCurrency(entry.amount)}</td>
+        <td class="py-2 px-3 text-gray-500 dark:text-gray-400 text-xs">${entry.adminName}</td>
+      </tr>`;
+  }).join('');
+}
+
 // Eliminar pago — abre modal para pedir motivo de anulación (solo admin principal)
 function deletePaymentConfirm(paymentId) {
   // Solo el admin principal puede anular facturas
@@ -641,6 +686,22 @@ async function confirmVoidPayment() {
       voidedBy: (typeof getCurrentUser === 'function' ? getCurrentUser()?.name : null) || 'Admin',
       reason: reason
     });
+  }
+
+  // Registrar en el log de movimientos antes de eliminar
+  if (payment) {
+    const player = getPlayerById(payment.playerId);
+    if (typeof addPaymentLogEntry === 'function') {
+      addPaymentLogEntry({
+        action: 'Anulado',
+        invoiceNumber: payment.invoiceNumber || '-',
+        playerName: player ? player.name : 'Desconocido',
+        concept: payment.concept || payment.type || '-',
+        amount: payment.amount || 0,
+        adminName: (typeof getCurrentUser === 'function' && getCurrentUser()?.name) || 'Admin',
+        reason: reason
+      });
+    }
   }
 
   deletePayment(paymentId);
@@ -1109,7 +1170,21 @@ async function saveEditedPayment() {
   
   // Actualizar en base de datos
   updatePayment(paymentId, updateData);
-  
+
+  // Registrar modificación en el log de movimientos
+  if (typeof addPaymentLogEntry === 'function') {
+    const player = getPlayerById(playerId);
+    addPaymentLogEntry({
+      action: 'Modificado',
+      invoiceNumber: originalPayment.invoiceNumber || updateData.invoiceNumber || '-',
+      playerName: player ? player.name : 'Desconocido',
+      concept: concept || '-',
+      amount: amount || 0,
+      adminName: (typeof getCurrentUser === 'function' && getCurrentUser()?.name) || 'Admin',
+      reason: ''
+    });
+  }
+
   showToast('✅ Factura actualizada correctamente');
   closeEditPaymentModal();
   renderPayments();
@@ -1697,4 +1772,5 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 }, { once: true }); // ← ESTO ASEGURA QUE SOLO SE REGISTRE UNA VEZ
 
+window.renderPaymentMovementLog = renderPaymentMovementLog;
 console.log('✅ Sistema anti-duplicación de pagos activado');
