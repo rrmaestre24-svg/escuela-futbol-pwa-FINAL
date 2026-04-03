@@ -100,8 +100,14 @@ function updateUser(userId, userData) {
 }
 
 function getCurrentUser() {
-  const user = localStorage.getItem('currentUser');
-  return user ? JSON.parse(user) : null;
+  try {
+    const user = localStorage.getItem('currentUser');
+    return user ? JSON.parse(user) : null;
+  } catch (e) {
+    console.warn('⚠️ currentUser corrupto en localStorage, limpiando...');
+    localStorage.removeItem('currentUser');
+    return null;
+  }
 }
 
 function setCurrentUser(user) {
@@ -117,7 +123,13 @@ function clearCurrentUser() {
 // ========================================
 
 function getPlayers() {
-  return JSON.parse(localStorage.getItem('players') || '[]');
+  try {
+    return JSON.parse(localStorage.getItem('players') || '[]');
+  } catch (e) {
+    console.warn('⚠️ players corrupto en localStorage, limpiando...');
+    localStorage.removeItem('players');
+    return [];
+  }
 }
 
 function getPlayerById(id) {
@@ -206,7 +218,13 @@ function normalizePlayerStatus(status) {
 // ========================================
 
 function getPayments() {
-  return JSON.parse(localStorage.getItem('payments') || '[]');
+  try {
+    return JSON.parse(localStorage.getItem('payments') || '[]');
+  } catch (e) {
+    console.warn('⚠️ payments corrupto en localStorage, limpiando...');
+    localStorage.removeItem('payments');
+    return [];
+  }
 }
 
 function getPaymentById(id) {
@@ -408,7 +426,13 @@ function deleteThirdPartyIncome(incomeId) {
 // ========================================
 
 function getCalendarEvents() {
-  return JSON.parse(localStorage.getItem('calendarEvents') || '[]');
+  try {
+    return JSON.parse(localStorage.getItem('calendarEvents') || '[]');
+  } catch (e) {
+    console.warn('⚠️ calendarEvents corrupto en localStorage, limpiando...');
+    localStorage.removeItem('calendarEvents');
+    return [];
+  }
 }
 
 function getEventById(eventId) {
@@ -477,7 +501,13 @@ function getUpcomingEvents(limit = 10) {
 // ========================================
 
 function getSchoolSettings() {
-  return JSON.parse(localStorage.getItem('schoolSettings') || '{}');
+  try {
+    return JSON.parse(localStorage.getItem('schoolSettings') || '{}');
+  } catch (e) {
+    console.warn('⚠️ schoolSettings corrupto en localStorage, limpiando...');
+    localStorage.removeItem('schoolSettings');
+    return {};
+  }
 }
 
 function updateSchoolSettings(settings) {
