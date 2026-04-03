@@ -459,7 +459,13 @@ function listenToLicenseChanges() {
     
     const licenseRef = window.firebase.doc(window.firebase.db, 'licenses', clubId);
     
-    window.firebase.onSnapshot(licenseRef, 
+    // Cancelar listener anterior si existe (evita duplicados al reiniciar sesión)
+    if (typeof window.licenseUnsubscribe === 'function') {
+      window.licenseUnsubscribe();
+      window.licenseUnsubscribe = null;
+    }
+
+    window.licenseUnsubscribe = window.firebase.onSnapshot(licenseRef,
       (doc) => {
         if (!doc.exists()) {
           console.log('⚠️ Licencia no encontrada');
