@@ -692,29 +692,36 @@ async function renderVoidedPayments() {
     );
 
     if (snap.empty) {
-      container.innerHTML = '<p class="text-gray-400 text-sm text-center py-4">Sin facturas anuladas</p>';
+      container.innerHTML = '<p class="text-gray-400 text-sm text-center py-6">Sin facturas anuladas</p>';
+      // Limpiar badge
+      const badge = document.getElementById('voidedCountBadge');
+      if (badge) badge.textContent = '';
       return;
     }
 
-    // Guardar para exportar
+    // Guardar para exportar y actualizar badge de cantidad
     window._voidedPaymentsCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const badge = document.getElementById('voidedCountBadge');
+    if (badge) badge.textContent = `${window._voidedPaymentsCache.length} registros`;
 
-    container.innerHTML = window._voidedPaymentsCache.map(v => `
-      <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-3">
-        <div class="flex justify-between items-start">
-          <div>
-            <span class="text-xs font-bold text-red-600 dark:text-red-400">${v.invoiceNumber}</span>
-            <span class="text-xs text-gray-500 ml-2">${formatDate(v.voidedAt)}</span>
-          </div>
-          <span class="text-sm font-bold text-red-600 dark:text-red-400">${formatCurrency(v.amount)}</span>
+    // Renderizar como filas de tabla en lugar de tarjetas separadas
+    container.innerHTML = window._voidedPaymentsCache.map((v, i) => {
+      const rowBg = i % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-red-50/50 dark:bg-red-900/10';
+      return `
+      <div class="flex items-center justify-between px-4 py-2.5 ${rowBg} text-sm">
+        <div class="flex items-center gap-3 min-w-0">
+          <span class="font-mono text-xs font-bold text-red-600 dark:text-red-400 shrink-0">${v.invoiceNumber}</span>
+          <span class="text-gray-400 text-xs shrink-0">${formatDate(v.voidedAt)}</span>
+          <span class="text-gray-700 dark:text-gray-300 truncate">${v.playerName}</span>
+          <span class="text-gray-400 text-xs truncate hidden sm:block">${v.concept}</span>
         </div>
-        <p class="text-sm text-gray-700 dark:text-gray-300 mt-1">${v.playerName} · ${v.concept}</p>
-        <div class="flex justify-between mt-1">
-          <p class="text-xs text-gray-500"><span class="font-medium">Motivo:</span> ${v.reason}</p>
-          <p class="text-xs text-gray-400">Por: ${v.voidedBy}</p>
+        <div class="flex items-center gap-4 shrink-0 ml-2">
+          <span class="text-xs text-gray-500 hidden md:block">${v.reason}</span>
+          <span class="font-bold text-red-600 dark:text-red-400">${formatCurrency(v.amount)}</span>
+          <span class="text-xs text-gray-400 hidden sm:block">Por: ${v.voidedBy}</span>
         </div>
-      </div>
-    `).join('');
+      </div>`;
+    }).join('');
 
   } catch (err) {
     container.innerHTML = '<p class="text-red-400 text-sm text-center py-4">Error al cargar</p>';
