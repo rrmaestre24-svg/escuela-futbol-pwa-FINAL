@@ -229,21 +229,30 @@ async function downloadAllDataInitially(clubId) {
     console.error('⚠️ Error jugadores:', error);
   }
   
-  // 3️⃣ PAGOS
+  // 3️⃣ PAGOS — solo últimos 12 meses para no descargar todo el historial
   try {
-    console.log('📥 3/9 - Pagos...');
-    const paymentsSnapshot = await window.firebase.getDocs(
-      window.firebase.collection(window.firebase.db, `clubs/${clubId}/payments`)
+    console.log('📥 3/9 - Pagos (últimos 12 meses)...');
+
+    // Calcular fecha de corte: hoy menos 12 meses en formato YYYY-MM-DD
+    const cutoff = new Date();
+    cutoff.setFullYear(cutoff.getFullYear() - 1);
+    const cutoffStr = cutoff.toISOString().split('T')[0];
+
+    const paymentsQuery = window.firebase.query(
+      window.firebase.collection(window.firebase.db, `clubs/${clubId}/payments`),
+      window.firebase.where('dueDate', '>=', cutoffStr)
     );
-    
+    const paymentsSnapshot = await window.firebase.getDocs(paymentsQuery);
+
     const payments = [];
     paymentsSnapshot.forEach(doc => {
       payments.push({ id: doc.id, ...doc.data() });
     });
-    
+
     localStorage.setItem('payments', JSON.stringify(payments));
+    localStorage.removeItem('paymentsFullHistory'); // marcar que no está el historial completo
     stats.payments = payments.length;
-    console.log(`✅ ${payments.length} pagos`);
+    console.log(`✅ ${payments.length} pagos (desde ${cutoffStr})`);
   } catch (error) {
     console.error('⚠️ Error pagos:', error);
   }
@@ -480,21 +489,50 @@ function startPlayersListener(clubId) {
 // 💰 LISTENER DE PAGOS
 // ========================================
 function startPaymentsListener(clubId) {
-  const paymentsRef = window.firebase.collection(
-    window.firebase.db,
-    `clubs/${clubId}/payments`
-  );
-  
+  // El listener respeta el mismo filtro de 12 meses que la descarga inicial.
+  // Si el usuario cargó el historial completo (paymentsFullHistory=true),
+  // el listener escucha todo para no perder nuevos pagos.
+  const paymentsFullHistory = localStorage.getItem('paymentsFullHistory') === 'true';
+
+  let paymentsRef;
+  if (paymentsFullHistory) {
+    paymentsRef = window.firebase.collection(window.firebase.db, `clubs/${clubId}/payments`);
+  } else {
+    const cutoff = new Date();
+    cutoff.setFullYear(cutoff.getFullYear() - 1);
+    const cutoffStr = cutoff.toISOString().split('T')[0];
+    paymentsRef = window.firebase.query(
+      window.firebase.collection(window.firebase.db, `clubs/${clubId}/payments`),
+      window.firebase.where('dueDate', '>=', cutoffStr)
+    );
+  }
+
   window.realtimeListeners.payments = window.firebase.onSnapshot(
     paymentsRef,
     (snapshot) => {
-      const payments = [];
+      const incomingPayments = [];
       snapshot.forEach(doc => {
-        payments.push({ id: doc.id, ...doc.data() });
+        incomingPayments.push({ id: doc.id, ...doc.data() });
       });
-      
-      localStorage.setItem('payments', JSON.stringify(payments));
-      
+
+      // Si el historial completo ya está cargado, hacemos merge en lugar de reemplazar.
+      // Así no perdemos los pagos viejos (> 12 meses) que ya están en localStorage.
+      if (localStorage.getItem('paymentsFullHistory') === 'true') {
+        const existing = JSON.parse(localStorage.getItem('payments') || '[]');
+        const incomingMap = {};
+        incomingPayments.forEach(p => { incomingMap[p.id] = p; });
+
+        // Actualizar o conservar cada pago existente
+        const merged = existing.map(p => incomingMap[p.id] ? incomingMap[p.id] : p);
+        // Agregar pagos nuevos que no estaban en el historial local
+        const existingIds = new Set(existing.map(p => p.id));
+        incomingPayments.forEach(p => { if (!existingIds.has(p.id)) merged.push(p); });
+
+        localStorage.setItem('payments', JSON.stringify(merged));
+      } else {
+        localStorage.setItem('payments', JSON.stringify(incomingPayments));
+      }
+
       if (window.realtimeSyncState.initialLoadComplete) {
         refreshPaymentsUI();
       }
@@ -503,8 +541,43 @@ function startPaymentsListener(clubId) {
       console.error('❌ Error en listener de pagos:', error);
     }
   );
-  
+
   console.log('💰 Listener de pagos iniciado');
+}
+
+// ========================================
+// 📂 CARGAR HISTORIAL COMPLETO DE PAGOS
+// Descarga todos los pagos sin filtro de fecha.
+// Se llama desde el botón "Ver historial completo".
+// ========================================
+async function loadAllPaymentsHistory() {
+  const clubId = window.realtimeSyncState.clubId;
+  if (!clubId) {
+    showToast('❌ No hay sesión activa');
+    return;
+  }
+  if (localStorage.getItem('paymentsFullHistory') === 'true') {
+    showToast('ℹ️ El historial completo ya está cargado');
+    return;
+  }
+
+  showToast('⏳ Cargando historial completo...');
+  try {
+    const snap = await window.firebase.getDocs(
+      window.firebase.collection(window.firebase.db, `clubs/${clubId}/payments`)
+    );
+    const payments = [];
+    snap.forEach(doc => payments.push({ id: doc.id, ...doc.data() }));
+
+    localStorage.setItem('payments', JSON.stringify(payments));
+    localStorage.setItem('paymentsFullHistory', 'true');
+
+    showToast(`✅ ${payments.length} pagos cargados`);
+    if (typeof refreshPaymentsUI === 'function') refreshPaymentsUI();
+  } catch (err) {
+    console.error('❌ Error cargando historial:', err);
+    showToast('❌ No se pudo cargar el historial');
+  }
 }
 
 // ========================================

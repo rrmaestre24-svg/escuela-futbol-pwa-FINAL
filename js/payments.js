@@ -59,12 +59,26 @@ function showPaymentTab(tab) {
     }
   });
   
-document.getElementById('monthlyPaymentsContent').classList.add('hidden');
+  document.getElementById('monthlyPaymentsContent').classList.add('hidden');
   document.getElementById('extrasPaymentsContent').classList.add('hidden');
   document.getElementById('expensesPaymentsContent').classList.add('hidden');
   document.getElementById('thirdPartyIncomesContent')?.classList.add('hidden');
   document.getElementById('historyPaymentsContent').classList.add('hidden');
-  
+
+  // Mostrar el tab activo
+  const contentMap = { monthly: 'monthlyPaymentsContent', extras: 'extrasPaymentsContent',
+    expenses: 'expensesPaymentsContent', thirdParty: 'thirdPartyIncomesContent', history: 'historyPaymentsContent' };
+  const activeContent = document.getElementById(contentMap[tab]);
+  if (activeContent) activeContent.classList.remove('hidden');
+
+  // Ocultar el banner de "Ver historial completo" si ya se cargó todo
+  if (tab === 'history') {
+    const banner = document.getElementById('loadHistoryBanner');
+    if (banner && localStorage.getItem('paymentsFullHistory') === 'true') {
+      banner.classList.add('hidden');
+    }
+  }
+
   renderPayments();
 }
 

@@ -1,0 +1,62 @@
+rules_version = '2';
+// ============================================================
+// REGLAS DE SEGURIDAD FIRESTORE — MyClub
+//
+// Principio: cada usuario autenticado solo puede leer y
+// escribir los datos del club al que pertenece.
+// Verificamos que exista su documento en clubs/{clubId}/users/{uid}.
+//
+// Para desplegar: firebase deploy --only firestore:rules
+// ============================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Función helper ──────────────────────────────────────
+    // Devuelve true si el usuario autenticado tiene un documento
+    // en la subcolección users del club que quiere acceder.
+    function isMemberOfClub(clubId) {
+      return request.auth != null &&
+        exists(/databases/$(database)/documents/clubs/$(clubId)/users/$(request.auth.uid));
+    }
+
+    // ── Datos del club ──────────────────────────────────────
+    // jugadores, pagos, eventos, egresos, configuración, etc.
+    match /clubs/{clubId}/{document=**} {
+      allow read, write: if isMemberOfClub(clubId);
+    }
+
+    // ── Excepción: registro inicial del admin ───────────────
+    // Cuando un admin crea su club por primera vez, todavía no tiene
+    // documento en users/ — le permitimos crear solo su propio documento.
+    match /clubs/{clubId}/users/{userId} {
+      allow create: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // ── Mapeo email → clubId ────────────────────────────────
+    // Solo puede leer su propio mapeo. Nadie puede escribir desde el cliente.
+    match /userClubMapping/{email} {
+      allow read: if request.auth != null && request.auth.token.email == email;
+      allow write: if false;
+    }
+
+    // ── Códigos de activación ───────────────────────────────
+    // Cualquier usuario autenticado puede leer un código (para validarlo).
+    // Solo el super admin escribe desde Firebase Console.
+    match /activation_codes/{code} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // ── Licencias ───────────────────────────────────────────
+    match /superadmin/{document=**} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // ── Bloquear todo lo demás ──────────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
