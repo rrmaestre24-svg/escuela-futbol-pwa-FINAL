@@ -730,28 +730,33 @@ async function confirmVoidPayment() {
 
 // Generar factura con flujo automático (PDF + WhatsApp)
 function generateInvoicePDFWithWhatsApp(paymentId) {
-  // Primero generar el PDF
-  const pdfGenerated = generateInvoicePDF(paymentId, true);
-  
-  if (!pdfGenerated) {
+  // Si jsPDF no está cargado, generateInvoicePDF retorna null y lo descarga en paralelo.
+  // En ese caso usamos loadJsPDF directamente para saber cuándo está listo y abrir WA.
+  if (typeof window.jspdf === 'undefined') {
+    showToast('⏳ Preparando PDF...');
+    loadJsPDF(() => generateInvoicePDFWithWhatsApp(paymentId));
     return;
   }
-  
+
+  // jsPDF ya está cargado → generar PDF normalmente
+  const pdfGenerated = generateInvoicePDF(paymentId, true);
+  if (!pdfGenerated) return;
+
   const payment = getPaymentById(paymentId);
   if (!payment) return;
-  
+
   const player = getPlayerById(payment.playerId);
   if (!player) {
     showToast('❌ Jugador no encontrado');
     return;
   }
-  
+
   // Verificar si tiene WhatsApp
   if (player.phone && player.phone.trim() !== '') {
-    // Tiene WhatsApp → Usar la función de whatsapp.js (CON EMOJIS CORRECTOS)
+    // Tiene WhatsApp → abrir directamente
     sendInvoiceWhatsApp(paymentId);
   } else {
-    // NO tiene WhatsApp → Pedir número manual
+    // NO tiene WhatsApp → pedir número manual
     showManualWhatsAppModal(paymentId, 'payment');
   }
 }
