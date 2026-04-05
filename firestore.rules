@@ -26,6 +26,30 @@ service cloud.firestore {
       allow read, write: if isMemberOfClub(clubId);
     }
 
+    // ── Portal de Padres: acceso con autenticación anónima ──
+    // Los padres se autentican de forma anónima y solo pueden
+    // leer datos del club para ver el perfil del hijo.
+    // Para jugadores, también pueden actualizar solo los campos
+    // permitidos: nombre, fecha de nacimiento e info médica.
+    match /clubs/{clubId}/parentCodes/{document} {
+      allow read: if request.auth != null;
+    }
+    match /clubs/{clubId}/players/{playerId} {
+      allow read: if request.auth != null;
+      allow update: if request.auth != null &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['name', 'birthDate', 'medicalInfo', 'avatar', 'updatedAt', 'updatedBy']);
+    }
+    match /clubs/{clubId}/settings/{document} {
+      allow read: if request.auth != null;
+    }
+    match /clubs/{clubId}/payments/{document} {
+      allow read: if request.auth != null;
+    }
+    match /clubs/{clubId}/events/{document} {
+      allow read: if request.auth != null;
+    }
+
     // ── Excepción: registro inicial del admin ───────────────
     // Cuando un admin crea su club por primera vez, todavía no tiene
     // documento en users/ — le permitimos crear solo su propio documento.
