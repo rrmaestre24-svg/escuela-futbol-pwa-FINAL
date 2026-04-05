@@ -89,7 +89,7 @@
         <div id="dashboardView" class="p-4 space-y-6">
             <!-- Stats Cards -->
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+                <div class="glass-card rounded-xl p-4 shadow-sm">
                     <div class="flex items-center gap-3">
                         <div class="p-3 bg-teal-100 dark:bg-teal-900 rounded-lg">
                             <i data-lucide="users" class="w-6 h-6 text-teal-600 dark:text-teal-400"></i>
@@ -101,7 +101,7 @@
                     </div>
                 </div>
 
-                <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+                <div class="glass-card rounded-xl p-4 shadow-sm">
                     <div class="flex items-center gap-3">
                         <div class="p-3 bg-red-100 dark:bg-red-900 rounded-lg">
                             <i data-lucide="alert-circle" class="w-6 h-6 text-red-600 dark:text-red-400"></i>
@@ -113,7 +113,7 @@
                     </div>
                 </div>
 
-                <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+                <div class="glass-card rounded-xl p-4 shadow-sm">
                     <div class="flex items-center gap-3">
                         <div class="p-3 bg-green-100 dark:bg-green-900 rounded-lg">
                             <i data-lucide="dollar-sign" class="w-6 h-6 text-green-600 dark:text-green-400"></i>
@@ -125,7 +125,7 @@
                     </div>
                 </div>
 
-                <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+                <div class="glass-card rounded-xl p-4 shadow-sm">
                     <div class="flex items-center gap-3">
                         <div class="p-3 bg-blue-100 dark:bg-blue-900 rounded-lg">
                             <i data-lucide="calendar" class="w-6 h-6 text-blue-600 dark:text-blue-400"></i>
@@ -153,7 +153,7 @@
             </div>
 
             <!-- Próximos Eventos -->
-            <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+            <div class="glass-card rounded-xl p-4 shadow-sm">
                 <div class="flex items-center justify-between mb-3">
                     <h3 class="font-bold text-gray-800 dark:text-white flex items-center gap-2">
                         <i data-lucide="calendar-days" class="w-5 h-5 text-blue-600"></i>
@@ -166,7 +166,7 @@
             </div>
 
             <!-- Notificaciones Recientes -->
-            <div id="dashboardNotificationsSection" class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+            <div id="dashboardNotificationsSection" class="glass-card rounded-xl p-4 shadow-sm">
                 <div class="flex items-center justify-between mb-3">
                     <h3 class="font-bold text-gray-800 dark:text-white flex items-center gap-2">
                         <i data-lucide="bell-ring" class="w-5 h-5 text-red-600"></i>
@@ -242,7 +242,7 @@
             </div>
 
             <!-- ⭐ Filtros por estado y categoría -->
-            <div class="bg-white dark:bg-gray-800 rounded-xl p-3 shadow-sm space-y-3">
+            <div class="glass-card rounded-xl p-3 shadow-sm space-y-3">
                 <!-- Filtro por estado -->
                 <div class="flex items-center gap-2 overflow-x-auto">
                     <span class="text-sm font-medium text-gray-600 dark:text-gray-400 mr-2">Estado:</span>
@@ -354,7 +354,7 @@
                     </button>
                 </div>
                 <!-- Tabla de transacciones (existente) -->
-                <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm overflow-x-auto">
+                <div class="glass-card rounded-xl p-4 shadow-sm overflow-x-auto">
                     <table class="w-full text-sm">
                         <thead>
                             <tr class="border-b border-gray-200 dark:border-gray-700">
@@ -370,7 +370,7 @@
                 </div>
 
                 <!-- Registro de movimientos (audit log) -->
-                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+                <div class="glass-card rounded-xl shadow-sm overflow-hidden">
                     <div class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
                         <h3 class="font-bold text-gray-800 dark:text-white flex items-center gap-2">
                             <span>📋</span> Registro de Movimientos
@@ -402,7 +402,7 @@
             ========================================= -->
         <div id="calendarView" class="hidden p-4 space-y-4">
             <!-- Controles -->
-            <div class="flex items-center justify-between bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+            <div class="flex items-center justify-between glass-card rounded-xl p-4 shadow-sm">
                 <button onclick="previousMonth()" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
                     <i data-lucide="chevron-left" class="w-6 h-6 text-gray-600 dark:text-gray-300"></i>
                 </button>
@@ -419,7 +419,7 @@
             </button>
 
             <!-- Grid del calendario -->
-            <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+            <div class="glass-card rounded-xl p-4 shadow-sm">
                 <div class="grid grid-cols-7 gap-1 mb-2">
                     <div class="text-center text-xs font-medium text-gray-500 dark:text-gray-400 py-2">Dom</div>
                     <div class="text-center text-xs font-medium text-gray-500 dark:text-gray-400 py-2">Lun</div>
@@ -433,7 +433,7 @@
             </div>
 
             <!-- Leyenda -->
-            <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+            <div class="glass-card rounded-xl p-4 shadow-sm">
                 <h4 class="font-medium text-gray-800 dark:text-white mb-3">Leyenda</h4>
                 <div class="grid grid-cols-2 gap-2">
                     <div class="flex items-center gap-2">
@@ -456,7 +456,7 @@
             </div>
 
             <!-- Próximos eventos -->
-            <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+            <div class="glass-card rounded-xl p-4 shadow-sm">
                 <h4 class="font-medium text-gray-800 dark:text-white mb-3">Próximos Eventos</h4>
                 <div id="upcomingEventsList" class="space-y-2"></div>
             </div>
@@ -468,7 +468,7 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
         <div id="settingsView" class="hidden p-4 space-y-4">
             <!-- Sección: Mi Perfil -->
             <div id="clubSettingsSection"></div>
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+            <div class="glass-card rounded-xl shadow-sm overflow-hidden">
                 <button onclick="toggleSection('profileSection')"
                     class="w-full px-4 py-3 flex items-center justify-between bg-gray-50 dark:bg-gray-700 text-left font-medium">
                     <span>👤 Mi Perfil</span>
@@ -499,7 +499,7 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
             </div>
 
             <!-- Sección: Seguridad y Contraseña -->
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+            <div class="glass-card rounded-xl shadow-sm overflow-hidden">
                 <button onclick="toggleSection('securitySection')"
                     class="w-full px-4 py-3 flex items-center justify-between bg-gray-50 dark:bg-gray-700 text-left font-medium">
                     <span>🔒 Seguridad y Contraseña</span>
@@ -565,7 +565,7 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
             </div>
 
             <!-- Sección: Datos del Club -->
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+            <div class="glass-card rounded-xl shadow-sm overflow-hidden">
                 <button onclick="toggleSection('clubSection')"
                     class="w-full px-4 py-3 flex items-center justify-between bg-gray-50 dark:bg-gray-700 text-left font-medium">
                     <span>⚽ Datos del Club</span>
@@ -648,7 +648,7 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
             </div>
 
             <!-- Sección: Gestión de Usuarios -->
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+            <div class="glass-card rounded-xl shadow-sm overflow-hidden">
                 <button onclick="toggleSection('usersSection')"
                     class="w-full px-4 py-3 flex items-center justify-between bg-gray-50 dark:bg-gray-700 text-left font-medium">
                     <span>👥 Gestión de Usuarios</span>
@@ -678,7 +678,7 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
             </div>
 
             <!-- Sección: Personalización -->
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+            <div class="glass-card rounded-xl shadow-sm overflow-hidden">
                 <button onclick="toggleSection('personalizationSection')"
                     class="w-full px-4 py-3 flex items-center justify-between bg-gray-50 dark:bg-gray-700 text-left font-medium">
                     <span>🎨 Recursos Locales</span>
@@ -755,7 +755,7 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
             </div>
 
             <!-- Sección: Sincronización y Cierre -->
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+            <div class="glass-card rounded-xl shadow-sm overflow-hidden">
                 <button onclick="toggleSection('syncSection')"
                     class="w-full px-4 py-3 flex items-center justify-between bg-gray-50 dark:bg-gray-700 text-left font-medium">
                     <span>☁️ Sincronización y Cierre</span>
@@ -813,7 +813,7 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
                 </div>
             </div>
             <!-- Sección: Ayuda y Manual de Usuario -->
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+            <div class="glass-card rounded-xl shadow-sm overflow-hidden">
                 <button onclick="toggleSection('helpSection')"
                     class="w-full px-4 py-3 flex items-center justify-between bg-gray-50 dark:bg-gray-700 text-left font-medium">
                     <span>❓ Ayuda y Manual de Usuario</span>
@@ -1031,7 +1031,7 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
             </div>
 
             <!-- Sección: Información Legal -->
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+            <div class="glass-card rounded-xl shadow-sm overflow-hidden">
                 <button onclick="toggleSection('legalSection')"
                     class="w-full px-4 py-3 flex items-center justify-between bg-gray-50 dark:bg-gray-700 text-left font-medium">
                     <span>📋 Información Legal</span>
@@ -1076,7 +1076,7 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
                  VISTA: NOTIFICACIONES
             ========================================= -->
         <div id="notificationsView" class="hidden p-4 space-y-4">
-            <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+            <div class="glass-card rounded-xl p-4 shadow-sm">
                 <h3 class="font-bold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
                     <i data-lucide="bell-ring" class="w-6 h-6 text-red-600"></i>
                     Notificaciones de Pago
@@ -1136,7 +1136,7 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
             <!-- ========================================
                 GRÁFICO PRINCIPAL (INGRESOS VS EGRESOS)
             ========================================= -->
-            <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+            <div class="glass-card rounded-xl p-4 shadow-sm">
                 <div class="flex items-center justify-between mb-4">
                     <h4 class="font-bold text-gray-800 dark:text-white">📊 Ingresos vs Egresos (Últimos 12 meses)</h4>
                     <div class="flex gap-3 text-sm">
@@ -1159,13 +1159,13 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
             <div class="grid md:grid-cols-2 gap-4">
 
                 <!-- Gráfico por Categoría -->
-                <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+                <div class="glass-card rounded-xl p-4 shadow-sm">
                     <h4 class="font-bold text-gray-800 dark:text-white mb-4">Ingresos por Categoría</h4>
                     <canvas id="incomeByCategoryChart"></canvas>
                 </div>
 
                 <!-- Gráfico por Tipo -->
-                <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+                <div class="glass-card rounded-xl p-4 shadow-sm">
                     <h4 class="font-bold text-gray-800 dark:text-white mb-4">Ingresos por Tipo</h4>
                     <canvas id="incomeByTypeChart"></canvas>
                 </div>
@@ -1175,7 +1175,7 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
             <!-- ========================================
                 TABLA DE JUGADORES
             ========================================= -->
-            <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+            <div class="glass-card rounded-xl p-4 shadow-sm">
                 <h4 class="font-bold text-gray-800 dark:text-white mb-4">📋 Estado por Jugador</h4>
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm">
@@ -1203,7 +1203,7 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
             <!-- ========================================
                 FACTURAS ANULADAS
             ========================================= -->
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+            <div class="glass-card rounded-xl shadow-sm overflow-hidden">
                 <div class="flex items-center justify-between px-4 py-3 border-b border-red-100 dark:border-red-900/30 bg-red-50 dark:bg-red-900/10">
                     <h3 class="font-bold text-red-700 dark:text-red-400 flex items-center gap-2">
                         <i data-lucide="ban" class="w-4 h-4"></i>

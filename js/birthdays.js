@@ -135,7 +135,7 @@ function renderBirthdays() {
     if (monthBirthdays.length === 0) continue;
     
     html += `
-      <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm animate-slide-in">
+      <div class="glass-card rounded-xl p-4 shadow-sm animate-slide-in">
         <h3 class="font-bold text-lg text-gray-800 dark:text-white mb-4 flex items-center gap-2">
           <i data-lucide="calendar-days" class="w-5 h-5 text-teal-600"></i>
           ${getMonthName(monthIndex)}

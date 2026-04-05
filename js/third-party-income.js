@@ -321,7 +321,7 @@ function renderThirdPartyIncomeCard(income) {
   const contributorIcon = income.contributorType === 'company' ? '🏢' : '👤';
   
   return `
-    <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border-l-4 border-purple-500 animate-slide-in">
+    <div class="glass-card rounded-xl p-4 shadow-sm border-l-4 border-purple-500 animate-slide-in">
       <div class="flex items-start justify-between mb-3">
         <div class="flex items-center gap-3">
           <div class="text-3xl">${icon}</div>

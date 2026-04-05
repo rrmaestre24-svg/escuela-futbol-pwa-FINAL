@@ -316,7 +316,7 @@ function renderPlayersList() {
     const statusIcon = isActive ? '✓' : '✗';
     
     return `
-      <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm card-hover animate-slide-in ${!isActive ? 'opacity-75' : ''}">
+      <div class="glass-card rounded-xl p-4 shadow-sm card-hover animate-slide-in ${!isActive ? 'opacity-75' : ''}">
         <div class="flex items-start gap-3">
           <img src="${player.avatar || getDefaultAvatar()}" alt="${player.name}" class="w-16 h-16 rounded-full object-cover border-2 ${isActive ? 'border-teal-500' : 'border-gray-400'}">
           <div class="flex-1 min-w-0">

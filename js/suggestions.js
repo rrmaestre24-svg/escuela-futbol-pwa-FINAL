@@ -87,7 +87,7 @@ async function loadMySuggestions() {
             const safeMessage = s.message.substring(0, 60).replace(/'/g, '').replace(/`/g, '').replace(/"/g, '');
 
             listEl.innerHTML += `
-  <div class="rounded-xl overflow-hidden border ${hasResponse ? 'border-green-500' : 'border-gray-200 dark:border-gray-700'} bg-white dark:bg-gray-700 shadow-sm">
+  <div class="rounded-xl overflow-hidden border ${hasResponse ? 'border-green-500' : 'border-gray-200 dark:border-gray-700'} glass-card shadow-sm">
     <div class="p-4">
       <div class="flex items-center justify-between mb-2">
         <span class="text-xs font-medium text-gray-500 dark:text-gray-400">

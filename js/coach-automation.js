@@ -86,7 +86,7 @@ function renderCoachAccessList() {
             : 'Sin categorías';
             
         return `
-            <div data-coach-id="${coach.id}" class="group flex items-center justify-between p-3 rounded-2xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 hover:border-blue-500/30 hover:shadow-lg hover:shadow-blue-500/5 transition-all">
+            <div data-coach-id="${coach.id}" class="group flex items-center justify-between p-3 glass-card rounded-2xl border border-gray-100 dark:border-gray-700 hover:border-blue-500/30 hover:shadow-lg transition-all">
                 <div class="flex items-center gap-3">
                     <div class="w-11 h-11 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold border-2 border-white dark:border-gray-700 shadow-sm">
                         ${(coach.name || 'P').charAt(0).toUpperCase()}

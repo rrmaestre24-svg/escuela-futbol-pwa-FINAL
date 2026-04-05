@@ -331,7 +331,7 @@ function renderPaymentCard(payment, player) {
   const editedInfo = payment.editedBy ? formatAuditInfo(payment.editedBy) : '';
   
   return `
-    <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm animate-slide-in">
+    <div class="glass-card rounded-xl p-4 shadow-sm animate-slide-in">
       <div class="flex items-start justify-between mb-3">
         <div class="flex items-center gap-3">
           <img src="${player.avatar || getDefaultAvatar()}" alt="${player.name}" class="w-12 h-12 rounded-full object-cover">
@@ -421,7 +421,7 @@ function renderExpenseCard(expense) {
   const editedInfo = expense.editedBy ? formatAuditInfo(expense.editedBy) : '';
   
   return `
-    <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm animate-slide-in border-l-4 border-red-500">
+    <div class="glass-card rounded-xl p-4 shadow-sm animate-slide-in border-l-4 border-red-500">
       <div class="flex items-start justify-between mb-3">
         <div>
           <h3 class="font-bold text-gray-800 dark:text-white">${expense.beneficiaryName}</h3>
@@ -1236,7 +1236,7 @@ function renderPaymentCard(payment, player) {
   const editedInfo = payment.editedBy ? formatAuditInfo(payment.editedBy) : '';
   
   return `
-    <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm animate-slide-in">
+    <div class="glass-card rounded-xl p-4 shadow-sm animate-slide-in">
       <div class="flex items-start justify-between mb-3">
         <div class="flex items-center gap-3">
           <img src="${player.avatar || getDefaultAvatar()}" alt="${player.name}" class="w-12 h-12 rounded-full object-cover">

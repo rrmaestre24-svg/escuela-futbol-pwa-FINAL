@@ -137,7 +137,7 @@ function renderParentAccessList() {
         const phone = player.phone || 'Sin teléfono';
         
         return `
-            <div data-player-id="${player.id}" class="group flex items-center justify-between p-3 rounded-2xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 hover:border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/5 transition-all">
+            <div data-player-id="${player.id}" class="group flex items-center justify-between p-3 glass-card rounded-2xl border border-gray-100 dark:border-gray-700 hover:border-emerald-500/30 hover:shadow-lg transition-all">
                 <div class="flex items-center gap-3">
                     <div class="relative">
                         <img src="${player.avatar || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(player.name) + '&background=random'}" 
