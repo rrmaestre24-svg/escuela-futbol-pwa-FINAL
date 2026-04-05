@@ -1,4 +1,4 @@
-const CACHE_NAME = 'my-club-v1.0.39';
+const CACHE_NAME = 'my-club-v1.0.40';
 
 const urlsToCache = [
   '/',
@@ -26,17 +26,24 @@ const urlsToCache = [
   '/js/firebase-config.js',
   '/js/storage.js',
   '/js/utils.js',
+  '/js/phone-utils.js',
+  '/js/theme.js',
   '/js/install.js',
   '/js/cache.js',
   '/js/pwa-icons.js',
+  '/js/pwa-native.js',
   '/js/license-system.js',
+
+  // JS SINCRONIZACIÓN
+  '/js/firebase-sync.js',
+  '/js/realtime-sync.js',
 
   // JS FEATURES
   '/js/players.js',
   '/js/payments.js',
   '/js/expenses.js',
   '/js/third-party-income.js',
-  '/js/firebase-sync.js',
+  '/js/accounting.js',
   '/js/modals.js',
   '/js/notifications.js',
   '/js/calendar.js',
@@ -46,6 +53,10 @@ const urlsToCache = [
   '/js/club-settings-protection.js',
   '/js/pdf.js',
   '/js/whatsapp.js',
+  '/js/import-players.js',
+  '/js/coach-automation.js',
+  '/js/parent-automation.js',
+  '/js/manual-usuario.js',
 
   // PORTAL PADRES
   '/js/parent-portal.js'
