@@ -101,8 +101,16 @@ function updateUser(userId, userData) {
 
 function getCurrentUser() {
   try {
-    const user = localStorage.getItem('currentUser');
-    return user ? JSON.parse(user) : null;
+    // Intentar localStorage primero
+    const userStr = localStorage.getItem('currentUser');
+    if (userStr) return JSON.parse(userStr);
+    // Fallback a sessionStorage (por si localStorage falla entre pestañas)
+    const sessionUser = sessionStorage.getItem('currentUser');
+    if (sessionUser) {
+      localStorage.setItem('currentUser', sessionUser); // Restaurar a localStorage
+      return JSON.parse(sessionUser);
+    }
+    return null;
   } catch (e) {
     console.warn('⚠️ currentUser corrupto en localStorage, limpiando...');
     localStorage.removeItem('currentUser');

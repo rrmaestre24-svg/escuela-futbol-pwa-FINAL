@@ -7,36 +7,11 @@
 // ========================================
 
 // ========================================
-// FUNCIONES AUXILIARES NECESARIAS
+// FUNCIONES DE SESIÓN Y DATOS
+// (getCurrentUser, getSchoolSettings, showToast, imageToBase64,
+//  compressImageForFirestore, getDefaultLogo, getDefaultAvatar
+//  están definidas en storage.js y utils.js — no duplicar aquí)
 // ========================================
-
-// Obtener usuario actual de la sesión (con fallback)
-function getCurrentUser() {
-  try {
-    // Intentar localStorage primero
-    const userStr = localStorage.getItem('currentUser');
-    if (userStr) {
-      const user = JSON.parse(userStr);
-      console.log('[SESSION] Usuario encontrado en localStorage:', user.email);
-      return user;
-    }
-    
-    // Fallback a sessionStorage (por si localStorage falla)
-    const sessionUser = sessionStorage.getItem('currentUser');
-    if (sessionUser) {
-      const user = JSON.parse(sessionUser);
-      // Restaurar a localStorage
-      localStorage.setItem('currentUser', sessionUser);
-      console.log('[SESSION] Usuario restaurado desde sessionStorage:', user.email);
-      return user;
-    }
-    
-    return null;
-  } catch (error) {
-    console.error('[SESSION] Error al obtener usuario actual:', error);
-    return null;
-  }
-}
 
 // Establecer usuario actual (guardado doble para mayor seguridad)
 function setCurrentUser(user) {
@@ -97,17 +72,6 @@ function updateUser(userId, updates) {
   }
 }
 
-// Obtener configuración del club
-function getSchoolSettings() {
-  try {
-    const settingsStr = localStorage.getItem('schoolSettings');
-    return settingsStr ? JSON.parse(settingsStr) : null;
-  } catch (error) {
-    console.error('Error al obtener configuración:', error);
-    return null;
-  }
-}
-
 // Guardar configuración del club
 function saveSchoolSettings(settings) {
   try {
@@ -137,20 +101,6 @@ function saveAllPlayers(players) {
   }
 }
 
-// Mostrar toast notification
-function showToast(message) {
-  const toast = document.getElementById('toast');
-  if (toast) {
-    toast.textContent = message;
-    toast.classList.remove('hidden');
-    setTimeout(() => {
-      toast.classList.add('hidden');
-    }, 3000);
-  } else {
-    console.log('TOAST:', message);
-  }
-}
-
 // Confirmar acción
 function confirmAction(message) {
   return confirm(message);
@@ -161,47 +111,6 @@ function getCurrentDateTime() {
   return new Date().toISOString();
 }
 
-// Convertir imagen a base64
-function imageToBase64(file, callback) {
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    callback(e.target.result);
-  };
-  reader.readAsDataURL(file);
-}
-
-// Comprimir imagen para Firestore
-function compressImageForFirestore(base64, maxWidth, callback) {
-  const img = new Image();
-  img.onload = function() {
-    const canvas = document.createElement('canvas');
-    let width = img.width;
-    let height = img.height;
-    
-    if (width > maxWidth) {
-      height = (height * maxWidth) / width;
-      width = maxWidth;
-    }
-    
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(img, 0, 0, width, height);
-    
-    callback(canvas.toDataURL('image/jpeg', 0.7));
-  };
-  img.src = base64;
-}
-
-// Logo por defecto
-function getDefaultLogo() {
-  return 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Ccircle cx="50" cy="50" r="45" fill="%230d9488"/%3E%3Ctext x="50" y="65" font-size="50" text-anchor="middle" fill="white"%3E⚽%3C/text%3E%3C/svg%3E';
-}
-
-// Avatar por defecto
-function getDefaultAvatar() {
-  return 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Ccircle cx="50" cy="50" r="45" fill="%23gray"/%3E%3Ctext x="50" y="65" font-size="50" text-anchor="middle" fill="white"%3E👤%3C/text%3E%3C/svg%3E';
-}
 
 // Normalizar teléfono
 function normalizePhone(phone) {
