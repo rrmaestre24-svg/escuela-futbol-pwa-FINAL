@@ -485,4 +485,20 @@ function formatAuditInfo(auditInfo) {
   return `${auditInfo.name} - ${formatDate(auditInfo.date)} ${auditInfo.time}`;
 }
 
+// ========================================
+// CARGA LAZY DE LIBRERÍAS EXTERNAS
+// Definidas aquí para que estén disponibles en todos los módulos.
+// utils.js es el primer script en cargar.
+// ========================================
+
+// Carga XLSX bajo demanda (solo cuando el usuario exporta/importa Excel)
+function loadXLSX(callback) {
+  if (typeof XLSX !== 'undefined') { callback(); return; }
+  const s = document.createElement('script');
+  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+  s.onload = callback;
+  s.onerror = () => showToast('❌ No se pudo cargar la librería Excel');
+  document.head.appendChild(s);
+}
+
 console.log('✅ Funciones de auditoría agregadas');

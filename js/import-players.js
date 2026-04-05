@@ -165,16 +165,6 @@ function downloadTemplate(format) {
     }
 }
 
-// Carga XLSX dinámicamente si no está disponible
-function loadXLSX(callback) {
-    if (typeof XLSX !== 'undefined') { callback(); return; }
-    const s = document.createElement('script');
-    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
-    s.onload = callback;
-    s.onerror = () => showToast('❌ No se pudo cargar la librería Excel');
-    document.head.appendChild(s);
-}
-
 // 🆕 Descargar como Excel (.xlsx) - MEJORADO CON 2 HOJAS
 function downloadAsExcelMejorado(dataJugadores, dataDescripciones) {
     loadXLSX(function() { _downloadAsExcelMejorado(dataJugadores, dataDescripciones); });
