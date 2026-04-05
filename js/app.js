@@ -355,11 +355,7 @@ async function initApp() {
 
 // Cerrar modales al hacer click fuera
 window.addEventListener('click', function(e) {
-  if (e.target.id === 'playerModal') {
-    if (typeof closePlayerModal === 'function') {
-      closePlayerModal();
-    }
-  }
+  // playerModal no se cierra al tocar el fondo — solo con X o Cancelar
   if (e.target.id === 'playerDetailsModal') {
     if (typeof closePlayerDetailsModal === 'function') {
       closePlayerDetailsModal();
