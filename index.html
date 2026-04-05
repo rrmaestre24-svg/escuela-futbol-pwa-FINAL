@@ -2851,6 +2851,17 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
                                 <div class="text-xs text-red-600">Con errores</div>
                             </div>
                         </div>
+                        <!-- Botón seleccionar/deseleccionar todo -->
+                        <div class="flex gap-2 mb-2">
+                            <button onclick="toggleAllImport({checked:true})"
+                                class="flex-1 bg-teal-600 hover:bg-teal-700 active:scale-95 text-white text-sm py-2 rounded-lg font-semibold transition-all">
+                                ✅ Seleccionar todos
+                            </button>
+                            <button onclick="toggleAllImport({checked:false})"
+                                class="flex-1 bg-gray-500 hover:bg-gray-600 active:scale-95 text-white text-sm py-2 rounded-lg font-semibold transition-all">
+                                ☐ Deseleccionar todos
+                            </button>
+                        </div>
                         <div class="overflow-x-auto max-h-64 border border-gray-200 dark:border-gray-700 rounded-lg">
                             <table class="w-full text-sm">
                                 <thead class="bg-gray-50 dark:bg-gray-700 sticky top-0">

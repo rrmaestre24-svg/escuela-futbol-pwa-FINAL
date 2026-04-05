@@ -750,44 +750,94 @@ function formatImportDate(dateStr) {
 // ========================================
 
 function showImportPreview() {
-    const validPlayers = importedPlayersData.filter(p => p.isValid);
+    // Obtener nombres existentes en la base de datos para detectar duplicados exactos
+    const existingPlayers = typeof getPlayers === 'function' ? getPlayers() : [];
+    const existingNames = new Set(
+        existingPlayers.map(p => (p.name || '').toLowerCase().trim())
+    );
+
+    // Marcar duplicados en los datos importados
+    importedPlayersData.forEach(player => {
+        const nombre = (player.name || '').toLowerCase().trim();
+        player.isDuplicate = existingNames.has(nombre);
+    });
+
+    const validPlayers   = importedPlayersData.filter(p => p.isValid && !p.isDuplicate);
     const invalidPlayers = importedPlayersData.filter(p => !p.isValid);
-    
+    const dupPlayers     = importedPlayersData.filter(p => p.isDuplicate);
+
     document.getElementById('importStep1').classList.add('hidden');
     document.getElementById('importStep2').classList.remove('hidden');
     document.getElementById('importPreview').classList.remove('hidden');
-    
-    document.getElementById('previewTotal').textContent = importedPlayersData.length;
-    document.getElementById('previewValid').textContent = validPlayers.length;
+
+    document.getElementById('previewTotal').textContent   = importedPlayersData.length;
+    document.getElementById('previewValid').textContent   = validPlayers.length;
     document.getElementById('previewInvalid').textContent = invalidPlayers.length;
-    
+
+    // Mostrar/actualizar contador de duplicados
+    let dupEl = document.getElementById('previewDuplicates');
+    if (!dupEl) {
+        const statsGrid = document.querySelector('#importPreview .grid');
+        if (statsGrid) {
+            const dupDiv = document.createElement('div');
+            dupDiv.className = 'bg-yellow-100 dark:bg-yellow-900/30 rounded-lg p-3 text-center col-span-3 mt-1';
+            dupDiv.innerHTML = `<div class="text-xl font-bold text-yellow-600" id="previewDuplicates">0</div>
+                                <div class="text-xs text-yellow-600">Ya existen (no se importarán)</div>`;
+            statsGrid.after(dupDiv);
+            dupEl = document.getElementById('previewDuplicates');
+        }
+    }
+    if (dupEl) dupEl.textContent = dupPlayers.length;
+
     const tbody = document.getElementById('importPreviewBody');
     tbody.innerHTML = '';
-    
+
     importedPlayersData.forEach((player, index) => {
         const row = document.createElement('tr');
-        row.className = player.isValid 
-            ? 'border-b border-gray-200 dark:border-gray-700' 
-            : 'border-b border-gray-200 dark:border-gray-700 bg-red-50 dark:bg-red-900/20';
-        
-        row.innerHTML = `
-            <td class="p-2">
-                <input type="checkbox" id="importCheck_${index}" ${player.isValid ? 'checked' : ''} class="import-checkbox rounded" onchange="updateImportCount()">
-            </td>
-            <td class="p-2 font-medium text-gray-800 dark:text-white">${escapeHtml(player.name) || '-'}</td>
-            <td class="p-2 text-gray-600 dark:text-gray-400">${player.birthDate || '-'}</td>
-            <td class="p-2 text-gray-600 dark:text-gray-400">${escapeHtml(player.category) || '-'}</td>
-            <td class="p-2 text-gray-600 dark:text-gray-400">${player.phone || '-'}</td>
-            <td class="p-2">
-                ${player.isValid 
-                    ? '<span class="text-green-600">✓</span>' 
-                    : '<span class="text-red-600 cursor-help" title="' + escapeHtml(player.errors.join(', ')) + '">❌</span>'
-                }
-            </td>
-        `;
+
+        if (player.isDuplicate) {
+            // Duplicado exacto — fondo amarillo, deshabilitado
+            row.className = 'border-b border-gray-200 dark:border-gray-700 bg-yellow-50 dark:bg-yellow-900/20';
+            row.innerHTML = `
+                <td class="p-2">
+                    <input type="checkbox" id="importCheck_${index}" disabled class="import-checkbox rounded opacity-40">
+                </td>
+                <td class="p-2 font-medium text-yellow-700 dark:text-yellow-300">${escapeHtml(player.name) || '-'}</td>
+                <td class="p-2 text-gray-600 dark:text-gray-400">${player.birthDate || '-'}</td>
+                <td class="p-2 text-gray-600 dark:text-gray-400">${escapeHtml(player.category) || '-'}</td>
+                <td class="p-2 text-gray-600 dark:text-gray-400">${player.phone || '-'}</td>
+                <td class="p-2"><span class="text-yellow-500 text-xs font-semibold">Ya existe</span></td>
+            `;
+        } else if (!player.isValid) {
+            // Error de validación — fondo rojo
+            row.className = 'border-b border-gray-200 dark:border-gray-700 bg-red-50 dark:bg-red-900/20';
+            row.innerHTML = `
+                <td class="p-2">
+                    <input type="checkbox" id="importCheck_${index}" class="import-checkbox rounded" onchange="updateImportCount()">
+                </td>
+                <td class="p-2 font-medium text-gray-800 dark:text-white">${escapeHtml(player.name) || '-'}</td>
+                <td class="p-2 text-gray-600 dark:text-gray-400">${player.birthDate || '-'}</td>
+                <td class="p-2 text-gray-600 dark:text-gray-400">${escapeHtml(player.category) || '-'}</td>
+                <td class="p-2 text-gray-600 dark:text-gray-400">${player.phone || '-'}</td>
+                <td class="p-2"><span class="text-red-600 cursor-help" title="${escapeHtml(player.errors.join(', '))}">❌</span></td>
+            `;
+        } else {
+            // Válido y nuevo — normal, marcado por defecto
+            row.className = 'border-b border-gray-200 dark:border-gray-700';
+            row.innerHTML = `
+                <td class="p-2">
+                    <input type="checkbox" id="importCheck_${index}" checked class="import-checkbox rounded" onchange="updateImportCount()">
+                </td>
+                <td class="p-2 font-medium text-gray-800 dark:text-white">${escapeHtml(player.name) || '-'}</td>
+                <td class="p-2 text-gray-600 dark:text-gray-400">${player.birthDate || '-'}</td>
+                <td class="p-2 text-gray-600 dark:text-gray-400">${escapeHtml(player.category) || '-'}</td>
+                <td class="p-2 text-gray-600 dark:text-gray-400">${player.phone || '-'}</td>
+                <td class="p-2"><span class="text-green-600">✓</span></td>
+            `;
+        }
         tbody.appendChild(row);
     });
-    
+
     updateImportCount();
 }
 
@@ -800,7 +850,8 @@ function escapeHtml(text) {
 }
 
 function toggleAllImport(checkbox) {
-    document.querySelectorAll('.import-checkbox').forEach(cb => {
+    // Solo afecta checkboxes habilitados (los duplicados están disabled)
+    document.querySelectorAll('.import-checkbox:not(:disabled)').forEach(cb => {
         cb.checked = checkbox.checked;
     });
     updateImportCount();
@@ -824,7 +875,8 @@ async function startImport() {
         return;
     }
     
-    const playersToImport = selectedIndexes.map(i => importedPlayersData[i]).filter(p => p && p.isValid);
+    // Filtrar válidos y sin duplicados exactos (doble seguridad)
+    const playersToImport = selectedIndexes.map(i => importedPlayersData[i]).filter(p => p && p.isValid && !p.isDuplicate);
     
     if (playersToImport.length === 0) {
         if (typeof showToast === 'function') showToast('❌ No hay jugadores válidos seleccionados');
