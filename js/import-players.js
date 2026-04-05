@@ -110,7 +110,9 @@ function downloadTemplate(format) {
         'tipo_documento',
         'numero_documento',
         'email',
+        'nombre_padre',
         '🔴 telefono_padre',
+        'nombre_madre',
         'telefono_madre',
         'direccion',
         'telefono_emergencia',
@@ -125,13 +127,13 @@ function downloadTemplate(format) {
     // 📝 EJEMPLO DE LLENADO CON TODOS LOS DATOS Y MÚLTIPLES FORMATOS DE FECHA
     const examples = [
         // Ejemplo 1: Fecha en formato YYYY-MM-DD (ISO)
-        ['Juan', '', 'Pérez', 'García', '2015-03-15', 'Categoría 2015', 'Delantero Centro', '10', 'M', 'CC', '1234567890', 'padre@email.com', '3001234567', '3009876543', 'Calle 123 #45-67', '3201234567', 'O+', 'Sura', 'A1', 'Ninguna', 'Ninguno', 'Ninguna'],
+        ['Juan', '', 'Pérez', 'García', '2015-03-15', 'Categoría 2015', 'Delantero Centro', '10', 'M', 'CC', '1234567890', 'padre@email.com', 'Carlos Pérez', '3001234567', 'Ana García', '3009876543', 'Calle 123 #45-67', '3201234567', 'O+', 'Sura', 'A1', 'Ninguna', 'Ninguno', 'Ninguna'],
         // Ejemplo 2: Fecha en formato DD/MM/YYYY (español)
-        ['María', 'Alejandra', 'López', 'Torres', '15/03/2015', 'Categoría 2015', 'Delantera', '7', 'M', 'TI', '9876543210', 'madre@email.com', '3109876543', '3109999999', 'Carrera 45 #12-34', '3201111111', 'A+', 'Famisanar', 'A2', 'Ninguna', 'Ninguno', 'Ninguna'],
+        ['María', 'Alejandra', 'López', 'Torres', '15/03/2015', 'Categoría 2015', 'Delantera', '7', 'M', 'TI', '9876543210', 'madre@email.com', 'Pedro López', '3109876543', 'Lucía Torres', '3109999999', 'Carrera 45 #12-34', '3201111111', 'A+', 'Famisanar', 'A2', 'Ninguna', 'Ninguno', 'Ninguna'],
         // Ejemplo 3: Fecha en formato DD-MM-YYYY (con guiones)
-        ['Carlos', 'Andrés', 'Rodríguez', 'Díaz', '20-05-2014', 'Categoría 2014', 'Lateral', '3', 'S', 'CC', '5555555555', 'carlos@email.com', '3214567890', '3214444444', 'Avenida 99 #88-77', '3202222222', 'B-', 'Ascendis', 'B', 'Penicilina', 'Asma inhaler', 'Ninguna'],
+        ['Carlos', 'Andrés', 'Rodríguez', 'Díaz', '20-05-2014', 'Categoría 2014', 'Lateral', '3', 'S', 'CC', '5555555555', 'carlos@email.com', 'Mario Rodríguez', '3214567890', 'Gloria Díaz', '3214444444', 'Avenida 99 #88-77', '3202222222', 'B-', 'Ascendis', 'B', 'Penicilina', 'Asma inhaler', 'Ninguna'],
         // Ejemplo 4: Fecha alternativa DD/MM/YYYY
-        ['Laura', '', 'Martínez', 'Silva', '10/11/2016', 'Categoría 2016', 'Portera', '1', 'XS', 'RC', '7777777777', 'laura@email.com', '3001111111', '', 'Pasaje 5 #10-20', '', 'AB+', 'EPS Sanitas', 'C', 'Ninguna', 'Ninguno', 'Asma']
+        ['Laura', '', 'Martínez', 'Silva', '10/11/2016', 'Categoría 2016', 'Portera', '1', 'XS', 'RC', '7777777777', 'laura@email.com', 'Jorge Martínez', '3001111111', '', '', 'Pasaje 5 #10-20', '', 'AB+', 'EPS Sanitas', 'C', 'Ninguna', 'Ninguno', 'Asma']
     ];
     
     // 📌 DESCRIPCIÓN DE CAMPOS (segunda hoja para referencia)
@@ -149,7 +151,9 @@ function downloadTemplate(format) {
         ['tipo_documento', 'Tipo de documento de identidad', 'TI, RC, CC, CE, PA, NUIP', 'NO'],
         ['numero_documento', 'Número de documento sin espacios', '10 dígitos aprox', 'NO'],
         ['email', 'Correo electrónico del acudiente', 'formato@email.com', 'NO'],
+        ['nombre_padre', 'Nombre del acudiente principal', 'Texto (ej: Carlos Pérez)', 'NO'],
         ['telefono_padre', 'Teléfono del acudiente principal', '10 dígitos (3001234567)', 'SÍ'],
+        ['nombre_madre', 'Nombre del segundo acudiente', 'Texto (ej: Ana García)', 'NO'],
         ['telefono_madre', 'Teléfono del segundo acudiente', '10 dígitos', 'NO'],
         ['direccion', 'Dirección residencial', 'Texto completo', 'NO'],
         ['telefono_emergencia', 'Teléfono de emergencia', '10 dígitos', 'NO'],
@@ -494,7 +498,9 @@ function mapRowToPlayer(headers, row) {
         birthDate: '',
         category: '',
         phone: '',
+        guardianName: '',
         phoneParent2: '',
+        guardianName2: '',
         emergencyContact: '',
         email: '',
         position: '',
@@ -549,9 +555,17 @@ function mapRowToPlayer(headers, row) {
         else if (['categoria', 'category', 'categoriaaño'].includes(normalizedHeader)) {
             player.category = value;
         }
+        // NOMBRE PADRE / ACUDIENTE PRINCIPAL
+        else if (['nombrepadre', 'guardianname', 'acudiente', 'nombrepapa', 'padre'].includes(normalizedHeader)) {
+            player.guardianName = value;
+        }
         // TELÉFONO PADRE (PRINCIPAL)
         else if (['telefonopadre', 'phone', 'celular', 'tel'].includes(normalizedHeader)) {
             player.phone = normalizePhoneImport(value);
+        }
+        // NOMBRE MADRE / SEGUNDO ACUDIENTE
+        else if (['nombremadre', 'guardianname2', 'acudiente2', 'nombremama', 'madre'].includes(normalizedHeader)) {
+            player.guardianName2 = value;
         }
         // TELÉFONO MADRE (SEGUNDO CONTACTO)
         else if (['telefonmadre', 'telefonomother', 'contactoemergencia', 'emergencia'].includes(normalizedHeader)) {
