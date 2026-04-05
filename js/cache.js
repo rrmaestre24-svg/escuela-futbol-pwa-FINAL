@@ -52,33 +52,84 @@ async function clearAppCache() {
   }
 }
 
+// Mostrar modal de actualización con logo y nombre de la app
+function showUpdateModal(onAccept) {
+  // Evitar duplicados
+  if (document.getElementById('updateModal')) return;
+
+  const settings = typeof getSchoolSettings === 'function' ? getSchoolSettings() : {};
+  const logoSrc = settings.logo || 'assets/icons/icon-192x192.png';
+
+  const modal = document.createElement('div');
+  modal.id = 'updateModal';
+  modal.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:1rem;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px)';
+
+  modal.innerHTML = `
+    <div style="background:#1f2937;border-radius:1.25rem;padding:2rem;max-width:320px;width:100%;text-align:center;box-shadow:0 25px 50px rgba(0,0,0,0.5);animation:scaleIn .2s ease">
+      <!-- Logo del club -->
+      <div style="width:80px;height:80px;border-radius:50%;overflow:hidden;margin:0 auto 0.75rem;border:3px solid #0d9488;background:#111827">
+        <img src="${logoSrc}" alt="Logo" style="width:100%;height:100%;object-fit:cover"
+          onerror="this.src='assets/icons/icon-192x192.png'">
+      </div>
+
+      <!-- Nombre app -->
+      <p style="font-size:1.25rem;font-weight:800;color:#0d9488;letter-spacing:.1em;margin-bottom:0.25rem">MY CLUB</p>
+      <p style="font-size:0.7rem;color:#6b7280;margin-bottom:1.5rem;letter-spacing:.05em">GESTIÓN ESCUELAS DE FÚTBOL</p>
+
+      <!-- Mensaje -->
+      <div style="background:#111827;border-radius:.75rem;padding:1rem;margin-bottom:1.5rem">
+        <p style="font-size:1.5rem;margin-bottom:.5rem">✨</p>
+        <p style="color:#f9fafb;font-weight:600;font-size:.95rem;margin-bottom:.25rem">Nueva versión disponible</p>
+        <p style="color:#9ca3af;font-size:.8rem">La app se recargará para aplicar la actualización.</p>
+      </div>
+
+      <!-- Botones -->
+      <div style="display:flex;gap:.75rem">
+        <button id="updateModalCancel"
+          style="flex:1;padding:.75rem;border-radius:.75rem;background:#374151;color:#d1d5db;font-weight:600;font-size:.9rem;border:none;cursor:pointer">
+          Ahora no
+        </button>
+        <button id="updateModalAccept"
+          style="flex:1;padding:.75rem;border-radius:.75rem;background:linear-gradient(135deg,#0d9488,#0891b2);color:#fff;font-weight:700;font-size:.9rem;border:none;cursor:pointer">
+          Actualizar
+        </button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  document.getElementById('updateModalCancel').onclick = () => modal.remove();
+  document.getElementById('updateModalAccept').onclick = () => {
+    modal.remove();
+    onAccept();
+  };
+}
+
 // Buscar actualizaciones manualmente
 async function checkForUpdates() {
   console.log('🔍 Buscando actualizaciones...');
   showToast('🔍 Buscando actualizaciones...');
-  
+
   try {
     if ('serviceWorker' in navigator) {
       const registration = await navigator.serviceWorker.getRegistration();
-      
+
       if (registration) {
         // Forzar actualización del Service Worker
         await registration.update();
         console.log('✅ Actualización verificada');
-        
+
         // Verificar si hay una versión en espera
         if (registration.waiting) {
-          showToast('✨ Nueva versión disponible. Limpia el caché para actualizar.');
-          
-          if (confirm('✨ Hay una nueva versión disponible.\n\n¿Deseas actualizar ahora?')) {
+          showUpdateModal(() => {
             // Activar el nuevo Service Worker
             registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-            
             // Recargar cuando el nuevo SW tome control
             navigator.serviceWorker.addEventListener('controllerchange', () => {
               window.location.reload();
             });
-          }
+          });
         } else if (registration.installing) {
           showToast('⏳ Descargando actualización...');
         } else {
@@ -86,11 +137,8 @@ async function checkForUpdates() {
         }
       } else {
         showToast('⚠️ Service Worker no registrado');
-        // Intentar registrar
         navigator.serviceWorker.register('sw.js')
-          .then(() => {
-            showToast('✅ Service Worker registrado. Recarga la página.');
-          })
+          .then(() => showToast('✅ Service Worker registrado. Recarga la página.'))
           .catch(err => {
             console.error('Error al registrar SW:', err);
             showToast('❌ Error al registrar Service Worker');
