@@ -33,12 +33,14 @@ let db = null;
 let auth = null;
 
 if (!window.APP_STATE) {
-  window.APP_STATE = { 
+  window.APP_STATE = {
     firebaseReady: false,
     currentUser: null,
     authRestored: false
   };
 }
+// Marca el momento en que la app empezó a cargar
+if (!window._appStartTime) window._appStartTime = Date.now();
 
 async function initFirebase() {
   try {

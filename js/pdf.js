@@ -117,11 +117,26 @@ function formatDocumentForPDF(type, number) {
   return `${types[type] || type} ${number}`;
 }
 
+// Carga jsPDF dinámicamente si no está disponible y ejecuta el callback
+function loadJsPDF(callback) {
+  if (typeof window.jspdf !== 'undefined') { callback(); return; }
+  showToast('📄 Cargando librería PDF...');
+  const s = document.createElement('script');
+  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+  s.onload = callback;
+  s.onerror = () => showToast('❌ No se pudo cargar la librería PDF');
+  document.head.appendChild(s);
+}
+
 // ========================================
 // FACTURAS DE INGRESOS (CON FIRMA, EMOJIS Y DOCUMENTO)
 // 🆕 ACTUALIZADO: Incluye documento de identidad
 // ========================================
 function generateInvoicePDF(paymentId, autoDownload = true) {
+  if (typeof window.jspdf === 'undefined') {
+    loadJsPDF(() => generateInvoicePDF(paymentId, autoDownload));
+    return null;
+  }
   const payment = getPaymentById(paymentId);
   if (!payment) {
     showToast('❌ Pago no encontrado');
@@ -266,6 +281,10 @@ drawRow('Factura:', payment.invoiceNumber || 'N/A');
 // NOTIFICACIÓN DE PAGO (CON FIRMA Y DOCUMENTO)
 // ========================================
 function generatePaymentNotificationPDF(paymentId) {
+  if (typeof window.jspdf === 'undefined') {
+    loadJsPDF(() => generatePaymentNotificationPDF(paymentId));
+    return;
+  }
   const payment = getPaymentById(paymentId);
   if (!payment) {
     showToast('❌ Pago no encontrado');
@@ -416,6 +435,10 @@ function generatePaymentNotificationPDF(paymentId) {
 // ESTADO DE CUENTA (CON FIRMA Y DOCUMENTO)
 // ========================================
 function generatePlayerAccountStatementPDF(playerId) {
+  if (typeof window.jspdf === 'undefined') {
+    loadJsPDF(() => generatePlayerAccountStatementPDF(playerId));
+    return;
+  }
   const player = getPlayerById(playerId);
   if (!player) {
     showToast('❌ Jugador no encontrado');
@@ -571,6 +594,10 @@ function generatePlayerAccountStatementPDF(playerId) {
 // 🆕 REPORTE CONTABLE COMPLETO - CON DOCUMENTO
 // ========================================
 function generateFullAccountingReportPDF() {
+  if (typeof window.jspdf === 'undefined') {
+    loadJsPDF(() => generateFullAccountingReportPDF());
+    return;
+  }
   const settings = getSchoolSettings();
   const players = getPlayers();
   const payments = getPayments();
@@ -945,6 +972,10 @@ function generateFullAccountingReportPDF() {
 // COMPROBANTE DE EGRESO (CON FIRMA Y EMOJIS)
 // ========================================
 function generateExpenseInvoicePDF(expenseId, autoDownload = true) {
+  if (typeof window.jspdf === 'undefined') {
+    loadJsPDF(() => generateExpenseInvoicePDF(expenseId, autoDownload));
+    return null;
+  }
   const expense = getExpenseById(expenseId);
   if (!expense) {
     showToast('❌ Egreso no encontrado');

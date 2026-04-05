@@ -385,6 +385,15 @@ function renderThirdPartyIncomeCard(income) {
 // ========================================
 
 function generateThirdPartyIncomePDF(incomeId, autoDownload = true) {
+  if (typeof window.jspdf === 'undefined') {
+    // Cargar jsPDF dinámicamente y reintentar
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+    s.onload = () => generateThirdPartyIncomePDF(incomeId, autoDownload);
+    s.onerror = () => showToast('❌ No se pudo cargar la librería PDF');
+    document.head.appendChild(s);
+    return null;
+  }
   const income = getThirdPartyIncomeById(incomeId);
   if (!income) {
     showToast('❌ Ingreso no encontrado');

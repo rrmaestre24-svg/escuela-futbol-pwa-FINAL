@@ -165,12 +165,22 @@ function downloadTemplate(format) {
     }
 }
 
+// Carga XLSX dinámicamente si no está disponible
+function loadXLSX(callback) {
+    if (typeof XLSX !== 'undefined') { callback(); return; }
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    s.onload = callback;
+    s.onerror = () => showToast('❌ No se pudo cargar la librería Excel');
+    document.head.appendChild(s);
+}
+
 // 🆕 Descargar como Excel (.xlsx) - MEJORADO CON 2 HOJAS
 function downloadAsExcelMejorado(dataJugadores, dataDescripciones) {
+    loadXLSX(function() { _downloadAsExcelMejorado(dataJugadores, dataDescripciones); });
+}
+function _downloadAsExcelMejorado(dataJugadores, dataDescripciones) {
     if (typeof XLSX === 'undefined') {
-        if (typeof showToast === 'function') {
-            showToast('⚠️ Librería Excel no disponible. Descargando CSV...');
-        }
         downloadAsCSV(dataJugadores);
         return;
     }
@@ -284,10 +294,10 @@ function downloadAsExcelMejorado(dataJugadores, dataDescripciones) {
 
 // Versión anterior (compatibilidad)
 function downloadAsExcel(data) {
+    loadXLSX(function() { _downloadAsExcel(data); });
+}
+function _downloadAsExcel(data) {
     if (typeof XLSX === 'undefined') {
-        if (typeof showToast === 'function') {
-            showToast('⚠️ Librería Excel no disponible. Descargando CSV...');
-        }
         downloadAsCSV(data);
         return;
     }
@@ -401,10 +411,11 @@ function processCSV(file) {
 
 // Procesar Excel (requiere librería XLSX)
 function processExcel(file) {
+    loadXLSX(function() { _processExcel(file); });
+}
+function _processExcel(file) {
     if (typeof XLSX === 'undefined') {
-        if (typeof showToast === 'function') {
-            showToast('❌ Librería Excel no disponible. Usa archivo CSV.');
-        }
+        showToast('❌ Librería Excel no disponible. Usa archivo CSV.');
         return;
     }
     
@@ -989,16 +1000,22 @@ async function downloadCodesPDF() {
         if (typeof showToast === 'function') showToast('❌ No hay códigos para descargar');
         return;
     }
-    
+
+    // Cargar jsPDF dinámicamente si no está disponible
+    if (typeof window.jspdf === 'undefined') {
+        if (typeof showToast === 'function') showToast('📄 Cargando librería PDF...');
+        await new Promise((resolve, reject) => {
+            const s = document.createElement('script');
+            s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+            s.onload = resolve;
+            s.onerror = reject;
+            document.head.appendChild(s);
+        }).catch(() => { showToast('❌ No se pudo cargar la librería PDF'); return; });
+    }
+
     if (typeof showToast === 'function') showToast('📄 Generando PDF...');
-    
+
     try {
-        // Verificar jsPDF
-        if (typeof jspdf === 'undefined' && typeof window.jspdf === 'undefined') {
-            if (typeof showToast === 'function') showToast('❌ Librería PDF no disponible');
-            return;
-        }
-        
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
         

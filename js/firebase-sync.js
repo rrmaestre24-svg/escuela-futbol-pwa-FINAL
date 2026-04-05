@@ -98,7 +98,11 @@ async function preparePlayerForFirebase(player) {
 function checkFirebaseReady() {
   if (!window.APP_STATE?.firebaseReady) {
     console.warn('⚠️ Firebase no está inicializado');
-    showToast('⚠️ Firebase no está listo. Espera unos segundos.');
+    // Solo mostrar toast si la app lleva más de 8 segundos cargada
+    // (en móviles lentos Firebase tarda más en iniciar)
+    if (!window._appStartTime || (Date.now() - window._appStartTime) > 8000) {
+      showToast('⚠️ Firebase no está listo. Espera unos segundos.');
+    }
     return false;
   }
   
