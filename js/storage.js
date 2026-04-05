@@ -2,6 +2,18 @@
 // GESTIÓN DE LOCALSTORAGE - CON SINCRONIZACIÓN AUTOMÁTICA
 // ========================================
 
+// Carga XLSX de forma lazy (si import-players.js ya la definió, esta no la pisa)
+if (typeof loadXLSX === 'undefined') {
+  function loadXLSX(callback) {
+    if (typeof XLSX !== 'undefined') { callback(); return; }
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    s.onload = callback;
+    s.onerror = () => showToast('❌ No se pudo cargar la librería Excel');
+    document.head.appendChild(s);
+  }
+}
+
 // Inicializar estructura de datos
 function initStorage() {
   if (!localStorage.getItem('users')) {
@@ -599,6 +611,12 @@ async function exportDataExcel() {
   const user = getCurrentUser();
   if (!user || !user.isMainAdmin) {
     showToast('❌ Solo el administrador principal puede exportar datos');
+    return;
+  }
+
+  // Cargar XLSX solo cuando se necesita (lazy load para no bloquear la carga inicial)
+  if (typeof XLSX === 'undefined') {
+    loadXLSX(() => exportDataExcel());
     return;
   }
 
