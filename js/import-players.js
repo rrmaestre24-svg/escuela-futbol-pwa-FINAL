@@ -98,7 +98,10 @@ function resetImportModal() {
 function downloadTemplate(format) {
     // 📋 ENCABEZADOS CON TODOS LOS CAMPOS ACTUALES
     const headers = [
-        '🔴 nombre',
+        '🔴 primer_nombre',
+        'segundo_nombre',
+        '🔴 primer_apellido',
+        'segundo_apellido',
         '🔴 fecha_nacimiento',
         '🔴 categoria',
         'posicion',
@@ -122,19 +125,22 @@ function downloadTemplate(format) {
     // 📝 EJEMPLO DE LLENADO CON TODOS LOS DATOS Y MÚLTIPLES FORMATOS DE FECHA
     const examples = [
         // Ejemplo 1: Fecha en formato YYYY-MM-DD (ISO)
-        ['Juan Pérez García', '2015-03-15', 'Categoría 2015', 'Delantero Centro', '10', 'M', 'CC', '1234567890', 'padre@email.com', '3001234567', '3009876543', 'Calle 123 #45-67', '3201234567', 'O+', 'Sura', 'A1', 'Ninguna', 'Ninguno', 'Ninguna'],
+        ['Juan', '', 'Pérez', 'García', '2015-03-15', 'Categoría 2015', 'Delantero Centro', '10', 'M', 'CC', '1234567890', 'padre@email.com', '3001234567', '3009876543', 'Calle 123 #45-67', '3201234567', 'O+', 'Sura', 'A1', 'Ninguna', 'Ninguno', 'Ninguna'],
         // Ejemplo 2: Fecha en formato DD/MM/YYYY (español)
-        ['María López Torres', '15/03/2015', 'Categoría 2015', 'Delantera', '7', 'M', 'TI', '9876543210', 'madre@email.com', '3109876543', '3109999999', 'Carrera 45 #12-34', '3201111111', 'A+', 'Famisanar', 'A2', 'Ninguna', 'Ninguno', 'Ninguna'],
+        ['María', 'Alejandra', 'López', 'Torres', '15/03/2015', 'Categoría 2015', 'Delantera', '7', 'M', 'TI', '9876543210', 'madre@email.com', '3109876543', '3109999999', 'Carrera 45 #12-34', '3201111111', 'A+', 'Famisanar', 'A2', 'Ninguna', 'Ninguno', 'Ninguna'],
         // Ejemplo 3: Fecha en formato DD-MM-YYYY (con guiones)
-        ['Carlos Rodríguez Díaz', '20-05-2014', 'Categoría 2014', 'Lateral', '3', 'S', 'CC', '5555555555', 'carlos@email.com', '3214567890', '3214444444', 'Avenida 99 #88-77', '3202222222', 'B-', 'Ascendis', 'B', 'Penicilina', 'Asma inhaler', 'Ninguna'],
+        ['Carlos', 'Andrés', 'Rodríguez', 'Díaz', '20-05-2014', 'Categoría 2014', 'Lateral', '3', 'S', 'CC', '5555555555', 'carlos@email.com', '3214567890', '3214444444', 'Avenida 99 #88-77', '3202222222', 'B-', 'Ascendis', 'B', 'Penicilina', 'Asma inhaler', 'Ninguna'],
         // Ejemplo 4: Fecha alternativa DD/MM/YYYY
-        ['Laura Martínez Silva', '10/11/2016', 'Categoría 2016', 'Portera', '1', 'XS', 'RC', '7777777777', 'laura@email.com', '3001111111', '', 'Pasaje 5 #10-20', '', 'AB+', 'EPS Sanitas', 'C', 'Ninguna', 'Ninguno', 'Asma']
+        ['Laura', '', 'Martínez', 'Silva', '10/11/2016', 'Categoría 2016', 'Portera', '1', 'XS', 'RC', '7777777777', 'laura@email.com', '3001111111', '', 'Pasaje 5 #10-20', '', 'AB+', 'EPS Sanitas', 'C', 'Ninguna', 'Ninguno', 'Asma']
     ];
     
     // 📌 DESCRIPCIÓN DE CAMPOS (segunda hoja para referencia)
     const descripciones = [
         ['CAMPO', 'DESCRIPCIÓN', 'FORMATOS ACEPTADOS', 'OBLIGATORIO'],
-        ['nombre', 'Nombre completo del jugador', 'Texto (ej: Juan Pérez García)', 'SÍ'],
+        ['primer_nombre', 'Primer nombre del jugador', 'Texto (ej: Juan)', 'SÍ'],
+        ['segundo_nombre', 'Segundo nombre (opcional)', 'Texto (ej: Andrés)', 'NO'],
+        ['primer_apellido', 'Primer apellido', 'Texto (ej: Pérez)', 'SÍ'],
+        ['segundo_apellido', 'Segundo apellido (opcional)', 'Texto (ej: García)', 'NO'],
         ['fecha_nacimiento', 'Fecha de nacimiento del jugador', 'YYYY-MM-DD, DD/MM/YYYY, DD-MM-YYYY, "15 de marzo de 2015"', 'SÍ'],
         ['categoria', 'Categoría o año de nacimiento', 'Texto (ej: Categoría 2015, Sub-12)', 'SÍ'],
         ['posicion', 'Posición en la cancha', 'Delantero, Lateral, Portero, Mediocampista, Defensa', 'NO'],
@@ -515,9 +521,25 @@ function mapRowToPlayer(headers, row) {
         // Normalizar el nombre de la columna
         const normalizedHeader = header.toLowerCase().replace(/[^\w]/g, '');
         
-        // NOMBRE
+        // NOMBRE COMPLETO (compatibilidad con plantillas antiguas)
         if (['nombre', 'name', 'nombrecompleto'].includes(normalizedHeader)) {
             player.name = value;
+        }
+        // PRIMER NOMBRE
+        else if (['primernombre', 'firstname', 'nombre1'].includes(normalizedHeader)) {
+            player._primerNombre = value;
+        }
+        // SEGUNDO NOMBRE
+        else if (['segundonombre', 'middlename', 'nombre2'].includes(normalizedHeader)) {
+            player._segundoNombre = value;
+        }
+        // PRIMER APELLIDO
+        else if (['primerapellido', 'lastname', 'apellido', 'apellido1'].includes(normalizedHeader)) {
+            player._primerApellido = value;
+        }
+        // SEGUNDO APELLIDO
+        else if (['segundoapellido', 'secondlastname', 'apellido2'].includes(normalizedHeader)) {
+            player._segundoApellido = value;
         }
         // FECHA NACIMIENTO
         else if (['fechanacimiento', 'birthdate', 'birthdate', 'nacimiento', 'fecha'].includes(normalizedHeader)) {
@@ -593,8 +615,22 @@ function mapRowToPlayer(headers, row) {
         }
     });
     
+    // Ensamblar nombre completo desde los campos separados (si se usó la nueva plantilla)
+    if (player._primerNombre || player._primerApellido) {
+        player.name = [
+            player._primerNombre,
+            player._segundoNombre,
+            player._primerApellido,
+            player._segundoApellido
+        ].filter(p => p && p.trim()).join(' ');
+        delete player._primerNombre;
+        delete player._segundoNombre;
+        delete player._primerApellido;
+        delete player._segundoApellido;
+    }
+
     // ✅ VALIDACIONES MEJORADAS
-    
+
     // Campo obligatorio: NOMBRE
     if (!player.name || player.name.length < 3) {
         player.isValid = false;
