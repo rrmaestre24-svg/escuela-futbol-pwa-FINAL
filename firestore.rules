@@ -72,6 +72,13 @@ service cloud.firestore {
       allow write: if request.auth != null;
     }
 
+    // ── Sugerencias ─────────────────────────────────────────
+    // Cualquier usuario autenticado puede leer y escribir
+    // sus propias sugerencias (admin y portal de padres).
+    match /suggestions/{docId} {
+      allow read, write: if request.auth != null;
+    }
+
     // ── Licencias (colección raíz) ──────────────────────────
     // El sistema guarda y lee licencias en licenses/{clubId}.
     // Cualquier usuario autenticado puede leer/escribir su licencia.
