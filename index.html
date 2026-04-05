@@ -15,7 +15,7 @@
 
     <!-- Tailwind CSS vía CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>tailwind.config = { darkMode: 'class', theme: { extend: { colors: { primary: '#0d9488', secondary: '#2563eb' } } } }</script>
+    <script src="js/tailwind-config.js"></script>
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
 
@@ -36,89 +36,6 @@
     <link rel="apple-touch-icon" sizes="180x180" href="assets/icons/icon-192x192.png">
     <!-- Custom CSS -->
     <link rel="stylesheet" href="css/styles.css">
-    <style>
-        /* Animaciones para el modal de sugerencias */
-        @keyframes scale-in {
-            from {
-                opacity: 0;
-                transform: scale(0.95);
-            }
-
-            to {
-                opacity: 1;
-                transform: scale(1);
-            }
-        }
-
-        .animate-scale-in {
-            animation: scale-in 0.2s ease-out;
-        }
-
-        @keyframes pulse-slow {
-
-            0%,
-            100% {
-                opacity: 1;
-            }
-
-            50% {
-                opacity: 0.7;
-            }
-        }
-
-        .animate-pulse-slow {
-            animation: pulse-slow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-        }
-
-        body.has-watermark::before {
-            content: '';
-            position: fixed;
-            inset: 0;
-            background-image: var(--club-logo-url, none);
-            background-repeat: no-repeat;
-            background-position: center center;
-            background-size: contain;
-            opacity: 0.08;
-            /* Más bajo para no competir con el contenido */
-            pointer-events: none;
-            z-index: 0;
-            image-rendering: -webkit-optimize-contrast;
-            image-rendering: crisp-edges;
-            transform: translateZ(0);
-        }
-
-        /* 🆕 Notificaciones Expansibles (Press to Peek) */
-        .notif-card {
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-            cursor: pointer;
-            -webkit-user-select: none;
-            user-select: none;
-            position: relative;
-        }
-
-        .notif-card.is-expanded {
-            background-color: white !important;
-            transform: scale(1.01);
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-            z-index: 10;
-            border-color: #0d9488 !important;
-        }
-
-        .dark .notif-card.is-expanded {
-            background-color: #1f2937 !important;
-        }
-
-        .notif-card.is-expanded .truncate {
-            white-space: normal !important;
-            overflow: visible !important;
-        }
-
-        .notif-card.is-expanded .line-clamp-1 {
-            display: block !important;
-            -webkit-line-clamp: unset !important;
-            line-clamp: unset !important;
-        }
-    </style>
 </head>
 
 <body class="bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
@@ -2513,39 +2430,7 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
     <script src="js/import-players.js"></script>
     <script src="js/session-check.js"></script>
     <script src="js/vibration.js"></script>
-    <script>
-        // Inicializar Firebase automáticamente
-        if (typeof initFirebase === 'function') {
-            initFirebase();
-        }
-
-        // Inicializar Lucide Icons
-        lucide.createIcons();
-
-        // Registrar Service Worker
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js').then(registration => {
-                // Detectar nueva versión disponible
-                registration.addEventListener('updatefound', () => {
-                    const newWorker = registration.installing;
-                    newWorker.addEventListener('statechange', () => {
-                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                            // Usar modal personalizado en lugar de confirm() nativo
-                            if (typeof showUpdateModal === 'function') {
-                                showUpdateModal(() => {
-                                    newWorker.postMessage({ type: 'SKIP_WAITING' });
-                                    window.location.reload();
-                                });
-                            } else {
-                                newWorker.postMessage({ type: 'SKIP_WAITING' });
-                                window.location.reload();
-                            }
-                        }
-                    });
-                });
-            }).catch(err => console.log('❌ Error al registrar SW', err));
-        }
-    </script>
+    <script src="js/bootstrap.js"></script>
 
     <!-- Botón Flotante de Instalación -->
     <button id="installButtonFloat"

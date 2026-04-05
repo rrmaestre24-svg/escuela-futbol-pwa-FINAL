@@ -1,4 +1,4 @@
-const CACHE_NAME = 'my-club-v1.0.41';
+const CACHE_NAME = 'my-club-v1.0.42';
 
 const urlsToCache = [
   '/',
@@ -60,6 +60,8 @@ const urlsToCache = [
   '/js/session-check.js',
   '/js/vibration.js',
   '/js/suggestions.js',
+  '/js/tailwind-config.js',
+  '/js/bootstrap.js',
 
   // PORTAL PADRES
   '/js/parent-portal.js'
