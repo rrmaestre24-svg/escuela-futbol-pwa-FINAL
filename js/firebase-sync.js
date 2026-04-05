@@ -138,6 +138,22 @@ function getClubId() {
 }
 
 /**
+ * Procesa un array de items en lotes paralelos.
+ * chunkSize controla cuántos se suben a la vez para no saturar Firebase ni el CPU.
+ * Usa Promise.allSettled para que un error en un item no detenga los demás.
+ * Devuelve la cantidad de items procesados exitosamente.
+ */
+async function processInChunks(items, chunkSize, processor) {
+  let successCount = 0;
+  for (let i = 0; i < items.length; i += chunkSize) {
+    const chunk = items.slice(i, i + chunkSize);
+    const results = await Promise.allSettled(chunk.map(processor));
+    successCount += results.filter(r => r.status === 'fulfilled' && r.value === true).length;
+  }
+  return successCount;
+}
+
+/**
  * ✅ Sube todos los datos locales a Firebase - CORREGIDO PARA USUARIOS SECUNDARIOS
  */
 async function syncAllToFirebase() {
@@ -177,115 +193,95 @@ async function syncAllToFirebase() {
       console.log('⏭️ Configuración del club omitida (solo admin principal puede editarla)');
     }
 
-    // 2️⃣ Jugadores - ✅ TODOS LOS ADMINS (con compresión de avatar)
-    const players = getAllPlayers() || [];
-    let playersCount = 0;
-    for (const player of players) {
-      if (player.id) {
-        // ✅ Comprimir avatar antes de subir
-        const preparedPlayer = await preparePlayerForFirebase(player);
-        await window.firebase.setDoc(
-          window.firebase.doc(window.firebase.db, `clubs/${clubId}/players`, preparedPlayer.id),
-          preparedPlayer
-        );
-        playersCount++;
-      }
-    }
+    // 2️⃣ Jugadores - lotes de 5 (tienen compresión de imagen, pesado para el CPU)
+    const players = (getAllPlayers() || []).filter(p => p.id);
+    const playersCount = await processInChunks(players, 5, async (player) => {
+      const preparedPlayer = await preparePlayerForFirebase(player);
+      await window.firebase.setDoc(
+        window.firebase.doc(window.firebase.db, `clubs/${clubId}/players`, preparedPlayer.id),
+        preparedPlayer
+      );
+      return true;
+    });
     console.log(`✅ ${playersCount} jugadores subidos`);
     syncedItems.push(`${playersCount} jugadores`);
 
-    // 3️⃣ Pagos - ✅ TODOS LOS ADMINS
-    const payments = getPayments() || [];
-    let paymentsCount = 0;
-    for (const payment of payments) {
-      if (payment.id) {
-        await window.firebase.setDoc(
-          window.firebase.doc(window.firebase.db, `clubs/${clubId}/payments`, payment.id),
-          payment
-        );
-        paymentsCount++;
-      }
-    }
+    // 3️⃣ Pagos - lotes de 20 (sin compresión, más rápido)
+    const payments = (getPayments() || []).filter(p => p.id);
+    const paymentsCount = await processInChunks(payments, 20, async (payment) => {
+      await window.firebase.setDoc(
+        window.firebase.doc(window.firebase.db, `clubs/${clubId}/payments`, payment.id),
+        payment
+      );
+      return true;
+    });
     console.log(`✅ ${paymentsCount} pagos subidos`);
     syncedItems.push(`${paymentsCount} pagos`);
 
-    // 4️⃣ Eventos - ✅ TODOS LOS ADMINS
-    const events = getCalendarEvents() || [];
-    let eventsCount = 0;
-    for (const event of events) {
-      if (event.id) {
-        await window.firebase.setDoc(
-          window.firebase.doc(window.firebase.db, `clubs/${clubId}/events`, event.id),
-          event
-        );
-        eventsCount++;
-      }
-    }
+    // 4️⃣ Eventos - lotes de 20
+    const events = (getCalendarEvents() || []).filter(e => e.id);
+    const eventsCount = await processInChunks(events, 20, async (event) => {
+      await window.firebase.setDoc(
+        window.firebase.doc(window.firebase.db, `clubs/${clubId}/events`, event.id),
+        event
+      );
+      return true;
+    });
     console.log(`✅ ${eventsCount} eventos subidos`);
     syncedItems.push(`${eventsCount} eventos`);
 
-    // 5️⃣ Usuarios - ⚠️ SOLO ADMIN PRINCIPAL puede sincronizar usuarios
+    // 5️⃣ Usuarios - ⚠️ SOLO ADMIN PRINCIPAL — lotes de 5 (tienen compresión de imagen)
     if (currentUser.isMainAdmin) {
-      const users = getUsers() || [];
-      let usersCount = 0;
-      for (const user of users) {
-        if (user.id) {
-          // ✅ Comprimir avatar de usuario si es muy grande
-          let compressedAvatar = user.avatar || '';
-          if (compressedAvatar && compressedAvatar.length > 500000) {
-            compressedAvatar = await compressImageForFirebase(compressedAvatar, 300, 0.5);
-          }
-          
-          await window.firebase.setDoc(
-            window.firebase.doc(window.firebase.db, `clubs/${clubId}/users`, user.id),
-            {
-              id: user.id,
-              email: user.email,
-              name: user.name,
-              isMainAdmin: user.isMainAdmin || false,
-              role: user.role || 'admin',
-              avatar: compressedAvatar,
-              phone: user.phone || '',
-              birthDate: user.birthDate || '',
-              createdAt: user.createdAt || new Date().toISOString()
-            }
-          );
-          usersCount++;
+      const users = (getUsers() || []).filter(u => u.id);
+      const usersCount = await processInChunks(users, 5, async (user) => {
+        // ✅ Comprimir avatar de usuario si es muy grande
+        let compressedAvatar = user.avatar || '';
+        if (compressedAvatar && compressedAvatar.length > 500000) {
+          compressedAvatar = await compressImageForFirebase(compressedAvatar, 300, 0.5);
         }
-      }
+        await window.firebase.setDoc(
+          window.firebase.doc(window.firebase.db, `clubs/${clubId}/users`, user.id),
+          {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            isMainAdmin: user.isMainAdmin || false,
+            role: user.role || 'admin',
+            avatar: compressedAvatar,
+            phone: user.phone || '',
+            birthDate: user.birthDate || '',
+            createdAt: user.createdAt || new Date().toISOString()
+          }
+        );
+        return true;
+      });
       console.log(`✅ ${usersCount} usuarios subidos`);
       syncedItems.push(`${usersCount} usuarios`);
     } else {
       console.log('⏭️ Gestión de usuarios omitida (solo admin principal puede agregar/eliminar usuarios)');
     }
-    
-    // 6️⃣ Egresos - ✅ TODOS LOS ADMINS
-    const expenses = getExpenses() || [];
-    let expensesCount = 0;
-    for (const expense of expenses) {
-      if (expense.id) {
-        await window.firebase.setDoc(
-          window.firebase.doc(window.firebase.db, `clubs/${clubId}/expenses`, expense.id),
-          expense
-        );
-        expensesCount++;
-      }
-    }
+
+    // 6️⃣ Egresos - lotes de 20
+    const expenses = (getExpenses() || []).filter(e => e.id);
+    const expensesCount = await processInChunks(expenses, 20, async (expense) => {
+      await window.firebase.setDoc(
+        window.firebase.doc(window.firebase.db, `clubs/${clubId}/expenses`, expense.id),
+        expense
+      );
+      return true;
+    });
     console.log(`✅ ${expensesCount} egresos subidos`);
     syncedItems.push(`${expensesCount} egresos`);
 
-    // 7️⃣ Ingresos de Terceros
-    const thirdPartyIncomes = getThirdPartyIncomes() || [];
-    let thirdPartyCount = 0;
-    for (const income of thirdPartyIncomes) {
-      if (income.id) {
-        await window.firebase.setDoc(
-          window.firebase.doc(window.firebase.db, `clubs/${clubId}/thirdPartyIncomes`, income.id),
-          income
-        );
-        thirdPartyCount++;
-      }
-    }
+    // 7️⃣ Ingresos de Terceros - lotes de 20
+    const thirdPartyIncomes = (getThirdPartyIncomes() || []).filter(i => i.id);
+    const thirdPartyCount = await processInChunks(thirdPartyIncomes, 20, async (income) => {
+      await window.firebase.setDoc(
+        window.firebase.doc(window.firebase.db, `clubs/${clubId}/thirdPartyIncomes`, income.id),
+        income
+      );
+      return true;
+    });
     console.log(`✅ ${thirdPartyCount} otros ingresos subidos`);
     syncedItems.push(`${thirdPartyCount} otros ingresos`);
 
