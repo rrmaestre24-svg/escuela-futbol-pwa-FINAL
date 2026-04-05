@@ -177,13 +177,12 @@ console.log('✅ Funciones de modal de pagos cargadas');
 // Mostrar/ocultar campos según estado
 document.getElementById('paymentStatus')?.addEventListener('change', function() {
   const status = this.value;
-  
+
+  // La fecha de pago siempre se muestra y mantiene su valor
+  // Solo el método de pago se oculta si el estado es Pendiente
   if (status === 'Pagado') {
-    document.getElementById('paidDateContainer').classList.remove('hidden');
     document.getElementById('paymentMethodContainer').classList.remove('hidden');
-    document.getElementById('paymentPaidDate').value = getCurrentDate();
   } else {
-    document.getElementById('paidDateContainer').classList.add('hidden');
     document.getElementById('paymentMethodContainer').classList.add('hidden');
   }
 });

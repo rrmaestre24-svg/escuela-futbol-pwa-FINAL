@@ -156,8 +156,8 @@ function confirmAction(message) {
   return confirm(message);
 }
 
-// Obtener fecha actual
-function getCurrentDate() {
+// Obtener fecha y hora actual en formato ISO (para Firestore)
+function getCurrentDateTime() {
   return new Date().toISOString();
 }
 
@@ -1029,7 +1029,7 @@ const completeRegistration = async (clubLogo, adminAvatar) => {
         avatar: adminAvatar,
         role: 'admin',
         isMainAdmin: true,
-        createdAt: getCurrentDate()
+        createdAt: getCurrentDateTime()
       };
       
       saveUser(newUser);

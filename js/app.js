@@ -365,11 +365,7 @@ window.addEventListener('click', function(e) {
       closePlayerDetailsModal();
     }
   }
-  if (e.target.id === 'paymentModal') {
-    if (typeof closePaymentModal === 'function') {
-      closePaymentModal();
-    }
-  }
+  // paymentModal no se cierra al tocar el fondo — solo con X o Guardar
   if (e.target.id === 'eventModal') {
     if (typeof closeEventModal === 'function') {
       closeEventModal();
