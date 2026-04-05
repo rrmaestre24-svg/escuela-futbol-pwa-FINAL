@@ -41,14 +41,22 @@ service cloud.firestore {
     }
 
     // ── Códigos de activación ───────────────────────────────
-    // Cualquier usuario autenticado puede leer un código (para validarlo).
-    // Solo el super admin escribe desde Firebase Console.
+    // Lectura: cualquier usuario autenticado (para validar el código).
+    // Escritura: necesaria para marcar el código como usado al activarlo.
     match /activation_codes/{code} {
       allow read: if request.auth != null;
-      allow write: if false;
+      allow write: if request.auth != null;
     }
 
-    // ── Licencias ───────────────────────────────────────────
+    // ── Licencias (colección raíz) ──────────────────────────
+    // El sistema guarda y lee licencias en licenses/{clubId}.
+    // Cualquier usuario autenticado puede leer/escribir su licencia.
+    match /licenses/{clubId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+
+    // ── Licencias (ruta alternativa bajo superadmin) ────────
     match /superadmin/{document=**} {
       allow read: if request.auth != null;
       allow write: if false;
