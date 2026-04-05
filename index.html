@@ -19,8 +19,9 @@
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
 
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <!-- Chart.js — defer: se descarga en paralelo, no bloquea el renderizado inicial -->
+    <!-- Solo se usa en la vista de Contabilidad, nunca en la carga inicial -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" defer></script>
 
     <!-- jsPDF y XLSX se cargan bajo demanda cuando el usuario los necesita (ver js/pdf.js e import-players.js) -->
 
