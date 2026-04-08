@@ -51,6 +51,10 @@ service cloud.firestore {
       // Notificaciones que el admin envía al entrenador
       allow read, write: if request.auth != null;
     }
+    match /clubs/{clubId}/moroso_alerts/{document} {
+      // Alertas de morosos — el entrenador las genera con auth anónima
+      allow read, write: if request.auth != null;
+    }
     // Documento raíz del club: para mostrar el nombre del club en la app
     match /clubs/{clubId} {
       allow read: if request.auth != null;
