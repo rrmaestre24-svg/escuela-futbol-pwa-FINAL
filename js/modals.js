@@ -112,8 +112,13 @@ function sendExpenseInvoiceWhatsAppManual(expenseId, phone) {
 }
 
 // ============================================================
-// 🆕 MODAL DE SELECCIÓN DE FOTO (Tomar foto / Elegir galería)
+// 📷 MODAL DE SELECCIÓN DE FOTO (Tomar foto / Elegir galería)
+// Usa cámara IN-APP (getUserMedia) para evitar el reinicio de
+// la PWA en Android al abrir la app de cámara del sistema.
 // ============================================================
+
+let _pickerCameraStream  = null;
+let _pickerFacingMode    = 'user'; // 'user'=frontal, 'environment'=trasera
 
 /**
  * Mostrar modal de cambio de foto
@@ -122,10 +127,10 @@ function sendExpenseInvoiceWhatsAppManual(expenseId, phone) {
  * @param {function} [onSelect]  - Callback opcional (base64) => void
  */
 function showPhotoPickerModal(targetImgId, targetInputId, onSelect) {
-  // Guardar contexto
+  // Guardar contexto para usarlo después de capturar/seleccionar
   window._photoPickerCtx = { targetImgId, targetInputId, onSelect };
 
-  // Eliminar modal anterior para recrearlo limpio (evita inputs sucios)
+  // Eliminar modal anterior para recrearlo limpio
   const old = document.getElementById('photoPickerModal');
   if (old) old.remove();
 
@@ -146,21 +151,20 @@ function showPhotoPickerModal(targetImgId, targetInputId, onSelect) {
         </button>
       </div>
 
-      <!-- Opciones — cada opción es un <label> que activa su input directamente -->
+      <!-- Opciones -->
       <div class="px-4 pb-5 space-y-3">
 
-        <!-- Tomar foto: capture="environment" abre la cámara trasera en móvil -->
-        <label class="w-full bg-gradient-to-r from-blue-500 to-blue-600 active:scale-95 text-white rounded-2xl p-4 flex items-center gap-4 transition-all shadow-lg cursor-pointer">
+        <!-- Tomar foto: abre cámara in-app (sin salir de la PWA) -->
+        <button onclick="closePhotoPickerModal(); _openPickerCamera();"
+          class="w-full bg-gradient-to-r from-blue-500 to-blue-600 active:scale-95 text-white rounded-2xl p-4 flex items-center gap-4 transition-all shadow-lg">
           <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0 text-2xl">📷</div>
           <div class="text-left">
             <p class="font-bold text-base">Tomar foto</p>
             <p class="text-sm text-blue-100">Usar la cámara del dispositivo</p>
           </div>
-          <input type="file" accept="image/*" capture="environment" class="hidden"
-                 onchange="photoPickerHandleFile(this)">
-        </label>
+        </button>
 
-        <!-- Elegir de galería: sin capture para mostrar la galería -->
+        <!-- Elegir de galería: input sin capture (solo galería) -->
         <label class="w-full bg-gradient-to-r from-purple-500 to-pink-500 active:scale-95 text-white rounded-2xl p-4 flex items-center gap-4 transition-all shadow-lg cursor-pointer">
           <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0 text-2xl">🖼️</div>
           <div class="text-left">
@@ -187,7 +191,150 @@ function closePhotoPickerModal() {
   if (modal) modal.remove();
 }
 
-// Estas funciones se mantienen vacías para no romper llamadas existentes en el código
+// ── Cámara in-app: abre un modal con video en vivo ──────────────────────────
+
+async function _openPickerCamera() {
+  // Fallback a galería si el navegador no soporta getUserMedia
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    _openPickerGalleryFallback();
+    return;
+  }
+
+  _pickerFacingMode = 'user'; // empezar con cámara frontal
+  _buildPickerCameraModal();
+  await _startPickerCameraStream();
+}
+
+function _buildPickerCameraModal() {
+  const old = document.getElementById('pickerCameraModal');
+  if (old) old.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'pickerCameraModal';
+  modal.className = 'fixed inset-0 z-[400] bg-black flex flex-col';
+  modal.innerHTML = `
+    <!-- Barra superior -->
+    <div style="background:rgba(0,0,0,0.75)" class="flex items-center justify-between px-4 py-3 flex-shrink-0">
+      <button onclick="_closePickerCamera()" class="text-white text-sm font-semibold px-3 py-2 rounded-xl" style="background:rgba(255,255,255,0.2)">✕ Cancelar</button>
+      <span class="text-white font-bold text-sm">Tomar foto</span>
+      <button onclick="_flipPickerCamera()" class="text-white text-sm font-semibold px-3 py-2 rounded-xl" style="background:rgba(255,255,255,0.2)">🔄 Voltear</button>
+    </div>
+    <!-- Video -->
+    <div class="flex-1 relative overflow-hidden">
+      <video id="pickerCameraVideo" autoplay playsinline muted class="w-full h-full object-cover"></video>
+      <!-- Guía circular -->
+      <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+        <div style="width:220px;height:220px;border-radius:50%;border:4px solid rgba(255,255,255,0.5)"></div>
+      </div>
+    </div>
+    <!-- Controles -->
+    <div style="background:rgba(0,0,0,0.75)" class="flex-shrink-0 px-4 pt-4 pb-8 flex items-center justify-between">
+      <!-- Galería como alternativa -->
+      <label class="flex flex-col items-center gap-1 cursor-pointer">
+        <div style="width:48px;height:48px;border-radius:12px;background:rgba(255,255,255,0.2)" class="flex items-center justify-center text-2xl">🖼</div>
+        <span class="text-xs text-white/70">Galería</span>
+        <input type="file" accept="image/*" class="hidden" onchange="_pickerGalleryFromCamera(this)">
+      </label>
+      <!-- Botón capturar (centro) -->
+      <button onclick="_capturePickerPhoto()"
+        style="width:80px;height:80px;border-radius:50%;border:4px solid #14b8a6;background:white;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 32px rgba(0,0,0,0.4)">
+        <div style="width:56px;height:56px;border-radius:50%;background:#14b8a6"></div>
+      </button>
+      <!-- Espacio simétrico -->
+      <div style="width:64px"></div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+}
+
+async function _startPickerCameraStream() {
+  if (_pickerCameraStream) {
+    _pickerCameraStream.getTracks().forEach(t => t.stop());
+    _pickerCameraStream = null;
+  }
+  try {
+    _pickerCameraStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: _pickerFacingMode, width: { ideal: 1280 }, height: { ideal: 720 } },
+      audio: false
+    });
+    const video = document.getElementById('pickerCameraVideo');
+    if (video) video.srcObject = _pickerCameraStream;
+  } catch (err) {
+    // Sin permiso de cámara → ir a galería
+    _closePickerCamera();
+    _openPickerGalleryFallback();
+    showToast('ℹ️ Sin acceso a cámara — selecciona desde galería');
+  }
+}
+
+async function _flipPickerCamera() {
+  _pickerFacingMode = _pickerFacingMode === 'user' ? 'environment' : 'user';
+  await _startPickerCameraStream();
+}
+
+function _capturePickerPhoto() {
+  const video = document.getElementById('pickerCameraVideo');
+  if (!video || !video.videoWidth) { showToast('⏳ Cámara iniciando...'); return; }
+
+  // Recortar cuadrado centrado para foto de perfil
+  const size    = Math.min(video.videoWidth, video.videoHeight);
+  const offsetX = (video.videoWidth  - size) / 2;
+  const offsetY = (video.videoHeight - size) / 2;
+  const MAX = 300;
+
+  const canvas = document.createElement('canvas');
+  canvas.width  = MAX;
+  canvas.height = MAX;
+  canvas.getContext('2d').drawImage(video, offsetX, offsetY, size, size, 0, 0, MAX, MAX);
+
+  const base64 = canvas.toDataURL('image/jpeg', 0.85);
+  _closePickerCamera();
+  _applyPhotoToContext(base64);
+}
+
+function _pickerGalleryFromCamera(input) {
+  _closePickerCamera();
+  photoPickerHandleFile(input);
+}
+
+function _closePickerCamera() {
+  if (_pickerCameraStream) {
+    _pickerCameraStream.getTracks().forEach(t => t.stop());
+    _pickerCameraStream = null;
+  }
+  const video = document.getElementById('pickerCameraVideo');
+  if (video) video.srcObject = null;
+  const modal = document.getElementById('pickerCameraModal');
+  if (modal) modal.remove();
+}
+
+// Fallback: abre un input de galería temporal cuando no hay cámara
+function _openPickerGalleryFallback() {
+  const tmp = document.createElement('input');
+  tmp.type = 'file';
+  tmp.accept = 'image/*';
+  tmp.className = 'hidden';
+  tmp.onchange = function() { photoPickerHandleFile(tmp); };
+  document.body.appendChild(tmp);
+  tmp.click();
+  setTimeout(() => tmp.remove(), 5000);
+}
+
+// Aplica el base64 capturado al contexto guardado (img preview + callback)
+function _applyPhotoToContext(base64) {
+  const ctx = window._photoPickerCtx || {};
+
+  if (ctx.targetImgId) {
+    const img = document.getElementById(ctx.targetImgId);
+    if (img) img.src = base64;
+  }
+  if (typeof ctx.onSelect === 'function') {
+    ctx.onSelect(base64, null);
+  }
+  showToast('✅ Foto capturada');
+}
+
+// Estas funciones se mantienen para no romper llamadas antiguas en el código
 function photoPickerCapture() {}
 function photoCameraCapture() {}
 function photoCameraStop() {}
@@ -260,6 +407,12 @@ window.photoPickerGallery     = photoPickerGallery;
 window.photoPickerHandleFile  = photoPickerHandleFile;
 window.photoCameraCapture     = photoCameraCapture;
 window.photoCameraStop        = photoCameraStop;
+// Cámara in-app
+window._openPickerCamera      = _openPickerCamera;
+window._closePickerCamera     = _closePickerCamera;
+window._flipPickerCamera      = _flipPickerCamera;
+window._capturePickerPhoto    = _capturePickerPhoto;
+window._pickerGalleryFromCamera = _pickerGalleryFromCamera;
 window.showInvoiceProgressModal  = showInvoiceProgressModal;
 window.closeInvoiceProgressModal = closeInvoiceProgressModal;
 window.showManualWhatsAppModal   = showManualWhatsAppModal;
