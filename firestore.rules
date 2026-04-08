@@ -123,9 +123,9 @@ service cloud.firestore {
     }
 
     // ── Facturación (Super Admin) ───────────────────────────
-    // Registro de pagos/facturas de licencias entre clubes y la plataforma.
+    // Solo el super admin puede ver y gestionar las facturas.
     match /billing/{docId} {
-      allow read, write: if request.auth != null;
+      allow read, write: if isSuperAdmin();
     }
 
     // ── Super Admin: datos de cuentas de administrador ──────
