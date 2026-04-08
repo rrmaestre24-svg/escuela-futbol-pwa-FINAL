@@ -128,40 +128,47 @@ function getVirtualNotifications() {
 
   players.forEach(player => {
     const playerPayments = allPayments.filter(p => p.playerId === player.id);
-    
-    // 🆕 Lógica: Solo avisar desde la primera factura del niño
-    let firstPaymentDate = null;
-    if (playerPayments.length > 0) {
-      const dates = playerPayments.map(p => new Date(p.date).getTime());
-      firstPaymentDate = new Date(Math.min(...dates));
-    }
-    
+
+    // Sin facturas → no generar ninguna notificación para este jugador
+    if (playerPayments.length === 0) return;
+
+    // Obtener la fecha de la primera factura usando paidDate o dueDate
+    const dates = playerPayments
+      .map(p => new Date(p.paidDate || p.dueDate))
+      .filter(d => !isNaN(d.getTime()))
+      .map(d => d.getTime());
+
+    if (dates.length === 0) return; // Si todas las fechas son inválidas, saltar
+
+    const firstPaymentDate = new Date(Math.min(...dates));
+
+    // Notificar solo desde el mes SIGUIENTE a la primera factura
+    // Ejemplo: primera factura en abril → notificar desde mayo en adelante
+    const notifyFromMonth = new Date(firstPaymentDate.getFullYear(), firstPaymentDate.getMonth() + 1, 1).getTime();
+
     // Buscar para cada mes objetivo si está cubierto
     for (const target of targets) {
       const notifId = `virtual_${player.id}_${target.month}_${target.year}`;
-      
-      // 🆕 1. Ignorar si está omitida manualmente
+
+      // 1. Ignorar si está omitida manualmente
       if (isDismissed(notifId)) continue;
-      
-      // 🆕 2. Ignorar meses anteriores a su ingreso (primera factura)
-      if (firstPaymentDate) {
-        const targetMonthStart = new Date(target.year, target.month, 1).getTime();
-        const startMonthStart = new Date(firstPaymentDate.getFullYear(), firstPaymentDate.getMonth(), 1).getTime();
-        if (targetMonthStart < startMonthStart) continue;
-      }
+
+      // 2. Ignorar meses anteriores o iguales al mes de la primera factura
+      const targetMonthStart = new Date(target.year, target.month, 1).getTime();
+      if (targetMonthStart < notifyFromMonth) continue;
 
       const pConcept = target.name.toLowerCase();
       const isPaid = playerPayments.some(p => {
-        const pDate = new Date(p.date);
+        const pDate = new Date(p.paidDate || p.dueDate);
         const pConceptStr = (p.concept || '').toLowerCase();
-        
+
         // Cubierto si:
         // 1. Es mensualidad y la fecha coincide con el mes/año
         // 2. O el concepto menciona el nombre del mes
         const isMonthly = p.type === 'Mensualidad' || pConceptStr.includes('mensua');
         const sameMonth = pDate.getMonth() === target.month && pDate.getFullYear() === target.year;
         const mentionsMonth = pConceptStr.includes(pConcept);
-        
+
         return isMonthly && (sameMonth || mentionsMonth) && (p.status === 'Pagado' || p.status === 'Pendiente');
       });
 
