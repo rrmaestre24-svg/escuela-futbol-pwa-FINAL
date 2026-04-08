@@ -7,6 +7,9 @@ let currentPaymentMode = 'ingreso'; // 'ingreso' o 'egreso'
 // Variables para el buscador de jugadores
 let selectedPlayerId = null;
 let filteredPlayers = [];
+// Variables para el filtro de fechas del historial
+let historyDateFrom = null;
+let historyDateTo = null;
 
 
 // ========================================
@@ -509,20 +512,10 @@ async function markAsPaid(paymentId) {
 // Renderizar historial completo (INGRESOS + EGRESOS)
 function renderPaymentsHistory(payments, expenses) {
   const tbody = document.getElementById('paymentsHistoryTable');
-  
-  if (payments.length === 0 && expenses.length === 0) {
-    tbody.innerHTML = `
-      <tr>
-        <td colspan="5" class="text-center py-8 text-gray-500 dark:text-gray-400">No hay registros</td>
-      </tr>
-    `;
-    return;
-  }
-  
-  // Combinar pagos y egresos
+
+  // Combinar pagos y egresos en una sola lista
   const allTransactions = [];
-  
-  // Agregar pagos
+
   payments.forEach(p => {
     const player = getPlayerById(p.playerId);
     if (player) {
@@ -532,12 +525,12 @@ function renderPaymentsHistory(payments, expenses) {
         name: player.name,
         concept: p.concept,
         amount: p.amount,
-        status: p.status
+        status: p.status,
+        method: p.method || '—'
       });
     }
   });
-  
-  // Agregar egresos
+
   expenses.forEach(e => {
     allTransactions.push({
       date: e.date,
@@ -545,25 +538,56 @@ function renderPaymentsHistory(payments, expenses) {
       name: e.beneficiaryName,
       concept: e.concept,
       amount: -e.amount,
-      status: 'Pagado'
+      status: 'Pagado',
+      method: e.method || '—'
     });
   });
-  
-  // Ordenar por fecha
-  const sorted = allTransactions.sort((a, b) => new Date(b.date) - new Date(a.date));
-  
-  tbody.innerHTML = sorted.map(t => {
-    const statusColor = t.type === 'ingreso' 
+
+  // Ordenar por fecha descendente
+  allTransactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  // Aplicar filtro de fechas si está activo
+  const filtered = allTransactions.filter(t => {
+    if (historyDateFrom && t.date < historyDateFrom) return false;
+    if (historyDateTo   && t.date > historyDateTo)   return false;
+    return true;
+  });
+
+  // Mostrar resumen del período
+  const summaryEl = document.getElementById('historyFilterSummary');
+  if (summaryEl) {
+    const totalIngresos = filtered.filter(t => t.amount >= 0).reduce((s, t) => s + t.amount, 0);
+    const totalEgresos  = filtered.filter(t => t.amount <  0).reduce((s, t) => s + Math.abs(t.amount), 0);
+    summaryEl.textContent = filtered.length > 0
+      ? `${filtered.length} registros — Ingresos: ${formatCurrency(totalIngresos)} | Egresos: ${formatCurrency(totalEgresos)}`
+      : '';
+  }
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="6" class="text-center py-8 text-gray-500 dark:text-gray-400">No hay registros para el período seleccionado</td>
+      </tr>
+    `;
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(t => {
+    const statusColor = t.type === 'ingreso'
       ? (t.status === 'Pagado' ? 'text-green-600' : 'text-red-600')
       : 'text-red-600';
-    
     const amountColor = t.amount >= 0 ? 'text-green-600' : 'text-red-600';
-    
+
+    // Icono de método de pago
+    const methodIcons = { 'Efectivo': '💵', 'Transferencia': '🏦', 'Tarjeta': '💳', 'Cheque': '📝' };
+    const methodIcon = methodIcons[t.method] || '';
+
     return `
       <tr class="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
-        <td class="py-3 text-gray-800 dark:text-white">${formatDate(t.date)}</td>
+        <td class="py-3 text-gray-800 dark:text-white whitespace-nowrap">${formatDate(t.date)}</td>
         <td class="py-3 text-gray-800 dark:text-white">${t.name}</td>
         <td class="py-3 text-gray-800 dark:text-white">${t.concept}</td>
+        <td class="py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">${methodIcon} ${t.method}</td>
         <td class="py-3 text-right font-medium ${amountColor}">${formatCurrency(Math.abs(t.amount))}</td>
         <td class="py-3 text-center">
           <span class="text-sm font-medium ${statusColor}">
@@ -573,6 +597,232 @@ function renderPaymentsHistory(payments, expenses) {
       </tr>
     `;
   }).join('');
+}
+
+// Aplica un filtro rápido (hoy / esta semana / este mes / todo)
+function setHistoryFilter(preset) {
+  const today = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  const fmt = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+
+  // Resaltar botón activo
+  document.querySelectorAll('.history-filter-btn').forEach(btn => {
+    btn.classList.remove('bg-teal-600', 'text-white');
+    btn.classList.add('bg-gray-200', 'dark:bg-gray-700', 'text-gray-700', 'dark:text-gray-300');
+  });
+  event.target.classList.add('bg-teal-600', 'text-white');
+  event.target.classList.remove('bg-gray-200', 'dark:bg-gray-700', 'text-gray-700', 'dark:text-gray-300');
+
+  if (preset === 'today') {
+    historyDateFrom = fmt(today);
+    historyDateTo   = fmt(today);
+  } else if (preset === 'week') {
+    const mon = new Date(today);
+    mon.setDate(today.getDate() - today.getDay() + 1);
+    historyDateFrom = fmt(mon);
+    historyDateTo   = fmt(today);
+  } else if (preset === 'month') {
+    historyDateFrom = `${today.getFullYear()}-${pad(today.getMonth()+1)}-01`;
+    historyDateTo   = fmt(today);
+  } else {
+    historyDateFrom = null;
+    historyDateTo   = null;
+  }
+
+  // Sincronizar inputs de fecha
+  const fromInput = document.getElementById('historyDateFrom');
+  const toInput   = document.getElementById('historyDateTo');
+  if (fromInput) fromInput.value = historyDateFrom || '';
+  if (toInput)   toInput.value   = historyDateTo   || '';
+
+  // Volver a renderizar con el filtro aplicado
+  const payments = JSON.parse(localStorage.getItem('payments') || '[]');
+  const expenses = JSON.parse(localStorage.getItem('expenses') || '[]');
+  renderPaymentsHistory(payments, expenses);
+}
+
+// Se llama cuando el usuario cambia los inputs de fecha manualmente
+function applyHistoryDateFilter() {
+  historyDateFrom = document.getElementById('historyDateFrom').value || null;
+  historyDateTo   = document.getElementById('historyDateTo').value   || null;
+  const payments = JSON.parse(localStorage.getItem('payments') || '[]');
+  const expenses = JSON.parse(localStorage.getItem('expenses') || '[]');
+  renderPaymentsHistory(payments, expenses);
+}
+
+// Exportar los registros filtrados a PDF
+function exportHistoryPDF() {
+  if (typeof window.jspdf === 'undefined') {
+    loadJsPDF(() => exportHistoryPDF());
+    return;
+  }
+
+  const payments = JSON.parse(localStorage.getItem('payments') || '[]');
+  const expenses = JSON.parse(localStorage.getItem('expenses') || '[]');
+  const settings = getSchoolSettings();
+
+  // Armar filas filtradas
+  const rows = [];
+
+  payments.forEach(p => {
+    const player = getPlayerById(p.playerId);
+    if (!player) return;
+    const date = p.paidDate || p.dueDate;
+    if (historyDateFrom && date < historyDateFrom) return;
+    if (historyDateTo   && date > historyDateTo)   return;
+    rows.push({ date, name: player.name, concept: p.concept, method: p.method || '—', amount: p.amount, tipo: 'Ingreso', status: p.status });
+  });
+
+  expenses.forEach(e => {
+    if (historyDateFrom && e.date < historyDateFrom) return;
+    if (historyDateTo   && e.date > historyDateTo)   return;
+    rows.push({ date: e.date, name: e.beneficiaryName, concept: e.concept, method: e.method || '—', amount: e.amount, tipo: 'Egreso', status: 'Pagado' });
+  });
+
+  if (rows.length === 0) {
+    showToast('No hay registros para exportar');
+    return;
+  }
+
+  rows.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  const totalIngresos = rows.filter(r => r.tipo === 'Ingreso').reduce((s, r) => s + r.amount, 0);
+  const totalEgresos  = rows.filter(r => r.tipo === 'Egreso').reduce((s, r) => s + r.amount, 0);
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+  const PRIMARY  = [13, 148, 136];
+  const DARK     = [31, 41, 55];
+  const GRAY     = [107, 114, 128];
+  const LIGHT    = [243, 244, 246];
+  const RED      = [220, 38, 38];
+  const GREEN    = [22, 163, 74];
+
+  // ── Encabezado ──
+  try {
+    if (settings.logo && settings.logo.startsWith('data:image')) {
+      doc.addImage(settings.logo, 'PNG', 15, 12, 22, 22);
+    }
+  } catch (e) { /* sin logo */ }
+
+  doc.setFontSize(16);
+  doc.setTextColor(...PRIMARY);
+  doc.setFont(undefined, 'bold');
+  doc.text(normalizeForPDF(settings.name || 'MI CLUB'), 42, 20);
+
+  doc.setFontSize(9);
+  doc.setTextColor(...GRAY);
+  doc.setFont(undefined, 'normal');
+  doc.text('REPORTE DE HISTORIAL DE PAGOS', 42, 26);
+
+  const periodoText = historyDateFrom || historyDateTo
+    ? `Periodo: ${historyDateFrom || 'inicio'} → ${historyDateTo || 'hoy'}`
+    : 'Periodo: completo';
+  doc.text(periodoText, 42, 31);
+
+  // Fecha de generación
+  const now = new Date();
+  const fechaGen = now.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  doc.text(`Generado: ${fechaGen}`, 195, 20, { align: 'right' });
+
+  // Línea separadora
+  doc.setDrawColor(...PRIMARY);
+  doc.setLineWidth(0.5);
+  doc.line(15, 38, 195, 38);
+
+  // ── Resumen ──
+  let y = 46;
+  doc.setFillColor(...LIGHT);
+  doc.roundedRect(15, y, 180, 14, 2, 2, 'F');
+
+  doc.setFontSize(9);
+  doc.setFont(undefined, 'bold');
+  doc.setTextColor(...DARK);
+  doc.text(`Total registros: ${rows.length}`, 20, y + 5.5);
+
+  doc.setTextColor(...GREEN);
+  doc.text(`Ingresos: ${formatCurrency(totalIngresos)}`, 80, y + 5.5);
+
+  doc.setTextColor(...RED);
+  doc.text(`Egresos: ${formatCurrency(totalEgresos)}`, 140, y + 5.5);
+
+  doc.setTextColor(...DARK);
+  doc.text(`Neto: ${formatCurrency(totalIngresos - totalEgresos)}`, 155, y + 10.5);
+
+  // ── Tabla ──
+  y += 20;
+
+  // Cabecera de tabla
+  const cols = [
+    { label: 'Fecha',    x: 15,  w: 22 },
+    { label: 'Jugador',  x: 37,  w: 45 },
+    { label: 'Concepto', x: 82,  w: 48 },
+    { label: 'Metodo',   x: 130, w: 25 },
+    { label: 'Monto',    x: 155, w: 25 },
+    { label: 'Tipo',     x: 180, w: 15 }
+  ];
+
+  doc.setFillColor(...PRIMARY);
+  doc.rect(15, y, 180, 7, 'F');
+  doc.setFontSize(8);
+  doc.setFont(undefined, 'bold');
+  doc.setTextColor(255, 255, 255);
+  cols.forEach(c => doc.text(c.label, c.x + 1, y + 5));
+
+  y += 7;
+
+  // Filas
+  rows.forEach((r, i) => {
+    // Salto de página si es necesario
+    if (y > 270) {
+      doc.addPage();
+      y = 20;
+      doc.setFillColor(...PRIMARY);
+      doc.rect(15, y, 180, 7, 'F');
+      doc.setFontSize(8);
+      doc.setFont(undefined, 'bold');
+      doc.setTextColor(255, 255, 255);
+      cols.forEach(c => doc.text(c.label, c.x + 1, y + 5));
+      y += 7;
+    }
+
+    const rowH = 6.5;
+    if (i % 2 === 0) {
+      doc.setFillColor(...LIGHT);
+      doc.rect(15, y, 180, rowH, 'F');
+    }
+
+    doc.setFont(undefined, 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(...DARK);
+
+    doc.text(r.date || '—',                            cols[0].x + 1, y + 4.5);
+    doc.text(normalizeForPDF(r.name || '').substring(0, 22),  cols[1].x + 1, y + 4.5);
+    doc.text(normalizeForPDF(r.concept || '').substring(0, 26), cols[2].x + 1, y + 4.5);
+    doc.text(normalizeForPDF(r.method || '—'),          cols[3].x + 1, y + 4.5);
+
+    // Monto con color
+    doc.setTextColor(...(r.tipo === 'Ingreso' ? GREEN : RED));
+    const signo = r.tipo === 'Egreso' ? '-' : '+';
+    doc.text(`${signo} ${formatCurrency(r.amount)}`, cols[4].x + cols[4].w - 1, y + 4.5, { align: 'right' });
+
+    doc.setTextColor(...(r.tipo === 'Ingreso' ? GREEN : RED));
+    doc.text(r.tipo, cols[5].x + 1, y + 4.5);
+
+    y += rowH;
+  });
+
+  // Firma automática
+  if (typeof addSignatureToDocument === 'function') {
+    addSignatureToDocument(doc, Math.min(y + 8, 270));
+  }
+
+  // Descargar
+  const from = historyDateFrom || 'inicio';
+  const to   = historyDateTo   || 'hoy';
+  doc.save(`historial-pagos_${from}_${to}.pdf`);
+  showToast('✅ PDF generado correctamente');
 }
 
 // Renderizar tabla de log de movimientos en el Historial

@@ -353,7 +353,42 @@
                         Ver historial completo
                     </button>
                 </div>
-                <!-- Tabla de transacciones (existente) -->
+                <!-- Filtro de fechas -->
+                <div class="glass-card rounded-xl p-3 space-y-2">
+                    <!-- Botones rápidos -->
+                    <div class="flex gap-2 flex-wrap">
+                        <button onclick="setHistoryFilter('today')"
+                            class="history-filter-btn px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 active:scale-95 transition-transform"
+                            style="touch-action: manipulation;">Hoy</button>
+                        <button onclick="setHistoryFilter('week')"
+                            class="history-filter-btn px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 active:scale-95 transition-transform"
+                            style="touch-action: manipulation;">Esta semana</button>
+                        <button onclick="setHistoryFilter('month')"
+                            class="history-filter-btn px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 active:scale-95 transition-transform"
+                            style="touch-action: manipulation;">Este mes</button>
+                        <button onclick="setHistoryFilter('all')"
+                            class="history-filter-btn px-3 py-1.5 rounded-lg text-xs font-medium bg-teal-600 text-white active:scale-95 transition-transform"
+                            style="touch-action: manipulation;">Todo</button>
+                    </div>
+                    <!-- Rango personalizado + exportar -->
+                    <div class="flex gap-2 items-center flex-wrap">
+                        <input type="date" id="historyDateFrom" onchange="applyHistoryDateFilter()"
+                            class="flex-1 min-w-0 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white text-sm">
+                        <span class="text-gray-400 text-sm shrink-0">→</span>
+                        <input type="date" id="historyDateTo" onchange="applyHistoryDateFilter()"
+                            class="flex-1 min-w-0 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white text-sm">
+                        <button onclick="exportHistoryPDF()"
+                            class="shrink-0 bg-red-600 hover:bg-red-700 text-white text-xs font-medium px-3 py-2 rounded-lg flex items-center gap-1 active:scale-95 transition-transform"
+                            style="touch-action: manipulation;" title="Exportar reporte PDF">
+                            <i data-lucide="file-text" class="w-4 h-4"></i>
+                            <span>PDF</span>
+                        </button>
+                    </div>
+                    <!-- Resumen del período filtrado -->
+                    <div id="historyFilterSummary" class="text-xs text-gray-500 dark:text-gray-400 pt-1"></div>
+                </div>
+
+                <!-- Tabla de transacciones -->
                 <div class="glass-card rounded-xl p-4 shadow-sm overflow-x-auto">
                     <table class="w-full text-sm">
                         <thead>
@@ -361,6 +396,7 @@
                                 <th class="text-left py-2 text-gray-600 dark:text-gray-300">Fecha</th>
                                 <th class="text-left py-2 text-gray-600 dark:text-gray-300">Jugador</th>
                                 <th class="text-left py-2 text-gray-600 dark:text-gray-300">Concepto</th>
+                                <th class="text-left py-2 text-gray-600 dark:text-gray-300">Método</th>
                                 <th class="text-right py-2 text-gray-600 dark:text-gray-300">Monto</th>
                                 <th class="text-center py-2 text-gray-600 dark:text-gray-300">Estado</th>
                             </tr>
