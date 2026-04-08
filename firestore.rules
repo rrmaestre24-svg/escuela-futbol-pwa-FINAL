@@ -12,7 +12,7 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ── Función helper ──────────────────────────────────────
+    // ── Funciones helper ────────────────────────────────────
     // Devuelve true si el usuario autenticado tiene un documento
     // en la subcolección users del club que quiere acceder.
     function isMemberOfClub(clubId) {
@@ -20,10 +20,40 @@ service cloud.firestore {
         exists(/databases/$(database)/documents/clubs/$(clubId)/users/$(request.auth.uid));
     }
 
+    // Devuelve true si el usuario autenticado es super admin.
+    // El super admin tiene un documento en la colección super_admins con su UID.
+    function isSuperAdmin() {
+      return request.auth != null &&
+        exists(/databases/$(database)/documents/super_admins/$(request.auth.uid));
+    }
+
     // ── Datos del club ──────────────────────────────────────
     // jugadores, pagos, eventos, egresos, configuración, etc.
+    // El super admin también puede leer y escribir cualquier club.
     match /clubs/{clubId}/{document=**} {
-      allow read, write: if isMemberOfClub(clubId);
+      allow read, write: if isMemberOfClub(clubId) || isSuperAdmin();
+    }
+
+    // ── Entrenadores: acceso con auth anónima + club ID + código ──
+    // Los entrenadores se autentican de forma anónima. Necesitan leer
+    // su propio perfil de coach para verificar el código, y también
+    // escribir asistencias y leer jugadores/eventos.
+    match /clubs/{clubId}/coaches/{document} {
+      // Leer: para verificar el código al hacer login
+      // Actualizar: para revocar acceso expirado automáticamente
+      allow read, update: if request.auth != null;
+    }
+    match /clubs/{clubId}/attendance/{document} {
+      // Los entrenadores guardan y leen los registros de asistencia
+      allow read, write: if request.auth != null;
+    }
+    match /clubs/{clubId}/coach_notifications/{document} {
+      // Notificaciones que el admin envía al entrenador
+      allow read, write: if request.auth != null;
+    }
+    // Documento raíz del club: para mostrar el nombre del club en la app
+    match /clubs/{clubId} {
+      allow read: if request.auth != null;
     }
 
     // ── Portal de Padres: acceso con autenticación anónima ──
@@ -58,10 +88,11 @@ service cloud.firestore {
     }
 
     // ── Mapeo email → clubId ────────────────────────────────
-    // Solo puede leer su propio mapeo. Nadie puede escribir desde el cliente.
+    // Cada usuario solo puede leer su propio mapeo.
+    // El super admin puede leer y escribir cualquier mapeo (para registrar nuevos clubes).
     match /userClubMapping/{email} {
-      allow read: if request.auth != null && request.auth.token.email == email;
-      allow write: if false;
+      allow read: if request.auth != null && (request.auth.token.email == email || isSuperAdmin());
+      allow write: if isSuperAdmin();
     }
 
     // ── Códigos de activación ───────────────────────────────
@@ -102,9 +133,10 @@ service cloud.firestore {
     }
 
     // ── Licencias (ruta alternativa bajo superadmin) ────────
+    // Solo el super admin puede escribir licencias y módulos.
     match /superadmin/{document=**} {
       allow read: if request.auth != null;
-      allow write: if false;
+      allow write: if isSuperAdmin();
     }
 
     // ── Bloquear todo lo demás ──────────────────────────────
