@@ -551,6 +551,9 @@ function showPlayerDetails(playerId) {
         `}
       </div>
       
+  <!-- Documentos del jugador -->
+      ${renderDocumentsSection(player)}
+
   <!-- Botones de acción -->
         <div class="space-y-2">
           <!-- Fila 1: PDF y WhatsApp -->
@@ -564,7 +567,7 @@ function showPlayerDetails(playerId) {
               Enviar WhatsApp
             </button>
           </div>
-          
+
           <!-- Fila 2: Acceso para Padres -->
           <button onclick="generateParentCode('${player.id}')" class="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white py-3 rounded-lg flex items-center justify-center gap-2 shadow-lg">
             <i data-lucide="users" class="w-5 h-5"></i>
@@ -581,6 +584,150 @@ function showPlayerDetails(playerId) {
 // Cerrar modal detalles
 function closePlayerDetailsModal() {
   document.getElementById('playerDetailsModal').classList.add('hidden');
+}
+
+// ── DOCUMENTOS DEL JUGADOR ───────────────────────────────────
+
+// Genera el HTML de la sección de documentos dentro del perfil
+function renderDocumentsSection(player) {
+  const docs = player.documents || [];
+  const MAX_DOCS = 5;
+
+  // Lista de documentos ya subidos
+  const docItems = docs.length === 0
+    ? '<p class="text-sm text-gray-500 dark:text-gray-400 text-center py-3">No hay documentos cargados</p>'
+    : docs.map(doc => `
+        <div class="flex items-center justify-between bg-white dark:bg-gray-600 rounded-lg px-3 py-2 gap-2">
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="text-xl flex-shrink-0">${doc.fileType === 'pdf' ? '📄' : doc.fileType === 'word' ? '📝' : '🖼️'}</span>
+            <div class="min-w-0">
+              <p class="text-sm font-medium text-gray-800 dark:text-white truncate">${doc.name}</p>
+              <p class="text-xs text-gray-500 dark:text-gray-400">${doc.uploadedAt || ''}</p>
+            </div>
+          </div>
+          <div class="flex gap-1 flex-shrink-0">
+            <button onclick="downloadDocument('${doc.url}')"
+               class="p-1.5 rounded-lg bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400 hover:opacity-80"
+               title="Descargar">
+              <i data-lucide="download" class="w-4 h-4"></i>
+            </button>
+            <button onclick="deletePlayerDocument('${player.id}', '${doc.id}')"
+                    class="p-1.5 rounded-lg bg-red-100 dark:bg-red-900 text-red-600 dark:text-red-400 hover:opacity-80"
+                    title="Eliminar">
+              <i data-lucide="trash-2" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+      `).join('');
+
+  // Formulario de carga (solo si hay espacio)
+  const uploadForm = docs.length < MAX_DOCS ? `
+    <div class="space-y-2 mt-2">
+      <input type="text" id="docName_${player.id}"
+             placeholder="Nombre del documento (ej: Registro Civil)"
+             class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
+      <label class="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white py-2.5 rounded-lg cursor-pointer text-sm font-medium transition-all">
+        <i data-lucide="upload" class="w-4 h-4"></i>
+        Subir documento (PDF, imagen o Word)
+        <input type="file" class="hidden" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx"
+               onchange="uploadPlayerDocument('${player.id}', this)">
+      </label>
+    </div>
+  ` : '<p class="text-xs text-center text-gray-500 mt-2">Límite de 5 documentos alcanzado</p>';
+
+  return `
+    <div class="bg-gray-50 dark:bg-gray-700 rounded-xl p-4">
+      <h3 class="font-bold text-gray-800 dark:text-white mb-3 flex items-center gap-2">
+        <i data-lucide="folder-open" class="w-5 h-5 text-blue-600"></i>
+        Documentos
+        <span class="text-xs font-normal text-gray-500 dark:text-gray-400">${docs.length}/${MAX_DOCS}</span>
+      </h3>
+      <div class="space-y-2">
+        ${docItems}
+      </div>
+      ${uploadForm}
+    </div>
+  `;
+}
+
+// Sube un documento al perfil del jugador
+async function uploadPlayerDocument(playerId, input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  // Verificar que se escribió el nombre
+  const nameInput = document.getElementById(`docName_${playerId}`);
+  const docName = nameInput?.value.trim();
+  if (!docName) {
+    showToast('⚠️ Escribe el nombre del documento primero');
+    input.value = '';
+    return;
+  }
+
+  const player = getPlayerById(playerId);
+  if (!player) return;
+
+  const docs = player.documents || [];
+  if (docs.length >= 5) {
+    showToast('⚠️ Límite de 5 documentos alcanzado');
+    return;
+  }
+
+  // Deshabilitar botón mientras sube
+  const label = input.closest('label');
+  if (label) {
+    label.style.opacity = '0.6';
+    label.style.pointerEvents = 'none';
+  }
+  showToast('⏳ Subiendo documento...');
+
+  try {
+    // Subir a Cloudinary a través de la capa de abstracción
+    const result = await uploadDocument(file);
+
+    const newDoc = {
+      id:         generateId(),
+      name:       docName,
+      url:        result.url,
+      publicId:   result.publicId,
+      fileType:   result.fileType,
+      uploadedAt: getCurrentDate()
+    };
+
+    // Guardar en el jugador (localStorage + Firebase si está disponible)
+    updatePlayer(playerId, { documents: [...docs, newDoc] });
+
+    showToast('✅ Documento subido correctamente');
+    showPlayerDetails(playerId); // Refrescar la vista
+
+  } catch (error) {
+    showToast('❌ ' + error.message);
+    input.value = '';
+    if (label) {
+      label.style.opacity = '';
+      label.style.pointerEvents = '';
+    }
+  }
+}
+
+// Elimina un documento del perfil del jugador
+function deletePlayerDocument(playerId, docId) {
+  if (!confirm('¿Eliminar este documento? El registro se borrará del perfil.')) return;
+
+  const player = getPlayerById(playerId);
+  if (!player) return;
+
+  const docs = (player.documents || []).filter(d => d.id !== docId);
+  const docToDelete = (player.documents || []).find(d => d.id === docId);
+
+  // Eliminar referencia en almacenamiento (Cloudinary soft-delete)
+  if (docToDelete?.publicId) {
+    deleteDocumentFromStorage(docToDelete.publicId);
+  }
+
+  updatePlayer(playerId, { documents: docs });
+  showToast('🗑️ Documento eliminado');
+  showPlayerDetails(playerId); // Refrescar la vista
 }
 
 // Eliminar jugador
