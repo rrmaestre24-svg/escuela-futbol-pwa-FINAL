@@ -1,4 +1,4 @@
-const CACHE_NAME = 'my-club-v1.0.49';
+const CACHE_NAME = 'my-club-v1.0.50';
 
 const urlsToCache = [
   '/',
@@ -120,6 +120,7 @@ self.addEventListener('fetch', event => {
     event.request.url.includes('googleapis.com') ||
     event.request.url.includes('gstatic.com') ||
     event.request.url.includes('firebase') ||
+    event.request.url.includes('cloudinary.com') ||
     event.request.url.includes('unpkg.com') ||
     event.request.url.includes('cdn.tailwindcss.com') ||
     event.request.url.includes('cdn.jsdelivr.net') ||
