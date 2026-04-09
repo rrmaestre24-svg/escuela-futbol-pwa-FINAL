@@ -602,28 +602,32 @@ function renderDocumentsSection(player) {
           </div>
           <div class="flex gap-1 flex-shrink-0">
             <button onclick="downloadDocument('${doc.url}')"
-               class="p-1.5 rounded-lg bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400 hover:opacity-80"
-               title="Descargar">
-              <i data-lucide="download" class="w-4 h-4"></i>
+               class="px-3 py-1.5 rounded-lg bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400 hover:opacity-80 text-xs font-semibold">
+              Ver
             </button>
             <button onclick="deletePlayerDocument('${player.id}', '${doc.id}')"
-                    class="p-1.5 rounded-lg bg-red-100 dark:bg-red-900 text-red-600 dark:text-red-400 hover:opacity-80"
-                    title="Eliminar">
-              <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    class="px-3 py-1.5 rounded-lg bg-red-100 dark:bg-red-900 text-red-600 dark:text-red-400 hover:opacity-80 text-xs font-semibold">
+              Borrar
             </button>
           </div>
         </div>
       `).join('');
 
-  // Formulario de carga (solo si hay espacio)
+  // Formulario de carga con paso a paso (solo si hay espacio)
   const uploadForm = docs.length < MAX_DOCS ? `
-    <div class="space-y-2 mt-2">
+    <div class="space-y-2 mt-3">
+      <p class="text-xs text-gray-500 dark:text-gray-400">
+        <strong class="text-blue-600 dark:text-blue-400">Paso 1:</strong> Escribí el nombre del documento
+      </p>
       <input type="text" id="docName_${player.id}"
-             placeholder="Nombre del documento (ej: Registro Civil)"
+             placeholder="Ej: Registro Civil, Foto carnet..."
              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
+      <p class="text-xs text-gray-500 dark:text-gray-400">
+        <strong class="text-blue-600 dark:text-blue-400">Paso 2:</strong> Buscá y seleccioná el archivo
+      </p>
       <label class="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white py-2.5 rounded-lg cursor-pointer text-sm font-medium transition-all">
         <i data-lucide="upload" class="w-4 h-4"></i>
-        Subir documento (PDF, imagen o Word)
+        Seleccionar archivo (PDF, imagen o Word)
         <input type="file" class="hidden" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx"
                onchange="uploadPlayerDocument('${player.id}', this)">
       </label>

@@ -72,7 +72,7 @@ service cloud.firestore {
       allow read: if request.auth != null;
       allow update: if request.auth != null &&
         request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['name', 'birthDate', 'medicalInfo', 'avatar', 'updatedAt', 'updatedBy']);
+          .hasOnly(['name', 'birthDate', 'medicalInfo', 'avatar', 'updatedAt', 'updatedBy', 'documents']);
     }
     match /clubs/{clubId}/settings/{document} {
       allow read: if request.auth != null;
