@@ -690,7 +690,7 @@ async function uploadPlayerDocument(playerId, input) {
       url:        result.url,
       publicId:   result.publicId,
       fileType:   result.fileType,
-      uploadedAt: getCurrentDate()
+      uploadedAt: new Date().toLocaleString('es-CO', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' })
     };
 
     // Guardar en el jugador (localStorage + Firebase si está disponible)
