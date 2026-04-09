@@ -1562,6 +1562,8 @@ function exportPlayersExcel() {
   const players = getPlayers();
   if (players.length === 0) { showToast('No hay jugadores para exportar'); return; }
 
+  if (!confirm(`¿Descargar el listado de ${players.length} jugadores en Excel?\n\nIncluye todos los datos: categoría, documento, teléfono, datos médicos, etc.`)) return;
+
   loadXLSX(function() {
     if (typeof XLSX === 'undefined') { showToast('❌ No se pudo cargar la librería Excel'); return; }
 
@@ -1619,6 +1621,8 @@ function exportPlayersExcel() {
 function exportPlayersPDF() {
   const players = getPlayers();
   if (players.length === 0) { showToast('No hay jugadores para exportar'); return; }
+
+  if (!confirm(`¿Descargar el listado de ${players.length} jugadores en PDF?\n\nIncluye: nombre, categoría, documento, teléfono, email y estado.`)) return;
 
   if (typeof window.jspdf === 'undefined') {
     loadJsPDF(() => exportPlayersPDF());
