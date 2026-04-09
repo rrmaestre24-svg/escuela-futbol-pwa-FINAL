@@ -1295,6 +1295,14 @@ function renderDuplicatePairHTML(pair, idx) {
 
 // Abre el modal con todos los duplicados encontrados
 function showDuplicatesModal() {
+  // Asegurar que la pestaña activa sea "smart" al abrir
+  const tabSmart = document.getElementById('tabSmartDup');
+  const tabNames = document.getElementById('tabNameDup');
+  if (tabSmart && tabNames) {
+    tabSmart.className = 'px-4 py-2 text-sm font-semibold rounded-t-lg border-b-2 border-orange-500 text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20';
+    tabNames.className = 'px-4 py-2 text-sm font-semibold rounded-t-lg border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200';
+  }
+
   const players = getPlayers();
   const pairs   = findAllDuplicates(players);
 
@@ -1340,4 +1348,207 @@ function deleteDuplicatePlayer(playerId) {
 // Cierra el modal de duplicados
 function closeDuplicatesModal() {
   document.getElementById('duplicatesModal').classList.add('hidden');
+  _pendingDuplicateConfirm = null;
+}
+
+// ========================================
+// LIMPIEZA DE NOMBRES DUPLICADOS
+// ========================================
+
+// Cambia entre las dos pestañas del modal
+function switchDuplicatesTab(tab) {
+  const tabSmart = document.getElementById('tabSmartDup');
+  const tabNames = document.getElementById('tabNameDup');
+  const active   = 'px-4 py-2 text-sm font-semibold rounded-t-lg border-b-2 border-orange-500 text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20';
+  const inactive = 'px-4 py-2 text-sm font-semibold rounded-t-lg border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200';
+
+  if (tab === 'smart') {
+    tabSmart.className = active;
+    tabNames.className = inactive;
+    showDuplicatesModal();
+  } else {
+    tabSmart.className = inactive;
+    tabNames.className = active;
+    showNameDuplicatesTab();
+  }
+}
+
+// Quita palabras consecutivas repetidas de un nombre
+// "Roberth Roberth García" → "Roberth García"
+function fixRepeatedName(name) {
+  const words = name.trim().split(/\s+/);
+  const result = [words[0]];
+  for (let i = 1; i < words.length; i++) {
+    if (normalizeName(words[i]) !== normalizeName(words[i - 1])) {
+      result.push(words[i]);
+    }
+  }
+  return result.join(' ');
+}
+
+// Devuelve jugadores cuyo nombre tiene al menos una palabra repetida consecutiva
+function findRepeatedNamePlayers(players) {
+  return players.filter(p => {
+    if (!p.name) return false;
+    return fixRepeatedName(p.name) !== p.name;
+  });
+}
+
+// Agrupa jugadores que tienen exactamente el mismo nombre (normalizado)
+function findNameDuplicates(players) {
+  const groups = {};
+
+  players.forEach(p => {
+    const key = normalizeName(p.name);
+    if (!key) return;
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(p);
+  });
+
+  // Solo grupos con más de un jugador
+  return Object.values(groups)
+    .filter(g => g.length > 1)
+    .sort((a, b) => b.length - a.length); // más duplicados primero
+}
+
+// Muestra la pestaña de limpieza por nombre
+function showNameDuplicatesTab() {
+  const players  = getPlayers();
+  const repeated = findRepeatedNamePlayers(players);
+  const groups   = findNameDuplicates(players);
+  const content  = document.getElementById('duplicatesContent');
+  const badge    = document.getElementById('duplicatesCount');
+
+  const totalIssues = repeated.length + groups.reduce((sum, g) => sum + g.length - 1, 0);
+  badge.textContent = totalIssues > 0 ? `${totalIssues} a revisar` : '0';
+  badge.className   = 'bg-purple-500 text-white text-xs font-bold px-2 py-0.5 rounded-full';
+
+  // Sección 1: nombres con palabra repetida
+  const repeatedSection = repeated.length === 0 ? '' : `
+    <div class="border border-blue-200 dark:border-blue-800 rounded-xl overflow-hidden">
+      <div class="bg-blue-50 dark:bg-blue-900/30 px-4 py-2 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="text-sm font-bold text-blue-700 dark:text-blue-300">✏️ Nombres con palabra repetida</span>
+          <span class="text-xs bg-blue-200 dark:bg-blue-800 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full">${repeated.length}</span>
+        </div>
+        <button onclick="fixAllRepeatedNames()"
+          class="text-xs bg-blue-600 hover:bg-blue-700 text-white font-semibold px-3 py-1.5 rounded-lg">
+          Corregir todos
+        </button>
+      </div>
+      <div class="p-3 space-y-2">
+        ${repeated.map(p => `
+          <div class="flex items-center gap-3 p-3 rounded-xl bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600">
+            <div class="flex-1 min-w-0">
+              <p class="text-xs text-gray-400 dark:text-gray-500 line-through">${p.name}</p>
+              <p class="text-sm font-semibold text-blue-700 dark:text-blue-300">→ ${fixRepeatedName(p.name)}</p>
+              <p class="text-xs text-gray-500 dark:text-gray-400">${p.category || '—'}</p>
+            </div>
+            <button onclick="fixOneRepeatedName('${p.id}')"
+              class="px-3 py-1.5 text-xs rounded-lg bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 font-semibold hover:opacity-80 whitespace-nowrap flex-shrink-0">
+              Corregir
+            </button>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+
+  // Sección 2: jugadores con el mismo nombre (registros duplicados)
+  const namesSection = groups.length === 0 ? '' : `
+    <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">
+      <strong>${groups.length}</strong> nombre${groups.length > 1 ? 's' : ''} registrado${groups.length > 1 ? 's' : ''} más de una vez — elegí cuál conservar:
+    </p>
+    ${groups.map(group => renderNameDuplicateGroup(group)).join('')}
+  `;
+
+  if (repeated.length === 0 && groups.length === 0) {
+    content.innerHTML = `
+      <div class="flex flex-col items-center py-10 gap-3 text-center">
+        <span class="text-5xl">✅</span>
+        <p class="font-semibold text-gray-700 dark:text-gray-200">Todo limpio</p>
+        <p class="text-sm text-gray-500 dark:text-gray-400">No hay nombres repetidos ni mal escritos.</p>
+      </div>`;
+    return;
+  }
+
+  content.innerHTML = repeatedSection + namesSection;
+  if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+// Corrige el nombre de un jugador eliminando la palabra repetida
+function fixOneRepeatedName(playerId) {
+  const player = getPlayerById(playerId);
+  if (!player) return;
+  const fixed = fixRepeatedName(player.name);
+  updatePlayer(playerId, { name: fixed });
+  showToast(`✅ "${player.name}" → "${fixed}"`);
+  renderPlayersList();
+  showNameDuplicatesTab();
+}
+
+// Corrige todos los jugadores con nombre repetido de una vez
+function fixAllRepeatedNames() {
+  const players  = getPlayers();
+  const repeated = findRepeatedNamePlayers(players);
+  repeated.forEach(p => updatePlayer(p.id, { name: fixRepeatedName(p.name) }));
+  showToast(`✅ ${repeated.length} nombre${repeated.length > 1 ? 's' : ''} corregido${repeated.length > 1 ? 's' : ''}`);
+  renderPlayersList();
+  showNameDuplicatesTab();
+}
+
+// Genera el HTML de un grupo de jugadores con el mismo nombre
+function renderNameDuplicateGroup(group) {
+  // Ordenar: el más antiguo primero (por enrollmentDate o id)
+  const sorted = [...group].sort((a, b) => {
+    const da = a.enrollmentDate || '';
+    const db = b.enrollmentDate || '';
+    return da < db ? -1 : da > db ? 1 : a.id < b.id ? -1 : 1;
+  });
+
+  const rows = sorted.map((p, idx) => `
+    <div class="flex items-center gap-3 p-3 rounded-xl border ${idx === 0 ? 'border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/20' : 'border-gray-200 dark:border-gray-700'}">
+      <img src="${p.avatar || ''}" onerror="this.style.display='none'"
+        class="w-9 h-9 rounded-full object-cover flex-shrink-0 bg-gray-200 dark:bg-gray-600">
+      <div class="flex-1 min-w-0">
+        <p class="text-sm font-semibold text-gray-800 dark:text-white truncate">${p.name}</p>
+        <p class="text-xs text-gray-500 dark:text-gray-400">${p.category || '—'} · Nac: ${p.birthDate || '—'}</p>
+        ${p.documentNumber ? `<p class="text-xs text-gray-400 dark:text-gray-500">🪪 ${p.documentNumber}</p>` : ''}
+        <p class="text-xs text-gray-400 dark:text-gray-500">
+          ${idx === 0 ? '📅 Más antiguo' : '🆕 Más reciente'}
+          ${p.enrollmentDate ? ` · Creado: ${p.enrollmentDate}` : ''}
+        </p>
+      </div>
+      <div class="flex flex-col gap-1 flex-shrink-0">
+        <button onclick="keepThisPlayerDeleteRest('${p.id}', ${JSON.stringify(group.map(x => x.id)).replace(/"/g, '&quot;')})"
+          class="px-3 py-1.5 text-xs rounded-lg bg-green-600 hover:bg-green-700 text-white font-semibold whitespace-nowrap">
+          ✓ Conservar este
+        </button>
+      </div>
+    </div>
+  `).join('');
+
+  return `
+    <div class="border border-purple-200 dark:border-purple-800 rounded-xl overflow-hidden">
+      <div class="bg-purple-50 dark:bg-purple-900/30 px-4 py-2 flex items-center justify-between">
+        <span class="text-sm font-bold text-purple-700 dark:text-purple-300">"${group[0].name}"</span>
+        <span class="text-xs text-purple-500 dark:text-purple-400">${group.length} registros</span>
+      </div>
+      <div class="p-3 space-y-2">${rows}</div>
+    </div>
+  `;
+}
+
+// Conserva un jugador y elimina todos los demás del grupo
+function keepThisPlayerDeleteRest(keepId, allIds) {
+  const toDelete = allIds.filter(id => id !== keepId);
+  toDelete.forEach(id => deletePlayer(id));
+
+  const count = toDelete.length;
+  showToast(`✅ ${count} registro${count > 1 ? 's' : ''} eliminado${count > 1 ? 's' : ''}`);
+  renderPlayersList();
+  updateDashboard();
+
+  // Refrescar la pestaña actual
+  showNameDuplicatesTab();
 }
