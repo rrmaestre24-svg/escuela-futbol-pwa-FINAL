@@ -568,11 +568,6 @@ function showPlayerDetails(playerId) {
             </button>
           </div>
 
-          <!-- Fila 2: Acceso para Padres -->
-          <button onclick="generateParentCode('${player.id}')" class="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white py-3 rounded-lg flex items-center justify-center gap-2 shadow-lg">
-            <i data-lucide="users" class="w-5 h-5"></i>
-            👨‍👩‍👧 Generar Acceso para Padres
-          </button>
         </div>
   `;
   
