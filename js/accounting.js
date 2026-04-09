@@ -759,4 +759,16 @@ window.exportFullReportCSV = exportFullReportCSV;
 window.renderVoidedPayments = renderVoidedPayments;
 window.exportVoidedCSV = exportVoidedCSV;
 
+// Colapsa o expande la tabla "Estado por Jugador"
+function toggleAccountingTable() {
+  const body     = document.getElementById('accountingTableBody');
+  const chevron  = document.getElementById('accountingTableChevron');
+  if (!body) return;
+
+  const isHidden = body.classList.toggle('hidden');
+  // Rotar la flecha: apunta arriba cuando está abierto, abajo cuando está cerrado
+  chevron.style.transform = isHidden ? 'rotate(-90deg)' : 'rotate(0deg)';
+}
+window.toggleAccountingTable = toggleAccountingTable;
+
 console.log('✅ accounting.js cargado correctamente CON DOCUMENTO DE IDENTIDAD');

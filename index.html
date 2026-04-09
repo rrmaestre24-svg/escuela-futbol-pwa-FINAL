@@ -1217,9 +1217,14 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
             <!-- ========================================
                 TABLA DE JUGADORES
             ========================================= -->
-            <div class="glass-card rounded-xl p-4 shadow-sm">
-                <h4 class="font-bold text-gray-800 dark:text-white mb-4">📋 Estado por Jugador</h4>
-                <div class="overflow-x-auto">
+            <div class="glass-card rounded-xl shadow-sm overflow-hidden">
+                <!-- Encabezado clickeable para colapsar/expandir -->
+                <button onclick="toggleAccountingTable()" class="w-full flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                    <h4 class="font-bold text-gray-800 dark:text-white">📋 Estado por Jugador</h4>
+                    <i id="accountingTableChevron" data-lucide="chevron-down" class="w-5 h-5 text-gray-500 dark:text-gray-400 transition-transform duration-200"></i>
+                </button>
+                <!-- Contenido colapsable -->
+                <div id="accountingTableBody" class="overflow-x-auto p-4">
                     <table class="w-full text-sm">
                         <thead>
                             <tr class="border-b border-gray-200 dark:border-gray-700">
