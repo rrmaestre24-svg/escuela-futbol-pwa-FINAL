@@ -30,7 +30,7 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 // ── uploadDocument ───────────────────────────────────────────
 // Sube un archivo a Cloudinary y devuelve { url, publicId, fileType }
 // Al migrar a Firebase Storage, solo reemplaza esta función
-async function uploadDocument(file) {
+async function uploadDocument(file, playerId) {
   // Validar tipo
   if (!ALLOWED_TYPES.includes(file.type)) {
     throw new Error('Solo se permiten PDF, imágenes (JPG, PNG) o Word (.doc, .docx)');
@@ -51,7 +51,9 @@ async function uploadDocument(file) {
   const formData = new FormData();
   formData.append('file', file);
   formData.append('upload_preset', CLOUDINARY_PRESET);
-  formData.append('folder', 'myclub_jugadores');
+  // Organizar por jugador: myclub_jugadores/{playerId}
+  const folder = playerId ? `myclub_jugadores/${playerId}` : 'myclub_jugadores';
+  formData.append('folder', folder);
 
   const response = await fetch(uploadUrl, {
     method: 'POST',

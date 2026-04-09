@@ -678,7 +678,7 @@ async function uploadPlayerDocument(playerId, input) {
 
   try {
     // Subir a Cloudinary a través de la capa de abstracción
-    const result = await uploadDocument(file);
+    const result = await uploadDocument(file, playerId);
 
     const newDoc = {
       id:         generateId(),
