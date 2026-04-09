@@ -1,4 +1,4 @@
-const CACHE_NAME = 'my-club-v1.0.50';
+const CACHE_NAME = 'my-club-v1.0.51';
 
 const urlsToCache = [
   '/',
@@ -39,6 +39,7 @@ const urlsToCache = [
   '/js/realtime-sync.js',
 
   // JS FEATURES
+  '/js/storage-service.js',
   '/js/players.js',
   '/js/payments.js',
   '/js/expenses.js',

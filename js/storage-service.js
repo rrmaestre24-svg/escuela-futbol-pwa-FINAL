@@ -41,11 +41,9 @@ async function uploadDocument(file, playerId) {
     throw new Error('El archivo es muy grande. Máximo permitido: 10 MB');
   }
 
-  // PDFs e imágenes usan el endpoint "image" (público por defecto)
-  // Word usa "raw" — si falla la descarga, convertir a PDF antes de subir
-  const isRaw = file.type === 'application/msword' ||
-                file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-  const uploadUrl = isRaw ? CLOUDINARY_RAW_URL : CLOUDINARY_IMAGE_URL;
+  // Todo sube por endpoint "image" — Cloudinary acepta PDFs y Word ahí también
+  // y no tiene restricciones de acceso como el endpoint "raw"
+  const uploadUrl = CLOUDINARY_IMAGE_URL;
 
   // Armar la petición
   const formData = new FormData();
