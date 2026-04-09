@@ -221,30 +221,46 @@
      VISTA: JUGADORES - CON FILTROS DE ESTADO
 ========================================= -->
         <div id="playersView" class="hidden p-4 space-y-4">
-            <!-- Buscador y botón agregar -->
-            <div class="flex gap-2">
+            <!-- Buscador y botones de acción -->
+            <div class="flex flex-col sm:flex-row gap-2">
+                <!-- Buscador: fila completa en móvil, flexible en desktop -->
                 <div class="flex-1 relative">
                     <input type="text" id="playerSearch" placeholder="Buscar jugador..."
                         class="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white">
                     <i data-lucide="search" class="w-5 h-5 text-gray-400 absolute left-3 top-2.5"></i>
                 </div>
-                <button onclick="showImportModal()"
-                    class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg flex items-center gap-1"
-                    title="Importar desde Excel">
-                    <i data-lucide="upload" class="w-5 h-5"></i>
-                    <span class="hidden sm:inline">Importar</span>
-                </button>
-                <button onclick="showDuplicatesModal()"
-                    class="bg-orange-500 hover:bg-orange-600 text-white px-3 py-2 rounded-lg flex items-center gap-1"
-                    title="Buscar jugadores duplicados" id="duplicatesBtn">
-                    <i data-lucide="copy" class="w-5 h-5"></i>
-                    <span class="hidden sm:inline">Duplicados</span>
-                </button>
-                <button onclick="showAddPlayerModal()"
-                    class="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg flex items-center gap-2">
-                    <i data-lucide="user-plus" class="w-5 h-5"></i>
-                    Agregar
-                </button>
+                <!-- Botones: en móvil segunda fila con ancho distribuido, en desktop en línea -->
+                <div class="flex gap-2">
+                    <button onclick="showImportModal()"
+                        class="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1"
+                        title="Importar desde Excel">
+                        <i data-lucide="upload" class="w-5 h-5"></i>
+                        <span class="hidden sm:inline">Importar</span>
+                    </button>
+                    <button onclick="showDuplicatesModal()"
+                        class="flex-1 sm:flex-none bg-orange-500 hover:bg-orange-600 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1"
+                        title="Buscar jugadores duplicados" id="duplicatesBtn">
+                        <i data-lucide="copy" class="w-5 h-5"></i>
+                        <span class="hidden sm:inline">Duplicados</span>
+                    </button>
+                    <button onclick="exportPlayersExcel()"
+                        class="flex-1 sm:flex-none bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1"
+                        title="Exportar jugadores a Excel">
+                        <i data-lucide="file-spreadsheet" class="w-5 h-5"></i>
+                        <span class="hidden sm:inline">Excel</span>
+                    </button>
+                    <button onclick="exportPlayersPDF()"
+                        class="flex-1 sm:flex-none bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1"
+                        title="Exportar jugadores a PDF">
+                        <i data-lucide="file-text" class="w-5 h-5"></i>
+                        <span class="hidden sm:inline">PDF</span>
+                    </button>
+                    <button onclick="showAddPlayerModal()"
+                        class="flex-1 sm:flex-none bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-1">
+                        <i data-lucide="user-plus" class="w-5 h-5"></i>
+                        <span class="hidden sm:inline">Agregar</span>
+                    </button>
+                </div>
             </div>
 
             <!-- ⭐ Filtros por estado y categoría -->

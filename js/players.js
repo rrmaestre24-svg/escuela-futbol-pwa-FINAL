@@ -1552,3 +1552,188 @@ function keepThisPlayerDeleteRest(keepId, allIds) {
   // Refrescar la pestaña actual
   showNameDuplicatesTab();
 }
+
+// ========================================
+// EXPORTAR JUGADORES — EXCEL Y PDF
+// ========================================
+
+// Exporta todos los jugadores a un archivo Excel con todos sus datos
+function exportPlayersExcel() {
+  const players = getPlayers();
+  if (players.length === 0) { showToast('No hay jugadores para exportar'); return; }
+
+  loadXLSX(function() {
+    if (typeof XLSX === 'undefined') { showToast('❌ No se pudo cargar la librería Excel'); return; }
+
+    // Encabezados de columnas
+    const headers = [
+      'Nombre', 'Categoría', 'Posición', 'Dorsal', 'Talla Uniforme',
+      'Fecha Nacimiento', 'Tipo Doc.', 'Nro. Documento',
+      'Teléfono', 'Email', 'Dirección', 'Contacto Emergencia',
+      'Estado', 'Fecha Inscripción',
+      'Tipo Sangre', 'EPS', 'SISBEN', 'Alergias', 'Medicamentos', 'Condiciones Médicas'
+    ];
+
+    // Una fila por jugador
+    const rows = players.map(p => [
+      p.name || '',
+      p.category || '',
+      p.position || '',
+      p.jerseyNumber || '',
+      p.uniformSize || '',
+      p.birthDate || '',
+      p.documentType || '',
+      p.documentNumber || '',
+      p.phone || '',
+      p.email || '',
+      p.address || '',
+      p.emergencyContact || '',
+      p.status || 'Activo',
+      p.enrollmentDate || '',
+      p.medicalInfo?.bloodType || '',
+      p.medicalInfo?.eps || '',
+      p.medicalInfo?.sisben || '',
+      p.medicalInfo?.allergies || '',
+      p.medicalInfo?.medications || '',
+      p.medicalInfo?.conditions || ''
+    ]);
+
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+
+    // Ancho automático de columnas
+    ws['!cols'] = headers.map((h, i) => {
+      const maxLen = Math.max(h.length, ...rows.map(r => String(r[i] || '').length));
+      return { wch: Math.min(maxLen + 2, 40) };
+    });
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Jugadores');
+
+    const fecha = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(wb, `jugadores_${fecha}.xlsx`);
+    showToast('✅ Excel descargado');
+  });
+}
+
+// Exporta todos los jugadores a PDF (hoja apaisada, campos principales)
+function exportPlayersPDF() {
+  const players = getPlayers();
+  if (players.length === 0) { showToast('No hay jugadores para exportar'); return; }
+
+  if (typeof window.jspdf === 'undefined') {
+    loadJsPDF(() => exportPlayersPDF());
+    return;
+  }
+
+  const settings = getSchoolSettings();
+  const { jsPDF } = window.jspdf;
+  // Apaisado para que entren más columnas
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+  const PRIMARY = [13, 148, 136];
+  const DARK    = [31, 41, 55];
+  const GRAY    = [107, 114, 128];
+  const LIGHT   = [243, 244, 246];
+  const GREEN   = [22, 163, 74];
+  const RED     = [220, 38, 38];
+
+  // ── Encabezado ──
+  try {
+    if (settings.logo && settings.logo.startsWith('data:image')) {
+      doc.addImage(settings.logo, 'PNG', 15, 8, 18, 18);
+    }
+  } catch (e) { /* sin logo */ }
+
+  doc.setFontSize(14);
+  doc.setTextColor(...PRIMARY);
+  doc.setFont(undefined, 'bold');
+  doc.text(normalizeForPDF(settings.name || 'MI CLUB'), 37, 16);
+
+  doc.setFontSize(9);
+  doc.setTextColor(...GRAY);
+  doc.setFont(undefined, 'normal');
+  doc.text('LISTADO DE JUGADORES REGISTRADOS', 37, 22);
+
+  const fechaGen = new Date().toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  doc.text(`Generado: ${fechaGen}  ·  Total: ${players.length} jugadores`, 37, 27);
+
+  doc.setDrawColor(...PRIMARY);
+  doc.setLineWidth(0.5);
+  doc.line(15, 32, 282, 32);
+
+  // ── Definición de columnas (apaisado A4: 297mm ancho, márgenes 15+15=30, usable 267mm) ──
+  const cols = [
+    { label: 'Nombre',        x: 15,  w: 58 },
+    { label: 'Categoria',     x: 73,  w: 28 },
+    { label: 'Fecha Nac.',    x: 101, w: 24 },
+    { label: 'Documento',     x: 125, w: 32 },
+    { label: 'Telefono',      x: 157, w: 30 },
+    { label: 'Email',         x: 187, w: 48 },
+    { label: 'Estado',        x: 235, w: 20 },
+    { label: 'Inscripcion',   x: 255, w: 27 }
+  ];
+
+  let y = 38;
+
+  // Cabecera de tabla
+  doc.setFillColor(...PRIMARY);
+  doc.rect(15, y, 267, 7, 'F');
+  doc.setFontSize(8);
+  doc.setFont(undefined, 'bold');
+  doc.setTextColor(255, 255, 255);
+  cols.forEach(c => doc.text(c.label, c.x + 1, y + 5));
+  y += 7;
+
+  // Filas
+  players.forEach((p, i) => {
+    // Salto de página si es necesario
+    if (y > 188) {
+      doc.addPage();
+      y = 15;
+      doc.setFillColor(...PRIMARY);
+      doc.rect(15, y, 267, 7, 'F');
+      doc.setFontSize(8);
+      doc.setFont(undefined, 'bold');
+      doc.setTextColor(255, 255, 255);
+      cols.forEach(c => doc.text(c.label, c.x + 1, y + 5));
+      y += 7;
+    }
+
+    const rowH = 6;
+    if (i % 2 === 0) {
+      doc.setFillColor(...LIGHT);
+      doc.rect(15, y, 267, rowH, 'F');
+    }
+
+    doc.setFont(undefined, 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(...DARK);
+
+    const docStr = p.documentNumber ? `${p.documentType || ''} ${p.documentNumber}`.trim() : '—';
+    const estado = p.status || 'Activo';
+
+    doc.text(normalizeForPDF(p.name || '').substring(0, 32),         cols[0].x + 1, y + 4);
+    doc.text(normalizeForPDF(p.category || '—').substring(0, 15),    cols[1].x + 1, y + 4);
+    doc.text(p.birthDate || '—',                                      cols[2].x + 1, y + 4);
+    doc.text(normalizeForPDF(docStr).substring(0, 18),                cols[3].x + 1, y + 4);
+    doc.text((p.phone || '—').substring(0, 16),                       cols[4].x + 1, y + 4);
+    doc.text(normalizeForPDF(p.email || '—').substring(0, 26),        cols[5].x + 1, y + 4);
+
+    // Estado con color
+    doc.setTextColor(...(estado === 'Activo' ? GREEN : estado === 'Inactivo' ? RED : GRAY));
+    doc.text(normalizeForPDF(estado),                                  cols[6].x + 1, y + 4);
+
+    doc.setTextColor(...DARK);
+    // Tomar solo los primeros 10 caracteres para mostrar YYYY-MM-DD sin el timestamp
+    doc.text((p.enrollmentDate || '—').substring(0, 10),               cols[7].x + 1, y + 4);
+
+    y += rowH;
+  });
+
+  const fecha = new Date().toISOString().slice(0, 10);
+  doc.save(`jugadores_${fecha}.pdf`);
+  showToast('✅ PDF descargado');
+}
+
+window.exportPlayersExcel = exportPlayersExcel;
+window.exportPlayersPDF   = exportPlayersPDF;
