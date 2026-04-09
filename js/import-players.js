@@ -790,16 +790,28 @@ function formatImportDate(dateStr) {
 // ========================================
 
 function showImportPreview() {
-    // Obtener nombres existentes en la base de datos para detectar duplicados exactos
     const existingPlayers = typeof getPlayers === 'function' ? getPlayers() : [];
-    const existingNames = new Set(
-        existingPlayers.map(p => (p.name || '').toLowerCase().trim())
-    );
 
-    // Marcar duplicados en los datos importados
+    // Marcar duplicados usando el sistema de puntaje (≥3 puntos = duplicado)
+    // Reutiliza scoreDuplicate() y normalizeName() de players.js
     importedPlayersData.forEach(player => {
-        const nombre = (player.name || '').toLowerCase().trim();
-        player.isDuplicate = existingNames.has(nombre);
+        player.isDuplicate    = false;
+        player.duplicateReason = '';
+        player.duplicateScore  = 0;
+
+        for (const existing of existingPlayers) {
+            // scoreDuplicate está definida en players.js y es global
+            const { score, reasons } = typeof scoreDuplicate === 'function'
+                ? scoreDuplicate(player, existing)
+                : { score: normalizeName(player.name) === normalizeName(existing.name) ? 3 : 0, reasons: ['Mismo nombre'] };
+
+            if (score >= 3) {
+                player.isDuplicate     = true;
+                player.duplicateReason = reasons.join(' · ');
+                player.duplicateScore  = score;
+                break;
+            }
+        }
     });
 
     const validPlayers   = importedPlayersData.filter(p => p.isValid && !p.isDuplicate);
@@ -814,20 +826,38 @@ function showImportPreview() {
     document.getElementById('previewValid').textContent   = validPlayers.length;
     document.getElementById('previewInvalid').textContent = invalidPlayers.length;
 
-    // Mostrar/actualizar contador de duplicados
+    // Mostrar/actualizar contador de duplicados con detalle
+    const strongDups = dupPlayers.filter(p => p.duplicateScore >= 4).length;
+    const softDups   = dupPlayers.filter(p => p.duplicateScore < 4).length;
+
     let dupEl = document.getElementById('previewDuplicates');
     if (!dupEl) {
         const statsGrid = document.querySelector('#importPreview .grid');
         if (statsGrid) {
             const dupDiv = document.createElement('div');
-            dupDiv.className = 'bg-yellow-100 dark:bg-yellow-900/30 rounded-lg p-3 text-center col-span-3 mt-1';
-            dupDiv.innerHTML = `<div class="text-xl font-bold text-yellow-600" id="previewDuplicates">0</div>
-                                <div class="text-xs text-yellow-600">Ya existen (no se importarán)</div>`;
+            dupDiv.className = 'rounded-lg p-3 text-center col-span-3 mt-1 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700';
+            dupDiv.id = 'previewDuplicatesBox';
+            dupDiv.innerHTML = `
+                <div class="text-xl font-bold text-yellow-600" id="previewDuplicates">0</div>
+                <div class="text-xs text-yellow-600" id="previewDuplicatesDetail">No se importarán</div>`;
             statsGrid.after(dupDiv);
             dupEl = document.getElementById('previewDuplicates');
         }
     }
-    if (dupEl) dupEl.textContent = dupPlayers.length;
+    if (dupEl) {
+        dupEl.textContent = dupPlayers.length;
+        const detail = document.getElementById('previewDuplicatesDetail');
+        if (detail) {
+            if (dupPlayers.length === 0) {
+                detail.textContent = '✅ Sin duplicados';
+            } else {
+                const parts = [];
+                if (strongDups > 0) parts.push(`🔴 ${strongDups} muy probable${strongDups > 1 ? 's' : ''}`);
+                if (softDups > 0)   parts.push(`🟡 ${softDups} posible${softDups > 1 ? 's' : ''}`);
+                detail.textContent = parts.join(' · ') + ' — no se importarán';
+            }
+        }
+    }
 
     const tbody = document.getElementById('importPreviewBody');
     tbody.innerHTML = '';
@@ -836,17 +866,24 @@ function showImportPreview() {
         const row = document.createElement('tr');
 
         if (player.isDuplicate) {
-            // Duplicado exacto — fondo amarillo, deshabilitado
-            row.className = 'border-b border-gray-200 dark:border-gray-700 bg-yellow-50 dark:bg-yellow-900/20';
+            // Duplicado detectado — color según gravedad
+            const isStrong = player.duplicateScore >= 4;
+            row.className = `border-b border-gray-200 dark:border-gray-700 ${isStrong ? 'bg-red-50 dark:bg-red-900/20' : 'bg-yellow-50 dark:bg-yellow-900/20'}`;
             row.innerHTML = `
                 <td class="p-2">
                     <input type="checkbox" id="importCheck_${index}" disabled class="import-checkbox rounded opacity-40">
                 </td>
-                <td class="p-2 font-medium text-yellow-700 dark:text-yellow-300">${escapeHtml(player.name) || '-'}</td>
+                <td class="p-2 font-medium ${isStrong ? 'text-red-700 dark:text-red-300' : 'text-yellow-700 dark:text-yellow-300'}">${escapeHtml(player.name) || '-'}</td>
                 <td class="p-2 text-gray-600 dark:text-gray-400">${player.birthDate || '-'}</td>
                 <td class="p-2 text-gray-600 dark:text-gray-400">${escapeHtml(player.category) || '-'}</td>
                 <td class="p-2 text-gray-600 dark:text-gray-400">${player.phone || '-'}</td>
-                <td class="p-2"><span class="text-yellow-500 text-xs font-semibold">Ya existe</span></td>
+                <td class="p-2">
+                    <span class="text-xs font-semibold ${isStrong ? 'text-red-600' : 'text-yellow-600'}"
+                          title="${escapeHtml(player.duplicateReason)}">
+                        ${isStrong ? '🔴 Duplicado' : '🟡 Posible dup.'}
+                    </span>
+                    <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5 leading-tight">${escapeHtml(player.duplicateReason)}</p>
+                </td>
             `;
         } else if (!player.isValid) {
             // Error de validación — fondo rojo

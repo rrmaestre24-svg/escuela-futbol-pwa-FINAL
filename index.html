@@ -234,6 +234,12 @@
                     <i data-lucide="upload" class="w-5 h-5"></i>
                     <span class="hidden sm:inline">Importar</span>
                 </button>
+                <button onclick="showDuplicatesModal()"
+                    class="bg-orange-500 hover:bg-orange-600 text-white px-3 py-2 rounded-lg flex items-center gap-1"
+                    title="Buscar jugadores duplicados" id="duplicatesBtn">
+                    <i data-lucide="copy" class="w-5 h-5"></i>
+                    <span class="hidden sm:inline">Duplicados</span>
+                </button>
                 <button onclick="showAddPlayerModal()"
                     class="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg flex items-center gap-2">
                     <i data-lucide="user-plus" class="w-5 h-5"></i>
@@ -1659,6 +1665,25 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
                 </button>
             </div>
             <div id="playerDetailsContent" class="p-4"></div>
+        </div>
+    </div>
+
+    <!-- ========================================
+     MODAL: DUPLICADOS DE JUGADORES
+========================================= -->
+    <div id="duplicatesModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-scale-in mx-auto">
+            <div class="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4 flex items-center justify-between z-10">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="copy" class="w-5 h-5 text-orange-500"></i>
+                    <h3 class="font-bold text-xl text-gray-800 dark:text-white">Jugadores Duplicados</h3>
+                    <span id="duplicatesCount" class="bg-orange-500 text-white text-xs font-bold px-2 py-0.5 rounded-full"></span>
+                </div>
+                <button onclick="closeDuplicatesModal()" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
+                    <i data-lucide="x" class="w-6 h-6 text-gray-600 dark:text-gray-300"></i>
+                </button>
+            </div>
+            <div id="duplicatesContent" class="p-4 space-y-4"></div>
         </div>
     </div>
 

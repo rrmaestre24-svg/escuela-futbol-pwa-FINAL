@@ -7,6 +7,7 @@
 let currentEditingPlayerId = null;
 let currentStatusFilter = 'activo'; // 'todos', 'activo', 'inactivo' — por defecto solo activos
 let currentCategoryFilter = 'todas'; // 'todas' o nombre de categoría
+let _pendingDuplicateConfirm = null; // Guarda el callback del modal de duplicados
 
 // Mostrar modal agregar jugador
 function showAddPlayerModal() {
@@ -130,26 +131,48 @@ document.getElementById('playerForm')?.addEventListener('submit', function(e) {
   
   const savePlayerData = (avatar) => {
     playerData.avatar = avatar;
-    
+
     if (playerId) {
       // Editar
       updatePlayer(playerId, playerData);
       showToast('✅ Jugador actualizado');
+      closePlayerModal();
+      renderPlayersList();
+      updateDashboard();
     } else {
-      // Crear nuevo
-      const newPlayer = {
-        id: generateId(),
-        ...playerData,
-        status: 'Activo',
-        enrollmentDate: getCurrentDate()
-      };
-      savePlayer(newPlayer);
-      showToast('✅ Jugador agregado');
+      // Crear nuevo — verificar duplicados primero
+      const existing = getPlayers();
+      const duplicate = findPotentialDuplicate(playerData, existing);
+
+      if (duplicate) {
+        // Mostrar advertencia con opción de guardar igual
+        showDuplicateWarning(playerData, duplicate, () => {
+          const newPlayer = {
+            id: generateId(),
+            ...playerData,
+            status: 'Activo',
+            enrollmentDate: getCurrentDate()
+          };
+          savePlayer(newPlayer);
+          showToast('✅ Jugador agregado');
+          closePlayerModal();
+          renderPlayersList();
+          updateDashboard();
+        });
+      } else {
+        const newPlayer = {
+          id: generateId(),
+          ...playerData,
+          status: 'Activo',
+          enrollmentDate: getCurrentDate()
+        };
+        savePlayer(newPlayer);
+        showToast('✅ Jugador agregado');
+        closePlayerModal();
+        renderPlayersList();
+        updateDashboard();
+      }
     }
-    
-    closePlayerModal();
-    renderPlayersList();
-    updateDashboard();
   };
   
   if (avatarFile) {
@@ -263,6 +286,23 @@ function getDocumentTypeName(type) {
 
 // Renderizar lista de jugadores - MEJORADO CON TELÉFONOS FORMATEADOS Y DOCUMENTO
 function renderPlayersList() {
+  // Actualizar badge del botón Duplicados automáticamente
+  const allPlayers = getPlayers();
+  const dupCount = findAllDuplicates(allPlayers).length;
+  const dupBtn = document.getElementById('duplicatesBtn');
+  if (dupBtn) {
+    // Quitar badge anterior si existe
+    const oldBadge = dupBtn.querySelector('.dup-badge');
+    if (oldBadge) oldBadge.remove();
+    if (dupCount > 0) {
+      const badge = document.createElement('span');
+      badge.className = 'dup-badge absolute -top-1.5 -right-1.5 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center';
+      badge.textContent = dupCount;
+      dupBtn.style.position = 'relative';
+      dupBtn.appendChild(badge);
+    }
+  }
+
   const players = getPlayers();
   const searchTerm = document.getElementById('playerSearch')?.value || '';
   
@@ -962,3 +1002,342 @@ window.copyParentCode = copyParentCode;
 window.shareParentCodeWhatsApp = shareParentCodeWhatsApp;
 
 console.log('✅ Sistema de código de padres en players.js cargado');
+
+// ========================================
+// DETECCIÓN DE DUPLICADOS
+// ========================================
+
+// Quita tildes, convierte a minúsculas y normaliza espacios
+// Así "García" y "garcia" se tratan igual
+function normalizeName(str) {
+  if (!str) return '';
+  return str.trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ');
+}
+
+// Calcula cuántos campos coinciden entre dos jugadores (sistema de puntaje)
+// Retorna { score, reasons[] }
+// Puntaje mínimo para marcar como duplicado: 3
+function scoreDuplicate(a, b) {
+  let score = 0;
+  const reasons = [];
+
+  const aDoc = a.documentNumber?.trim();
+  const bDoc = b.documentNumber?.trim();
+
+  // Documentos iguales → duplicado confirmado (3 puntos)
+  if (aDoc && bDoc && aDoc === bDoc) {
+    score += 3;
+    reasons.push('Mismo número de documento');
+  }
+
+  // Documentos distintos → posible error de digitación, se advierte pero no descarta
+  // El resto de campos sigue evaluándose normalmente
+  if (aDoc && bDoc && aDoc !== bDoc) {
+    reasons.push('Documentos distintos (posible error)');
+  }
+
+  // Nombre normalizado: vale 1 punto
+  const aName = normalizeName(a.name);
+  const bName = normalizeName(b.name);
+  if (aName && bName && aName === bName) {
+    score += 1;
+    reasons.push('Mismo nombre');
+  }
+
+  // Fecha de nacimiento: vale 1 punto
+  if (a.birthDate && b.birthDate && a.birthDate === b.birthDate) {
+    score += 1;
+    reasons.push('Misma fecha de nacimiento');
+  }
+
+  // Teléfono: vale 1 punto
+  const aPhone = a.phone?.trim();
+  const bPhone = b.phone?.trim();
+  if (aPhone && bPhone && aPhone === bPhone) {
+    score += 1;
+    reasons.push('Mismo teléfono');
+  }
+
+  // Email: vale 1 punto
+  const aEmail = a.email?.trim().toLowerCase();
+  const bEmail = b.email?.trim().toLowerCase();
+  if (aEmail && bEmail && aEmail === bEmail) {
+    score += 1;
+    reasons.push('Mismo email');
+  }
+
+  // Categoría: vale 1 punto (complementario, no alcanza solo)
+  if (a.category && b.category && a.category === b.category) {
+    score += 1;
+    reasons.push('Misma categoría');
+  }
+
+  return { score, reasons };
+}
+
+// Compara un jugador nuevo contra la lista y devuelve el primero con score ≥ 3
+function findPotentialDuplicate(newData, existingPlayers) {
+  for (const p of existingPlayers) {
+    const { score, reasons } = scoreDuplicate(newData, p);
+    if (score >= 3) {
+      return { player: p, reason: reasons.join(' · ') };
+    }
+  }
+  return null;
+}
+
+// Escanea todos los jugadores y devuelve pares con score ≥ 3
+function findAllDuplicates(players) {
+  const pairs = [];
+  const seen  = new Set();
+
+  for (let i = 0; i < players.length; i++) {
+    for (let j = i + 1; j < players.length; j++) {
+      const a = players[i];
+      const b = players[j];
+      const key = [a.id, b.id].sort().join('|');
+      if (seen.has(key)) continue;
+
+      const { score, reasons } = scoreDuplicate(a, b);
+      if (score >= 3) {
+        pairs.push({ a, b, reason: reasons.join(' · '), score });
+        seen.add(key);
+      }
+    }
+  }
+
+  // Ordenar por puntaje descendente (los más sospechosos primero)
+  return pairs.sort((a, b) => b.score - a.score);
+}
+
+// Muestra advertencia al crear un jugador que parece duplicado
+function showDuplicateWarning(newData, duplicate, onConfirm) {
+  const p = duplicate.player;
+  const content    = document.getElementById('duplicatesContent');
+  const countBadge = document.getElementById('duplicatesCount');
+  if (!content) return;
+
+  // Calcular campos coincidentes para resaltarlos
+  const { reasons, score } = scoreDuplicate(newData, p);
+  const hi  = 'text-xs font-semibold text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-900/30 rounded px-1.5 py-0.5 inline-block';
+  const nor = 'text-xs text-gray-500 dark:text-gray-400';
+
+  const matchName     = reasons.includes('Mismo nombre');
+  const matchDate     = reasons.includes('Misma fecha de nacimiento');
+  const matchDoc      = reasons.includes('Mismo número de documento');
+  const docsDiffer    = reasons.includes('Documentos distintos (posible error)');
+  const matchPhone    = reasons.includes('Mismo teléfono');
+  const matchEmail    = reasons.includes('Mismo email');
+  const matchCategory = reasons.includes('Misma categoría');
+
+  // Clases para doc con error de digitación (naranja)
+  const warn = 'text-xs font-semibold text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/30 rounded px-1.5 py-0.5 inline-block';
+
+  const isStrong = score >= 4;
+
+  countBadge.textContent = '⚠️ Posible duplicado';
+  countBadge.className   = `${isStrong ? 'bg-red-500' : 'bg-yellow-500'} text-white text-xs font-bold px-2 py-0.5 rounded-full`;
+
+  // Genera tarjeta de un jugador con campos resaltados
+  const card = (data, label) => `
+    <div class="bg-white dark:bg-gray-700 rounded-xl p-3 space-y-1.5">
+      <p class="text-xs font-bold uppercase tracking-wide mb-2 ${label === 'Ya registrado' ? 'text-red-500' : 'text-blue-500'}">
+        ${label === 'Ya registrado' ? '🔴' : '🆕'} ${label}
+      </p>
+      <p class="text-sm font-bold ${matchName ? 'text-green-700 dark:text-green-300' : 'text-gray-800 dark:text-white'}">${data.name || '—'}</p>
+      <p class="${matchCategory ? hi : nor}">📂 ${data.category || '—'}</p>
+      <p class="${matchDate     ? hi : nor}">🎂 ${data.birthDate || '—'}</p>
+      ${data.documentNumber ? `<p class="${matchDoc ? hi : docsDiffer ? warn : nor}">🪪 ${data.documentNumber}${docsDiffer ? ' ⚠️' : ''}</p>` : ''}
+      ${data.phone  ? `<p class="${matchPhone ? hi : nor}">📱 ${data.phone}</p>`  : ''}
+      ${data.email  ? `<p class="${matchEmail ? hi : nor}">✉️ ${data.email}</p>`  : ''}
+    </div>
+  `;
+
+  // Separar razones: coincidencias en verde, advertencias en naranja
+  const matchReasons = reasons.filter(r => !r.includes('distintos'));
+  const warnReasons  = reasons.filter(r =>  r.includes('distintos'));
+
+  content.innerHTML = `
+    <div class="space-y-4">
+      <!-- Alerta principal -->
+      <div class="${isStrong ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700' : 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-700'} border rounded-xl p-4">
+        <p class="text-sm font-bold ${isStrong ? 'text-red-700 dark:text-red-300' : 'text-yellow-700 dark:text-yellow-300'} mb-1">
+          ${isStrong ? '🔴 Este jugador ya está registrado' : '⚠️ Ya existe un jugador con datos similares'}
+        </p>
+        <p class="text-xs ${isStrong ? 'text-red-600 dark:text-red-400' : 'text-yellow-600 dark:text-yellow-400'} mb-3">
+          Verde = datos que coinciden · Naranja = posible error de digitación
+        </p>
+        <div class="flex flex-wrap gap-1 mb-3">
+          ${matchReasons.map(r => `<span class="text-xs bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 font-semibold px-2 py-0.5 rounded-full">${r}</span>`).join('')}
+          ${warnReasons.map(r  => `<span class="text-xs bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300 font-semibold px-2 py-0.5 rounded-full">⚠️ ${r}</span>`).join('')}
+        </div>
+        ${docsDiffer ? `<p class="text-xs text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20 rounded-lg px-3 py-2 mb-3">
+          💡 Los documentos son distintos pero los otros datos coinciden. Puede ser un error al escribir el número — revisá cuál es el correcto antes de guardar.
+        </p>` : ''}
+        <!-- Comparación lado a lado -->
+        <div class="grid grid-cols-2 gap-2">
+          ${card(p, 'Ya registrado')}
+          ${card(newData, 'Jugador nuevo')}
+        </div>
+      </div>
+
+      <!-- Acciones -->
+      <div class="flex gap-2">
+        <button onclick="closeDuplicatesModal()"
+          class="flex-1 py-3 rounded-xl bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-sm font-bold hover:opacity-80">
+          ← Volver a editar
+        </button>
+        <button onclick="confirmDuplicateSave()"
+          class="flex-1 py-3 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-sm font-bold">
+          Guardar de todas formas
+        </button>
+      </div>
+    </div>
+  `;
+
+  // Guardar callback en variable global DESPUÉS de construir el HTML
+  _pendingDuplicateConfirm = onConfirm;
+
+  document.getElementById('duplicatesModal').classList.remove('hidden');
+  if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+// Ejecuta el callback pendiente al confirmar desde el modal de advertencia
+function confirmDuplicateSave() {
+  closeDuplicatesModal();
+  if (typeof _pendingDuplicateConfirm === 'function') {
+    _pendingDuplicateConfirm();
+    _pendingDuplicateConfirm = null;
+  }
+}
+
+// Genera el HTML de un par de duplicados con campos coincidentes resaltados en verde
+function renderDuplicatePairHTML(pair, idx) {
+  const { reasons } = scoreDuplicate(pair.a, pair.b);
+
+  // Mapeo de razones a campos del jugador
+  const matchName     = reasons.includes('Mismo nombre');
+  const matchDate     = reasons.includes('Misma fecha de nacimiento');
+  const matchDoc      = reasons.includes('Mismo número de documento');
+  const docsDiffer    = reasons.includes('Documentos distintos (posible error)');
+  const matchPhone    = reasons.includes('Mismo teléfono');
+  const matchEmail    = reasons.includes('Mismo email');
+  const matchCategory = reasons.includes('Misma categoría');
+
+  // Clases CSS: verde = coincide, naranja = posible error, gris = sin coincidencia
+  const hi   = 'text-xs font-semibold text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-900/30 rounded px-1.5 py-0.5 inline-block';
+  const warn = 'text-xs font-semibold text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/30 rounded px-1.5 py-0.5 inline-block';
+  const nor  = 'text-xs text-gray-500 dark:text-gray-400';
+
+  // Determinar cuál es más reciente por enrollmentDate (formato YYYY-MM-DD)
+  // Si no hay fecha, usar el ID como desempate (contiene timestamp)
+  const dateA = pair.a.enrollmentDate || '';
+  const dateB = pair.b.enrollmentDate || '';
+  const aIsNewer = dateA > dateB || (dateA === dateB && pair.a.id > pair.b.id);
+
+  const playerCard = (p, isNewer) => `
+    <div class="p-3 space-y-1.5 relative">
+      ${isNewer ? `
+        <div class="absolute top-2 right-2 bg-orange-500 text-white text-xs font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+          🆕 Más reciente
+        </div>` : `
+        <div class="absolute top-2 right-2 bg-gray-400 text-white text-xs font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+          📅 Más antiguo
+        </div>`}
+      <div class="flex items-center gap-2 mb-2 pr-24">
+        <img src="${p.avatar || ''}" onerror="this.style.display='none'"
+          class="w-8 h-8 rounded-full object-cover flex-shrink-0">
+        <p class="text-sm font-bold leading-tight ${matchName ? 'text-green-700 dark:text-green-300' : 'text-gray-800 dark:text-white'}">${p.name}</p>
+      </div>
+      <p class="${matchCategory ? hi : nor}">📂 ${p.category || '—'}</p>
+      <p class="${matchDate ? hi : nor}">🎂 Nac: ${p.birthDate || '—'}</p>
+      ${p.documentNumber ? `<p class="${matchDoc ? hi : docsDiffer ? warn : nor}">🪪 Doc: ${p.documentNumber}${docsDiffer ? ' ⚠️' : ''}</p>` : ''}
+      ${p.phone          ? `<p class="${matchPhone ? hi : nor}">📱 Tel: ${p.phone}</p>`         : ''}
+      ${p.email          ? `<p class="${matchEmail ? hi : nor}">✉️ ${p.email}</p>`               : ''}
+      <p class="${nor}">Estado: ${p.status || 'Activo'}</p>
+      ${p.enrollmentDate ? `<p class="text-xs text-gray-400 dark:text-gray-500">Creado: ${p.enrollmentDate}</p>` : ''}
+      <div class="flex gap-1 pt-2">
+        <button onclick="closeDuplicatesModal(); showPlayerDetails('${p.id}')"
+          class="flex-1 py-1.5 text-xs rounded-lg bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 font-semibold hover:opacity-80">
+          Ver
+        </button>
+        <button onclick="deleteDuplicatePlayer('${p.id}', ${idx})"
+          class="flex-1 py-1.5 text-xs rounded-lg bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 font-semibold hover:opacity-80">
+          Eliminar
+        </button>
+      </div>
+    </div>
+  `;
+
+  return `
+    <div class="border border-orange-200 dark:border-orange-800 rounded-xl overflow-hidden">
+      <div class="bg-orange-50 dark:bg-orange-900/30 px-4 py-2 flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2 flex-wrap">
+          <i data-lucide="alert-triangle" class="w-4 h-4 text-orange-500 flex-shrink-0"></i>
+          ${reasons.filter(r => !r.includes('distintos')).map(r => `<span class="text-xs bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 font-semibold px-2 py-0.5 rounded-full">${r}</span>`).join('')}
+          ${docsDiffer ? `<span class="text-xs bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300 font-semibold px-2 py-0.5 rounded-full">⚠️ Docs distintos</span>` : ''}
+        </div>
+        <span class="text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${pair.score >= 4 ? 'bg-red-500 text-white' : 'bg-orange-400 text-white'}">
+          ${pair.score >= 4 ? '🔴 Muy probable' : '🟡 Probable'}
+        </span>
+      </div>
+      <div class="grid grid-cols-2 gap-0 divide-x divide-gray-200 dark:divide-gray-700">
+        ${playerCard(pair.a, aIsNewer)}
+        ${playerCard(pair.b, !aIsNewer)}
+      </div>
+    </div>
+  `;
+}
+
+// Abre el modal con todos los duplicados encontrados
+function showDuplicatesModal() {
+  const players = getPlayers();
+  const pairs   = findAllDuplicates(players);
+
+  const content    = document.getElementById('duplicatesContent');
+  const countBadge = document.getElementById('duplicatesCount');
+  if (!content) return;
+
+  countBadge.className = 'bg-orange-500 text-white text-xs font-bold px-2 py-0.5 rounded-full';
+  countBadge.textContent = pairs.length > 0 ? pairs.length : '0';
+
+  if (pairs.length === 0) {
+    content.innerHTML = `
+      <div class="flex flex-col items-center py-10 gap-3 text-center">
+        <span class="text-5xl">✅</span>
+        <p class="font-semibold text-gray-700 dark:text-gray-200">No se encontraron duplicados</p>
+        <p class="text-sm text-gray-500 dark:text-gray-400">Todos los jugadores tienen datos únicos.</p>
+      </div>
+    `;
+  } else {
+    content.innerHTML = `
+      <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">
+        Se encontraron <strong>${pairs.length}</strong> posible${pairs.length > 1 ? 's' : ''} duplicado${pairs.length > 1 ? 's' : ''}.
+        Revisá cada par y eliminá el que corresponda.
+      </p>
+      ${pairs.map((pair, idx) => renderDuplicatePairHTML(pair, idx)).join('')}
+    `;
+  }
+
+  document.getElementById('duplicatesModal').classList.remove('hidden');
+  if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+// Elimina un jugador desde el modal de duplicados y refresca la lista
+function deleteDuplicatePlayer(playerId) {
+  deletePlayer(playerId);
+  showToast('🗑️ Jugador eliminado');
+  renderPlayersList();
+  updateDashboard();
+  // Refrescar el modal con la lista actualizada
+  showDuplicatesModal();
+}
+
+// Cierra el modal de duplicados
+function closeDuplicatesModal() {
+  document.getElementById('duplicatesModal').classList.add('hidden');
+}
