@@ -373,8 +373,13 @@ function renderPlayersList() {
   lucide.createIcons();
 }
 
-// Buscar jugadores en tiempo real
-document.getElementById('playerSearch')?.addEventListener('input', renderPlayersList);
+// Buscar jugadores en tiempo real — con debounce para no reconstruir
+// la lista en cada letra que se escribe (mejora rendimiento en móvil)
+let _searchDebounceTimer = null;
+document.getElementById('playerSearch')?.addEventListener('input', function() {
+  clearTimeout(_searchDebounceTimer);
+  _searchDebounceTimer = setTimeout(renderPlayersList, 300);
+});
 
 // Mostrar detalles del jugador - MEJORADO CON DOCUMENTO
 function showPlayerDetails(playerId) {
