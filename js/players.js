@@ -74,37 +74,34 @@ function closePlayerModal() {
   document.getElementById('playerModal').classList.add('hidden');
   currentEditingPlayerId = null;
 }
-// Preview de avatar jugador - MEJORADO
+// Preview de avatar jugador — muestra preview local antes de guardar
 document.getElementById('playerAvatar')?.addEventListener('change', function(e) {
   const file = e.target.files[0];
   if (file) {
-    // Validar tipo de archivo
     if (!file.type.startsWith('image/')) {
       showToast('❌ Por favor selecciona una imagen válida');
       return;
     }
-    
-    // Validar tamaño (máximo 2MB)
     if (file.size > 2 * 1024 * 1024) {
       showToast('❌ La imagen es muy grande. Máximo 2MB');
       return;
     }
-    
+    // Solo preview local — la subida real ocurre al guardar
     imageToBase64(file, function(base64) {
       document.getElementById('playerAvatarPreview').src = base64;
-      showToast('✅ Imagen cargada');
+      showToast('✅ Imagen lista');
     });
   }
 });
 
-// Guardar jugador - MEJORADO CON NORMALIZACIÓN DE TELÉFONOS Y DOCUMENTO
-document.getElementById('playerForm')?.addEventListener('submit', function(e) {
+// Guardar jugador
+document.getElementById('playerForm')?.addEventListener('submit', async function(e) {
   e.preventDefault();
-  
+
   const playerId = document.getElementById('playerId').value;
   const avatarFile = document.getElementById('playerAvatar').files[0];
   const currentAvatar = document.getElementById('playerAvatarPreview').src;
-  
+
   const playerData = {
     name: document.getElementById('playerName').value,
     birthDate: document.getElementById('playerBirthDate').value,
@@ -116,7 +113,6 @@ document.getElementById('playerForm')?.addEventListener('submit', function(e) {
     phone: normalizePhone(document.getElementById('playerPhone').value),
     address: document.getElementById('playerAddress').value,
     emergencyContact: normalizePhone(document.getElementById('playerEmergencyContact').value),
-    // 🆕 DOCUMENTO DE IDENTIDAD
     documentType: document.getElementById('playerDocumentType').value,
     documentNumber: document.getElementById('playerDocumentNumber').value.trim(),
     medicalInfo: {
@@ -124,16 +120,17 @@ document.getElementById('playerForm')?.addEventListener('submit', function(e) {
       allergies: document.getElementById('playerAllergies').value,
       medications: document.getElementById('playerMedications').value,
       conditions: document.getElementById('playerConditions').value,
-      eps: document.getElementById('playerEps').value.trim(),        // NUEVO
-      sisben: document.getElementById('playerSisben').value.trim()   // NUEVO
+      eps: document.getElementById('playerEps').value.trim(),
+      sisben: document.getElementById('playerSisben').value.trim()
     }
   };
-  
-  const savePlayerData = (avatar) => {
+
+  // Recibe el avatar final y el ID pregenerado (opcional) y guarda el jugador
+  const savePlayerData = (avatar, preGeneratedId = null) => {
     playerData.avatar = avatar;
 
     if (playerId) {
-      // Editar
+      // Editar jugador existente
       updatePlayer(playerId, playerData);
       showToast('✅ Jugador actualizado');
       closePlayerModal();
@@ -145,10 +142,9 @@ document.getElementById('playerForm')?.addEventListener('submit', function(e) {
       const duplicate = findPotentialDuplicate(playerData, existing);
 
       if (duplicate) {
-        // Mostrar advertencia con opción de guardar igual
         showDuplicateWarning(playerData, duplicate, () => {
           const newPlayer = {
-            id: generateId(),
+            id: preGeneratedId || generateId(),
             ...playerData,
             status: 'Activo',
             enrollmentDate: getCurrentDate()
@@ -161,7 +157,7 @@ document.getElementById('playerForm')?.addEventListener('submit', function(e) {
         });
       } else {
         const newPlayer = {
-          id: generateId(),
+          id: preGeneratedId || generateId(),
           ...playerData,
           status: 'Activo',
           enrollmentDate: getCurrentDate()
@@ -174,9 +170,24 @@ document.getElementById('playerForm')?.addEventListener('submit', function(e) {
       }
     }
   };
-  
+
+  // Si hay foto nueva, subirla a Firebase Storage
   if (avatarFile) {
-    imageToBase64(avatarFile, savePlayerData);
+    // Usar el ID existente (editar) o pre-generar uno nuevo (crear)
+    const targetId = playerId || generateId();
+
+    if (window.APP_STATE?.firebaseReady && window.firebase?.storage) {
+      try {
+        showToast('⏳ Subiendo foto...');
+        const result = await uploadDocument(avatarFile, targetId);
+        savePlayerData(result.url, targetId);
+      } catch (err) {
+        showToast('❌ Error al subir foto: ' + err.message);
+      }
+    } else {
+      // Fallback a base64 si Firebase Storage no está disponible
+      imageToBase64(avatarFile, (base64) => savePlayerData(base64, targetId));
+    }
   } else {
     savePlayerData(currentAvatar);
   }
