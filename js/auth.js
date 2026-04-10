@@ -1694,20 +1694,50 @@ function isMobileDevice() {
   return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
 }
 
+// Esperar a que Firebase Auth tenga un usuario autenticado (máximo 6 segundos)
+function waitForAuthUser() {
+  return new Promise((resolve) => {
+    const timeout = setTimeout(() => resolve(null), 6000);
+    const unsub = window.firebase.onAuthStateChanged(window.firebase.auth, (user) => {
+      if (user) {
+        clearTimeout(timeout);
+        unsub();
+        resolve(user);
+      }
+    });
+  });
+}
+
 // Procesar el resultado del redirect de Google (se llama al cargar la página)
 async function handleGoogleRedirectResult() {
+  // Solo actuar si venimos de un redirect de Google
+  if (!sessionStorage.getItem('googleRedirectPending')) return;
+
   const firebaseReady = await waitForFirebase();
   if (!firebaseReady || !window.firebase?.auth) return;
 
   try {
+    // Intentar getRedirectResult primero
     const result = await window.firebase.getRedirectResult(window.firebase.auth);
-    if (!result?.user) return; // No hubo redirect, ignorar
-
-    await processGoogleUser(result.user);
-  } catch (err) {
-    if (err.code !== 'auth/no-current-user') {
-      showToast('❌ Error con Google: ' + err.message);
+    if (result?.user) {
+      sessionStorage.removeItem('googleRedirectPending');
+      await processGoogleUser(result.user);
+      return;
     }
+  } catch (err) {
+    console.warn('[Google] getRedirectResult falló:', err.code);
+  }
+
+  // Fallback: esperar a que onAuthStateChanged detecte al usuario
+  showToast('⏳ Verificando cuenta de Google...');
+  const user = await waitForAuthUser();
+
+  if (user) {
+    sessionStorage.removeItem('googleRedirectPending');
+    await processGoogleUser(user);
+  } else {
+    sessionStorage.removeItem('googleRedirectPending');
+    showToast('❌ No se pudo completar el inicio con Google. Intenta de nuevo.');
   }
 }
 
@@ -1805,7 +1835,8 @@ async function loginWithGoogle() {
     const provider = new window.firebase.GoogleAuthProvider();
 
     if (isMobileDevice()) {
-      // En móvil usar redirect (más compatible con navegadores móviles)
+      // Marcar que venimos de un redirect de Google para procesarlo al volver
+      sessionStorage.setItem('googleRedirectPending', '1');
       showToast('⏳ Redirigiendo a Google...');
       await window.firebase.signInWithRedirect(window.firebase.auth, provider);
       return; // La página se recarga sola, el resultado se maneja en handleGoogleRedirectResult
