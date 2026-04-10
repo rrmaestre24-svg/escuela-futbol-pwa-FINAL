@@ -256,22 +256,23 @@ function renderMonthlyPayments(payments) {
     return;
   }
   
-  const sorted = sortBy(payments, 'dueDate', 'desc');
-  
+  // Ordenar por fecha de creación descendente (más reciente primero)
+  const sorted = [...payments].sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+
   container.innerHTML = sorted.map(payment => {
     const player = getPlayerById(payment.playerId);
     if (!player) return '';
-    
+
     return renderPaymentCard(payment, player);
   }).join('');
-  
+
   lucide.createIcons();
 }
 
 // Renderizar pagos extras
 function renderExtraPayments(payments) {
   const container = document.getElementById('extrasPaymentsContent');
-  
+
   if (payments.length === 0) {
     container.innerHTML = `
       <div class="empty-state">
@@ -281,8 +282,9 @@ function renderExtraPayments(payments) {
     `;
     return;
   }
-  
-  const sorted = sortBy(payments, 'dueDate', 'desc');
+
+  // Ordenar por fecha de creación descendente (más reciente primero)
+  const sorted = [...payments].sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
   
   container.innerHTML = sorted.map(payment => {
     const player = getPlayerById(payment.playerId);
@@ -343,7 +345,7 @@ function renderPaymentCard(payment, player) {
             <p class="text-sm text-gray-500 dark:text-gray-400">${player.category}</p>
           </div>
         </div>
-        <span class="badge ${statusColor}">${payment.status}</span>
+        <span class="badge ${statusColor}">${payment.invoiceNumber ? payment.invoiceNumber : payment.status}</span>
       </div>
       
       <div class="space-y-2 mb-3">
@@ -1500,7 +1502,7 @@ function renderPaymentCard(payment, player) {
             <p class="text-sm text-gray-500 dark:text-gray-400">${player.category}</p>
           </div>
         </div>
-        <span class="badge ${statusColor}">${payment.status}</span>
+        <span class="badge ${statusColor}">${payment.invoiceNumber ? payment.invoiceNumber : payment.status}</span>
       </div>
       
       <div class="space-y-2 mb-3">
