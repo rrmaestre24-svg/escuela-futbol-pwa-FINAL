@@ -15,6 +15,55 @@ const ALLOWED_TYPES = [
 ];
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
+// ── compressImage ─────────────────────────────────────────────
+// Comprime una imagen usando Canvas antes de subirla.
+// Solo afecta imágenes — PDFs y Word se suben sin cambios.
+// Reduce fotos de celular de ~3MB a ~150KB sin pérdida visual notable.
+function compressImage(file) {
+  return new Promise((resolve) => {
+    const MAX_PX = 1024;    // ancho/alto máximo en píxeles
+    const QUALITY = 0.75;   // calidad JPEG (0=peor, 1=original)
+
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+
+      // Calcular nuevas dimensiones manteniendo proporción
+      let { width, height } = img;
+      if (width > MAX_PX || height > MAX_PX) {
+        if (width > height) {
+          height = Math.round((height * MAX_PX) / width);
+          width = MAX_PX;
+        } else {
+          width = Math.round((width * MAX_PX) / height);
+          height = MAX_PX;
+        }
+      }
+
+      // Dibujar en canvas y exportar como JPEG comprimido
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+
+      canvas.toBlob(
+        (blob) => resolve(blob || file), // si falla el canvas, sube el original
+        'image/jpeg',
+        QUALITY
+      );
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve(file); // si no se puede leer la imagen, sube el original
+    };
+
+    img.src = objectUrl;
+  });
+}
+
 // ── uploadDocument ───────────────────────────────────────────
 // Sube un archivo a Firebase Storage y devuelve { url, publicId, fileType }
 // Los archivos se guardan en: players/{clubId}/{playerId}/{timestamp}_{nombre}
@@ -40,6 +89,10 @@ async function uploadDocument(file, playerId) {
   const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
   const clubId = currentUser.schoolId || 'sin-club';
 
+  // Comprimir si es imagen — PDFs y Word se suben tal cual
+  const isImage = file.type.startsWith('image/');
+  const fileToUpload = isImage ? await compressImage(file) : file;
+
   // Crear nombre único para el archivo: timestamp + nombre original
   const timestamp = Date.now();
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
@@ -48,8 +101,8 @@ async function uploadDocument(file, playerId) {
   // Crear referencia en Storage
   const storageRef = ref(storage, path);
 
-  // Subir el archivo
-  const snapshot = await uploadBytes(storageRef, file);
+  // Subir el archivo (comprimido si es imagen)
+  const snapshot = await uploadBytes(storageRef, fileToUpload);
 
   // Obtener URL pública de descarga
   const url = await getDownloadURL(snapshot.ref);
