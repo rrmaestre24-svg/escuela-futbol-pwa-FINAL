@@ -192,6 +192,40 @@ function initApp() {
     btnExcel.classList.remove('hidden');
   }
 
+  // Escuchar en tiempo real si el documento del usuario fue eliminado.
+  // Si el admin principal elimina este usuario, el listener lo detecta al instante
+  // y fuerza el cierre de sesión sin esperar a que recargue la página.
+  const clubId = localStorage.getItem('clubId');
+  if (clubId && user?.id && window.firebase?.db && window.firebase?.onSnapshot) {
+    const userDocRef = window.firebase.doc(window.firebase.db, `clubs/${clubId}/users`, user.id);
+    // Guardar el unsuscribe para no crear listeners duplicados en re-renders
+    if (window._userDocListener) window._userDocListener();
+    function forceLogout() {
+      console.warn('⚠️ Usuario eliminado por el admin. Cerrando sesión...');
+      localStorage.removeItem('currentUser');
+      localStorage.removeItem('clubId');
+      sessionStorage.clear();
+      if (window.firebase?.auth) {
+        window.firebase.signOut(window.firebase.auth).catch(() => {});
+      }
+      window.location.href = 'login.html';
+    }
+
+    window._userDocListener = window.firebase.onSnapshot(userDocRef, (snap) => {
+      // Caso 1: Firestore entregó el evento y el doc no existe → eliminado
+      if (!snap.exists()) forceLogout();
+    }, (err) => {
+      // Caso 2: Firestore denegó el acceso porque el doc fue eliminado y las reglas
+      // ya no permiten la lectura (isMemberOfClub retorna false) → también es eliminación
+      if (err.code === 'permission-denied') {
+        forceLogout();
+      } else {
+        // Otro error (ej. sin conexión) — no cerrar sesión, solo loguear
+        console.warn('⚠️ Error en listener de usuario:', err.message);
+      }
+    });
+  }
+
   // Cargar contenido del dashboard si existe
   if (typeof loadDashboard === 'function') {
     loadDashboard();
