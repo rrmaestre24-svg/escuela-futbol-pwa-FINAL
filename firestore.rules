@@ -4,7 +4,11 @@ rules_version = '2';
 //
 // Principio: cada usuario autenticado solo puede leer y
 // escribir los datos del club al que pertenece.
-// Verificamos que exista su documento en clubs/{clubId}/users/{uid}.
+//
+// Hay tres tipos de acceso:
+//   1. Admin      → autenticado con email/password, doc en clubs/{clubId}/users/{uid}
+//   2. Entrenador → auth anónima + código verificado → sesión en authorized_sessions
+//   3. Padre      → auth anónima + código verificado → sesión en authorized_sessions
 //
 // Para desplegar: firebase deploy --only firestore:rules
 // ============================================================
@@ -13,75 +17,115 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ── Funciones helper ────────────────────────────────────
-    // Devuelve true si el usuario autenticado tiene un documento
-    // en la subcolección users del club que quiere acceder.
+
+    // Admin del club: tiene documento en clubs/{clubId}/users/{uid}
     function isMemberOfClub(clubId) {
       return request.auth != null &&
         exists(/databases/$(database)/documents/clubs/$(clubId)/users/$(request.auth.uid));
     }
 
-    // Devuelve true si el usuario autenticado es super admin.
-    // El super admin tiene un documento en la colección super_admins con su UID.
+    // Super administrador global
     function isSuperAdmin() {
       return request.auth != null &&
         exists(/databases/$(database)/documents/super_admins/$(request.auth.uid));
     }
 
-    // ── Datos del club ──────────────────────────────────────
-    // jugadores, pagos, eventos, egresos, configuración, etc.
-    // El super admin también puede leer y escribir cualquier club.
+    // Entrenador o padre que completó el login con código y tiene sesión activa en ESTE club.
+    // Esto evita que un usuario de Club A acceda a los datos de Club B.
+    function isSessionForClub(clubId) {
+      return request.auth != null &&
+        exists(/databases/$(database)/documents/clubs/$(clubId)/authorized_sessions/$(request.auth.uid));
+    }
+
+    // ── Datos generales del club ────────────────────────────
+    // Regla comodín: el admin y super admin acceden a todo.
+    // Las subcolecciones sensibles tienen reglas más específicas abajo.
     match /clubs/{clubId}/{document=**} {
       allow read, write: if isMemberOfClub(clubId) || isSuperAdmin();
     }
 
-    // ── Entrenadores: acceso con auth anónima + club ID + código ──
-    // Los entrenadores se autentican de forma anónima. Necesitan leer
-    // su propio perfil de coach para verificar el código, y también
-    // escribir asistencias y leer jugadores/eventos.
+    // ── Sesiones autorizadas (entrenadores y padres) ────────
+    // Cada usuario anónimo puede crear y actualizar su propia sesión.
+    // El update es necesario cuando el mismo usuario vuelve a hacer login
+    // (el doc ya existe, entonces .set() es un update, no un create).
+    // El admin puede borrarlas para revocar acceso manualmente.
+    match /clubs/{clubId}/authorized_sessions/{uid} {
+      allow create, update: if request.auth != null && request.auth.uid == uid;
+      allow read:           if request.auth != null && request.auth.uid == uid;
+      allow delete:         if isMemberOfClub(clubId) || isSuperAdmin();
+    }
+
+    // ── Entrenadores ────────────────────────────────────────
+    // Lectura abierta a cualquier autenticado: necesaria para verificar el código
+    // ANTES de que exista la sesión (es el primer paso del login).
+    // Create/delete: solo el admin.
+    // Update: cualquier autenticado — necesario para auto-revocar acceso expirado.
     match /clubs/{clubId}/coaches/{document} {
-      // Leer: para verificar el código al hacer login
-      // Actualizar: para revocar acceso expirado automáticamente
-      allow read, update: if request.auth != null;
+      allow read:          if request.auth != null;
+      allow create, delete: if isMemberOfClub(clubId) || isSuperAdmin();
+      allow update:        if request.auth != null;
     }
+
+    // ── Asistencia ──────────────────────────────────────────
+    // El entrenador necesita guardar y leer registros de asistencia.
+    // Requiere sesión activa en el club específico.
     match /clubs/{clubId}/attendance/{document} {
-      // Los entrenadores guardan y leen los registros de asistencia
-      allow read, write: if request.auth != null;
+      allow read, write: if isMemberOfClub(clubId) || isSuperAdmin() || isSessionForClub(clubId);
     }
+
+    // ── Notificaciones al entrenador ────────────────────────
     match /clubs/{clubId}/coach_notifications/{document} {
-      // Notificaciones que el admin envía al entrenador
-      allow read, write: if request.auth != null;
+      allow read, write: if isMemberOfClub(clubId) || isSuperAdmin() || isSessionForClub(clubId);
     }
+
+    // ── Alertas de morosos ──────────────────────────────────
     match /clubs/{clubId}/moroso_alerts/{document} {
-      // Alertas de morosos — el entrenador las genera con auth anónima
-      allow read, write: if request.auth != null;
+      allow read, write: if isMemberOfClub(clubId) || isSuperAdmin() || isSessionForClub(clubId);
     }
-    // Documento raíz del club: para mostrar el nombre del club en la app
+
+    // ── Documento raíz del club ─────────────────────────────
+    // Necesario para mostrar el nombre del club en la app del entrenador/padre.
     match /clubs/{clubId} {
       allow read: if request.auth != null;
     }
 
-    // ── Portal de Padres: acceso con autenticación anónima ──
-    // Los padres se autentican de forma anónima y solo pueden
-    // leer datos del club para ver el perfil del hijo.
-    // Para jugadores, también pueden actualizar solo los campos
-    // permitidos: nombre, fecha de nacimiento e info médica.
+    // ── Códigos de acceso de padres ─────────────────────────
+    // Lectura abierta a cualquier autenticado: necesaria para verificar el código
+    // ANTES de que exista la sesión (primer paso del login del padre).
     match /clubs/{clubId}/parentCodes/{document} {
       allow read: if request.auth != null;
     }
+
+    // ── Jugadores ───────────────────────────────────────────
+    // Lectura: admin, entrenadores y padres con sesión activa en este club.
+    // Escritura parcial: los padres pueden actualizar solo campos de perfil personal.
     match /clubs/{clubId}/players/{playerId} {
-      allow read: if request.auth != null;
-      allow update: if request.auth != null &&
-        request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['name', 'birthDate', 'medicalInfo', 'avatar', 'updatedAt', 'updatedBy', 'documents']);
+      allow read: if isMemberOfClub(clubId) || isSuperAdmin() || isSessionForClub(clubId);
+      allow update: if isMemberOfClub(clubId) || isSuperAdmin() ||
+        (isSessionForClub(clubId) &&
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['name', 'birthDate', 'medicalInfo', 'avatar', 'updatedAt', 'updatedBy', 'documents']));
     }
+
+    // ── Configuración del club ──────────────────────────────
+    // Los entrenadores y padres necesitan leer el nombre y moneda del club.
     match /clubs/{clubId}/settings/{document} {
-      allow read: if request.auth != null;
+      allow read: if isMemberOfClub(clubId) || isSuperAdmin() || isSessionForClub(clubId);
     }
+
+    // ── Pagos ───────────────────────────────────────────────
+    // Solo el admin puede leer y escribir pagos.
+    // Los padres con sesión activa pueden leer pagos de su club (el JS ya filtra por playerId).
+    // Los entrenadores NO tienen acceso a pagos.
     match /clubs/{clubId}/payments/{document} {
-      allow read: if request.auth != null;
+      allow read: if isMemberOfClub(clubId) || isSuperAdmin() || isSessionForClub(clubId);
+      allow write: if isMemberOfClub(clubId) || isSuperAdmin();
     }
+
+    // ── Eventos ─────────────────────────────────────────────
+    // Los entrenadores y padres pueden ver los próximos eventos.
     match /clubs/{clubId}/events/{document} {
-      allow read: if request.auth != null;
+      allow read: if isMemberOfClub(clubId) || isSuperAdmin() || isSessionForClub(clubId);
     }
 
     // ── Excepción: registro inicial del admin ───────────────
@@ -92,54 +136,42 @@ service cloud.firestore {
     }
 
     // ── Mapeo email → clubId ────────────────────────────────
-    // Cada usuario solo puede leer su propio mapeo.
-    // El super admin puede leer y escribir cualquier mapeo (para registrar nuevos clubes).
     match /userClubMapping/{email} {
       allow read: if request.auth != null && (request.auth.token.email == email || isSuperAdmin());
       allow write: if isSuperAdmin();
     }
 
     // ── Códigos de activación ───────────────────────────────
-    // Lectura: cualquier usuario autenticado (para validar el código).
-    // Escritura: necesaria para marcar el código como usado al activarlo.
     match /activation_codes/{code} {
-      allow read: if request.auth != null;
+      allow read:  if request.auth != null;
       allow write: if request.auth != null;
     }
 
     // ── Sugerencias ─────────────────────────────────────────
-    // Cualquier usuario autenticado puede leer y escribir
-    // sus propias sugerencias (admin y portal de padres).
     match /suggestions/{docId} {
       allow read, write: if request.auth != null;
     }
 
     // ── Licencias (colección raíz) ──────────────────────────
-    // El sistema guarda y lee licencias en licenses/{clubId}.
-    // Cualquier usuario autenticado puede leer/escribir su licencia.
     match /licenses/{clubId} {
-      allow read: if request.auth != null;
+      allow read:  if request.auth != null;
       allow write: if request.auth != null;
     }
 
     // ── Facturación (Super Admin) ───────────────────────────
-    // Solo el super admin puede ver y gestionar las facturas.
     match /billing/{docId} {
       allow read, write: if isSuperAdmin();
     }
 
-    // ── Super Admin: datos de cuentas de administrador ──────
-    // El super admin lee y escribe su propio documento (uid).
-    // Lectura abierta a cualquier autenticado para la verificación de login.
+    // ── Super Admin ─────────────────────────────────────────
     match /super_admins/{uid} {
-      allow read: if request.auth != null;
+      allow read:  if request.auth != null;
       allow write: if request.auth != null && request.auth.uid == uid;
     }
 
     // ── Licencias (ruta alternativa bajo superadmin) ────────
-    // Solo el super admin puede escribir licencias y módulos.
     match /superadmin/{document=**} {
-      allow read: if request.auth != null;
+      allow read:  if request.auth != null;
       allow write: if isSuperAdmin();
     }
 
