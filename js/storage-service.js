@@ -1,19 +1,7 @@
 // ============================================================
 // STORAGE SERVICE — Capa de abstracción para subir archivos
-// HOY usa Cloudinary (gratis, sin Firebase Storage)
-// FUTURO: para migrar a Firebase Storage solo cambia este archivo
+// USA Firebase Storage (plan Blaze)
 // ============================================================
-
-const STORAGE_PROVIDER = 'cloudinary'; // Cambiar a 'firebase' al migrar
-
-// ── Configuración Cloudinary ─────────────────────────────────
-const CLOUDINARY_CLOUD  = 'dxrkrzeyl';
-const CLOUDINARY_PRESET = 'myclub_docs';
-
-// Cloudinary usa endpoints distintos según el tipo de archivo:
-// "image" para fotos, "raw" para PDFs y Word
-const CLOUDINARY_IMAGE_URL = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/image/upload`;
-const CLOUDINARY_RAW_URL   = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/raw/upload`;
 
 // ── Tipos de archivo permitidos ──────────────────────────────
 const ALLOWED_TYPES = [
@@ -28,8 +16,8 @@ const ALLOWED_TYPES = [
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
 // ── uploadDocument ───────────────────────────────────────────
-// Sube un archivo a Cloudinary y devuelve { url, publicId, fileType }
-// Al migrar a Firebase Storage, solo reemplaza esta función
+// Sube un archivo a Firebase Storage y devuelve { url, publicId, fileType }
+// Los archivos se guardan en: players/{clubId}/{playerId}/{timestamp}_{nombre}
 async function uploadDocument(file, playerId) {
   // Validar tipo
   if (!ALLOWED_TYPES.includes(file.type)) {
@@ -41,31 +29,32 @@ async function uploadDocument(file, playerId) {
     throw new Error('El archivo es muy grande. Máximo permitido: 10 MB');
   }
 
-  // Todo sube por endpoint "image" — Cloudinary acepta PDFs y Word ahí también
-  // y no tiene restricciones de acceso como el endpoint "raw"
-  const uploadUrl = CLOUDINARY_IMAGE_URL;
-
-  // Armar la petición
-  const formData = new FormData();
-  formData.append('file', file);
-  formData.append('upload_preset', CLOUDINARY_PRESET);
-  // Organizar por jugador: myclub_jugadores/{playerId}
-  const folder = playerId ? `myclub_jugadores/${playerId}` : 'myclub_jugadores';
-  formData.append('folder', folder);
-
-  const response = await fetch(uploadUrl, {
-    method: 'POST',
-    body: formData
-  });
-
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({}));
-    throw new Error(err.error?.message || 'Error al subir el archivo. Intenta de nuevo');
+  // Esperar a que Firebase esté listo
+  if (!window.firebase?.storage) {
+    throw new Error('Firebase Storage no está disponible todavía. Intenta de nuevo.');
   }
 
-  const data = await response.json();
+  const { storage, ref, uploadBytes, getDownloadURL } = window.firebase;
 
-  // Determinar ícono según tipo de archivo
+  // Obtener clubId del usuario actual
+  const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+  const clubId = currentUser.schoolId || 'sin-club';
+
+  // Crear nombre único para el archivo: timestamp + nombre original
+  const timestamp = Date.now();
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const path = `players/${clubId}/${playerId}/${timestamp}_${safeName}`;
+
+  // Crear referencia en Storage
+  const storageRef = ref(storage, path);
+
+  // Subir el archivo
+  const snapshot = await uploadBytes(storageRef, file);
+
+  // Obtener URL pública de descarga
+  const url = await getDownloadURL(snapshot.ref);
+
+  // Determinar tipo de archivo para el ícono
   let fileType = 'imagen';
   if (file.type === 'application/pdf') fileType = 'pdf';
   if (file.type === 'application/msword' ||
@@ -74,27 +63,38 @@ async function uploadDocument(file, playerId) {
   }
 
   return {
-    url:      data.secure_url,
-    publicId: data.public_id,
+    url,
+    publicId: path, // En Firebase Storage el "id" es el path completo
     fileType
   };
 }
 
 // ── downloadDocument ─────────────────────────────────────────
-// Abre el archivo en nueva pestaña.
-// - PDFs e imágenes: el navegador los muestra con su propio botón de descarga
-// - Word (.doc/.docx): el navegador los descarga automáticamente
+// Abre el archivo en nueva pestaña
 function downloadDocument(url) {
   window.open(url, '_blank');
 }
 
 // ── deleteDocumentFromStorage ─────────────────────────────────
-// Con Cloudinary sin firma no se puede borrar desde el cliente.
-// El archivo queda en la nube pero se elimina el registro del jugador.
-// Al migrar a Firebase Storage aquí va: storageRef.delete()
-function deleteDocumentFromStorage(publicId) {
-  // Firebase Storage (futuro):
-  // return firebase.storage().ref(publicId).delete();
-  console.log('[storage-service] Referencia eliminada. Archivo en nube:', publicId);
-  return Promise.resolve();
+// Elimina el archivo de Firebase Storage usando su path
+async function deleteDocumentFromStorage(publicId) {
+  if (!window.firebase?.storage) {
+    console.warn('[storage-service] Firebase Storage no disponible, no se eliminó el archivo.');
+    return;
+  }
+
+  const { storage, ref, deleteObject } = window.firebase;
+
+  try {
+    const storageRef = ref(storage, publicId);
+    await deleteObject(storageRef);
+    console.log('[storage-service] Archivo eliminado de Firebase Storage:', publicId);
+  } catch (err) {
+    // Si el archivo no existe (ya fue borrado), no lanzar error
+    if (err.code === 'storage/object-not-found') {
+      console.warn('[storage-service] Archivo no encontrado en Storage (ya fue borrado):', publicId);
+    } else {
+      throw err;
+    }
+  }
 }

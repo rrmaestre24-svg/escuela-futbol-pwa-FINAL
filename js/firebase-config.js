@@ -74,6 +74,7 @@ async function initFirebase() {
     const {
       getStorage,
       ref,
+      uploadBytes,
       uploadString,
       getDownloadURL,
       deleteObject
@@ -133,6 +134,7 @@ async function initFirebase() {
       browserLocalPersistence,
       storage,
       ref,
+      uploadBytes,
       uploadString,
       getDownloadURL,
       deleteObject,
