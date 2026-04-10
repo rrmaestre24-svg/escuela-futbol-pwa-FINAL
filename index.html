@@ -1814,7 +1814,7 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
 
                     <!-- Jugador Seleccionado -->
                     <div id="selectedPlayerDisplay"
-                        class="hidden mb-3 p-3 bg-teal-50 dark:bg-teal-900 border-2 border-teal-500 rounded-lg flex items-center justify-between">
+                        class="hidden mb-2 p-3 bg-teal-50 dark:bg-teal-900 border-2 border-teal-500 rounded-lg flex items-center justify-between">
                         <div class="flex items-center gap-2">
                             <i data-lucide="user-check" class="w-5 h-5 text-teal-600"></i>
                             <span id="selectedPlayerName" class="font-semibold text-gray-800 dark:text-white"></span>
@@ -1823,6 +1823,11 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
                             class="text-red-600 hover:text-red-700 dark:text-red-400" title="Cambiar jugador">
                             <i data-lucide="x-circle" class="w-5 h-5"></i>
                         </button>
+                    </div>
+                    <!-- Último pago del jugador -->
+                    <div id="lastPaymentInfo" class="hidden mb-3 p-3 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg">
+                        <p class="text-xs font-semibold text-blue-600 dark:text-blue-400 mb-0.5">📄 Último pago registrado</p>
+                        <p id="lastPaymentText" class="text-sm text-gray-700 dark:text-gray-300"></p>
                     </div>
 
                     <!-- Input de Búsqueda -->
@@ -1886,16 +1891,10 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
                     </div>
                 </div>
 
-                <!-- Estado -->
-                <div class="mb-4">
-                    <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                        Estado *
-                    </label>
-                    <select id="paymentStatus"
-                        class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white"
-                        required>
-                        <option value="Pendiente">Pendiente</option>
-                        <option value="Pagado">Pagado</option>
+                <!-- Estado: siempre Pagado, oculto -->
+                <div class="hidden">
+                    <select id="paymentStatus" required>
+                        <option value="Pagado" selected>Pagado</option>
                     </select>
                 </div>
 

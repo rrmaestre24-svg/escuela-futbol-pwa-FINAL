@@ -1913,8 +1913,26 @@ function selectPlayer(playerId) {
   
   filteredPlayers = [];
   
+  // Mostrar último pago para evitar doble cobro
+  const allPayments = getPaymentsByPlayer(playerId)
+    .filter(p => p.status === 'Pagado')
+    .sort((a, b) => (b.paidDate || b.dueDate || '').localeCompare(a.paidDate || a.dueDate || ''));
+
+  const lastPaymentInfo = document.getElementById('lastPaymentInfo');
+  const lastPaymentText = document.getElementById('lastPaymentText');
+  if (lastPaymentInfo && lastPaymentText) {
+    if (allPayments.length > 0) {
+      const lp = allPayments[0];
+      const fecha = lp.paidDate || lp.dueDate || '—';
+      lastPaymentText.textContent = `${lp.concept || lp.type} — ${formatCurrency(lp.amount || 0)} — Pagado el ${fecha}`;
+    } else {
+      lastPaymentText.textContent = 'Sin pagos registrados aún.';
+    }
+    lastPaymentInfo.classList.remove('hidden');
+  }
+
   showToast(`✅ ${player.name} seleccionado`);
-  
+
   if (typeof lucide !== 'undefined' && lucide.createIcons) {
     lucide.createIcons();
   }
@@ -1937,7 +1955,11 @@ function clearPlayerSelection() {
   
   const allPlayers = getActivePlayers();
   renderPlayerSearchResults(allPlayers);
-  
+
+  // Ocultar panel de último pago
+  const lastPaymentInfo = document.getElementById('lastPaymentInfo');
+  if (lastPaymentInfo) lastPaymentInfo.classList.add('hidden');
+
   showToast('ℹ️ Selección eliminada');
 }
 
