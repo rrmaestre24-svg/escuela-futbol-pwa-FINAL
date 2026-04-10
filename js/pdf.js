@@ -264,16 +264,52 @@ drawRow('Factura:', payment.invoiceNumber || 'N/A');
     addSignatureToDocument(doc, yPos + 3);
     
     if (autoDownload) {
-     doc.save(`${payment.invoiceNumber || 'Factura'}.pdf`);
+      doc.save(`${payment.invoiceNumber || 'Factura'}.pdf`);
       showToast('✅ Factura descargada');
+
+      // Guardar copia en Firebase Storage sin bloquear la descarga
+      saveInvoicePDFToStorage(doc, payment);
     }
-    
+
     return doc;
     
   } catch (error) {
     console.error('Error al generar PDF:', error);
     showToast('❌ Error al generar PDF: ' + error.message);
     return null;
+  }
+}
+
+// ── saveInvoicePDFToStorage ──────────────────────────────────
+// Sube una copia del PDF de factura a Firebase Storage y guarda
+// la URL en el registro del pago. Se llama fire-and-forget:
+// si falla, no afecta al usuario ni a la descarga.
+async function saveInvoicePDFToStorage(doc, payment) {
+  try {
+    if (!window.firebase?.storage) return;
+
+    const { storage, ref, uploadBytes, getDownloadURL } = window.firebase;
+    const settings = getSchoolSettings();
+    const clubId = settings.clubId || localStorage.getItem('clubId') || 'default';
+
+    // Convertir el PDF a blob para subirlo
+    const pdfBlob = doc.output('blob');
+    const fileName = `${payment.invoiceNumber || payment.id}.pdf`;
+    const path = `invoices/${clubId}/${payment.id}/${fileName}`;
+
+    const storageRef = ref(storage, path);
+    const snapshot = await uploadBytes(storageRef, pdfBlob);
+    const url = await getDownloadURL(snapshot.ref);
+
+    // Guardar la URL en el registro del pago (localStorage + Firebase)
+    if (typeof updatePayment === 'function') {
+      updatePayment(payment.id, { invoiceUrl: url });
+    }
+
+    console.log('[PDF] Factura guardada en Storage:', url);
+  } catch (err) {
+    // Fallo silencioso — la descarga ya ocurrió, esto es solo una copia de respaldo
+    console.warn('[PDF] No se pudo guardar copia en Storage:', err.message);
   }
 }
 
