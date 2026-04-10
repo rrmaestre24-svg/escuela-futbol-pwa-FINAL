@@ -1990,68 +1990,92 @@ console.log('✅ Todas las funciones de payments.js exportadas globalmente');
 // DELEGACIÓN DE EVENTOS - PREVENIR DUPLICACIÓN
 // ========================================
 
+// Bandera para evitar que el formulario se envíe más de una vez al mismo tiempo
+let _paymentFormSubmitting = false;
+
 // Función para manejar el submit del formulario de pagos
 async function handlePaymentFormSubmit(e) {
-  const paymentId = document.getElementById('paymentId').value;
-  
-  // Validar que haya un jugador seleccionado
-  if (!selectedPlayerId) {
-    showToast('❌ Selecciona un jugador');
-    document.getElementById('playerSearchInput').focus();
-    return;
+  // Si ya hay un envío en proceso, ignorar este clic
+  if (_paymentFormSubmitting) return;
+  _paymentFormSubmitting = true;
+
+  // Deshabilitar el botón de guardar para feedback visual
+  const submitBtn = e.target ? e.target.querySelector('button[type="submit"]') : null;
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Guardando...';
   }
-  
-  const playerId = selectedPlayerId;
-  const type = document.getElementById('paymentType').value;
-  const concept = document.getElementById('paymentConcept').value;
-  const amount = parseFloat(document.getElementById('paymentAmount').value);
-  const dueDate = document.getElementById('paymentDueDate').value;
-  const status = document.getElementById('paymentStatus').value;
-  const paidDate = document.getElementById('paymentPaidDate').value;
-  const method = document.getElementById('paymentMethod').value;
-  
-  const paymentData = {
-    playerId,
-    type,
-    concept,
-    amount,
-    dueDate,
-    status,
-    paidDate: status === 'Pagado' ? paidDate : null,
-    method: status === 'Pagado' ? method : null
-  };
-  
-  if (paymentId) {
-    // 🆕 EDITAR: Agregar editedBy
-    updatePayment(paymentId, {
-      ...paymentData,
-      editedBy: getAuditInfo() // 🆕 AUDITORÍA
-    });
-    showToast('✅ Pago actualizado');
-  } else {
-    // 🆕 CREAR: Agregar createdBy
-    const invoiceNumber = status === 'Pagado' ? await getNextInvoiceNumberFromFirebase() : null;
-    const newPayment = {
-      id: generateId(),
-      ...paymentData,
-      invoiceNumber,
-      createdAt: getCurrentDate(),
-      createdBy: getAuditInfo() // 🆕 AUDITORÍA
+
+  try {
+    const paymentId = document.getElementById('paymentId').value;
+
+    // Validar que haya un jugador seleccionado
+    if (!selectedPlayerId) {
+      showToast('❌ Selecciona un jugador');
+      document.getElementById('playerSearchInput').focus();
+      return;
+    }
+
+    const playerId = selectedPlayerId;
+    const type = document.getElementById('paymentType').value;
+    const concept = document.getElementById('paymentConcept').value;
+    const amount = parseFloat(document.getElementById('paymentAmount').value);
+    const dueDate = document.getElementById('paymentDueDate').value;
+    const status = document.getElementById('paymentStatus').value;
+    const paidDate = document.getElementById('paymentPaidDate').value;
+    const method = document.getElementById('paymentMethod').value;
+
+    const paymentData = {
+      playerId,
+      type,
+      concept,
+      amount,
+      dueDate,
+      status,
+      paidDate: status === 'Pagado' ? paidDate : null,
+      method: status === 'Pagado' ? method : null
     };
-    
-    savePayment(newPayment);
-    showToast('✅ Pago registrado');
-    
-    // Mostrar modal de opción WhatsApp/PDF si está pagado
-    if (status === 'Pagado') {
-      setTimeout(() => mostrarOpcionWAPayment(newPayment.id), 500);
+
+    if (paymentId) {
+      // EDITAR: Agregar editedBy
+      updatePayment(paymentId, {
+        ...paymentData,
+        editedBy: getAuditInfo()
+      });
+      showToast('✅ Pago actualizado');
+    } else {
+      // CREAR: Agregar createdBy
+      const invoiceNumber = status === 'Pagado' ? await getNextInvoiceNumberFromFirebase() : null;
+      const newPayment = {
+        id: generateId(),
+        ...paymentData,
+        invoiceNumber,
+        createdAt: getCurrentDate(),
+        createdBy: getAuditInfo()
+      };
+
+      savePayment(newPayment);
+      showToast('✅ Pago registrado');
+
+      // Mostrar modal de opción WhatsApp/PDF si está pagado
+      if (status === 'Pagado') {
+        setTimeout(() => mostrarOpcionWAPayment(newPayment.id), 500);
+      }
+    }
+
+    closePaymentModal();
+    renderPayments();
+    updateDashboard();
+    updateNotifications();
+
+  } finally {
+    // Siempre liberar el bloqueo al terminar, aunque haya error
+    _paymentFormSubmitting = false;
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Guardar';
     }
   }
-  
-  closePaymentModal();
-  renderPayments();
-  updateDashboard();
-  updateNotifications();
 }
 
 // Registrar el listener con delegación de eventos (SOLO UNA VEZ)
