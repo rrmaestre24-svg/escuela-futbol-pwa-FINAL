@@ -1834,15 +1834,7 @@ async function loginWithGoogle() {
   try {
     const provider = new window.firebase.GoogleAuthProvider();
 
-    if (isMobileDevice()) {
-      // Marcar que venimos de un redirect de Google para procesarlo al volver
-      sessionStorage.setItem('googleRedirectPending', '1');
-      showToast('⏳ Redirigiendo a Google...');
-      await window.firebase.signInWithRedirect(window.firebase.auth, provider);
-      return; // La página se recarga sola, el resultado se maneja en handleGoogleRedirectResult
-    }
-
-    // En desktop usar popup
+    // Usar popup en todos los dispositivos
     showToast('⏳ Abriendo Google...');
     const userCredential = await window.firebase.signInWithPopup(window.firebase.auth, provider);
     await processGoogleUser(userCredential.user);
