@@ -622,6 +622,43 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
                 </div>
             </div>
 
+            <!-- Sección: Calidad Visual -->
+            <div class="glass-card rounded-xl shadow-sm overflow-hidden">
+                <button onclick="toggleSection('qualitySection')"
+                    class="w-full px-4 py-3 flex items-center justify-between bg-gray-50 dark:bg-gray-700 text-left font-medium">
+                    <span>🎮 Calidad Visual</span>
+                    <i data-lucide="chevron-down" class="w-5 h-5 text-gray-500 dark:text-gray-400"></i>
+                </button>
+                <div id="qualitySection" class="p-4 border-t border-gray-200 dark:border-gray-700 hidden">
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                        Elegí el nivel de efectos visuales. En dispositivos lentos, el modo Bajo hace la app más fluida.
+                    </p>
+                    <div class="grid grid-cols-3 gap-3">
+                        <!-- Botón Alto -->
+                        <button data-quality-btn="high" onclick="setQualityLevel('high')"
+                            class="flex flex-col items-center gap-2 p-3 rounded-xl border-2 border-transparent transition-all">
+                            <span class="text-2xl">✨</span>
+                            <span class="text-sm font-semibold">Alto</span>
+                            <span class="text-xs text-center text-gray-500 dark:text-gray-400">Todo activado, se ve mejor</span>
+                        </button>
+                        <!-- Botón Medio -->
+                        <button data-quality-btn="medium" onclick="setQualityLevel('medium')"
+                            class="flex flex-col items-center gap-2 p-3 rounded-xl border-2 border-transparent transition-all">
+                            <span class="text-2xl">⚡</span>
+                            <span class="text-sm font-semibold">Medio</span>
+                            <span class="text-xs text-center text-gray-500 dark:text-gray-400">Efectos reducidos</span>
+                        </button>
+                        <!-- Botón Bajo -->
+                        <button data-quality-btn="low" onclick="setQualityLevel('low')"
+                            class="flex flex-col items-center gap-2 p-3 rounded-xl border-2 border-transparent transition-all">
+                            <span class="text-2xl">🚀</span>
+                            <span class="text-sm font-semibold">Bajo</span>
+                            <span class="text-xs text-center text-gray-500 dark:text-gray-400">Máxima velocidad</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <!-- Sección: Datos del Club -->
             <div class="glass-card rounded-xl shadow-sm overflow-hidden">
                 <button onclick="toggleSection('clubSection')"
@@ -2471,6 +2508,7 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
     <script src="js/utils.js"></script>
     <script src="js/phone-utils.js"></script>
     <script src="js/theme.js"></script>
+    <script src="js/performance.js"></script>
 
     <!-- 2️⃣ STORAGE (BASE DE DATOS - DEBE IR PRIMERO) -->
     <script src="js/storage.js"></script>

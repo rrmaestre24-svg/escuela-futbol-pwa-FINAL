@@ -1,4 +1,4 @@
-const CACHE_NAME = 'my-club-v1.0.81';
+const CACHE_NAME = 'my-club-v1.0.82';
 
 const urlsToCache = [
   '/',
@@ -28,6 +28,7 @@ const urlsToCache = [
   '/js/utils.js',
   '/js/phone-utils.js',
   '/js/theme.js',
+  '/js/performance.js',
   '/js/install.js',
   '/js/cache.js',
   '/js/pwa-icons.js',

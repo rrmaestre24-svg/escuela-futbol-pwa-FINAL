@@ -698,6 +698,60 @@ body.has-watermark::before {
 }
 
 /* ========================================
+   MODOS DE CALIDAD VISUAL
+   El usuario elige entre Alto / Medio / Bajo en Configuración.
+   Se aplica la clase perf-low / perf-medium / perf-high al body.
+======================================== */
+
+/* MODO BAJO — prioriza velocidad sobre efectos visuales */
+body.perf-low .glass-card {
+    /* Eliminar el backdrop-filter (blur) que es muy costoso en gama baja */
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: rgba(255, 255, 255, 0.97) !important;
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+}
+
+body.perf-low.dark .glass-card {
+    background: rgba(31, 41, 55, 0.97) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Sin animaciones de entrada (fadeIn, slideIn, etc.) */
+body.perf-low .animate-fade-in,
+body.perf-low .animate-slide-in,
+body.perf-low .animate-scale-in,
+body.perf-low .animate-slide-up,
+body.perf-low .animate-slide-down,
+body.perf-low .animate-bounce,
+body.perf-low .animate-pulse {
+    animation: none !important;
+}
+
+/* Transiciones más cortas (no cero, para que no se vea cortante) */
+body.perf-low * {
+    transition-duration: 0.05s !important;
+}
+
+/* Hover de cards sin elevación */
+body.perf-low .card-hover:hover {
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+/* MODO MEDIO — reduce un poco sin sacrificar lo visual */
+body.perf-medium .glass-card {
+    backdrop-filter: blur(4px) !important;
+    -webkit-backdrop-filter: blur(4px) !important;
+}
+
+body.perf-medium .animate-fade-in,
+body.perf-medium .animate-slide-in,
+body.perf-medium .animate-scale-in {
+    animation-duration: 0.15s !important;
+}
+
+/* ========================================
    NOTIFICACIONES EXPANSIBLES (Press to Peek)
 ======================================== */
 .notif-card {
