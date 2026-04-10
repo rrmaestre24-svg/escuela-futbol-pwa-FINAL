@@ -889,10 +889,22 @@ async function deleteSchoolUser(userId) {
       }
     }
     
+    // 5️⃣ Eliminar la cuenta de Firebase Authentication vía Cloud Function
+    // Esto evita que la cuenta quede huérfana y no pueda usarse en otro club
+    if (userToDelete.id && window.firebase?.functions && window.firebase?.httpsCallable) {
+      try {
+        const deleteAuthUser = window.firebase.httpsCallable(window.firebase.functions, 'deleteAuthUser');
+        await deleteAuthUser({ uidToDelete: userToDelete.id, clubId });
+        console.log('✅ Cuenta de Firebase Authentication eliminada');
+      } catch (authDeleteError) {
+        // No bloquear la operación si falla — el usuario ya está bloqueado por Firestore
+        console.warn('⚠️ No se pudo eliminar la cuenta Auth (usuario ya bloqueado):', authDeleteError.message);
+      }
+    }
+
     showToast('✅ Usuario eliminado permanentemente');
-    console.log('✅ Eliminación completada. Usuario bloqueado.');
-    console.log('ℹ️ La cuenta de Firebase Authentication seguirá existiendo pero sin acceso al club');
-    
+    console.log('✅ Eliminación completada. Cuenta Auth y acceso Firestore removidos.');
+
   } catch (error) {
     console.error('❌ Error al eliminar usuario:', error);
     showToast('❌ Error al eliminar: ' + error.message);

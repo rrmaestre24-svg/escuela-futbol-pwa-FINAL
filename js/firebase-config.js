@@ -96,11 +96,15 @@ async function initFirebase() {
       signInWithRedirect,
       getRedirectResult
     } = authModule;
-    
+
+    // Cloud Functions — para llamar funciones del backend (ej. eliminar cuenta Auth)
+    const { getFunctions, httpsCallable } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-functions.js');
+
     const app = initializeApp(firebaseConfig);
     db = getFirestore(app);
     auth = getAuth(app);
     const storage = getStorage(app);
+    const functions = getFunctions(app, 'us-central1');
     
     // CONFIGURAR PERSISTENCIA LOCAL - La sesion sobrevive al cerrar el navegador/PWA
     try {
@@ -146,9 +150,11 @@ async function initFirebase() {
       uploadString,
       getDownloadURL,
       deleteObject,
-      deleteField
+      deleteField,
+      functions,
+      httpsCallable
     };
-    
+
     // LISTENER DE ESTADO DE AUTENTICACION
     // Restaura la sesion automaticamente al recargar/reabrir la PWA
     onAuthStateChanged(auth, async (user) => {
