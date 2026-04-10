@@ -703,40 +703,63 @@ body.has-watermark::before {
    Se aplica la clase perf-low / perf-medium / perf-high al body.
 ======================================== */
 
-/* MODO BAJO — prioriza velocidad sobre efectos visuales */
+/* MODO BAJO — máxima velocidad, mínimos efectos */
 body.perf-low .glass-card {
-    /* Eliminar el backdrop-filter (blur) que es muy costoso en gama baja */
+    /* Sin blur ni transparencia */
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
-    background: rgba(255, 255, 255, 0.97) !important;
-    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+    background: #ffffff !important;
+    border: 1px solid #e5e7eb !important;
+    /* Sin sombras */
+    box-shadow: none !important;
+    /* Sin bordes redondeados grandes */
+    border-radius: 8px !important;
 }
 
 body.perf-low.dark .glass-card {
-    background: rgba(31, 41, 55, 0.97) !important;
-    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    background: #1f2937 !important;
+    border: 1px solid #374151 !important;
+    box-shadow: none !important;
 }
 
-/* Sin animaciones de entrada (fadeIn, slideIn, etc.) */
+/* Sin animaciones de entrada */
 body.perf-low .animate-fade-in,
 body.perf-low .animate-slide-in,
 body.perf-low .animate-scale-in,
 body.perf-low .animate-slide-up,
 body.perf-low .animate-slide-down,
 body.perf-low .animate-bounce,
-body.perf-low .animate-pulse {
+body.perf-low .animate-pulse,
+body.perf-low .animate-pulse-slow {
     animation: none !important;
 }
 
-/* Transiciones más cortas (no cero, para que no se vea cortante) */
+/* Transiciones a cero — cambios instantáneos */
 body.perf-low * {
-    transition-duration: 0.05s !important;
+    transition: none !important;
 }
 
-/* Hover de cards sin elevación */
+/* Sin elevación ni sombra al hacer hover */
 body.perf-low .card-hover:hover {
     transform: none !important;
     box-shadow: none !important;
+}
+
+/* Sin sombras en botones y elementos destacados */
+body.perf-low .shadow-glow,
+body.perf-low #installButton,
+body.perf-low #installButtonLogin {
+    box-shadow: none !important;
+}
+
+/* Barras de progreso: color plano en vez de gradiente */
+body.perf-low .progress-bar-fill {
+    background: #0d9488 !important;
+}
+
+/* Marca de agua desactivada (ahorra repintado) */
+body.perf-low::before {
+    display: none !important;
 }
 
 /* MODO MEDIO — reduce un poco sin sacrificar lo visual */
