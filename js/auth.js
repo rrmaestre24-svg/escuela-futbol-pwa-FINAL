@@ -1689,6 +1689,110 @@ closeResetModal();
 // LOGIN CON GOOGLE
 // ========================================
 
+// Detectar si el usuario está en un dispositivo móvil
+function isMobileDevice() {
+  return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+}
+
+// Procesar el resultado del redirect de Google (se llama al cargar la página)
+async function handleGoogleRedirectResult() {
+  const firebaseReady = await waitForFirebase();
+  if (!firebaseReady || !window.firebase?.auth) return;
+
+  try {
+    const result = await window.firebase.getRedirectResult(window.firebase.auth);
+    if (!result?.user) return; // No hubo redirect, ignorar
+
+    await processGoogleUser(result.user);
+  } catch (err) {
+    if (err.code !== 'auth/no-current-user') {
+      showToast('❌ Error con Google: ' + err.message);
+    }
+  }
+}
+
+// Procesar usuario autenticado con Google (compartido entre popup y redirect)
+async function processGoogleUser(firebaseUser) {
+  const email = firebaseUser.email;
+  const firebaseUid = firebaseUser.uid;
+
+  showToast('🔍 Buscando tu club...');
+
+  const clubId = await getClubIdForUser(email);
+
+  if (!clubId) {
+    await window.firebase.signOut(window.firebase.auth);
+    showToast('⚠️ No tienes un club registrado. Ve a "Registrarse" y usa tu código de activación.');
+    if (typeof showRegisterTab === 'function') showRegisterTab();
+    return;
+  }
+
+  localStorage.setItem('clubId', clubId);
+
+  try {
+    const userInClubRef = window.firebase.doc(window.firebase.db, `clubs/${clubId}/users`, firebaseUid);
+    const userInClubSnap = await window.firebase.getDoc(userInClubRef);
+
+    if (!userInClubSnap.exists()) {
+      await window.firebase.setDoc(userInClubRef, {
+        id: firebaseUid,
+        email: email,
+        name: firebaseUser.displayName || email.split('@')[0],
+        isMainAdmin: false,
+        role: 'admin',
+        avatar: firebaseUser.photoURL || '',
+        phone: '',
+        birthDate: '',
+        joinedAt: new Date().toISOString()
+      });
+    }
+  } catch (e) {
+    console.warn('[Google Login] No se pudo verificar usuario en club/users:', e.message);
+  }
+
+  const downloaded = await downloadAllClubData(clubId);
+
+  if (!downloaded) {
+    showToast('❌ Error al descargar datos del club');
+    await window.firebase.signOut(window.firebase.auth);
+    return;
+  }
+
+  const users = getUsers();
+  let user = users.find(u => u.email === email);
+
+  if (!user) {
+    user = {
+      id: firebaseUid,
+      email: email,
+      name: firebaseUser.displayName || email.split('@')[0],
+      schoolId: clubId,
+      role: 'admin',
+      isMainAdmin: false,
+      avatar: firebaseUser.photoURL || ''
+    };
+  }
+
+  setCurrentUser(user);
+
+  try {
+    window.firebase.addDoc(
+      window.firebase.collection(window.firebase.db, `clubs/${clubId}/audit_log`),
+      {
+        action: 'login_google',
+        userEmail: email,
+        userName: user.name || email,
+        role: user.role || 'admin',
+        date: new Date().toISOString().split('T')[0],
+        timestamp: new Date().toISOString()
+      }
+    );
+  } catch(e) {}
+
+  showToast('✅ Bienvenido ' + user.name);
+  setTimeout(() => { window.location.href = 'index.html'; }, 500);
+}
+
 async function loginWithGoogle() {
   const firebaseReady = await waitForFirebase();
 
@@ -1698,99 +1802,19 @@ async function loginWithGoogle() {
   }
 
   try {
-    showToast('⏳ Abriendo Google...');
-
-    // Crear proveedor Google y abrir popup
     const provider = new window.firebase.GoogleAuthProvider();
+
+    if (isMobileDevice()) {
+      // En móvil usar redirect (más compatible con navegadores móviles)
+      showToast('⏳ Redirigiendo a Google...');
+      await window.firebase.signInWithRedirect(window.firebase.auth, provider);
+      return; // La página se recarga sola, el resultado se maneja en handleGoogleRedirectResult
+    }
+
+    // En desktop usar popup
+    showToast('⏳ Abriendo Google...');
     const userCredential = await window.firebase.signInWithPopup(window.firebase.auth, provider);
-
-    const firebaseUser = userCredential.user;
-    const email = firebaseUser.email;
-    const firebaseUid = firebaseUser.uid;
-
-    showToast('🔍 Buscando tu club...');
-
-    // Buscar el club asociado al email
-    const clubId = await getClubIdForUser(email);
-
-    if (!clubId) {
-      // Email no registrado — indicar que debe crear club con código de activación
-      await window.firebase.signOut(window.firebase.auth);
-      showToast('⚠️ No tienes un club registrado. Ve a "Registrarse" y usa tu código de activación.');
-      // Cambiar al tab de registro para guiar al usuario
-      if (typeof showRegisterTab === 'function') showRegisterTab();
-      return;
-    }
-
-    // Guardar clubId
-    localStorage.setItem('clubId', clubId);
-
-    // Verificar/registrar usuario en la subcolección del club
-    try {
-      const userInClubRef = window.firebase.doc(window.firebase.db, `clubs/${clubId}/users`, firebaseUid);
-      const userInClubSnap = await window.firebase.getDoc(userInClubRef);
-
-      if (!userInClubSnap.exists()) {
-        await window.firebase.setDoc(userInClubRef, {
-          id: firebaseUid,
-          email: email,
-          name: firebaseUser.displayName || email.split('@')[0],
-          isMainAdmin: false,
-          role: 'admin',
-          avatar: firebaseUser.photoURL || '',
-          phone: '',
-          birthDate: '',
-          joinedAt: new Date().toISOString()
-        });
-      }
-    } catch (e) {
-      console.warn('[Google Login] No se pudo verificar usuario en club/users:', e.message);
-    }
-
-    // Descargar datos del club
-    const downloaded = await downloadAllClubData(clubId);
-
-    if (!downloaded) {
-      showToast('❌ Error al descargar datos del club');
-      await window.firebase.signOut(window.firebase.auth);
-      return;
-    }
-
-    // Construir sesión
-    const users = getUsers();
-    let user = users.find(u => u.email === email);
-
-    if (!user) {
-      user = {
-        id: firebaseUid,
-        email: email,
-        name: firebaseUser.displayName || email.split('@')[0],
-        schoolId: clubId,
-        role: 'admin',
-        isMainAdmin: false,
-        avatar: firebaseUser.photoURL || ''
-      };
-    }
-
-    setCurrentUser(user);
-
-    // Registrar acceso en audit_log
-    try {
-      window.firebase.addDoc(
-        window.firebase.collection(window.firebase.db, `clubs/${clubId}/audit_log`),
-        {
-          action: 'login_google',
-          userEmail: email,
-          userName: user.name || email,
-          role: user.role || 'admin',
-          date: new Date().toISOString().split('T')[0],
-          timestamp: new Date().toISOString()
-        }
-      );
-    } catch(e) {}
-
-    showToast('✅ Bienvenido ' + user.name);
-    setTimeout(() => { window.location.href = 'index.html'; }, 500);
+    await processGoogleUser(userCredential.user);
 
   } catch (err) {
     if (err.code === 'auth/popup-closed-by-user') {
@@ -1804,4 +1828,9 @@ async function loginWithGoogle() {
 }
 
 window.loginWithGoogle = loginWithGoogle;
+
+// Ejecutar al cargar la página para capturar resultado del redirect en móvil
+document.addEventListener('DOMContentLoaded', () => {
+  handleGoogleRedirectResult();
+});
 console.log('✅ auth.js cargado (CON NORMALIZACIÓN DE TELÉFONOS)');

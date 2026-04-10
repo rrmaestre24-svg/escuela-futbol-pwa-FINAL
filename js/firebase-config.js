@@ -92,7 +92,9 @@ async function initFirebase() {
       browserLocalPersistence,
       setPersistence,
       GoogleAuthProvider,
-      signInWithPopup
+      signInWithPopup,
+      signInWithRedirect,
+      getRedirectResult
     } = authModule;
     
     const app = initializeApp(firebaseConfig);
@@ -136,6 +138,8 @@ async function initFirebase() {
       browserLocalPersistence,
       GoogleAuthProvider,
       signInWithPopup,
+      signInWithRedirect,
+      getRedirectResult,
       storage,
       ref,
       uploadBytes,
