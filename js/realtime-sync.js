@@ -581,25 +581,34 @@ async function loadAllPaymentsHistory() {
 }
 
 // ========================================
-// 📅 CARGA DE EVENTOS (una sola vez al inicio)
-// Los eventos no cambian durante la sesión del admin — un getDoc es suficiente
-// y ahorra una conexión permanente con Firebase.
+// 📅 LISTENER DE EVENTOS
 // ========================================
-async function startEventsListener(clubId) {
-  try {
-    const eventsRef = window.firebase.collection(
-      window.firebase.db,
-      `clubs/${clubId}/events`
-    );
-    const snapshot = await window.firebase.getDocs(eventsRef);
-    const events = [];
-    snapshot.forEach(doc => events.push({ id: doc.id, ...doc.data() }));
-    localStorage.setItem('calendarEvents', JSON.stringify(events));
-    refreshCalendarUI();
-    console.log('📅 Eventos cargados (lectura única)');
-  } catch (error) {
-    console.error('❌ Error al cargar eventos:', error);
-  }
+function startEventsListener(clubId) {
+  const eventsRef = window.firebase.collection(
+    window.firebase.db,
+    `clubs/${clubId}/events`
+  );
+  
+  window.realtimeListeners.events = window.firebase.onSnapshot(
+    eventsRef,
+    (snapshot) => {
+      const events = [];
+      snapshot.forEach(doc => {
+        events.push({ id: doc.id, ...doc.data() });
+      });
+      
+      localStorage.setItem('calendarEvents', JSON.stringify(events));
+      
+      if (window.realtimeSyncState.initialLoadComplete) {
+        refreshCalendarUI();
+      }
+    },
+    (error) => {
+      console.error('❌ Error en listener de eventos:', error);
+    }
+  );
+  
+  console.log('📅 Listener de eventos iniciado');
 }
 
 // ========================================
@@ -636,48 +645,57 @@ function startExpensesListener(clubId) {
 }
 
 // ========================================
-// ⚙️ CARGA DE CONFIGURACIÓN (una sola vez al inicio)
-// La configuración del club rara vez cambia durante la sesión.
-// Usar getDoc ahorra una conexión permanente con Firebase.
+// ⚙️ LISTENER DE CONFIGURACIÓN
 // ========================================
-async function startSettingsListener(clubId) {
-  try {
-    const settingsRef = window.firebase.doc(
-      window.firebase.db,
-      `clubs/${clubId}/settings`,
-      'main'
-    );
-    const snap = await window.firebase.getDoc(settingsRef);
-    if (snap.exists()) {
-      const settings = snap.data();
+function startSettingsListener(clubId) {
+  const settingsRef = window.firebase.doc(
+    window.firebase.db,
+    `clubs/${clubId}/settings`,
+    'main'
+  );
+  
+  window.realtimeListeners.settings = window.firebase.onSnapshot(
+    settingsRef,
+    async (doc) => {
+      if (doc.exists()) {
+        const settings = doc.data();
 
-      // Recuperar logo del documento separado
-      try {
-        const logoDoc = await window.firebase.getDoc(
-          window.firebase.doc(window.firebase.db, `clubs/${clubId}/assets`, 'logo')
-        );
-        if (logoDoc.exists() && logoDoc.data().logo) {
-          settings.logo = logoDoc.data().logo;
-        } else {
+        // ✅ Recuperar logo del documento separado
+        try {
+          const clubId = window.realtimeSyncState.clubId;
+          if (clubId) {
+            const logoDoc = await window.firebase.getDoc(
+              window.firebase.doc(window.firebase.db, `clubs/${clubId}/assets`, 'logo')
+            );
+            if (logoDoc.exists() && logoDoc.data().logo) {
+              settings.logo = logoDoc.data().logo;
+            } else {
+              const local = JSON.parse(localStorage.getItem('schoolSettings') || '{}');
+              if (local.logo) settings.logo = local.logo;
+            }
+          }
+        } catch (e) {
           const local = JSON.parse(localStorage.getItem('schoolSettings') || '{}');
           if (local.logo) settings.logo = local.logo;
         }
-      } catch (e) {
-        const local = JSON.parse(localStorage.getItem('schoolSettings') || '{}');
-        if (local.logo) settings.logo = local.logo;
-      }
 
-      if (typeof saveSchoolSettings === 'function') {
-        saveSchoolSettings(settings);
-      } else {
-        localStorage.setItem('schoolSettings', JSON.stringify(settings));
+        if (typeof saveSchoolSettings === 'function') {
+          saveSchoolSettings(settings);
+        } else {
+          localStorage.setItem('schoolSettings', JSON.stringify(settings));
+        }
+        
+        if (window.realtimeSyncState.initialLoadComplete) {
+          updateHeaderInfo();
+        }
       }
-      updateHeaderInfo();
+    },
+    (error) => {
+      console.error('❌ Error en listener de configuración:', error);
     }
-    console.log('⚙️ Configuración cargada (lectura única)');
-  } catch (error) {
-    console.error('❌ Error al cargar configuración:', error);
-  }
+  );
+  
+  console.log('⚙️ Listener de configuración iniciado');
   
   // Marcar carga inicial como completa
   setTimeout(() => {

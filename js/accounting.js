@@ -57,36 +57,6 @@ function renderAccounting() {
   renderAccountingCharts();
   renderAccountingPlayersTable();
   renderVoidedPayments();
-  // Intentar enriquecer el resumen del mes actual con el dato pre-calculado en el servidor.
-  // Si falla o no existe, los valores ya cargados desde localStorage son correctos.
-  enrichCurrentMonthFromSummary();
-}
-
-// Lee el documento monthly_summary del mes actual (escrito por la Cloud Function).
-// Solo actualiza los dos campos del "mes actual" para que sean instantáneos en móviles lentos.
-// No reemplaza el cálculo completo — es un enriquecimiento opcional con fallback automático.
-async function enrichCurrentMonthFromSummary() {
-  const clubId = localStorage.getItem('clubId');
-  if (!clubId || !window.firebase?.db || !window.firebase?.getDoc) return;
-
-  const yearMonth = new Date().toISOString().substring(0, 7); // "2025-03"
-  try {
-    const snap = await window.firebase.getDoc(
-      window.firebase.doc(window.firebase.db, `clubs/${clubId}/monthly_summary`, yearMonth)
-    );
-    if (!snap.exists()) return; // Sin resumen aún — los valores de localStorage son correctos
-
-    const summary = snap.data();
-
-    // Actualizar solo el ingreso del mes actual con el valor del servidor
-    const accMonthIncome = document.getElementById('accMonthIncome');
-    if (accMonthIncome && summary.totalIncome !== undefined) {
-      accMonthIncome.textContent = formatCurrency(summary.totalIncome);
-    }
-  } catch (e) {
-    // Si falla (sin conexión, etc.) los valores existentes quedan igual
-    console.warn('[accounting] No se pudo leer monthly_summary:', e.message);
-  }
 }
 
 // 🆕 RESUMEN MEJORADO - CON EGRESOS Y OTROS INGRESOS

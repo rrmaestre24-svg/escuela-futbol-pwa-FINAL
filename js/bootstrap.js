@@ -9,9 +9,7 @@ if (typeof initFirebase === 'function') {
 }
 
 // Inicializar Lucide Icons
-// Guard necesario porque lucide se carga con defer — puede no estar disponible aún aquí.
-// Las llamadas posteriores (en render functions) también tienen su propio guard.
-if (typeof lucide !== 'undefined') lucide.createIcons();
+lucide.createIcons();
 
 // Registrar Service Worker
 if ('serviceWorker' in navigator) {
