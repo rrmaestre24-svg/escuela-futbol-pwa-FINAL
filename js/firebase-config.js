@@ -82,15 +82,17 @@ async function initFirebase() {
 
 
     const authModule = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');
-    const { 
-      getAuth, 
-      signInWithEmailAndPassword, 
-      createUserWithEmailAndPassword, 
-      signOut, 
+    const {
+      getAuth,
+      signInWithEmailAndPassword,
+      createUserWithEmailAndPassword,
+      signOut,
       onAuthStateChanged,
       sendPasswordResetEmail,
       browserLocalPersistence,
-      setPersistence
+      setPersistence,
+      GoogleAuthProvider,
+      signInWithPopup
     } = authModule;
     
     const app = initializeApp(firebaseConfig);
@@ -132,6 +134,8 @@ async function initFirebase() {
       sendPasswordResetEmail,
       setPersistence,
       browserLocalPersistence,
+      GoogleAuthProvider,
+      signInWithPopup,
       storage,
       ref,
       uploadBytes,
