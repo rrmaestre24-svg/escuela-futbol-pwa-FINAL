@@ -1,7 +1,8 @@
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { onDocumentWritten } = require('firebase-functions/v2/firestore');
 const { initializeApp } = require('firebase-admin/app');
 const { getAuth } = require('firebase-admin/auth');
-const { getFirestore } = require('firebase-admin/firestore');
+const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 
 initializeApp();
 
@@ -64,3 +65,67 @@ exports.deleteAuthUser = onCall(async (request) => {
     throw new HttpsError('internal', 'No se pudo eliminar la cuenta. Intenta nuevamente.');
   }
 });
+
+/**
+ * updateMonthlySummary — actualiza el resumen contable mensual.
+ *
+ * Se dispara automáticamente cada vez que se crea, modifica o elimina
+ * un pago en clubs/{clubId}/payments/{paymentId}.
+ *
+ * Escribe en clubs/{clubId}/monthly_summary/{año-mes} los totales:
+ *   - totalIncome: suma de pagos con status "Pagado"
+ *   - pendingCount: cantidad de pagos pendientes
+ *   - updatedAt: timestamp de la última actualización
+ *
+ * El cliente lee este documento (1 lectura) en vez de iterar todos los pagos.
+ * Si el documento no existe todavía, el cliente usa el cálculo local como fallback.
+ */
+exports.updateMonthlySummary = onDocumentWritten(
+  'clubs/{clubId}/payments/{paymentId}',
+  async (event) => {
+    const { clubId } = event.params;
+    const db = getFirestore();
+
+    // Determinar el mes afectado a partir del documento nuevo o el anterior
+    const newData = event.data?.after?.data();
+    const oldData = event.data?.before?.data();
+    const payment = newData || oldData;
+
+    if (!payment) return;
+
+    // Usar dueDate para determinar el mes (formato YYYY-MM-DD)
+    const dateStr = payment.dueDate || payment.paidDate || payment.createdAt;
+    if (!dateStr) return;
+
+    const yearMonth = String(dateStr).substring(0, 7); // "2025-03"
+
+    // Leer todos los pagos de ese mes desde Firestore
+    const snapshot = await db
+      .collection(`clubs/${clubId}/payments`)
+      .where('dueDate', '>=', `${yearMonth}-01`)
+      .where('dueDate', '<=', `${yearMonth}-31`)
+      .get();
+
+    let totalIncome = 0;
+    let pendingCount = 0;
+
+    snapshot.forEach(doc => {
+      const p = doc.data();
+      if (p.status === 'Pagado') {
+        totalIncome += Number(p.amount) || 0;
+      } else if (p.status === 'Pendiente') {
+        pendingCount++;
+      }
+    });
+
+    // Escribir el resumen del mes
+    await db.doc(`clubs/${clubId}/monthly_summary/${yearMonth}`).set({
+      totalIncome,
+      pendingCount,
+      paymentCount: snapshot.size,
+      updatedAt: new Date().toISOString()
+    });
+
+    console.log(`[updateMonthlySummary] ${clubId} / ${yearMonth}: income=${totalIncome} pending=${pendingCount}`);
+  }
+);
