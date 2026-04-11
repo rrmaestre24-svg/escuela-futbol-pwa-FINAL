@@ -675,6 +675,11 @@ function exportHistoryPDF() {
     if (historyDateFrom && dateStr < historyDateFrom) return false;
     if (historyDateTo   && dateStr > historyDateTo)   return false;
     return true;
+  }).sort((a, b) => {
+    if (a.invoiceNumber && b.invoiceNumber) return b.invoiceNumber.localeCompare(a.invoiceNumber);
+    if (a.invoiceNumber && !b.invoiceNumber) return -1;
+    if (!a.invoiceNumber && b.invoiceNumber) return 1;
+    return new Date(b.timestamp || 0) - new Date(a.timestamp || 0);
   });
 
   if (rows.length === 0) {
@@ -822,6 +827,11 @@ function renderPaymentMovementLog() {
     if (historyDateFrom && dateStr < historyDateFrom) return false;
     if (historyDateTo   && dateStr > historyDateTo)   return false;
     return true;
+  }).sort((a, b) => {
+    if (a.invoiceNumber && b.invoiceNumber) return b.invoiceNumber.localeCompare(a.invoiceNumber);
+    if (a.invoiceNumber && !b.invoiceNumber) return -1;
+    if (!a.invoiceNumber && b.invoiceNumber) return 1;
+    return new Date(b.timestamp || 0) - new Date(a.timestamp || 0);
   });
 
   // Actualizar resumen del período
