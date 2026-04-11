@@ -255,8 +255,13 @@ function renderMonthlyPayments(payments) {
     return;
   }
   
-  // Ordenar por fecha de creación descendente (más reciente primero)
-  const sorted = [...payments].sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+  // Ordenar por número de factura (más alto/reciente primero) y las que no tienen factura ordenarlas por fecha
+  const sorted = [...payments].sort((a, b) => {
+    if (a.invoiceNumber && b.invoiceNumber) return b.invoiceNumber.localeCompare(a.invoiceNumber);
+    if (a.invoiceNumber && !b.invoiceNumber) return -1;
+    if (!a.invoiceNumber && b.invoiceNumber) return 1;
+    return (b.createdAt || '').localeCompare(a.createdAt || '');
+  });
 
   container.innerHTML = sorted.map(payment => {
     const player = getPlayerById(payment.playerId);
@@ -282,8 +287,13 @@ function renderExtraPayments(payments) {
     return;
   }
 
-  // Ordenar por fecha de creación descendente (más reciente primero)
-  const sorted = [...payments].sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+  // Ordenar por número de factura (más alto/reciente primero) y las que no tienen factura ordenarlas por fecha
+  const sorted = [...payments].sort((a, b) => {
+    if (a.invoiceNumber && b.invoiceNumber) return b.invoiceNumber.localeCompare(a.invoiceNumber);
+    if (a.invoiceNumber && !b.invoiceNumber) return -1;
+    if (!a.invoiceNumber && b.invoiceNumber) return 1;
+    return (b.createdAt || '').localeCompare(a.createdAt || '');
+  });
   
   container.innerHTML = sorted.map(payment => {
     const player = getPlayerById(payment.playerId);
