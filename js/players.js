@@ -1630,6 +1630,8 @@ function exportPlayersExcel() {
 
 // Exporta todos los jugadores a PDF (hoja apaisada, campos principales)
 function exportPlayersPDF() {
+  if (this._exportingPDF) return; // Prevenir doble clic
+  
   const allPlayers = getPlayers();
   if (allPlayers.length === 0) { showToast('No hay jugadores para exportar'); return; }
 
@@ -1640,107 +1642,123 @@ function exportPlayersPDF() {
     return;
   }
 
-  // Ordenar alfabéticamente (copia profunda para seguridad)
-  const players = [...allPlayers].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  this._exportingPDF = true;
 
-  const settings = getSchoolSettings();
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-
-  const PRIMARY = [13, 148, 136];
-  const DARK    = [31, 41, 55];
-  const GRAY    = [107, 114, 128];
-  const LIGHT   = [243, 244, 246];
-  const GREEN   = [22, 163, 74];
-  const RED     = [220, 38, 38];
-
-  const drawHeader = (yPos) => {
-    doc.setFillColor(...PRIMARY);
-    doc.rect(15, yPos, 267, 8, 'F');
-    doc.setFontSize(8.5);
-    doc.setFont(undefined, 'bold');
-    doc.setTextColor(255, 255, 255);
-    cols.forEach(c => doc.text(c.label, c.x + 1, yPos + 5.5));
-    return yPos + 8;
-  };
-
-  // ── Encabezado Principal ──
   try {
-    if (settings.logo && settings.logo.startsWith('data:image')) {
-      doc.addImage(settings.logo, 'PNG', 15, 8, 18, 18);
-    }
-  } catch (e) {}
+    // Ordenar alfabéticamente (copia profunda)
+    const players = [...allPlayers].sort((a, b) => {
+      const nameA = (a.name || '').trim().toLowerCase();
+      const nameB = (b.name || '').trim().toLowerCase();
+      return nameA.localeCompare(nameB);
+    });
 
-  doc.setFontSize(14);
-  doc.setTextColor(...PRIMARY);
-  doc.setFont(undefined, 'bold');
-  doc.text(normalizeForPDF(settings.name || 'MI CLUB'), 37, 16);
+    const settings = getSchoolSettings();
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
 
-  doc.setFontSize(9);
-  doc.setTextColor(...GRAY);
-  doc.setFont(undefined, 'normal');
-  doc.text('LISTADO DE JUGADORES REGISTRADOS (ORDEN ALFABÉTICO)', 37, 22);
+    const PRIMARY = [13, 148, 136];
+    const DARK    = [31, 41, 55];
+    const GRAY    = [107, 114, 128];
+    const LIGHT   = [243, 244, 246];
+    const GREEN   = [22, 163, 74];
+    const RED     = [220, 38, 38];
 
-  const fechaGen = new Date().toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' });
-  doc.text(`Generado: ${fechaGen}  ·  Total: ${players.length} jugadores`, 37, 27);
+    // Definir columnas al inicio para que estén disponibles en toda la función
+    const cols = [
+      { label: 'Nombre',        x: 15,  w: 62 },
+      { label: 'Categoría',     x: 77,  w: 22 },
+      { label: 'Fecha Nac.',    x: 99,  w: 25 },
+      { label: 'Documento',     x: 124, w: 32 },
+      { label: 'Teléfono',      x: 156, w: 28 },
+      { label: 'Email',         x: 184, w: 46 },
+      { label: 'Estado',        x: 230, w: 23 },
+      { label: 'Inscripción',   x: 253, w: 29 }
+    ];
 
-  doc.setDrawColor(...PRIMARY);
-  doc.setLineWidth(0.5);
-  doc.line(15, 32, 282, 32);
+    const drawTableHeader = (yCursor) => {
+      doc.setFillColor(...PRIMARY);
+      doc.rect(15, yCursor, 267, 8, 'F');
+      doc.setFontSize(8);
+      doc.setFont(undefined, 'bold');
+      doc.setTextColor(255, 255, 255);
+      cols.forEach(c => doc.text(normalizeForPDF(c.label), c.x + 1, yCursor + 5.5));
+      return yCursor + 8;
+    };
 
-  const cols = [
-    { label: 'Nombre',        x: 15,  w: 60 },
-    { label: 'Categoría',     x: 75,  w: 26 },
-    { label: 'Fecha Nac.',    x: 101, w: 24 },
-    { label: 'Documento',     x: 125, w: 32 },
-    { label: 'Teléfono',      x: 157, w: 28 },
-    { label: 'Email',         x: 185, w: 45 },
-    { label: 'Estado',        x: 230, w: 25 },
-    { label: 'Inscripción',   x: 255, w: 27 }
-  ];
+    // ── Encabezado Principal ──
+    try {
+      if (settings.logo && settings.logo.startsWith('data:image')) {
+        doc.addImage(settings.logo, 'PNG', 15, 8, 18, 18);
+      }
+    } catch (e) {}
 
-  let y = drawHeader(38);
+    doc.setFontSize(14);
+    doc.setTextColor(...PRIMARY);
+    doc.setFont(undefined, 'bold');
+    doc.text(normalizeForPDF(settings.name || 'MI CLUB'), 37, 16);
 
-  players.forEach((p, i) => {
-    // Salto de página más conservador (180mm en landscape)
-    if (y > 180) {
-      doc.addPage();
-      y = drawHeader(15);
-    }
-
-    const rowH = 7; // Un poco más de altura por fila para legibilidad
-    if (i % 2 === 0) {
-      doc.setFillColor(...LIGHT);
-      doc.rect(15, y, 267, rowH, 'F');
-    }
-
+    doc.setFontSize(9);
+    doc.setTextColor(...GRAY);
     doc.setFont(undefined, 'normal');
-    doc.setFontSize(7.5);
-    doc.setTextColor(...DARK);
+    doc.text('LISTADO DE JUGADORES REGISTRADOS (ORDEN ALFABÉTICO)', 37, 22);
 
-    const docStr = p.documentNumber ? `${p.documentType || ''} ${p.documentNumber}`.trim() : '—';
-    const estado = p.status || 'Activo';
+    const fechaGen = new Date().toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    doc.text(`Generado: ${fechaGen}  ·  Total: ${players.length} jugadores`, 37, 27);
 
-    // Usamos maxWidth para evitar solapamientos
-    doc.text(normalizeForPDF(p.name || ''),         cols[0].x + 1, y + 4.5, { maxWidth: cols[0].w - 2 });
-    doc.text(normalizeForPDF(p.category || '—'),    cols[1].x + 1, y + 4.5, { maxWidth: cols[1].w - 2 });
-    doc.text(p.birthDate || '—',                    cols[2].x + 1, y + 4.5);
-    doc.text(normalizeForPDF(docStr),               cols[3].x + 1, y + 4.5, { maxWidth: cols[3].w - 2 });
-    doc.text((p.phone || '—'),                      cols[4].x + 1, y + 4.5, { maxWidth: cols[4].w - 2 });
-    doc.text(normalizeForPDF(p.email || '—'),       cols[5].x + 1, y + 4.5, { maxWidth: cols[5].w - 2 });
+    doc.setDrawColor(...PRIMARY);
+    doc.setLineWidth(0.5);
+    doc.line(15, 32, 282, 32);
 
-    doc.setTextColor(...(estado === 'Activo' ? GREEN : estado === 'Inactivo' ? RED : GRAY));
-    doc.text(normalizeForPDF(estado),               cols[6].x + 1, y + 4.5);
+    let y = drawTableHeader(38);
 
-    doc.setTextColor(...DARK);
-    doc.text((p.enrollmentDate || '—').substring(0, 10), cols[7].x + 1, y + 4.5);
+    players.forEach((p, idx) => {
+      // Salto de página antes de dibujar la fila
+      if (y > 185) {
+        doc.addPage();
+        y = drawTableHeader(15);
+      }
 
-    y += rowH;
-  });
+      const rowHeight = 7;
+      
+      // Fondo cebra
+      if (idx % 2 === 0) {
+        doc.setFillColor(...LIGHT);
+        doc.rect(15, y, 267, rowHeight, 'F');
+      }
 
-  const fecha = new Date().toISOString().slice(0, 10);
-  doc.save(`jugadores_alfabetico_${fecha}.pdf`);
-  showToast('✅ PDF generado correctamente');
+      doc.setFont(undefined, 'normal');
+      doc.setFontSize(7.5);
+      doc.setTextColor(...DARK);
+
+      const docStr = p.documentNumber ? `${p.documentType || ''} ${p.documentNumber}`.trim() : '—';
+      const estado = p.status || 'Activo';
+
+      // Dibujar columnas con truncado estricto
+      doc.text(normalizeForPDF(p.name || '').substring(0, 35),      cols[0].x + 1, y + 4.5);
+      doc.text(normalizeForPDF(p.category || '—').substring(0, 15), cols[1].x + 1, y + 4.5);
+      doc.text(p.birthDate || '—',                                  cols[2].x + 1, y + 4.5);
+      doc.text(normalizeForPDF(docStr).substring(0, 20),            cols[3].x + 1, y + 4.5);
+      doc.text((p.phone || '—').substring(0, 16),                   cols[4].x + 1, y + 4.5);
+      doc.text(normalizeForPDF(p.email || '—').substring(0, 30),    cols[5].x + 1, y + 4.5);
+
+      doc.setTextColor(...(estado === 'Activo' ? GREEN : estado === 'Inactivo' ? RED : GRAY));
+      doc.text(normalizeForPDF(estado),                             cols[6].x + 1, y + 4.5);
+
+      doc.setTextColor(...DARK);
+      doc.text((p.enrollmentDate || '—').substring(0, 10),          cols[7].x + 1, y + 4.5);
+
+      y += rowHeight;
+    });
+
+    const fileName = `jugadores_alfabetico_${new Date().toISOString().slice(0, 10)}.pdf`;
+    doc.save(fileName);
+    showToast('✅ PDF generado correctamente');
+  } catch (err) {
+    console.error('Error al generar PDF:', err);
+    showToast('❌ Error al generar el PDF');
+  } finally {
+    this._exportingPDF = false;
+  }
 }
 
 window.exportPlayersExcel = exportPlayersExcel;
