@@ -1037,3 +1037,60 @@ function addPaymentLogEntry(entry) {
 
 window.getPaymentLog = getPaymentLog;
 window.addPaymentLogEntry = addPaymentLogEntry;
+
+/**
+ * 🛠️ MIGRACIÓN: Recuperar facturas antiguas que no están en el Log de Movimientos
+ * Se ejecuta una sola vez para poblar el historial con datos previos a la actualización.
+ */
+function fixMissingPaymentLogEntries() {
+  try {
+    const log = getPaymentLog();
+    const payments = getPayments();
+    
+    // Si ya hay muchos registros o ya se hizo, no procesar (optimización)
+    if (localStorage.getItem('paymentLogBackfill_v1') === 'true') return;
+
+    const existingInvoicesInLog = new Set(log.map(e => e.invoiceNumber));
+    let newEntries = [];
+
+    payments.forEach(p => {
+      // Solo facturas pagadas que no estén ya en el log
+      if (p.status === 'Pagado' && p.invoiceNumber && !existingInvoicesInLog.has(p.invoiceNumber)) {
+        const player = getPlayerById(p.playerId);
+        
+        // Determinar quién lo creó
+        let adminName = 'Sistema';
+        if (p.createdBy) {
+          adminName = typeof p.createdBy === 'object' ? (p.createdBy.name || 'Admin') : p.createdBy;
+        }
+
+        newEntries.push({
+          id: 'log_bf_' + p.id + '_' + Math.random().toString(36).substr(2, 4),
+          timestamp: p.createdAt || p.paidDate || new Date().toISOString(),
+          action: 'Creado',
+          invoiceNumber: p.invoiceNumber,
+          playerName: player ? player.name : (p.playerName || 'Desconocido'),
+          concept: p.concept || p.type || 'Pago antiguo',
+          amount: p.amount || 0,
+          adminName: adminName,
+          reason: 'Recuperado de historial'
+        });
+      }
+    });
+
+    if (newEntries.length > 0) {
+      console.log(`📦 Recuperando ${newEntries.length} facturas antiguas para el historial...`);
+      const finalLog = [...log, ...newEntries];
+      // Ordenar por fecha descendente
+      finalLog.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+      localStorage.setItem('paymentMovementLog', JSON.stringify(finalLog.slice(0, 500)));
+    }
+
+    localStorage.setItem('paymentLogBackfill_v1', 'true');
+  } catch (error) {
+    console.warn('⚠️ Error en migración de historial:', error);
+  }
+}
+
+// Ejecutar migración al cargar el script
+setTimeout(fixMissingPaymentLogEntries, 2000);
