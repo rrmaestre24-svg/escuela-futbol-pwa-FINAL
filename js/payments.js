@@ -238,7 +238,6 @@ function renderPayments() {
     renderThirdPartyIncomes(thirdPartyIncomes);
   } else if (currentPaymentTab === 'history') {
     document.getElementById('historyPaymentsContent').classList.remove('hidden');
-    renderPaymentsHistory(payments, expenses);
     renderPaymentMovementLog();
   }
 }
@@ -638,68 +637,51 @@ function setHistoryFilter(preset) {
   if (toInput)   toInput.value   = historyDateTo   || '';
 
   // Volver a renderizar con el filtro aplicado
-  const payments = JSON.parse(localStorage.getItem('payments') || '[]');
-  const expenses = JSON.parse(localStorage.getItem('expenses') || '[]');
-  renderPaymentsHistory(payments, expenses);
+  renderPaymentMovementLog();
 }
 
 // Se llama cuando el usuario cambia los inputs de fecha manualmente
 function applyHistoryDateFilter() {
   historyDateFrom = document.getElementById('historyDateFrom').value || null;
   historyDateTo   = document.getElementById('historyDateTo').value   || null;
-  const payments = JSON.parse(localStorage.getItem('payments') || '[]');
-  const expenses = JSON.parse(localStorage.getItem('expenses') || '[]');
-  renderPaymentsHistory(payments, expenses);
+  renderPaymentMovementLog();
 }
 
-// Exportar los registros filtrados a PDF
+// Exportar el Registro de Movimientos (audit log) filtrado a PDF
 function exportHistoryPDF() {
   if (typeof window.jspdf === 'undefined') {
     loadJsPDF(() => exportHistoryPDF());
     return;
   }
 
-  const payments = JSON.parse(localStorage.getItem('payments') || '[]');
-  const expenses = JSON.parse(localStorage.getItem('expenses') || '[]');
+  const allLog  = typeof getPaymentLog === 'function' ? getPaymentLog() : [];
   const settings = getSchoolSettings();
 
-  // Armar filas filtradas
-  const rows = [];
-
-  payments.forEach(p => {
-    const player = getPlayerById(p.playerId);
-    if (!player) return;
-    const date = p.paidDate || p.dueDate;
-    if (historyDateFrom && date < historyDateFrom) return;
-    if (historyDateTo   && date > historyDateTo)   return;
-    rows.push({ date, name: player.name, concept: p.concept, method: p.method || '—', amount: p.amount, tipo: 'Ingreso', status: p.status });
-  });
-
-  expenses.forEach(e => {
-    if (historyDateFrom && e.date < historyDateFrom) return;
-    if (historyDateTo   && e.date > historyDateTo)   return;
-    rows.push({ date: e.date, name: e.beneficiaryName, concept: e.concept, method: e.method || '—', amount: e.amount, tipo: 'Egreso', status: 'Pagado' });
+  // Filtrar por rango de fechas
+  const rows = allLog.filter(entry => {
+    if (!entry.timestamp) return true;
+    const d = new Date(entry.timestamp);
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    if (historyDateFrom && dateStr < historyDateFrom) return false;
+    if (historyDateTo   && dateStr > historyDateTo)   return false;
+    return true;
   });
 
   if (rows.length === 0) {
-    showToast('No hay registros para exportar');
+    showToast('No hay movimientos para exportar');
     return;
   }
-
-  rows.sort((a, b) => new Date(b.date) - new Date(a.date));
-
-  const totalIngresos = rows.filter(r => r.tipo === 'Ingreso').reduce((s, r) => s + r.amount, 0);
-  const totalEgresos  = rows.filter(r => r.tipo === 'Egreso').reduce((s, r) => s + r.amount, 0);
 
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
-  const PRIMARY  = [13, 148, 136];
-  const DARK     = [31, 41, 55];
-  const GRAY     = [107, 114, 128];
-  const LIGHT    = [243, 244, 246];
-  const RED      = [220, 38, 38];
-  const GREEN    = [22, 163, 74];
+  const PRIMARY = [13, 148, 136];
+  const DARK    = [31, 41, 55];
+  const GRAY    = [107, 114, 128];
+  const LIGHT   = [243, 244, 246];
+  const RED     = [220, 38, 38];
+  const GREEN   = [22, 163, 74];
+  const BLUE    = [37, 99, 235];
 
   // ── Encabezado ──
   try {
@@ -716,19 +698,16 @@ function exportHistoryPDF() {
   doc.setFontSize(9);
   doc.setTextColor(...GRAY);
   doc.setFont(undefined, 'normal');
-  doc.text('REPORTE DE HISTORIAL DE PAGOS', 42, 26);
+  doc.text('REGISTRO DE MOVIMIENTOS', 42, 26);
 
   const periodoText = historyDateFrom || historyDateTo
     ? `Periodo: ${historyDateFrom || 'inicio'} → ${historyDateTo || 'hoy'}`
     : 'Periodo: completo';
   doc.text(periodoText, 42, 31);
 
-  // Fecha de generación
   const now = new Date();
-  const fechaGen = now.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' });
-  doc.text(`Generado: ${fechaGen}`, 195, 20, { align: 'right' });
+  doc.text(`Generado: ${now.toLocaleDateString('es-CO', { day:'2-digit', month:'2-digit', year:'numeric' })}`, 195, 20, { align: 'right' });
 
-  // Línea separadora
   doc.setDrawColor(...PRIMARY);
   doc.setLineWidth(0.5);
   doc.line(15, 38, 195, 38);
@@ -736,53 +715,46 @@ function exportHistoryPDF() {
   // ── Resumen ──
   let y = 46;
   doc.setFillColor(...LIGHT);
-  doc.roundedRect(15, y, 180, 14, 2, 2, 'F');
-
-  doc.setFontSize(9);
+  doc.roundedRect(15, y, 180, 10, 2, 2, 'F');
+  doc.setFontSize(8.5);
   doc.setFont(undefined, 'bold');
   doc.setTextColor(...DARK);
-  doc.text(`Total registros: ${rows.length}`, 20, y + 5.5);
-
+  doc.text(`Total: ${rows.length}`, 20, y + 6.5);
   doc.setTextColor(...GREEN);
-  doc.text(`Ingresos: ${formatCurrency(totalIngresos)}`, 80, y + 5.5);
-
+  doc.text(`Creados: ${rows.filter(e=>e.action==='Creado').length}`, 60, y + 6.5);
+  doc.setTextColor(...BLUE);
+  doc.text(`Modificados: ${rows.filter(e=>e.action==='Modificado').length}`, 100, y + 6.5);
   doc.setTextColor(...RED);
-  doc.text(`Egresos: ${formatCurrency(totalEgresos)}`, 140, y + 5.5);
-
-  doc.setTextColor(...DARK);
-  doc.text(`Neto: ${formatCurrency(totalIngresos - totalEgresos)}`, 155, y + 10.5);
+  doc.text(`Anulados: ${rows.filter(e=>e.action==='Anulado').length}`, 150, y + 6.5);
 
   // ── Tabla ──
-  y += 20;
+  y += 16;
 
-  // Cabecera de tabla
   const cols = [
-    { label: 'Fecha',    x: 15,  w: 22 },
-    { label: 'Jugador',  x: 37,  w: 45 },
-    { label: 'Concepto', x: 82,  w: 48 },
-    { label: 'Metodo',   x: 130, w: 25 },
-    { label: 'Monto',    x: 155, w: 25 },
-    { label: 'Tipo',     x: 180, w: 15 }
+    { label: 'Fecha/Hora', x: 15,  w: 30 },
+    { label: 'Factura',    x: 45,  w: 28 },
+    { label: 'Jugador',    x: 73,  w: 40 },
+    { label: 'Accion',     x: 113, w: 22 },
+    { label: 'Motivo',     x: 135, w: 32 },
+    { label: 'Monto',      x: 167, w: 18 },
+    { label: 'Por',        x: 185, w: 25 }
   ];
 
   doc.setFillColor(...PRIMARY);
   doc.rect(15, y, 180, 7, 'F');
-  doc.setFontSize(8);
+  doc.setFontSize(7.5);
   doc.setFont(undefined, 'bold');
   doc.setTextColor(255, 255, 255);
   cols.forEach(c => doc.text(c.label, c.x + 1, y + 5));
-
   y += 7;
 
-  // Filas
-  rows.forEach((r, i) => {
-    // Salto de página si es necesario
+  rows.forEach((entry, i) => {
     if (y > 270) {
       doc.addPage();
       y = 20;
       doc.setFillColor(...PRIMARY);
       doc.rect(15, y, 180, 7, 'F');
-      doc.setFontSize(8);
+      doc.setFontSize(7.5);
       doc.setFont(undefined, 'bold');
       doc.setTextColor(255, 255, 255);
       cols.forEach(c => doc.text(c.label, c.x + 1, y + 5));
@@ -790,40 +762,37 @@ function exportHistoryPDF() {
     }
 
     const rowH = 6.5;
-    if (i % 2 === 0) {
-      doc.setFillColor(...LIGHT);
-      doc.rect(15, y, 180, rowH, 'F');
-    }
+    if (i % 2 === 0) { doc.setFillColor(...LIGHT); doc.rect(15, y, 180, rowH, 'F'); }
+
+    const d = new Date(entry.timestamp);
+    const dateStr = d.toLocaleDateString('es-CO', { day:'2-digit', month:'2-digit', year:'numeric' });
+    const timeStr = d.toLocaleTimeString('es-CO', { hour:'2-digit', minute:'2-digit' });
+
+    const actionColor = entry.action === 'Creado' ? GREEN : entry.action === 'Anulado' ? RED : BLUE;
 
     doc.setFont(undefined, 'normal');
-    doc.setFontSize(7.5);
+    doc.setFontSize(7);
     doc.setTextColor(...DARK);
-
-    doc.text(r.date || '—',                            cols[0].x + 1, y + 4.5);
-    doc.text(normalizeForPDF(r.name || '').substring(0, 22),  cols[1].x + 1, y + 4.5);
-    doc.text(normalizeForPDF(r.concept || '').substring(0, 26), cols[2].x + 1, y + 4.5);
-    doc.text(normalizeForPDF(r.method || '—'),          cols[3].x + 1, y + 4.5);
-
-    // Monto con color
-    doc.setTextColor(...(r.tipo === 'Ingreso' ? GREEN : RED));
-    const signo = r.tipo === 'Egreso' ? '-' : '+';
-    doc.text(`${signo} ${formatCurrency(r.amount)}`, cols[4].x + cols[4].w - 1, y + 4.5, { align: 'right' });
-
-    doc.setTextColor(...(r.tipo === 'Ingreso' ? GREEN : RED));
-    doc.text(r.tipo, cols[5].x + 1, y + 4.5);
+    doc.text(`${dateStr} ${timeStr}`,                                  cols[0].x + 1, y + 4.5);
+    doc.text(normalizeForPDF(entry.invoiceNumber || '—'),              cols[1].x + 1, y + 4.5);
+    doc.text(normalizeForPDF(entry.playerName || '—').substring(0,22), cols[2].x + 1, y + 4.5);
+    doc.setTextColor(...actionColor);
+    doc.text(normalizeForPDF(entry.action || '—'),                     cols[3].x + 1, y + 4.5);
+    doc.setTextColor(...DARK);
+    doc.text(normalizeForPDF(entry.reason || '-').substring(0,18),     cols[4].x + 1, y + 4.5);
+    doc.text(formatCurrency(entry.amount || 0),                        cols[5].x + 1, y + 4.5);
+    doc.text(normalizeForPDF(entry.adminName || '—').substring(0,14),  cols[6].x + 1, y + 4.5);
 
     y += rowH;
   });
 
-  // Firma automática
   if (typeof addSignatureToDocument === 'function') {
     addSignatureToDocument(doc, Math.min(y + 8, 270));
   }
 
-  // Descargar
   const from = historyDateFrom || 'inicio';
   const to   = historyDateTo   || 'hoy';
-  doc.save(`historial-pagos_${from}_${to}.pdf`);
+  doc.save(`registro-movimientos_${from}_${to}.pdf`);
   showToast('✅ PDF generado correctamente');
 }
 
@@ -832,13 +801,32 @@ function renderPaymentMovementLog() {
   const tbody = document.getElementById('paymentMovementLogTable');
   if (!tbody) return;
 
-  const log = typeof getPaymentLog === 'function' ? getPaymentLog() : [];
+  const allLog = typeof getPaymentLog === 'function' ? getPaymentLog() : [];
+
+  // Filtrar por rango de fechas usando historyDateFrom / historyDateTo
+  const log = allLog.filter(entry => {
+    if (!entry.timestamp) return true;
+    // timestamp puede ser string ISO o number — convertir a YYYY-MM-DD para comparar
+    const d = new Date(entry.timestamp);
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    if (historyDateFrom && dateStr < historyDateFrom) return false;
+    if (historyDateTo   && dateStr > historyDateTo)   return false;
+    return true;
+  });
+
+  // Actualizar resumen del período
+  const summaryEl = document.getElementById('historyFilterSummary');
+  if (summaryEl) {
+    summaryEl.textContent = log.length > 0
+      ? `${log.length} movimiento(s) — Creados: ${log.filter(e=>e.action==='Creado').length} | Modificados: ${log.filter(e=>e.action==='Modificado').length} | Anulados: ${log.filter(e=>e.action==='Anulado').length}`
+      : '';
+  }
 
   if (log.length === 0) {
     tbody.innerHTML = `
       <tr>
         <td colspan="7" class="text-center py-8 text-gray-500 dark:text-gray-400">
-          No hay movimientos registrados aún
+          No hay movimientos para el período seleccionado
         </td>
       </tr>`;
     return;
@@ -1018,6 +1006,11 @@ function generateInvoicePDFWithWhatsApp(paymentId) {
 // ========================================
 
 function mostrarOpcionWAPayment(paymentId) {
+  // Ir directo al modal de WhatsApp sin mostrar el resumen intermedio
+  enviarWADesdeOverlayPayment(paymentId);
+}
+
+function _mostrarOpcionWAPaymentCompleto(paymentId) {
   const payment = getPaymentById(paymentId);
   if (!payment) return;
 
@@ -1112,9 +1105,118 @@ function soloDescargarPDFPayment(paymentId) {
 
 function enviarWADesdeOverlayPayment(paymentId) {
   document.getElementById('waOverlayPayment')?.remove();
-  // Genera el PDF y luego abre WhatsApp
-  generateInvoicePDF(paymentId, true);
-  setTimeout(() => sendInvoiceWhatsApp(paymentId), 400);
+
+  const payment = getPaymentById(paymentId);
+  const player  = getPlayerById(payment?.playerId);
+  if (!player?.phone) {
+    showToast('❌ Jugador sin número de WhatsApp');
+    return;
+  }
+
+  const settings  = getSchoolSettings();
+  const clubColor = settings?.primaryColor || '#0d9488';
+
+  // Armar mensaje de WhatsApp
+  let docLine = '';
+  if (player.documentType && player.documentNumber) {
+    docLine = `🪪 *Documento:* ${player.documentType} ${player.documentNumber}`;
+  }
+  const message = [
+    `🏆 *${settings.name}*`,
+    `⚽ FACTURA DE PAGO`,
+    ``,
+    `📋 *Factura:* ${payment.invoiceNumber}`,
+    `👤 *Jugador:* ${player.name}`,
+    docLine,
+    `⚽ *Categoría:* ${player.category || 'N/A'}`,
+    `💰 *Concepto:* ${payment.concept}`,
+    `💵 *Monto:* ${formatCurrency(payment.amount)}`,
+    `📅 *Fecha de pago:* ${formatDate(payment.paidDate)}`,
+    `💳 *Método:* ${payment.method || 'No especificado'}`,
+    ``,
+    `✅ *Estado:* PAGADO`,
+    ``,
+    `Gracias por tu pago. 🙌`,
+    ``,
+    `_${settings.name}_`,
+    settings.phone || ''
+  ].filter(l => l !== '').join('\n').trim();
+
+  const waUrl = createWhatsAppLink(player.phone, message);
+
+  // Construir modal personalizado con detalles de la factura
+  document.getElementById('_waInvoiceOverlay')?.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = '_waInvoiceOverlay';
+  overlay.className = 'fixed inset-0 bg-black/60 z-[200] flex items-center justify-center p-4';
+
+  overlay.innerHTML = `
+    <div class="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-xs shadow-2xl overflow-hidden">
+      <!-- Header -->
+      <div style="background:${clubColor}" class="px-5 py-4 text-white">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 bg-white/20 rounded-full flex items-center justify-center">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+            </svg>
+          </div>
+          <div>
+            <p class="font-bold text-sm">¡Pago registrado!</p>
+            <p class="text-xs text-white/70">${payment.invoiceNumber}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Detalles de la factura -->
+      <div class="px-4 py-3 border-b border-gray-100 dark:border-gray-700 space-y-1.5">
+        <div class="flex justify-between text-xs">
+          <span class="text-gray-500 dark:text-gray-400">Jugador</span>
+          <span class="font-medium text-gray-800 dark:text-white">${player.name}</span>
+        </div>
+        <div class="flex justify-between text-xs">
+          <span class="text-gray-500 dark:text-gray-400">Concepto</span>
+          <span class="font-medium text-gray-800 dark:text-white">${payment.concept}</span>
+        </div>
+        <div class="flex justify-between text-xs">
+          <span class="text-gray-500 dark:text-gray-400">Fecha de pago</span>
+          <span class="font-medium text-gray-800 dark:text-white">${formatDate(payment.paidDate)}</span>
+        </div>
+        <div class="flex justify-between text-xs">
+          <span class="text-gray-500 dark:text-gray-400">Método</span>
+          <span class="font-medium text-gray-800 dark:text-white">${payment.method || 'No especificado'}</span>
+        </div>
+        <div class="flex justify-between text-xs pt-1 border-t border-gray-100 dark:border-gray-700">
+          <span class="font-bold text-gray-600 dark:text-gray-300">Total</span>
+          <span class="font-bold" style="color:${clubColor}">${formatCurrency(payment.amount)}</span>
+        </div>
+      </div>
+
+      <!-- Botones -->
+      <div class="p-4 space-y-2">
+        <a href="${waUrl}" target="_blank"
+          onclick="generateInvoicePDF('${paymentId}', true); setTimeout(() => document.getElementById('_waInvoiceOverlay')?.remove(), 300)"
+          class="w-full bg-green-500 hover:bg-green-600 active:scale-95 text-white py-3 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 no-underline">
+          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+          Abrir WhatsApp
+        </a>
+        <button onclick="generateInvoicePDF('${paymentId}', true); document.getElementById('_waInvoiceOverlay')?.remove()"
+          style="background:${clubColor}"
+          class="w-full text-white py-2.5 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+          Solo descargar PDF
+        </button>
+        <button onclick="document.getElementById('_waInvoiceOverlay')?.remove()"
+          class="w-full text-gray-500 dark:text-gray-400 py-2 text-sm hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
+          Cerrar sin descargar
+        </button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
 }
 
 console.log('✅ payments.js cargado (UNIFICADO CON AUTO-REDIRECT)');
@@ -1645,9 +1747,7 @@ function searchPayments() {
     renderFilteredExpenses(filteredData);
     
   } else if (currentPaymentTab === 'history') {
-    const filteredPayments = payments.filter(p => matchesSearch(p, 'payment'));
-    const filteredExpenses = expenses.filter(e => matchesSearch(e, 'expense'));
-    renderPaymentsHistory(filteredPayments, filteredExpenses);
+    renderPaymentMovementLog();
   }
   
   showSearchResultsCount(filteredData.length);

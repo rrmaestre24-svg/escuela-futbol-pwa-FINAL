@@ -410,23 +410,6 @@
                     <div id="historyFilterSummary" class="text-xs text-gray-500 dark:text-gray-400 pt-1"></div>
                 </div>
 
-                <!-- Tabla de transacciones -->
-                <div class="glass-card rounded-xl p-4 shadow-sm overflow-x-auto">
-                    <table class="w-full text-sm">
-                        <thead>
-                            <tr class="border-b border-gray-200 dark:border-gray-700">
-                                <th class="text-left py-2 text-gray-600 dark:text-gray-300">Fecha</th>
-                                <th class="text-left py-2 text-gray-600 dark:text-gray-300">Jugador</th>
-                                <th class="text-left py-2 text-gray-600 dark:text-gray-300">Concepto</th>
-                                <th class="text-left py-2 text-gray-600 dark:text-gray-300">Método</th>
-                                <th class="text-right py-2 text-gray-600 dark:text-gray-300">Monto</th>
-                                <th class="text-center py-2 text-gray-600 dark:text-gray-300">Estado</th>
-                            </tr>
-                        </thead>
-                        <tbody id="paymentsHistoryTable"></tbody>
-                    </table>
-                </div>
-
                 <!-- Registro de movimientos (audit log) -->
                 <div class="glass-card rounded-xl shadow-sm overflow-hidden">
                     <div class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
@@ -1773,6 +1756,19 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
             </div>
 
             <div class="p-6 space-y-3">
+                <!-- Opción: Facturar Meses (principal) -->
+                <button onclick="closePaymentTypeSelectorModal(); showMultiInvoicePlayerPicker()"
+                    class="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white p-4 rounded-xl flex items-center gap-4 transition-all transform hover:scale-105 shadow-lg">
+                    <div class="bg-white bg-opacity-20 p-3 rounded-lg">
+                        <i data-lucide="receipt" class="w-8 h-8"></i>
+                    </div>
+                    <div class="flex-1 text-left">
+                        <h4 class="font-bold text-lg">Mensualidades</h4>
+                        <p class="text-sm opacity-90">Vencidos, actual o adelantados</p>
+                    </div>
+                    <i data-lucide="chevron-right" class="w-6 h-6"></i>
+                </button>
+
                 <!-- Opción: Ingreso -->
                 <button onclick="selectPaymentType('ingreso')"
                     class="w-full bg-gradient-to-r from-green-500 to-teal-500 hover:from-green-600 hover:to-teal-600 text-white p-4 rounded-xl flex items-center gap-4 transition-all transform hover:scale-105 shadow-lg">
@@ -1780,8 +1776,8 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
                         <i data-lucide="trending-up" class="w-8 h-8"></i>
                     </div>
                     <div class="flex-1 text-left">
-                        <h4 class="font-bold text-lg">Ingreso</h4>
-                        <p class="text-sm opacity-90">Mensualidades, uniformes, torneos</p>
+                        <h4 class="font-bold text-lg">Otros Cobros</h4>
+                        <p class="text-sm opacity-90">Uniformes, torneos, materiales, extras</p>
                     </div>
                     <i data-lucide="chevron-right" class="w-6 h-6"></i>
                 </button>
@@ -1795,19 +1791,6 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
                     <div class="flex-1 text-left">
                         <h4 class="font-bold text-lg">Egreso</h4>
                         <p class="text-sm opacity-90">Salarios, servicios, materiales</p>
-                    </div>
-                    <i data-lucide="chevron-right" class="w-6 h-6"></i>
-                </button>
-
-                <!-- Opción: Otro Ingreso -->
-                <button onclick="selectPaymentType('otroIngreso')"
-                    class="w-full bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white p-4 rounded-xl flex items-center gap-4 transition-all transform hover:scale-105 shadow-lg">
-                    <div class="bg-white bg-opacity-20 p-3 rounded-lg">
-                        <i data-lucide="wallet" class="w-8 h-8"></i>
-                    </div>
-                    <div class="flex-1 text-left">
-                        <h4 class="font-bold text-lg">Otro Ingreso</h4>
-                        <p class="text-sm opacity-90">Rifas, productos, torneos, etc.</p>
                     </div>
                     <i data-lucide="chevron-right" class="w-6 h-6"></i>
                 </button>
@@ -1891,11 +1874,12 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
                     <select id="paymentType"
                         class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white"
                         required onchange="autoFillNewConcept()">
-                        <option value="Mensualidad">Mensualidad</option>
-                        <option value="Uniforme">Uniforme</option>
-                        <option value="Torneo">Torneo</option>
-                        <option value="Equipamiento">Equipamiento</option>
-                        <option value="Otro">Otro</option>
+                        <option value="Uniforme">👕 Uniforme</option>
+                        <option value="Torneo">🏆 Torneo</option>
+                        <option value="Equipamiento">⚽ Equipamiento</option>
+                        <option value="Transporte">🚌 Transporte</option>
+                        <option value="Botiquín">💊 Botiquín</option>
+                        <option value="Otro">📦 Otro</option>
                     </select>
                 </div>
 
@@ -2533,6 +2517,7 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
     <!-- 6️⃣ MÓDULOS DE COMUNICACIÓN Y REPORTES -->
     <script src="js/whatsapp.js"></script>
     <script src="js/pdf.js"></script>
+    <script src="js/multi-invoice.js"></script>
     <script src="js/notifications.js"></script>
     <script src="js/parent-automation.js"></script>
 

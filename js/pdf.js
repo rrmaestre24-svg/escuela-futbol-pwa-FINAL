@@ -221,7 +221,11 @@ drawRow('Factura:', payment.invoiceNumber || 'N/A');
     drawRow('Categoria:', normalizeForPDF(player.category));
     drawRow('Tipo de Pago:', normalizeForPDF(payment.type || payment.category || 'N/A'));
     drawRow('Concepto:', normalizeForPDF(payment.concept));
-    drawRow('Monto:', formatCurrency(payment.amount), primaryColor);
+    if (payment.discount) {
+      drawRow('Monto Original:', formatCurrency(payment.amount));
+      drawRow('Descuento:', `-${formatCurrency(payment.discount)}${payment.discountReason ? ' (' + payment.discountReason + ')' : ''}`, [220, 38, 38]);
+    }
+    drawRow('Monto:', formatCurrency(payment.finalAmount || payment.amount), primaryColor);
     drawRow('Fecha:', formatDate(payment.paidDate || payment.dueDate));
     if (payment.method) drawRow('Metodo:', normalizeForPDF(payment.method));
     
@@ -542,8 +546,8 @@ function generatePlayerAccountStatementPDF(playerId) {
     // Calcular totales
     const paid = payments.filter(p => p.status === 'Pagado');
     const pending = payments.filter(p => p.status === 'Pendiente');
-    const totalPaid = paid.reduce((sum, p) => sum + p.amount, 0);
-    const totalPending = pending.reduce((sum, p) => sum + p.amount, 0);
+    const totalPaid = paid.reduce((sum, p) => sum + (p.finalAmount || p.amount), 0);
+    const totalPending = pending.reduce((sum, p) => sum + (p.finalAmount || p.amount), 0);
     
     // Resumen
     let yPos = lineY + 10;
@@ -596,7 +600,7 @@ function generatePlayerAccountStatementPDF(playerId) {
       
       const conceptoText = p.concept.substring(0, 25);
       doc.text(conceptoText, 50, yPos + 5);
-      doc.text(formatCurrency(p.amount), 120, yPos + 5);
+      doc.text(formatCurrency(p.finalAmount || p.amount), 120, yPos + 5);
       
       if (p.status === 'Pagado') {
         doc.setTextColor(22, 163, 74);
@@ -695,8 +699,8 @@ function generateFullAccountingReportPDF() {
     // Calcular totales de pagos
     const paid = payments.filter(p => p.status === 'Pagado');
     const pending = payments.filter(p => p.status === 'Pendiente');
-    const totalPaymentsIncome = paid.reduce((sum, p) => sum + p.amount, 0);
-    const totalPending = pending.reduce((sum, p) => sum + p.amount, 0);
+    const totalPaymentsIncome = paid.reduce((sum, p) => sum + (p.finalAmount || p.amount), 0);
+    const totalPending = pending.reduce((sum, p) => sum + (p.finalAmount || p.amount), 0);
     
     // 🆕 Calcular totales de otros ingresos
     const totalThirdPartyIncome = thirdPartyIncomes.reduce((sum, i) => sum + i.amount, 0);
@@ -706,7 +710,7 @@ function generateFullAccountingReportPDF() {
     
     // Calcular ingresos del mes
     const thisMonthPayments = payments.filter(p => p.paidDate && isThisMonth(p.paidDate));
-    const monthPaymentsIncome = thisMonthPayments.reduce((sum, p) => sum + p.amount, 0);
+    const monthPaymentsIncome = thisMonthPayments.reduce((sum, p) => sum + (p.finalAmount || p.amount), 0);
     
     // 🆕 Otros ingresos del mes
     const thisMonthThirdParty = thirdPartyIncomes.filter(i => isThisMonth(i.date));
@@ -874,13 +878,13 @@ function generateFullAccountingReportPDF() {
       
       if (payment.status === 'Pagado') {
         doc.setTextColor(22, 163, 74);
-        doc.text(formatCurrency(payment.amount), 145, yPos + 5);
+        doc.text(formatCurrency(payment.finalAmount || payment.amount), 145, yPos + 5);
         doc.setTextColor(...textColor);
         doc.text('-', 175, yPos + 5);
       } else {
         doc.text('-', 150, yPos + 5);
         doc.setTextColor(220, 38, 38);
-        doc.text(formatCurrency(payment.amount), 170, yPos + 5);
+        doc.text(formatCurrency(payment.finalAmount || payment.amount), 170, yPos + 5);
       }
       
       doc.setTextColor(...textColor);

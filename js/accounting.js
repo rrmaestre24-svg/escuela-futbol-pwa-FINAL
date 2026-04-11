@@ -70,14 +70,14 @@ function renderAccountingSummary() {
   
   // 💰 INGRESOS (Pagos de jugadores + Otros ingresos)
   const totalThirdParty = thirdPartyIncomes.reduce((sum, i) => sum + (i.amount || 0), 0);
-  const totalPaymentsIncome = paid.reduce((sum, p) => sum + (p.amount || 0), 0);
+  const totalPaymentsIncome = paid.reduce((sum, p) => sum + (p.finalAmount || p.amount || 0), 0);
   const totalIncome = totalPaymentsIncome + totalThirdParty;
-  const totalPending = pending.reduce((sum, p) => sum + (p.amount || 0), 0);
-  
+  const totalPending = pending.reduce((sum, p) => sum + (p.finalAmount || p.amount || 0), 0);
+
   const thisMonth = paid.filter(p => p.paidDate && isThisMonth(p.paidDate));
   const thisMonthThirdParty = thirdPartyIncomes.filter(i => i.date && isThisMonth(i.date));
   const monthThirdParty = thisMonthThirdParty.reduce((sum, i) => sum + (i.amount || 0), 0);
-  const monthPaymentsIncome = thisMonth.reduce((sum, p) => sum + (p.amount || 0), 0);
+  const monthPaymentsIncome = thisMonth.reduce((sum, p) => sum + (p.finalAmount || p.amount || 0), 0);
   const monthIncome = monthPaymentsIncome + monthThirdParty;
   
   // 💸 EGRESOS
@@ -192,7 +192,7 @@ function renderIncomeVsExpensesChart() {
       return paymentDate.getMonth() === date.getMonth() && 
              paymentDate.getFullYear() === date.getFullYear();
     });
-    const paymentsTotal = monthPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+    const paymentsTotal = monthPayments.reduce((sum, p) => sum + (p.finalAmount || p.amount || 0), 0);
     
     // 🆕 Otros ingresos del mes
     const monthThirdParty = thirdPartyIncomes.filter(i => {
@@ -287,7 +287,7 @@ function renderIncomeByCategoryChart() {
     const categoryPlayers = players.filter(p => p.category === category);
     const playerIds = categoryPlayers.map(p => p.id);
     const categoryPayments = payments.filter(p => playerIds.includes(p.playerId));
-    data.push(categoryPayments.reduce((sum, p) => sum + (p.amount || 0), 0));
+    data.push(categoryPayments.reduce((sum, p) => sum + (p.finalAmount || p.amount || 0), 0));
   });
   
   const colors = [
@@ -336,7 +336,7 @@ function renderIncomeByTypeChart() {
   
   types.forEach(type => {
     const typePayments = payments.filter(p => p.type === type);
-    data.push(typePayments.reduce((sum, p) => sum + (p.amount || 0), 0));
+    data.push(typePayments.reduce((sum, p) => sum + (p.finalAmount || p.amount || 0), 0));
   });
   
   accountingCharts.byType = new Chart(ctx, {
@@ -387,8 +387,8 @@ function renderAccountingPlayersTable() {
     const paid = payments.filter(p => p.status === 'Pagado');
     const pending = payments.filter(p => p.status === 'Pendiente');
     
-    const totalPaid = paid.reduce((sum, p) => sum + (p.amount || 0), 0);
-    const totalPending = pending.reduce((sum, p) => sum + (p.amount || 0), 0);
+    const totalPaid = paid.reduce((sum, p) => sum + (p.finalAmount || p.amount || 0), 0);
+    const totalPending = pending.reduce((sum, p) => sum + (p.finalAmount || p.amount || 0), 0);
     const totalExpected = totalPaid + totalPending;
     const compliance = totalExpected > 0 ? (totalPaid / totalExpected * 100) : 0;
     
@@ -468,7 +468,7 @@ function exportCSV() {
       'Número Documento': player ? (player.documentNumber || 'N/A') : 'N/A', // 🆕
       'Categoría': player ? player.category : 'N/A',
       'Concepto': payment.concept || payment.type || 'N/A',
-      'Monto': payment.amount || 0,
+      'Monto': payment.finalAmount || payment.amount || 0,
       'Estado': payment.status || 'N/A',
       'Método': payment.method || 'N/A',
       'Teléfono': player ? (player.phone || '') : '',
@@ -534,8 +534,8 @@ function exportPlayersSummaryCSV() {
       'Tipo Documento': player.documentType || 'N/A', // 🆕
       'Número Documento': player.documentNumber || 'N/A', // 🆕
       'Categoría': player.category || 'N/A',
-      'Total Pagado': paid.reduce((sum, p) => sum + (p.amount || 0), 0),
-      'Total Pendiente': pending.reduce((sum, p) => sum + (p.amount || 0), 0),
+      'Total Pagado': paid.reduce((sum, p) => sum + (p.finalAmount || p.amount || 0), 0),
+      'Total Pendiente': pending.reduce((sum, p) => sum + (p.finalAmount || p.amount || 0), 0),
       'Cantidad Pagos': paid.length,
       'Última Factura': lastPayment ? (lastPayment.invoiceNumber || 'N/A') : 'N/A',
       'Último Pago': lastPayment ? formatDate(lastPayment.paidDate) : 'N/A',
@@ -602,7 +602,7 @@ function exportFullReportCSV() {
       'Número Documento': player ? (player.documentNumber || 'N/A') : 'N/A', // 🆕
       'Categoría': player ? player.category : 'N/A',
       'Concepto': payment.concept || payment.type || 'N/A',
-      'Ingreso': payment.status === 'Pagado' ? (payment.amount || 0) : 0,
+      'Ingreso': payment.status === 'Pagado' ? (payment.finalAmount || payment.amount || 0) : 0,
       'Egreso': 0,
       'Estado': payment.status || 'N/A',
       'Método': payment.method || 'N/A'

@@ -11,33 +11,12 @@ function openWhatsApp(phone, message = '') {
   const cleanedPhone = cleanPhone(phone);
   const encodedMessage = encodeURIComponent(message);
 
-  // URL web como fallback si WhatsApp no está instalado
-  const webUrl = `https://wa.me/${cleanedPhone}?text=${encodedMessage}`;
-  // Deep link directo — abre WhatsApp sin pasar por el navegador
-  const deepLink = `whatsapp://send?phone=${cleanedPhone}&text=${encodedMessage}`;
-
-  const isIOS     = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-  const isAndroid = /Android/.test(navigator.userAgent);
-  const isPWA     = window.matchMedia('(display-mode: standalone)').matches
-                    || window.navigator.standalone === true;
-
-  if (isIOS) {
-    // iOS: deep link directo también funciona
-    window.location.href = deepLink;
-  } else if (isAndroid) {
-    // Android: usar intent:// que abre WhatsApp directo si está instalado,
-    // y redirige a wa.me como fallback si no lo tiene
-    const intentUrl = `intent://send/${cleanedPhone}#Intent;scheme=whatsapp;package=com.whatsapp;action=android.intent.action.VIEW;S.browser_fallback_url=${encodeURIComponent(webUrl)};end`;
-    if (isPWA) {
-      // En PWA instalada: el deep link es suficiente
-      window.location.href = deepLink;
-    } else {
-      window.location.href = intentUrl;
-    }
-  } else {
-    // Desktop: abrir en nueva pestaña
-    window.open(webUrl, '_blank');
-  }
+  // wa.me funciona en todos los dispositivos:
+  // - Android: Chrome/Samsung browser pregunta si abrir con WhatsApp
+  // - iOS: abre WhatsApp directamente si está instalado
+  // - Desktop: abre WhatsApp Web en el navegador
+  const waUrl = `https://wa.me/${cleanedPhone}?text=${encodedMessage}`;
+  window.open(waUrl, '_blank');
 }
 
 // ========================================
