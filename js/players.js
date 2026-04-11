@@ -1570,7 +1570,7 @@ function keepThisPlayerDeleteRest(keepId, allIds) {
 
 // Exporta todos los jugadores a un archivo Excel con todos sus datos
 function exportPlayersExcel() {
-  const players = getPlayers();
+  const players = getPlayers().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   if (players.length === 0) { showToast('No hay jugadores para exportar'); return; }
 
   if (!confirm(`¿Descargar el listado de ${players.length} jugadores en Excel?\n\nIncluye todos los datos: categoría, documento, teléfono, datos médicos, etc.`)) return;
@@ -1630,7 +1630,7 @@ function exportPlayersExcel() {
 
 // Exporta todos los jugadores a PDF (hoja apaisada, campos principales)
 function exportPlayersPDF() {
-  const players = getPlayers();
+  const players = getPlayers().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   if (players.length === 0) { showToast('No hay jugadores para exportar'); return; }
 
   if (!confirm(`¿Descargar el listado de ${players.length} jugadores en PDF?\n\nIncluye: nombre, categoría, documento, teléfono, email y estado.`)) return;
