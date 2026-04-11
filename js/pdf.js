@@ -1180,7 +1180,178 @@ function generateExpenseInvoicePDF(expenseId, autoDownload = true) {
   }
 }
 
+// ========================================
+// 🆕 ARQUEO DE CAJA (Cierre Diario)
+// ========================================
+function generateCashRegisterClosurePDF(arqueo, ingresosText, egresosText) {
+  if (typeof window.jspdf === 'undefined') {
+    loadJsPDF(() => generateCashRegisterClosurePDF(arqueo, ingresosText, egresosText));
+    return null;
+  }
+  
+  if (!arqueo) {
+    showToast('❌ Datos del arqueo no válidos');
+    return null;
+  }
+  
+  const settings = typeof getSchoolSettings === 'function' ? getSchoolSettings() : { name: 'CLUB DEPORTIVO' };
+  
+  try {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    
+    const primaryColor = [79, 70, 229]; // Indigo-600 para diferenciar de facturas
+    const textColor = [31, 41, 55];
+    
+    // Logo
+    try {
+      if (settings.logo && settings.logo.startsWith('data:image')) {
+        doc.addImage(settings.logo, 'PNG', 15, 15, 30, 30);
+      }
+    } catch (e) {}
+    
+    // Encabezado
+    doc.setFontSize(20);
+    doc.setTextColor(...primaryColor);
+    doc.setFont(undefined, 'bold');
+    doc.text(normalizeForPDF(settings.name || 'MI CLUB'), 50, 25);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(...textColor);
+    doc.setFont(undefined, 'normal');
+    if (settings.email) doc.text(settings.email, 50, 32);
+    if (settings.phone) doc.text(settings.phone, 50, 37);
+    
+    // Título Centralizado
+    doc.setFontSize(18);
+    doc.setTextColor(...primaryColor);
+    doc.setFont(undefined, 'bold');
+    doc.text('CIERRE DE CAJA DIARIO', 105, 55, { align: 'center' });
+    
+    // Línea separadora
+    doc.setDrawColor(...primaryColor);
+    doc.setLineWidth(0.5);
+    doc.line(15, 60, 195, 60);
+    
+    let yPos = 70;
+    
+    // Detalles Generales
+    doc.setFontSize(11);
+    doc.setTextColor(...textColor);
+    doc.setFont(undefined, 'bold');
+    doc.text('Fecha:', 15, yPos);
+    doc.setFont(undefined, 'normal');
+    doc.text(formatDate(arqueo.date), 50, yPos);
+    
+    yPos += 8;
+    
+    doc.setFont(undefined, 'bold');
+    doc.text('Generado Por:', 15, yPos);
+    doc.setFont(undefined, 'normal');
+    doc.text(normalizeForPDF(arqueo.auditedBy || 'Administrador'), 50, yPos);
+    
+    yPos += 15;
+    
+    // Cuadros Resumen (Ingresos y Egresos)
+    doc.setFillColor(243, 244, 246); // Gris claro
+    doc.rect(15, yPos, 80, 25, 'F');
+    doc.rect(105, yPos, 80, 25, 'F');
+    
+    doc.setFontSize(12);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(22, 163, 74); // Verde
+    doc.text('Total Ingresos Hoy', 25, yPos + 8);
+    doc.setTextColor(220, 38, 38); // Rojo
+    doc.text('Total Egresos Hoy', 115, yPos + 8);
+    
+    doc.setFontSize(16);
+    doc.setTextColor(...textColor);
+    doc.text(ingresosText || '$0', 25, yPos + 18);
+    doc.text(egresosText || '$0', 115, yPos + 18);
+    
+    yPos += 35;
+    
+    // Desglose de Caja
+    doc.setFontSize(14);
+    doc.setTextColor(...primaryColor);
+    doc.setFont(undefined, 'bold');
+    doc.text('Desglose de Efectivo', 15, yPos);
+    
+    yPos += 10;
+    
+    doc.setFontSize(12);
+    doc.setTextColor(...textColor);
+    
+    // Efectivo en Sistema
+    doc.setFont(undefined, 'bold');
+    doc.text('Efectivo Esperado (Sistema):', 15, yPos);
+    doc.setFont(undefined, 'normal');
+    doc.text(formatCurrency(arqueo.cashExpected), 90, yPos);
+    
+    yPos += 8;
+    
+    // Efectivo Contado
+    doc.setFont(undefined, 'bold');
+    doc.text('Efectivo Real Físico (Contado):', 15, yPos);
+    doc.setFont(undefined, 'normal');
+    doc.text(formatCurrency(arqueo.cashCounted), 90, yPos);
+    
+    yPos += 8;
+    
+    // Banco
+    doc.setFont(undefined, 'bold');
+    doc.text('Bancos / Tarjetas (Teórico):', 15, yPos);
+    doc.setFont(undefined, 'normal');
+    doc.text(formatCurrency(arqueo.bankExpected), 90, yPos);
+    
+    yPos += 15;
+    
+    // Resultado del Arqueo
+    const bgColor = Math.abs(arqueo.discrepancy) < 0.01 ? [220, 252, 231] : (arqueo.discrepancy > 0 ? [254, 249, 195] : [254, 226, 226]);
+    const textColorBox = Math.abs(arqueo.discrepancy) < 0.01 ? [21, 128, 61] : (arqueo.discrepancy > 0 ? [161, 98, 7] : [185, 28, 28]);
+    const resultadoTexto = Math.abs(arqueo.discrepancy) < 0.01 ? 'CUADRE EXACTO' : (arqueo.discrepancy > 0 ? `SOBRANTE EN CAJA: +${formatCurrency(arqueo.discrepancy)}` : `FALTANTE EN CAJA: ${formatCurrency(Math.abs(arqueo.discrepancy))}`);
+    
+    doc.setFillColor(...bgColor);
+    doc.rect(15, yPos, 180, 15, 'F');
+    doc.setFontSize(14);
+    doc.setTextColor(...textColorBox);
+    doc.setFont(undefined, 'bold');
+    doc.text(resultadoTexto, 105, yPos + 10, { align: 'center' });
+    
+    yPos += 25;
+    
+    if (arqueo.notes) {
+      doc.setFontSize(11);
+      doc.setTextColor(...textColor);
+      doc.setFont(undefined, 'bold');
+      doc.text('Notas / Novedades:', 15, yPos);
+      doc.setFont(undefined, 'normal');
+      doc.setFontSize(10);
+      const noteLines = doc.splitTextToSize(normalizeForPDF(arqueo.notes), 180);
+      doc.text(noteLines, 15, yPos + 6);
+      yPos += (noteLines.length * 5) + 10;
+    }
+    
+    yPos += 20;
+
+    // 🆕 AGREGAR FIRMA AUTOMÁTICA
+    if (typeof addSignatureToDocument === 'function') {
+        addSignatureToDocument(doc, yPos);
+    }
+    
+    doc.save(`CierreCaja-${formatDate(arqueo.date).replace(/\//g, '-')}.pdf`);
+    
+    return doc;
+    
+  } catch (error) {
+    console.error('Error al generar comprobante de arqueo:', error);
+    showToast('❌ Error al generar PDF: ' + error.message);
+    return null;
+  }
+}
+
 // Hacer funciones globales
+window.generateCashRegisterClosurePDF = generateCashRegisterClosurePDF;
 window.generateExpenseInvoicePDF = generateExpenseInvoicePDF;
 window.generateInvoicePDF = generateInvoicePDF;
 window.generatePaymentNotificationPDF = generatePaymentNotificationPDF;

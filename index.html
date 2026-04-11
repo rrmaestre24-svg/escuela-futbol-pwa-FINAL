@@ -1300,6 +1300,15 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
             </div>
 
             <!-- ========================================
+                ARQUEO DE CAJA DIARIO
+            ========================================= -->
+            <button onclick="openCashRegisterModal()"
+                class="w-full mb-4 bg-gradient-to-r from-teal-600 to-indigo-600 hover:from-teal-700 hover:to-indigo-700 text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all transform hover:scale-[1.01]">
+                <i data-lucide="lock" class="w-6 h-6"></i>
+                Hacer Cierre de Caja Diario (Arqueo) 
+            </button>
+
+            <!-- ========================================
                 BOTONES DE ACCIÓN
             ========================================= -->
             <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -1333,6 +1342,74 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
         </div>
 
     </main>
+
+    <!-- Modal: Cierre de Caja Diario (Arqueo) -->
+    <div id="cashRegisterModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto animate-scale-in">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    <i data-lucide="lock" class="w-6 h-6 text-indigo-500"></i>
+                    Arqueo de Caja del Día
+                </h3>
+                <button onclick="closeCashRegisterModal()" class="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+            
+            <p class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-4" id="crDateDisplay">Fecha: Cargando...</p>
+            
+            <div class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="p-3 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-200 dark:border-green-800">
+                        <p class="text-xs text-green-700 dark:text-green-400 font-semibold mb-1">Ingresos de Hoy</p>
+                        <p class="text-lg font-bold text-green-800 dark:text-green-300" id="crTotalIncome">$0</p>
+                    </div>
+                    <div class="p-3 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-200 dark:border-red-800">
+                        <p class="text-xs text-red-700 dark:text-red-400 font-semibold mb-1">Egresos de Hoy</p>
+                        <p class="text-lg font-bold text-red-800 dark:text-red-300" id="crTotalExpenses">$0</p>
+                    </div>
+                </div>
+
+                <div class="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl border border-gray-200 dark:border-gray-600">
+                    <h4 class="font-bold text-gray-800 dark:text-gray-200 mb-2 border-b border-gray-200 dark:border-gray-600 pb-2">Sistema (Solo Hoy)</h4>
+                    <div class="flex justify-between mb-2">
+                        <span class="text-sm text-gray-600 dark:text-gray-400">Dinero esperado en Efectivo:</span>
+                        <span class="text-sm font-bold text-gray-800 dark:text-white" id="crCashExpected">$0</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-sm text-gray-600 dark:text-gray-400">Dinero en Bancos / Tarjetas:</span>
+                        <span class="text-sm font-bold text-gray-800 dark:text-white" id="crBankExpected">$0</span>
+                    </div>
+                </div>
+
+                <div class="pt-2">
+                    <label class="block text-sm font-bold text-gray-800 dark:text-gray-200 mb-2">
+                        <i data-lucide="calculator" class="w-4 h-4 inline-block mr-1"></i>
+                        Efectivo real en caja (Conteó Físico) *
+                    </label>
+                    <div class="relative">
+                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold">$</span>
+                        <input type="number" id="crCashCounted" placeholder="0" class="w-full pl-8 pr-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white font-bold text-lg focus:border-indigo-500 focus:ring-0" oninput="calculateCashRegisterDiscrepancy()">
+                    </div>
+                </div>
+
+                <div id="crDiscrepancyAlert" class="hidden p-3 rounded-lg border-2 text-sm font-bold flex items-center justify-between">
+                </div>
+
+                <div class="pt-2">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Notas (ej. justificar descuadre)
+                    </label>
+                    <textarea id="crNotes" rows="2" class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:text-white" placeholder="Opcional..."></textarea>
+                </div>
+            </div>
+
+            <button id="btnSaveCashRegister" onclick="saveCashRegister()" class="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold py-3.5 rounded-xl shadow-lg mt-6 flex items-center justify-center gap-2 transition-all active:scale-[0.98]">
+                <i data-lucide="file-check" class="w-5 h-5"></i>
+                <span id="btnSaveCashRegisterText">Guardar Cierre y Generar PDF</span>
+            </button>
+        </div>
+    </div>
 
     <!-- Modal: Anular Factura -->
     <div id="voidPaymentModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">

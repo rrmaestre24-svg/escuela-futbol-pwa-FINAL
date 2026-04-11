@@ -771,4 +771,185 @@ function toggleAccountingTable() {
 }
 window.toggleAccountingTable = toggleAccountingTable;
 
+// ========================================
+// 🆕 ARQUEO DE CAJA DIARIO (Cierre de Caja)
+// ========================================
+
+function openCashRegisterModal() {
+  const modal = document.getElementById('cashRegisterModal');
+  if (!modal) return;
+  
+  const todayDateStr = formatDate(new Date().toISOString());
+  document.getElementById('crDateDisplay').textContent = "Fecha: " + todayDateStr;
+  
+  // Calcular todo de HOY usando timezone local
+  const todayISO = new Date();
+  const year = todayISO.getFullYear();
+  const month = (todayISO.getMonth() + 1).toString().padStart(2, '0');
+  const day = todayISO.getDate().toString().padStart(2, '0');
+  const currentLocalISODate = `${year}-${month}-${day}`;
+  
+  // Ingresos (Payments) de HOY
+  const payments = (typeof getPayments === 'function' ? getPayments() : []).filter(p => p.status === 'Pagado' && (
+      (p.paidDate && p.paidDate.startsWith(currentLocalISODate)) || 
+      (p.paymentDate && p.paymentDate.startsWith(currentLocalISODate))
+  ));
+  
+  // Otros Ingresos (Third Party) de HOY
+  const thirdPartyIncomes = (typeof getThirdPartyIncomes === 'function' ? getThirdPartyIncomes() : [])
+      .filter(i => i.date && i.date.startsWith(currentLocalISODate));
+      
+  // Egresos (Expenses) de HOY
+  const expenses = (typeof getExpenses === 'function' ? getExpenses() : [])
+      .filter(e => e.date && e.date.startsWith(currentLocalISODate));
+  
+  // Cálculos totales
+  let totalIncomeAmount = 0;
+  let expectedCashIncome = 0;
+  let expectedBankIncome = 0;
+  
+  payments.forEach(p => {
+      const amt = parseFloat(p.finalAmount || p.amount || 0);
+      totalIncomeAmount += amt;
+      if (p.method === 'Efectivo') expectedCashIncome += amt;
+      else expectedBankIncome += amt;
+  });
+  
+  thirdPartyIncomes.forEach(i => {
+      const amt = parseFloat(i.amount || 0);
+      totalIncomeAmount += amt;
+      if (i.method === 'Efectivo') expectedCashIncome += amt;
+      else expectedBankIncome += amt;
+  });
+  
+  let totalExpenseAmount = 0;
+  let expectedCashExpense = 0;
+  let expectedBankExpense = 0;
+  
+  expenses.forEach(e => {
+      const amt = parseFloat(e.amount || 0);
+      totalExpenseAmount += amt;
+      if (e.method === 'Efectivo') expectedCashExpense += amt;
+      else expectedBankExpense += amt;
+  });
+  
+  const finalCashExpected = expectedCashIncome - expectedCashExpense;
+  const finalBankExpected = expectedBankIncome - expectedBankExpense;
+  
+  document.getElementById('crTotalIncome').textContent = formatCurrency(totalIncomeAmount);
+  document.getElementById('crTotalExpenses').textContent = formatCurrency(totalExpenseAmount);
+  
+  document.getElementById('crCashExpected').textContent = formatCurrency(finalCashExpected);
+  document.getElementById('crCashExpected').dataset.val = finalCashExpected;
+  document.getElementById('crBankExpected').textContent = formatCurrency(finalBankExpected);
+  document.getElementById('crBankExpected').dataset.val = finalBankExpected;
+  
+  // Limpiar campos
+  const crCashCounted = document.getElementById('crCashCounted');
+  if(crCashCounted) crCashCounted.value = '';
+  const crNotes = document.getElementById('crNotes');
+  if(crNotes) crNotes.value = '';
+  const crAlert = document.getElementById('crDiscrepancyAlert');
+  if(crAlert) crAlert.classList.add('hidden');
+  
+  modal.classList.remove('hidden');
+}
+
+function closeCashRegisterModal() {
+  const modal = document.getElementById('cashRegisterModal');
+  if(modal) modal.classList.add('hidden');
+}
+
+function calculateCashRegisterDiscrepancy() {
+  const cashExpected = parseFloat(document.getElementById('crCashExpected').dataset.val || 0);
+  const countedInput = document.getElementById('crCashCounted').value;
+  const alertBox = document.getElementById('crDiscrepancyAlert');
+  
+  if (countedInput === '') {
+      alertBox.classList.add('hidden');
+      return;
+  }
+  
+  const cashCounted = parseFloat(countedInput) || 0;
+  const diff = cashCounted - cashExpected;
+  
+  alertBox.classList.remove('hidden', 'bg-green-100', 'text-green-800', 'border-green-300', 'bg-red-100', 'text-red-800', 'border-red-300', 'bg-yellow-100', 'text-yellow-800', 'border-yellow-300');
+  
+  if (Math.abs(diff) < 0.01) {
+      alertBox.classList.add('bg-green-100', 'text-green-800', 'border-green-300');
+      alertBox.innerHTML = `<span><i data-lucide="check-circle" class="w-4 h-4 inline mr-1"></i> Cuadre Exacto</span> <span>$0</span>`;
+  } else if (diff > 0) {
+      alertBox.classList.add('bg-yellow-100', 'text-yellow-800', 'border-yellow-300');
+      alertBox.innerHTML = `<span><i data-lucide="alert-triangle" class="w-4 h-4 inline mr-1"></i> Sobrante</span> <span class="font-bold text-yellow-900">+${formatCurrency(diff)}</span>`;
+  } else {
+      alertBox.classList.add('bg-red-100', 'text-red-800', 'border-red-300');
+      alertBox.innerHTML = `<span><i data-lucide="x-circle" class="w-4 h-4 inline mr-1"></i> Faltante</span> <span class="font-bold text-red-900">${formatCurrency(Math.abs(diff))}</span>`;
+  }
+  
+  if (window.lucide) {
+      lucide.createIcons();
+  }
+}
+
+async function saveCashRegister() {
+  const countedInput = document.getElementById('crCashCounted').value;
+  if (!countedInput || countedInput === '') {
+      showToast('⚠️ Debes ingresar el conteo físico de efectivo');
+      return;
+  }
+
+  const btnSave = document.getElementById('btnSaveCashRegister');
+  const btnText = document.getElementById('btnSaveCashRegisterText');
+  const originalText = btnText.innerText;
+  
+  btnSave.disabled = true;
+  btnText.innerText = 'Guardando Arqueo...';
+
+  try {
+      const cashCounted = parseFloat(countedInput) || 0;
+      const cashExpected = parseFloat(document.getElementById('crCashExpected').dataset.val || 0);
+      const bankExpected = parseFloat(document.getElementById('crBankExpected').dataset.val || 0);
+      const notes = document.getElementById('crNotes').value.trim();
+      const currentUser = typeof getCurrentUser === 'function' ? getCurrentUser() : { name: 'Administrador' };
+      
+      const newArqueo = {
+          id: 'closure_' + Date.now().toString(36),
+          date: new Date().toISOString(),
+          cashExpected: cashExpected,
+          cashCounted: cashCounted,
+          bankExpected: bankExpected,
+          discrepancy: cashCounted - cashExpected,
+          notes: notes,
+          auditedBy: currentUser.name || currentUser.email || 'Administrador'
+      };
+
+      if (typeof saveCashRegisterToFirebase === 'function') {
+          await saveCashRegisterToFirebase(newArqueo);
+      }
+      
+      showToast('✅ Arqueo de caja guardado con éxito');
+      
+      closeCashRegisterModal();
+      
+      if (typeof generateCashRegisterClosurePDF === 'function') {
+          generateCashRegisterClosurePDF(newArqueo, document.getElementById('crTotalIncome').textContent, document.getElementById('crTotalExpenses').textContent);
+      } else {
+          console.warn('Función generateCashRegisterClosurePDF no encontrada');
+      }
+      
+  } catch (error) {
+      console.error(error);
+      showToast('❌ Error al guardar el arqueo');
+  } finally {
+      btnSave.disabled = false;
+      btnText.innerText = originalText;
+  }
+}
+
+// Hacer globales las funciones del modal
+window.openCashRegisterModal = openCashRegisterModal;
+window.closeCashRegisterModal = closeCashRegisterModal;
+window.calculateCashRegisterDiscrepancy = calculateCashRegisterDiscrepancy;
+window.saveCashRegister = saveCashRegister;
+
 console.log('✅ accounting.js cargado correctamente CON DOCUMENTO DE IDENTIDAD');

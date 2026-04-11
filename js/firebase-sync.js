@@ -746,6 +746,24 @@ async function deleteExpenseFromFirebase(expenseId) {
   }
 }
 
+async function saveCashRegisterToFirebase(cashRegister) {
+  if (!checkFirebaseReady()) return false;
+  const clubId = getClubId();
+  if (!clubId || !cashRegister?.id) return false;
+
+  try {
+    await window.firebase.setDoc(
+      window.firebase.doc(window.firebase.db, `clubs/${clubId}/cash_registers`, cashRegister.id),
+      cashRegister
+    );
+    console.log('✅ Arqueo de caja guardado en Firebase:', cashRegister.id);
+    return true;
+  } catch (error) {
+    console.error('❌ Error al guardar arqueo de caja:', error);
+    return false;
+  }
+}
+
 async function saveThirdPartyIncomeToFirebase(income) {
   if (!checkFirebaseReady()) return false;
   const clubId = getClubId();
