@@ -745,7 +745,25 @@ async function uploadPlayerDocument(playerId, input) {
   const player = getPlayerById(playerId);
   if (!player) return;
 
-  const docs = player.documents || [];
+  let docs = player.documents || [];
+  let canUpdateDocsFieldDirectly = false;
+  let playerRef = null;
+  const clubId = localStorage.getItem('clubId');
+
+  if (window.firebase?.db && clubId && window.firebase.doc && window.firebase.getDoc && window.firebase.updateDoc) {
+    try {
+      playerRef = window.firebase.doc(window.firebase.db, `clubs/${clubId}/players`, playerId);
+      const playerSnap = await window.firebase.getDoc(playerRef);
+      if (playerSnap.exists()) {
+        const remotePlayer = playerSnap.data() || {};
+        docs = Array.isArray(remotePlayer.documents) ? remotePlayer.documents : docs;
+        canUpdateDocsFieldDirectly = true;
+      }
+    } catch (syncError) {
+      console.warn('⚠️ No se pudo leer jugador remoto antes de subir documento:', syncError?.message || syncError);
+    }
+  }
+
   if (docs.length >= 5) {
     showToast('⚠️ Límite de 5 documentos alcanzado');
     return;
@@ -772,8 +790,19 @@ async function uploadPlayerDocument(playerId, input) {
       uploadedAt: new Date().toLocaleString('es-CO', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' })
     };
 
-    // Guardar en el jugador (localStorage + Firebase si está disponible)
-    updatePlayer(playerId, { documents: [...docs, newDoc] });
+    const updatedDocs = [...docs, newDoc];
+
+    if (canUpdateDocsFieldDirectly && playerRef) {
+      await window.firebase.updateDoc(playerRef, { documents: updatedDocs });
+      const currentPlayers = getPlayers();
+      const playerIndex = currentPlayers.findIndex(p => p.id === playerId);
+      if (playerIndex !== -1) {
+        currentPlayers[playerIndex] = { ...currentPlayers[playerIndex], documents: updatedDocs };
+        localStorage.setItem('players', JSON.stringify(currentPlayers));
+      }
+    } else {
+      updatePlayer(playerId, { documents: updatedDocs });
+    }
 
     showToast('✅ Documento subido correctamente');
     showPlayerDetails(playerId); // Refrescar la vista
@@ -795,12 +824,36 @@ function deletePlayerDocument(playerId, docId) {
   const player = getPlayerById(playerId);
   if (!player) return;
 
-  const docs = (player.documents || []).filter(d => d.id !== docId);
-  const docToDelete = (player.documents || []).find(d => d.id === docId);
+  const currentDocs = player.documents || [];
+  const docs = currentDocs.filter(d => d.id !== docId);
+  const docToDelete = currentDocs.find(d => d.id === docId);
 
   // Eliminar referencia en almacenamiento (Cloudinary soft-delete)
   if (docToDelete?.publicId) {
     deleteDocumentFromStorage(docToDelete.publicId);
+  }
+
+  const clubId = localStorage.getItem('clubId');
+  if (window.firebase?.db && clubId && window.firebase.doc && window.firebase.updateDoc) {
+    window.firebase.updateDoc(
+      window.firebase.doc(window.firebase.db, `clubs/${clubId}/players`, playerId),
+      { documents: docs }
+    ).then(() => {
+      const currentPlayers = getPlayers();
+      const playerIndex = currentPlayers.findIndex(p => p.id === playerId);
+      if (playerIndex !== -1) {
+        currentPlayers[playerIndex] = { ...currentPlayers[playerIndex], documents: docs };
+        localStorage.setItem('players', JSON.stringify(currentPlayers));
+      }
+      showToast('🗑️ Documento eliminado');
+      showPlayerDetails(playerId);
+    }).catch((error) => {
+      console.warn('⚠️ No se pudo eliminar documento directo en Firebase, usando fallback:', error?.message || error);
+      updatePlayer(playerId, { documents: docs });
+      showToast('🗑️ Documento eliminado');
+      showPlayerDetails(playerId);
+    });
+    return;
   }
 
   updatePlayer(playerId, { documents: docs });

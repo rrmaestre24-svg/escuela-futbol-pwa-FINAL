@@ -37,6 +37,15 @@ service cloud.firestore {
         exists(/databases/$(database)/documents/clubs/$(clubId)/authorized_sessions/$(request.auth.uid));
     }
 
+    // Padre autenticado para ESTE jugador específico.
+    // La sesión del padre guarda { role: 'parent', playerId }.
+    function isParentSessionForPlayer(clubId, playerId) {
+      return request.auth != null &&
+        exists(/databases/$(database)/documents/clubs/$(clubId)/authorized_sessions/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/clubs/$(clubId)/authorized_sessions/$(request.auth.uid)).data.role == 'parent' &&
+        get(/databases/$(database)/documents/clubs/$(clubId)/authorized_sessions/$(request.auth.uid)).data.playerId == playerId;
+    }
+
     // ── Datos generales del club ────────────────────────────
     // Regla comodín: el admin y super admin acceden a todo.
     // Las subcolecciones sensibles tienen reglas más específicas abajo.
@@ -102,7 +111,7 @@ service cloud.firestore {
     match /clubs/{clubId}/players/{playerId} {
       allow read: if isMemberOfClub(clubId) || isSuperAdmin() || isSessionForClub(clubId);
       allow update: if isMemberOfClub(clubId) || isSuperAdmin() ||
-        (isSessionForClub(clubId) &&
+        (isParentSessionForPlayer(clubId, playerId) &&
           request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(['name', 'birthDate', 'medicalInfo', 'avatar', 'updatedAt', 'updatedBy', 'documents']));
     }
