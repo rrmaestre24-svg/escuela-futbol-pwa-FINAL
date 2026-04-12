@@ -197,6 +197,7 @@ async function submitMainSuggestionForm() {
             response: null,
             responseAt: null,
             responseRead: false,
+            senderUid: window.firebase?.auth?.currentUser?.uid || null,
             createdAt: new Date().toISOString()
         };
 
