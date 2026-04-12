@@ -791,7 +791,10 @@ function showSyncNotification(message) {
   
   const indicator = document.getElementById('syncIndicator');
   if (indicator) {
-    indicator.classList.add('animate-pulse');
+    const lowQuality = (typeof getQualityLevel === 'function' && getQualityLevel() === 'low');
+    if (!lowQuality) {
+      indicator.classList.add('animate-pulse');
+    }
     const dot = indicator.querySelector('.sync-dot');
     if (dot) {
       dot.style.backgroundColor = '#fbbf24';
@@ -845,6 +848,7 @@ function contractIndicator() {
 // ========================================
 function showSyncIndicator(isActive) {
   let indicator = document.getElementById('syncIndicator');
+  const lowQuality = (typeof getQualityLevel === 'function' && getQualityLevel() === 'low');
   
   if (!indicator) {
     // Crear indicador
@@ -856,7 +860,7 @@ function showSyncIndicator(isActive) {
     
     indicator.innerHTML = `
   <span class="relative flex h-3 w-3" style="flex-shrink: 0;">
-    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+    ${lowQuality ? '' : '<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>'}
     <span class="sync-dot relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
   </span>
 `;

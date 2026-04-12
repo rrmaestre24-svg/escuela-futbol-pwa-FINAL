@@ -31,6 +31,8 @@
       window.navigateTo = function (view) {
         _orig(view);
         window._pwaCurrentView = view;
+        const lowQuality = (typeof window.getQualityLevel === 'function' && window.getQualityLevel() === 'low');
+        if (lowQuality) return;
         // Buscar la vista recién mostrada y animarla
         const viewEl = document.getElementById(view + 'View') ||
                        document.getElementById(view);
