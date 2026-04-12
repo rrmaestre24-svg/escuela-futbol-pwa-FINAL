@@ -41,11 +41,19 @@ function isDismissed(notifId) {
   return getDismissedNotifications().includes(notifId);
 }
 
+function getMonthlyAutomationSettings() {
+  const settings = typeof getSchoolSettings === 'function' ? getSchoolSettings() : {};
+  const monthlyDueDay = Math.max(1, Math.min(28, Number(settings.monthlyDueDay) || 10));
+  const monthlyGraceDays = Math.max(0, Math.min(60, Number(settings.monthlyGraceDays) || 5));
+  return { monthlyDueDay, monthlyGraceDays };
+}
+
 // Obtener notificaciones de pagos (REALES + VIRTUALES)
 function getPaymentNotifications() {
   const payments = getPendingPayments();
   const today = new Date();
   const notifications = [];
+  const { monthlyGraceDays } = getMonthlyAutomationSettings();
   
   // 1. Notificaciones de facturas Reales (Pendientes)
   payments.forEach(payment => {
@@ -63,12 +71,12 @@ function getPaymentNotifications() {
       priority = 'media';
       message = `Pago próximo a vencer en ${daysDiff} día${daysDiff > 1 ? 's' : ''}`;
     }
-    else if (daysDiff >= -40 && daysDiff <= 0) {
+    else if (daysDiff >= (monthlyGraceDays * -1) && daysDiff <= 0) {
       type = 'info';
       priority = 'media';
       message = `Pago en período de gracia (${Math.abs(daysDiff)} día${Math.abs(daysDiff) > 1 ? 's' : ''} de retraso)`;
     }
-    else if (daysDiff < -40) {
+    else if (daysDiff < (monthlyGraceDays * -1)) {
       type = 'danger';
       priority = 'alta';
       message = `Pago VENCIDO (${Math.abs(daysDiff)} día${Math.abs(daysDiff) > 1 ? 's' : ''} de retraso)`;
@@ -106,6 +114,7 @@ function getVirtualNotifications() {
   const allPayments = getPayments();
   const today = new Date();
   const virtualNotifs = [];
+  const { monthlyDueDay, monthlyGraceDays } = getMonthlyAutomationSettings();
 
   // Definir meses a verificar (Pasado, Actual, Próximo)
   const monthNames = [
@@ -120,7 +129,7 @@ function getVirtualNotifications() {
       month: d.getMonth(),
       year: d.getFullYear(),
       name: monthNames[d.getMonth()],
-      dueDate: new Date(d.getFullYear(), d.getMonth(), 10) // Día 10 por defecto
+      dueDate: new Date(d.getFullYear(), d.getMonth(), monthlyDueDay)
     });
   }
 
@@ -194,21 +203,25 @@ function getVirtualNotifications() {
 
       if (!isPaid) {
         // Generar alerta para el primer mes no pagado
-        const targetDateStr = `${target.year}-${String(target.month + 1).padStart(2, '0')}-10`;
+        const targetDateStr = `${target.year}-${String(target.month + 1).padStart(2, '0')}-${String(monthlyDueDay).padStart(2, '0')}`;
         const daysDiff = daysBetween(today, targetDateStr);
         
         let type = '';
         let priority = '';
         let message = '';
 
-        if (daysDiff > 0 && daysDiff <= 25) { // Un margen más amplio para próximos
+        if (daysDiff > 0 && daysDiff <= 25) {
           type = 'warning';
           priority = 'media';
-          message = `Mensualidad de ${target.name.toUpperCase()} pronto a vencer`;
+          message = `Mensualidad de ${target.name.toUpperCase()} pronto a vencer (día ${monthlyDueDay})`;
         } else if (daysDiff <= 0) {
-          type = daysDiff < -15 ? 'danger' : 'warning';
+          type = daysDiff < (monthlyGraceDays * -1) ? 'danger' : 'warning';
           priority = 'alta';
-          const label = daysDiff === 0 ? 'vence hoy' : `vencido por ${Math.abs(daysDiff)} días`;
+          const label = daysDiff === 0
+            ? 'vence hoy'
+            : (daysDiff < (monthlyGraceDays * -1)
+              ? `vencido por ${Math.abs(daysDiff)} días`
+              : `en gracia (${Math.abs(daysDiff)} día${Math.abs(daysDiff) > 1 ? 's' : ''})`);
           message = `Falta pago de ${target.name.toUpperCase()} (${label})`;
         }
 

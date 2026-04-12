@@ -44,7 +44,10 @@ function loadSettings() {
     clubSocial: document.getElementById('clubSocial'),
     clubFoundedYear: document.getElementById('clubFoundedYear'),
     clubMonthlyFee: document.getElementById('clubMonthlyFee'),
-    coachCode: document.getElementById('coachCode')
+    coachCode: document.getElementById('coachCode'),
+    monthlyDueDay: document.getElementById('monthlyDueDay'),
+    monthlyGraceDays: document.getElementById('monthlyGraceDays'),
+    monthlyReminderTemplate: document.getElementById('monthlyReminderTemplate')
   };
   
   if (clubElements.clubLogo) clubElements.clubLogo.src = settings.logo || getDefaultLogo();
@@ -59,6 +62,11 @@ function loadSettings() {
   if (clubElements.clubFoundedYear) clubElements.clubFoundedYear.value = settings.foundedYear || '';
   if (clubElements.clubMonthlyFee) clubElements.clubMonthlyFee.value = settings.monthlyFee || '';
   if (clubElements.coachCode) clubElements.coachCode.value = settings.coachCode || '';
+  if (clubElements.monthlyDueDay) clubElements.monthlyDueDay.value = Number(settings.monthlyDueDay) || 10;
+  if (clubElements.monthlyGraceDays) clubElements.monthlyGraceDays.value = Number(settings.monthlyGraceDays) || 5;
+  if (clubElements.monthlyReminderTemplate) {
+    clubElements.monthlyReminderTemplate.value = settings.monthlyReminderTemplate || '';
+  }
   
   // ✅ Cargar clubId (solo lectura para todos)
   let clubId = settings.clubId;
@@ -488,6 +496,9 @@ document.getElementById('clubSettingsForm')?.addEventListener('submit', function
   const clubSocial = document.getElementById('clubSocial');
   const clubFoundedYear = document.getElementById('clubFoundedYear');
   const clubMonthlyFee = document.getElementById('clubMonthlyFee');
+  const monthlyDueDay = document.getElementById('monthlyDueDay');
+  const monthlyGraceDays = document.getElementById('monthlyGraceDays');
+  const monthlyReminderTemplate = document.getElementById('monthlyReminderTemplate');
   
   const settings = {
     name: clubName ? clubName.value : '',
@@ -500,7 +511,10 @@ document.getElementById('clubSettingsForm')?.addEventListener('submit', function
     socialMedia: clubSocial ? clubSocial.value : '',
     foundedYear: clubFoundedYear ? clubFoundedYear.value : '',
     monthlyFee: clubMonthlyFee ? parseFloat(clubMonthlyFee.value) : 0,
-    coachCode: document.getElementById('coachCode') ? document.getElementById('coachCode').value : ''
+    coachCode: document.getElementById('coachCode') ? document.getElementById('coachCode').value : '',
+    monthlyDueDay: Math.max(1, Math.min(28, Number(monthlyDueDay?.value) || 10)),
+    monthlyGraceDays: Math.max(0, Math.min(60, Number(monthlyGraceDays?.value) || 5)),
+    monthlyReminderTemplate: (monthlyReminderTemplate?.value || '').trim()
   };
   
  // Preservar clubId y logo existentes

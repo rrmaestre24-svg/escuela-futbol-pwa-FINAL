@@ -204,26 +204,15 @@ Quedamos atentos a cualquier inquietud. 🤝
 // ========================================
 // 🆕 RECORDATORIO VIRTUAL (POR HISTORIAL)
 // ========================================
-function sendVirtualReminderWhatsApp(playerId, nextDueDate) {
-  const player = getPlayerById(playerId);
-  if (!player) {
-    showToast('❌ Jugador no encontrado');
-    return;
-  }
-  
-  const settings = getSchoolSettings();
-  const today = new Date();
-  const dueDate = new Date(nextDueDate);
-  const daysDiff = daysBetween(today, dueDate);
-  
-  const monthName = parseLocalDate(nextDueDate).toLocaleString('es-ES', {month: 'long'});
-  const yearName = parseLocalDate(nextDueDate).getFullYear();
-  
-  const stateText = daysDiff < 0 
-    ? `⏱️ *Estado:* ${Math.abs(daysDiff)} días de atraso` 
-    : `📅 *Estado:* Próximo a vencer en ${daysDiff} días`;
+function buildMonthlyReminderMessage(settings, player, nextDueDate, stateText) {
+  const due = parseLocalDate(nextDueDate);
+  const monthName = due.toLocaleString('es-ES', { month: 'long' });
+  const yearName = due.getFullYear();
+  const monthlyGraceDays = Math.max(0, Math.min(60, Number(settings?.monthlyGraceDays) || 5));
+  const template = (settings?.monthlyReminderTemplate || '').trim();
 
-  const message = `
+  if (!template) {
+    return `
 📌 *${settings.name}*
 💳 *Recordatorio de pago - ${monthName.toUpperCase()}*
 
@@ -237,13 +226,63 @@ Le compartimos un recordatorio amable sobre el siguiente pago pendiente:
 📅 *Fecha sugerida de pago:* ${formatDate(nextDueDate)}
 ${stateText}
 
-Sabemos que en ocasiones pueden presentarse imprevistos. Le agradeceríamos ponerse al día cuando le sea posible o comunicarse con nosotros si necesita apoyo.
+Días de gracia configurados: *${monthlyGraceDays}*
 
 Quedamos atentos a cualquier inquietud. 🤝
 
 *${settings.name}*
 📞 ${settings.phone}
+    `.trim();
+  }
+
+  const replacements = {
+    '{clubName}': settings?.name || 'MI CLUB',
+    '{playerName}': player?.name || '',
+    '{parentName}': player?.parentName || player?.guardianName || player?.name || '',
+    '{monthName}': monthName,
+    '{year}': String(yearName),
+    '{dueDate}': formatDate(nextDueDate),
+    '{graceDays}': String(monthlyGraceDays),
+    '{category}': player?.category || 'N/A',
+    '{phone}': settings?.phone || ''
+  };
+
+  let customMessage = template;
+  Object.entries(replacements).forEach(([key, value]) => {
+    customMessage = customMessage.split(key).join(value);
+  });
+
+  return `
+📌 *${settings.name || 'MI CLUB'}*
+💳 *Recordatorio de pago*
+
+${customMessage}
+
+${stateText}
+
+📞 ${settings.phone || ''}
   `.trim();
+}
+
+function sendVirtualReminderWhatsApp(playerId, nextDueDate) {
+  const player = getPlayerById(playerId);
+  if (!player) {
+    showToast('❌ Jugador no encontrado');
+    return;
+  }
+  
+  const settings = getSchoolSettings();
+  const today = new Date();
+  const dueDate = new Date(nextDueDate);
+  const daysDiff = daysBetween(today, dueDate);
+  const monthlyGraceDays = Math.max(0, Math.min(60, Number(settings?.monthlyGraceDays) || 5));
+  
+  const stateText = daysDiff < 0 
+    ? (Math.abs(daysDiff) <= monthlyGraceDays
+      ? `⏱️ *Estado:* en período de gracia (${Math.abs(daysDiff)} día${Math.abs(daysDiff) > 1 ? 's' : ''})`
+      : `⏱️ *Estado:* ${Math.abs(daysDiff)} días de atraso`) 
+    : `📅 *Estado:* Próximo a vencer en ${daysDiff} días`;
+  const message = buildMonthlyReminderMessage(settings, player, nextDueDate, stateText);
   
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
   if (isIOS) {

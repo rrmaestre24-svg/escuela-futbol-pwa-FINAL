@@ -36,6 +36,9 @@ function initStorage() {
       socialMedia: '',
       foundedYear: '',
       monthlyFee: 0,
+      monthlyDueDay: 10,
+      monthlyGraceDays: 5,
+      monthlyReminderTemplate: '',
       coachCode: '',
       currency: 'COP',
       primaryColor: '#0d9488'
@@ -510,7 +513,13 @@ function getUpcomingEvents(limit = 10) {
 
 function getSchoolSettings() {
   try {
-    return JSON.parse(localStorage.getItem('schoolSettings') || '{}');
+    const settings = JSON.parse(localStorage.getItem('schoolSettings') || '{}');
+    return {
+      monthlyDueDay: 10,
+      monthlyGraceDays: 5,
+      monthlyReminderTemplate: '',
+      ...settings
+    };
   } catch (e) {
     console.warn('⚠️ schoolSettings corrupto en localStorage, limpiando...');
     localStorage.removeItem('schoolSettings');
