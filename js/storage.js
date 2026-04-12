@@ -567,17 +567,22 @@ async function getNextInvoiceNumber() {
   }
   
   // Fallback: consecutivo local
-  const year = new Date().getFullYear();
   const payments = getPayments();
   const expenses = getExpenses();
   const thirdPartyIncomes = getThirdPartyIncomes();
   
   const allInvoices = [...payments, ...expenses, ...thirdPartyIncomes];
-  const invoicesThisYear = allInvoices.filter(item => 
-    item.invoiceNumber && item.invoiceNumber.includes(year.toString())
-  );
-  
-  const nextNumber = invoicesThisYear.length + 1;
+  const maxSequence = allInvoices.reduce((max, item) => {
+    if (!item || typeof item.invoiceNumber !== 'string') return max;
+    const match = item.invoiceNumber.match(/^INV-\d{4}-(\d+)$/);
+    if (!match) return max;
+    const sequence = parseInt(match[1], 10);
+    if (!Number.isFinite(sequence)) return max;
+    return Math.max(max, sequence);
+  }, 0);
+
+  const nextNumber = maxSequence + 1;
+  const year = new Date().getFullYear();
   return `INV-${year}-${String(nextNumber).padStart(4, '0')}`;
 }
 // ========================================

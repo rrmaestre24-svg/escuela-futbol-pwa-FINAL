@@ -805,6 +805,45 @@ console.log('✅ firebase-sync.js cargado (MULTI-CLUB CON PERMISOS POR ROL)');
 // 🆕 CONSECUTIVO DE FACTURA EN FIREBASE
 // ========================================
 
+function extractInvoiceSequence(invoiceNumber) {
+  if (typeof invoiceNumber !== 'string') return 0;
+  const match = invoiceNumber.match(/^INV-\d{4}-(\d+)$/);
+  if (!match) return 0;
+  const sequence = parseInt(match[1], 10);
+  return Number.isFinite(sequence) ? sequence : 0;
+}
+
+async function getMaxInvoiceSequenceFromFirebase(clubId) {
+  try {
+    const [paymentsSnap, voidedSnap] = await Promise.all([
+      window.firebase.getDocs(
+      window.firebase.collection(window.firebase.db, `clubs/${clubId}/payments`)
+      ),
+      window.firebase.getDocs(
+        window.firebase.collection(window.firebase.db, `clubs/${clubId}/voided_payments`)
+      )
+    ]);
+
+    let maxSequence = 0;
+    paymentsSnap.forEach(docSnap => {
+      const data = docSnap.data() || {};
+      const sequence = extractInvoiceSequence(data.invoiceNumber);
+      if (sequence > maxSequence) maxSequence = sequence;
+    });
+
+    voidedSnap.forEach(docSnap => {
+      const data = docSnap.data() || {};
+      const sequence = extractInvoiceSequence(data.invoiceNumber);
+      if (sequence > maxSequence) maxSequence = sequence;
+    });
+
+    return maxSequence;
+  } catch (error) {
+    console.warn('⚠️ No se pudo calcular máximo de facturas en Firebase:', error);
+    return 0;
+  }
+}
+
 /**
  * Obtener el siguiente número de factura desde Firebase (único para todos los dispositivos)
  */
@@ -822,6 +861,14 @@ async function getNextInvoiceNumberFromFirebase() {
 
   try {
     const counterRef = window.firebase.doc(window.firebase.db, `clubs/${clubId}/config`, 'invoiceCounter');
+    let bootstrapBase = 0;
+
+    // Bootstrap defensivo: incluso si el contador existe, reconciliar con el mayor folio real.
+    // Esto evita una ventana en primer arranque de dispositivo si el auto-sync aún no terminó.
+    const counterSnap = await window.firebase.getDoc(counterRef);
+    const counterValue = counterSnap.exists() ? (counterSnap.data().lastNumber || 0) : 0;
+    const maxRealSequence = await getMaxInvoiceSequenceFromFirebase(clubId);
+    bootstrapBase = Math.max(Number.isFinite(counterValue) ? counterValue : 0, maxRealSequence);
     
     // Usar transacción para evitar duplicados
     const newNumber = await window.firebase.runTransaction(window.firebase.db, async (transaction) => {
@@ -831,6 +878,8 @@ async function getNextInvoiceNumberFromFirebase() {
       if (counterDoc.exists()) {
         currentNumber = counterDoc.data().lastNumber || 0;
       }
+
+      currentNumber = Math.max(currentNumber, bootstrapBase);
       
       const nextNumber = currentNumber + 1;
       
@@ -858,15 +907,14 @@ async function getNextInvoiceNumberFromFirebase() {
  * ✅ Consecutivo local (fallback) - SOLO CUENTA PAYMENTS
  */
 function getNextInvoiceNumberLocal() {
-  const year = new Date().getFullYear();
   const payments = getPayments() || []; // ✅ Solo pagos de jugadores
-  
-  // ✅ Contar solo facturas de pagos de este año
-  const invoicesThisYear = payments.filter(item => 
-    item.invoiceNumber && item.invoiceNumber.includes(year.toString())
-  );
-  
-  const nextNumber = invoicesThisYear.length + 1;
+  const maxSequence = payments.reduce((max, item) => {
+    const sequence = extractInvoiceSequence(item.invoiceNumber);
+    return Math.max(max, sequence);
+  }, 0);
+
+  const nextNumber = maxSequence + 1;
+  const year = new Date().getFullYear();
   const invoiceNumber = `INV-${year}-${String(nextNumber).padStart(4, '0')}`;
   
   console.log('📋 Consecutivo local (payments):', invoiceNumber);
@@ -886,18 +934,35 @@ async function syncInvoiceCounter() {
     const counterRef = window.firebase.doc(window.firebase.db, `clubs/${clubId}/config`, 'invoiceCounter');
 
     // Contar pagos actuales en Firebase
-    const paymentsSnap = await window.firebase.getDocs(
-      window.firebase.collection(window.firebase.db, `clubs/${clubId}/payments`)
-    );
+    const [paymentsSnap, voidedSnap] = await Promise.all([
+      window.firebase.getDocs(
+        window.firebase.collection(window.firebase.db, `clubs/${clubId}/payments`)
+      ),
+      window.firebase.getDocs(
+        window.firebase.collection(window.firebase.db, `clubs/${clubId}/voided_payments`)
+      )
+    ]);
     const totalInvoices = paymentsSnap.size;
+    const totalVoided = voidedSnap.size;
+    let maxInvoiceSequence = 0;
+    paymentsSnap.forEach(docSnap => {
+      const data = docSnap.data() || {};
+      const sequence = extractInvoiceSequence(data.invoiceNumber);
+      if (sequence > maxInvoiceSequence) maxInvoiceSequence = sequence;
+    });
+    voidedSnap.forEach(docSnap => {
+      const data = docSnap.data() || {};
+      const sequence = extractInvoiceSequence(data.invoiceNumber);
+      if (sequence > maxInvoiceSequence) maxInvoiceSequence = sequence;
+    });
 
     // Leer el contador actual en Firebase
     const counterSnap = await window.firebase.getDoc(counterRef);
     const currentCounter = counterSnap.exists() ? (counterSnap.data().lastNumber || 0) : 0;
 
-    // El contador NUNCA retrocede — solo avanza si hay más pagos que el contador actual
-    // Esto evita duplicados cuando se eliminan pagos
-    const safeNumber = Math.max(currentCounter, totalInvoices);
+    // El contador NUNCA retrocede — se alinea por el folio más alto existente.
+    // Esto evita retrocesos cuando hay huecos por anulaciones/eliminaciones.
+    const safeNumber = Math.max(currentCounter, maxInvoiceSequence);
 
     await window.firebase.setDoc(counterRef, {
       lastNumber: safeNumber,
@@ -905,7 +970,7 @@ async function syncInvoiceCounter() {
       syncedAt: new Date().toISOString()
     });
 
-    console.log(`✅ Contador sincronizado: ${safeNumber} (pagos: ${totalInvoices}, anterior: ${currentCounter})`);
+    console.log(`✅ Contador sincronizado: ${safeNumber} (pagos: ${totalInvoices}, anuladas: ${totalVoided}, maxFolio: ${maxInvoiceSequence}, anterior: ${currentCounter})`);
     showToast(`✅ Contador sincronizado: ${safeNumber} facturas`);
 
   } catch (error) {
