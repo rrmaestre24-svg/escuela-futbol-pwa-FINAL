@@ -203,7 +203,10 @@ if (expenseFormElement) {
         };
       }
       
-      const invoiceNumber = await getNextInvoiceNumber();
+      const existingExpense = expenseId ? getExpenseById(expenseId) : null;
+      const invoiceNumber = expenseId
+        ? (existingExpense?.invoiceNumber || await getNextInvoiceNumber())
+        : await getNextInvoiceNumber();
       
       const expenseData = {
         id: expenseId || generateId(),
@@ -215,7 +218,7 @@ if (expenseFormElement) {
         method,
         notes,
         invoiceNumber,
-        createdAt: getCurrentDate(),
+        createdAt: existingExpense?.createdAt || getCurrentDate(),
         ...beneficiaryData
       };
       
@@ -225,6 +228,7 @@ if (expenseFormElement) {
         // 🆕 EDITAR: Agregar editedBy
         updateExpense(expenseId, {
           ...expenseData,
+          createdBy: existingExpense?.createdBy || null,
           editedBy: getAuditInfo() // 🆕 AUDITORÍA
         });
         showToast('✅ Egreso actualizado');

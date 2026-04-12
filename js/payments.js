@@ -98,10 +98,6 @@ function showAddPaymentModal() {
     const form = document.getElementById('paymentForm');
     if (form) form.reset();
 
-    // Fecha de vencimiento = fin del mes actual (pago mensual), editable
-    const dueDateInput = document.getElementById('paymentDueDate');
-    if (dueDateInput) dueDateInput.value = getEndOfMonth();
-
     // Auto-concepto según tipo seleccionado
     autoFillNewConcept();
     
@@ -496,11 +492,21 @@ function renderExpenseCard(expense) {
   `;
 }
 // Marcar pago como pagado
+async function getSafeNextInvoiceNumber() {
+  if (typeof getNextInvoiceNumber === 'function') {
+    return await getNextInvoiceNumber();
+  }
+  if (typeof getNextInvoiceNumberFromFirebase === 'function') {
+    return await getNextInvoiceNumberFromFirebase();
+  }
+  throw new Error('No hay generador de consecutivo disponible');
+}
+
 async function markAsPaid(paymentId) {
   const payment = getPaymentById(paymentId);
   if (!payment) return;
   
-  const invoiceNumber = await getNextInvoiceNumberFromFirebase();
+  const invoiceNumber = await getSafeNextInvoiceNumber();
   
   updatePayment(paymentId, {
     status: 'Pagado',
@@ -1377,9 +1383,9 @@ function createEditPaymentModal() {
         <div>
           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             <i data-lucide="calendar" class="w-4 h-4 inline"></i>
-            Fecha de Vencimiento *
+            Fecha de Vencimiento (opcional)
           </label>
-          <input type="date" id="editPaymentDueDate" required
+          <input type="date" id="editPaymentDueDate"
             class="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white">
         </div>
         
@@ -1522,16 +1528,27 @@ async function saveEditedPayment() {
   const paymentId = document.getElementById('editPaymentId').value;
   const playerId = document.getElementById('editPaymentPlayer').value;
   const type = document.getElementById('editPaymentType').value;
-  const concept = document.getElementById('editPaymentConcept').value;
+  const conceptRaw = (document.getElementById('editPaymentConcept').value || '').trim();
   const amount = parseFloat(document.getElementById('editPaymentAmount').value);
   const dueDate = document.getElementById('editPaymentDueDate').value;
   const status = document.getElementById('editPaymentStatus').value;
   const paidDate = document.getElementById('editPaymentPaidDate').value;
   const method = document.getElementById('editPaymentMethod').value;
+  const concept = conceptRaw || getConceptoSugerido(type) || type;
   
   // Validar jugador
   if (!playerId) {
     showToast('⚠️ Selecciona un jugador');
+    return;
+  }
+
+  if (!Number.isFinite(amount) || amount <= 0) {
+    showToast('⚠️ Ingresa un monto válido');
+    return;
+  }
+
+  if (status !== 'Pagado' && !dueDate) {
+    showToast('⚠️ Ingresa la fecha de vencimiento');
     return;
   }
   
@@ -1548,16 +1565,16 @@ async function saveEditedPayment() {
     type,     // ✅ AHORA SE PUEDE CAMBIAR
     concept,
     amount,
-    dueDate,
+    dueDate: dueDate || paidDate || getCurrentDate(),
     status,
-    paidDate: status === 'Pagado' ? paidDate : null,
-    method: status === 'Pagado' ? method : null,
+    paidDate: status === 'Pagado' ? (paidDate || getCurrentDate()) : null,
+    method: status === 'Pagado' ? (method || 'Efectivo') : null,
     editedBy: getAuditInfo()
   };
   
   // Si cambió a "Pagado" y no tenía número de factura, generar uno
   if (status === 'Pagado' && !originalPayment.invoiceNumber) {
-    updateData.invoiceNumber = await getNextInvoiceNumberFromFirebase();
+    updateData.invoiceNumber = await getSafeNextInvoiceNumber();
   }
   
   // Actualizar en base de datos
@@ -2138,22 +2155,34 @@ async function handlePaymentFormSubmit(e) {
 
     const playerId = selectedPlayerId;
     const type = document.getElementById('paymentType').value;
-    const concept = document.getElementById('paymentConcept').value;
+    const conceptRaw = (document.getElementById('paymentConcept').value || '').trim();
     const amount = parseFloat(document.getElementById('paymentAmount').value);
-    const dueDate = document.getElementById('paymentDueDate').value;
+    const dueDateInput = document.getElementById('paymentDueDate');
+    const dueDate = dueDateInput?.value || '';
     const status = document.getElementById('paymentStatus').value;
     const paidDate = document.getElementById('paymentPaidDate').value;
     const method = document.getElementById('paymentMethod').value;
+    const concept = conceptRaw || getConceptoSugerido(type) || type;
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      showToast('❌ Ingresa un monto válido');
+      return;
+    }
+
+    if (status !== 'Pagado' && !dueDate) {
+      showToast('❌ Ingresa la fecha de vencimiento');
+      return;
+    }
 
     const paymentData = {
       playerId,
       type,
       concept,
       amount,
-      dueDate,
+      dueDate: dueDate || paidDate || getCurrentDate(),
       status,
-      paidDate: status === 'Pagado' ? paidDate : null,
-      method: status === 'Pagado' ? method : null
+      paidDate: status === 'Pagado' ? (paidDate || getCurrentDate()) : null,
+      method: status === 'Pagado' ? (method || 'Efectivo') : null
     };
 
     if (paymentId) {
@@ -2165,7 +2194,7 @@ async function handlePaymentFormSubmit(e) {
       showToast('✅ Pago actualizado');
     } else {
       // CREAR: Agregar createdBy
-      const invoiceNumber = status === 'Pagado' ? await getNextInvoiceNumberFromFirebase() : null;
+      const invoiceNumber = status === 'Pagado' ? await getSafeNextInvoiceNumber() : null;
       const newPayment = {
         id: generateId(),
         ...paymentData,

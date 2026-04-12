@@ -815,12 +815,18 @@ function extractInvoiceSequence(invoiceNumber) {
 
 async function getMaxInvoiceSequenceFromFirebase(clubId) {
   try {
-    const [paymentsSnap, voidedSnap] = await Promise.all([
+    const [paymentsSnap, voidedSnap, expensesSnap, thirdPartySnap] = await Promise.all([
       window.firebase.getDocs(
       window.firebase.collection(window.firebase.db, `clubs/${clubId}/payments`)
       ),
       window.firebase.getDocs(
         window.firebase.collection(window.firebase.db, `clubs/${clubId}/voided_payments`)
+      ),
+      window.firebase.getDocs(
+        window.firebase.collection(window.firebase.db, `clubs/${clubId}/expenses`)
+      ),
+      window.firebase.getDocs(
+        window.firebase.collection(window.firebase.db, `clubs/${clubId}/thirdPartyIncomes`)
       )
     ]);
 
@@ -832,6 +838,18 @@ async function getMaxInvoiceSequenceFromFirebase(clubId) {
     });
 
     voidedSnap.forEach(docSnap => {
+      const data = docSnap.data() || {};
+      const sequence = extractInvoiceSequence(data.invoiceNumber);
+      if (sequence > maxSequence) maxSequence = sequence;
+    });
+
+    expensesSnap.forEach(docSnap => {
+      const data = docSnap.data() || {};
+      const sequence = extractInvoiceSequence(data.invoiceNumber);
+      if (sequence > maxSequence) maxSequence = sequence;
+    });
+
+    thirdPartySnap.forEach(docSnap => {
       const data = docSnap.data() || {};
       const sequence = extractInvoiceSequence(data.invoiceNumber);
       if (sequence > maxSequence) maxSequence = sequence;
@@ -904,11 +922,15 @@ async function getNextInvoiceNumberFromFirebase() {
 }
 
 /**
- * ✅ Consecutivo local (fallback) - SOLO CUENTA PAYMENTS
+ * ✅ Consecutivo local (fallback) - cuenta todos los módulos con factura
  */
 function getNextInvoiceNumberLocal() {
-  const payments = getPayments() || []; // ✅ Solo pagos de jugadores
-  const maxSequence = payments.reduce((max, item) => {
+  const payments = typeof getPayments === 'function' ? (getPayments() || []) : [];
+  const expenses = typeof getExpenses === 'function' ? (getExpenses() || []) : [];
+  const thirdPartyIncomes = typeof getThirdPartyIncomes === 'function' ? (getThirdPartyIncomes() || []) : [];
+  const allInvoices = [...payments, ...expenses, ...thirdPartyIncomes];
+
+  const maxSequence = allInvoices.reduce((max, item) => {
     const sequence = extractInvoiceSequence(item.invoiceNumber);
     return Math.max(max, sequence);
   }, 0);
@@ -917,12 +939,12 @@ function getNextInvoiceNumberLocal() {
   const year = new Date().getFullYear();
   const invoiceNumber = `INV-${year}-${String(nextNumber).padStart(4, '0')}`;
   
-  console.log('📋 Consecutivo local (payments):', invoiceNumber);
+  console.log('📋 Consecutivo local (global):', invoiceNumber);
   return invoiceNumber;
 }
 
 /**
- * ✅ Sincronizar contador con la cantidad real de facturas - SOLO PAYMENTS
+ * ✅ Sincronizar contador con facturas reales en todos los módulos
  */
 async function syncInvoiceCounter() {
   if (!checkFirebaseReady()) return;
@@ -933,17 +955,25 @@ async function syncInvoiceCounter() {
   try {
     const counterRef = window.firebase.doc(window.firebase.db, `clubs/${clubId}/config`, 'invoiceCounter');
 
-    // Contar pagos actuales en Firebase
-    const [paymentsSnap, voidedSnap] = await Promise.all([
+    // Contar facturas actuales en Firebase
+    const [paymentsSnap, voidedSnap, expensesSnap, thirdPartySnap] = await Promise.all([
       window.firebase.getDocs(
         window.firebase.collection(window.firebase.db, `clubs/${clubId}/payments`)
       ),
       window.firebase.getDocs(
         window.firebase.collection(window.firebase.db, `clubs/${clubId}/voided_payments`)
+      ),
+      window.firebase.getDocs(
+        window.firebase.collection(window.firebase.db, `clubs/${clubId}/expenses`)
+      ),
+      window.firebase.getDocs(
+        window.firebase.collection(window.firebase.db, `clubs/${clubId}/thirdPartyIncomes`)
       )
     ]);
-    const totalInvoices = paymentsSnap.size;
+    const totalPayments = paymentsSnap.size;
     const totalVoided = voidedSnap.size;
+    const totalExpenses = expensesSnap.size;
+    const totalThirdParty = thirdPartySnap.size;
     let maxInvoiceSequence = 0;
     paymentsSnap.forEach(docSnap => {
       const data = docSnap.data() || {};
@@ -951,6 +981,16 @@ async function syncInvoiceCounter() {
       if (sequence > maxInvoiceSequence) maxInvoiceSequence = sequence;
     });
     voidedSnap.forEach(docSnap => {
+      const data = docSnap.data() || {};
+      const sequence = extractInvoiceSequence(data.invoiceNumber);
+      if (sequence > maxInvoiceSequence) maxInvoiceSequence = sequence;
+    });
+    expensesSnap.forEach(docSnap => {
+      const data = docSnap.data() || {};
+      const sequence = extractInvoiceSequence(data.invoiceNumber);
+      if (sequence > maxInvoiceSequence) maxInvoiceSequence = sequence;
+    });
+    thirdPartySnap.forEach(docSnap => {
       const data = docSnap.data() || {};
       const sequence = extractInvoiceSequence(data.invoiceNumber);
       if (sequence > maxInvoiceSequence) maxInvoiceSequence = sequence;
@@ -970,7 +1010,7 @@ async function syncInvoiceCounter() {
       syncedAt: new Date().toISOString()
     });
 
-    console.log(`✅ Contador sincronizado: ${safeNumber} (pagos: ${totalInvoices}, anuladas: ${totalVoided}, maxFolio: ${maxInvoiceSequence}, anterior: ${currentCounter})`);
+    console.log(`✅ Contador sincronizado: ${safeNumber} (pagos: ${totalPayments}, egresos: ${totalExpenses}, otrosIngresos: ${totalThirdParty}, anuladas: ${totalVoided}, maxFolio: ${maxInvoiceSequence}, anterior: ${currentCounter})`);
     showToast(`✅ Contador sincronizado: ${safeNumber} facturas`);
 
   } catch (error) {

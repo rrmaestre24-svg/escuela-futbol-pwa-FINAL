@@ -1918,19 +1918,22 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
      ======================================== -->
 
     <div id="paymentModal"
-        class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden p-4">
+        class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[70] p-4">
         <div
-            class="modal-content max-w-2xl w-full bg-white dark:bg-gray-800 rounded-2xl p-6 max-h-[90vh] overflow-y-auto">
+            class="modal-content max-w-2xl w-full bg-white dark:bg-gray-800 rounded-3xl overflow-hidden border border-gray-100 dark:border-gray-700 shadow-2xl max-h-[90vh] overflow-y-auto">
             <!-- Header -->
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="text-2xl font-bold text-gray-800 dark:text-white">Registrar Pago</h2>
+            <div class="px-6 py-5 bg-gradient-to-r from-teal-600 via-teal-700 to-emerald-700 text-white flex justify-between items-center">
+                <div>
+                    <h2 class="text-2xl font-black tracking-tight">Registrar Pago</h2>
+                    <p class="text-xs text-white/80 mt-0.5">Otros cobros y pagos no mensuales</p>
+                </div>
                 <button onclick="closePaymentModal()"
-                    class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
-                    <i data-lucide="x" class="w-6 h-6"></i>
+                    class="w-10 h-10 rounded-2xl bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors">
+                    <i data-lucide="x" class="w-5 h-5"></i>
                 </button>
             </div>
 
-            <form id="paymentForm">
+            <form id="paymentForm" class="p-6">
                 <input type="hidden" id="paymentId">
 
                 <!-- 🔍 BUSCADOR DE JUGADORES -->
@@ -1941,7 +1944,7 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
 
                     <!-- Jugador Seleccionado -->
                     <div id="selectedPlayerDisplay"
-                        class="hidden mb-2 p-3 bg-teal-50 dark:bg-teal-900 border-2 border-teal-500 rounded-lg flex items-center justify-between">
+                        class="hidden mb-2 p-3 bg-teal-50 dark:bg-teal-900/30 border border-teal-300 dark:border-teal-700 rounded-xl flex items-center justify-between">
                         <div class="flex items-center gap-2">
                             <i data-lucide="user-check" class="w-5 h-5 text-teal-600"></i>
                             <span id="selectedPlayerName" class="font-semibold text-gray-800 dark:text-white"></span>
@@ -1962,13 +1965,13 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
                         <i data-lucide="search" class="absolute left-3 top-3 w-5 h-5 text-gray-400"></i>
                         <input type="text" id="playerSearchInput" placeholder="Buscar por nombre o categoría..."
                             oninput="searchPlayers()"
-                            class="w-full px-4 py-2 pl-10 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                            class="w-full px-4 py-2.5 pl-10 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                             autocomplete="off">
                     </div>
 
                     <!-- Lista de Resultados -->
                     <div id="playerSearchResults"
-                        class="mt-2 max-h-64 overflow-y-auto border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800">
+                        class="mt-2 max-h-64 overflow-y-auto border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800">
                         <!-- Los jugadores se cargarán aquí dinámicamente -->
                     </div>
                 </div>
@@ -1979,7 +1982,7 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
                         Tipo de Pago *
                     </label>
                     <select id="paymentType"
-                        class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white"
+                        class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-800 dark:text-white"
                         required onchange="autoFillNewConcept()">
                         <option value="Uniforme">👕 Uniforme</option>
                         <option value="Torneo">🏆 Torneo</option>
@@ -1996,27 +1999,17 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
                         Concepto <span class="text-gray-400 font-normal">(opcional)</span>
                     </label>
                     <input type="text" id="paymentConcept"
-                        class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white">
+                        class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-800 dark:text-white">
                 </div>
 
-                <!-- Monto y Fecha de Vencimiento -->
-                <div class="grid grid-cols-2 gap-4 mb-4">
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                            Monto *
-                        </label>
-                        <input type="number" id="paymentAmount"
-                            class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white"
-                            required min="0" step="0.01">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                            Fecha de Vencimiento *
-                        </label>
-                        <input type="date" id="paymentDueDate"
-                            class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white"
-                            required>
-                    </div>
+                <!-- Monto -->
+                <div class="mb-4">
+                    <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                        Monto *
+                    </label>
+                    <input type="number" id="paymentAmount"
+                        class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-800 dark:text-white"
+                        required min="0" step="0.01">
                 </div>
 
                 <!-- Estado: siempre Pagado, oculto -->
@@ -2032,7 +2025,7 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
                         Fecha de Pago *
                     </label>
                     <input type="date" id="paymentPaidDate"
-                        class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white">
+                        class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-800 dark:text-white">
                 </div>
 
                 <!-- Método de Pago (Solo si está pagado) -->
@@ -2041,7 +2034,7 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
                         Método de Pago *
                     </label>
                     <select id="paymentMethod"
-                        class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white">
+                        class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-800 dark:text-white">
                         <option value="Efectivo">Efectivo</option>
                         <option value="Transferencia">Transferencia</option>
                         <option value="Tarjeta">Tarjeta</option>
@@ -2051,11 +2044,11 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
                 <!-- Botones -->
                 <div class="flex gap-3">
                     <button type="button" onclick="closePaymentModal()"
-                        class="flex-1 px-4 py-3 bg-gray-300 hover:bg-gray-400 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-800 dark:text-white rounded-lg font-medium transition-colors">
+                        class="flex-1 px-4 py-3 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-white rounded-xl font-bold transition-colors border border-gray-300 dark:border-gray-600">
                         Cancelar
                     </button>
                     <button type="submit"
-                        class="flex-1 px-4 py-3 bg-teal-600 hover:bg-teal-700 text-white rounded-lg font-medium transition-colors">
+                        class="flex-1 px-4 py-3 bg-gradient-to-r from-teal-600 to-emerald-700 hover:from-teal-700 hover:to-emerald-800 text-white rounded-xl font-bold transition-all shadow-lg shadow-teal-500/20">
                         Guardar
                     </button>
                 </div>

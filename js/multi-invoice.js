@@ -8,6 +8,8 @@
 let _mi_playerId       = null;
 let _mi_selectedMonths = [];  // ["2026-02", "2026-03", ...]
 let _mi_mode           = null; // 'current' | 'overdue' | 'advance'
+const _mi_overdueWindowMonths = 6;
+const _mi_advanceWindowMonths = 6;
 
 // ========================================
 // UTILIDADES DE MES
@@ -24,6 +26,14 @@ function _mi_relativeMonth(offset) {
     const now = new Date();
     const d   = new Date(now.getFullYear(), now.getMonth() + offset, 1);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function _mi_monthRange(fromOffset, toOffset) {
+    const months = [];
+    for (let offset = fromOffset; offset <= toOffset; offset++) {
+        months.push(_mi_relativeMonth(offset));
+    }
+    return months;
 }
 
 // "2026-04" → "Abril 2026" (primera letra mayúscula)
@@ -192,7 +202,7 @@ function showMultiInvoiceModal(playerId) {
                     <span class="text-2xl">⏪</span>
                     <div>
                         <p class="font-semibold text-gray-800 dark:text-white text-sm">Meses vencidos</p>
-                        <p class="text-xs text-gray-400">Hasta 2 meses atrás</p>
+                        <p class="text-xs text-gray-400">Hasta ${_mi_overdueWindowMonths} meses atrás</p>
                     </div>
                 </button>
 
@@ -202,7 +212,7 @@ function showMultiInvoiceModal(playerId) {
                     <span class="text-2xl">⏩</span>
                     <div>
                         <p class="font-semibold text-gray-800 dark:text-white text-sm">Meses adelantados</p>
-                        <p class="text-xs text-gray-400">Hasta 2 meses adelante</p>
+                        <p class="text-xs text-gray-400">Hasta ${_mi_advanceWindowMonths} meses adelante</p>
                     </div>
                 </button>
             </div>
@@ -215,6 +225,17 @@ function showMultiInvoiceModal(playerId) {
                         ← Volver
                     </button>
                     <p id="_miStep2Title" class="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3"></p>
+                    <div id="_miMonthActions" class="hidden mb-2 flex items-center justify-between gap-2">
+                        <button onclick="_mi_selectAllAvailableMonths()"
+                            class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800/40 hover:bg-teal-100 dark:hover:bg-teal-900/40 transition-colors">
+                            Seleccionar todo
+                        </button>
+                        <button onclick="_mi_clearSelectedMonths()"
+                            class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
+                            Limpiar
+                        </button>
+                    </div>
+                    <p id="_miMonthSelectionSummary" class="hidden text-xs text-gray-500 dark:text-gray-400 mb-2"></p>
                     <!-- Lista de meses -->
                     <div id="_miMonthList" class="space-y-2 mb-4"></div>
 
@@ -332,12 +353,16 @@ function _mi_goToStep2(mode) {
     const titleEl = document.getElementById('_miStep2Title');
     const listEl  = document.getElementById('_miMonthList');
     const btnEl   = document.getElementById('_miConfirmBtn');
+    const actionsEl = document.getElementById('_miMonthActions');
+    const summaryEl = document.getElementById('_miMonthSelectionSummary');
     const curMonth = _mi_currentMonth();
 
     let months = [];
 
     if (mode === 'current') {
         titleEl.textContent = 'Mes actual';
+        if (actionsEl) actionsEl.classList.add('hidden');
+        if (summaryEl) summaryEl.classList.add('hidden');
         if (_mi_monthExists(_mi_playerId, curMonth)) {
             // Ya existe → bloquear
             listEl.innerHTML = `
@@ -361,10 +386,16 @@ function _mi_goToStep2(mode) {
 
     if (mode === 'overdue') {
         titleEl.textContent = 'Seleccioná los meses vencidos';
-        months = [_mi_relativeMonth(-2), _mi_relativeMonth(-1)];
+        months = _mi_monthRange(-_mi_overdueWindowMonths, -1);
     } else {
         titleEl.textContent = 'Seleccioná los meses adelantados';
-        months = [_mi_relativeMonth(1), _mi_relativeMonth(2)];
+        months = _mi_monthRange(1, _mi_advanceWindowMonths);
+    }
+
+    if (actionsEl) actionsEl.classList.remove('hidden');
+    if (summaryEl) {
+        summaryEl.classList.remove('hidden');
+        summaryEl.textContent = '0 mes(es) seleccionados';
     }
 
     // Renderizar checkboxes — bloqueados si ya tienen factura
@@ -395,6 +426,47 @@ function _mi_goToStep2(mode) {
     btnEl.disabled = true;
 }
 
+function _mi_refreshMonthSelectionSummary() {
+    const summaryEl = document.getElementById('_miMonthSelectionSummary');
+    if (!summaryEl || summaryEl.classList.contains('hidden')) return;
+    summaryEl.textContent = `${_mi_selectedMonths.length} mes(es) seleccionados`;
+}
+
+function _mi_selectAllAvailableMonths() {
+    const checkboxes = document.querySelectorAll('#_miMonthList input[type="checkbox"]');
+    _mi_selectedMonths = [];
+
+    checkboxes.forEach(cb => {
+        cb.checked = true;
+        const month = cb.value;
+        if (!_mi_selectedMonths.includes(month)) _mi_selectedMonths.push(month);
+
+        const label = document.getElementById(`_miLabel_${month}`);
+        if (label) {
+            label.classList.add('border-teal-500', 'bg-teal-50', 'dark:bg-teal-900/20');
+        }
+    });
+
+    document.getElementById('_miConfirmBtn').disabled = _mi_selectedMonths.length === 0;
+    _mi_refreshMonthSelectionSummary();
+}
+
+function _mi_clearSelectedMonths() {
+    const checkboxes = document.querySelectorAll('#_miMonthList input[type="checkbox"]');
+    checkboxes.forEach(cb => {
+        cb.checked = false;
+        const month = cb.value;
+        const label = document.getElementById(`_miLabel_${month}`);
+        if (label) {
+            label.classList.remove('border-teal-500', 'bg-teal-50', 'dark:bg-teal-900/20');
+        }
+    });
+
+    _mi_selectedMonths = [];
+    document.getElementById('_miConfirmBtn').disabled = true;
+    _mi_refreshMonthSelectionSummary();
+}
+
 // Marcar/desmarcar mes y actualizar estilo del label
 function _mi_toggleMonth(month, checked) {
     if (checked) {
@@ -412,6 +484,7 @@ function _mi_toggleMonth(month, checked) {
     }
 
     document.getElementById('_miConfirmBtn').disabled = _mi_selectedMonths.length === 0;
+    _mi_refreshMonthSelectionSummary();
 }
 
 // ========================================
@@ -573,6 +646,12 @@ function _mi_showMultiWAModal(paymentIds, player) {
 
     document.getElementById('_miWAOverlay')?.remove();
 
+    if (typeof window.jspdf === 'undefined' && typeof loadJsPDF === 'function') {
+        loadJsPDF(() => {
+            console.log('✅ jsPDF precargado para descarga múltiple');
+        });
+    }
+
     // Icono WA reutilizado
     const waIcon = `<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>`;
 
@@ -629,7 +708,7 @@ function _mi_showMultiWAModal(paymentIds, player) {
             <div class="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
                 <p class="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-0.5">¿Enviar resumen por WhatsApp?</p>
                 <p class="text-xs text-gray-400">${player.name} · ${player.phone}</p>
-                <p class="text-xs text-gray-400 mt-0.5">Los PDFs se descargarán automáticamente</p>
+                <p class="text-xs text-gray-400 mt-0.5">Primero descarga los PDFs y al final se abrirá WhatsApp</p>
             </div>` : ''}
 
             <!-- Botones -->
@@ -729,34 +808,179 @@ function _mi_sendWA(idsCsv) {
         settings.phone || ''
     ].join('\n').trim();
 
-    // 1) Abrir WhatsApp PRIMERO — debe ser sincrónico con el gesto del usuario
-    //    para que Android, iOS y PC no lo bloqueen como popup
-    openWhatsApp(player.phone, message);
-
-    // 2) Cerrar overlay y descargar PDFs después (no necesitan gesto directo)
+    // 1) Cerrar overlay y empezar descarga de recibos
     document.getElementById('_miWAOverlay')?.remove();
-    setTimeout(() => _mi_downloadPDFs(idsCsv), 400);
+    _mi_downloadPDFs(idsCsv, false, {
+        afterComplete: () => {
+            openWhatsApp(player.phone, message);
+            showToast('✅ Recibos listos. Abriendo WhatsApp...');
+        }
+    });
 
-    showToast('✅ Abriendo WhatsApp...');
+    showToast('⏳ Descarga los recibos para continuar con WhatsApp');
 }
 
 // ========================================
 // DESCARGAR PDFs UNO POR UNO
 // ========================================
-function _mi_downloadPDFs(idsCsv) {
-    const paymentIds = idsCsv.split(',');
-    document.getElementById('_miWAOverlay')?.remove();
+function _mi_downloadPDFs(idsCsv, closeOverlay = true, options = {}) {
+    const paymentIds = idsCsv.split(',').map(id => id.trim()).filter(Boolean);
+    if (paymentIds.length === 0) return;
+    const afterComplete = typeof options.afterComplete === 'function' ? options.afterComplete : null;
 
-    // Descargar con delay entre cada uno para no bloquear el navegador
-    paymentIds.forEach((id, index) => {
-        setTimeout(() => {
-            if (typeof generateInvoicePDF === 'function') {
-                generateInvoicePDF(id, true);
+    if (closeOverlay) {
+        document.getElementById('_miWAOverlay')?.remove();
+    }
+
+    if (typeof generateInvoicePDF !== 'function') {
+        showToast('❌ Función de PDF no disponible');
+        return;
+    }
+
+    if (typeof window.jspdf === 'undefined') {
+        if (typeof loadJsPDF === 'function') {
+            showToast('⏳ Cargando PDF... vuelve a pulsar descargar en 1 segundo');
+            loadJsPDF(() => console.log('✅ jsPDF listo para descarga múltiple'));
+        } else {
+            showToast('❌ No se pudo cargar la librería PDF');
+        }
+        return;
+    }
+
+    if (paymentIds.length === 1) {
+        const ok = _mi_downloadSinglePDF(paymentIds[0]);
+        if (ok && afterComplete) {
+            setTimeout(() => afterComplete(), 200);
+        }
+        return;
+    }
+
+    _mi_openDownloadQueueModal(paymentIds, afterComplete);
+}
+
+function _mi_downloadSinglePDF(paymentId) {
+    const payment = getPaymentById(paymentId);
+    if (!payment) return false;
+
+    const doc = generateInvoicePDF(paymentId, false);
+    if (!doc) return false;
+
+    try {
+        const blob = doc.output('blob');
+        const fileName = `${payment.invoiceNumber || `Factura-${paymentId}`}.pdf`;
+        const blobUrl = URL.createObjectURL(blob);
+
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = fileName;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
+        return true;
+    } catch (error) {
+        console.warn('⚠️ No se pudo descargar factura:', paymentId, error);
+        return false;
+    }
+}
+
+function _mi_openDownloadQueueModal(paymentIds, afterComplete = null) {
+    document.getElementById('_miDownloadQueueModal')?.remove();
+
+    const queue = [...paymentIds];
+    const total = queue.length;
+    let index = 0;
+    let completed = false;
+
+    const modal = document.createElement('div');
+    modal.id = '_miDownloadQueueModal';
+    modal.className = 'fixed inset-0 bg-black/60 z-[310] flex items-center justify-center p-4';
+
+    modal.innerHTML = `
+        <div class="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden border border-gray-100 dark:border-gray-700">
+            <div class="px-5 py-4 bg-gradient-to-r from-teal-600 to-emerald-600 text-white">
+                <p class="font-bold text-base">Descarga guiada de recibos</p>
+                <p class="text-xs text-white/80">Para evitar bloqueo del navegador, descarga uno por uno.</p>
+            </div>
+
+            <div class="p-4 space-y-3">
+                <p id="_miQueueProgress" class="text-sm text-gray-700 dark:text-gray-200 font-semibold">Pendiente: 0 de ${total}</p>
+                <p id="_miQueueInvoiceLabel" class="text-xs text-gray-500 dark:text-gray-400">Preparando…</p>
+
+                <button id="_miQueueNextBtn"
+                    class="w-full bg-teal-600 hover:bg-teal-700 active:scale-95 text-white py-2.5 rounded-xl text-sm font-bold transition-all">
+                    Descargar siguiente PDF
+                </button>
+
+                <button id="_miQueueCloseBtn"
+                    class="w-full text-gray-500 dark:text-gray-400 py-2 text-sm hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
+                    Cerrar
+                </button>
+            </div>
+        </div>
+    `;
+
+    const updateUI = () => {
+        const progressEl = modal.querySelector('#_miQueueProgress');
+        const labelEl = modal.querySelector('#_miQueueInvoiceLabel');
+        const nextBtn = modal.querySelector('#_miQueueNextBtn');
+
+        if (progressEl) progressEl.textContent = `Descargado: ${index} de ${total}`;
+
+        const nextId = queue[index];
+        const nextPayment = nextId ? getPaymentById(nextId) : null;
+        if (labelEl) {
+            labelEl.textContent = nextPayment
+                ? `Siguiente: ${nextPayment.invoiceNumber || nextId}`
+                : '✅ Completado';
+        }
+
+        if (nextBtn) {
+            if (index >= total) {
+                nextBtn.disabled = true;
+                nextBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                nextBtn.textContent = 'Descarga completada';
+
+                if (!completed) {
+                    completed = true;
+                    if (afterComplete) {
+                        setTimeout(() => afterComplete(), 250);
+                    }
+                }
             }
-        }, index * 700);
+        }
+    };
+
+    modal.querySelector('#_miQueueNextBtn')?.addEventListener('click', () => {
+        if (index >= total) return;
+
+        const currentId = queue[index];
+        const ok = _mi_downloadSinglePDF(currentId);
+        if (ok) {
+            index += 1;
+            if (index >= total) {
+                showToast(`✅ Descargados ${total} PDF(s)`);
+            }
+        } else {
+            showToast('❌ No se pudo descargar este PDF, inténtalo otra vez');
+        }
+
+        updateUI();
     });
 
-    showToast(`✅ Descargando ${paymentIds.length} PDF(s)...`);
+    modal.querySelector('#_miQueueCloseBtn')?.addEventListener('click', () => {
+        modal.remove();
+    });
+
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.remove();
+    });
+
+    document.body.appendChild(modal);
+    updateUI();
+    showToast(`ℹ️ Descarga guiada iniciada: ${total} recibos`);
 }
 
 // ========================================

@@ -188,7 +188,10 @@ async function saveThirdPartyIncomeFromForm() {
     return;
   }
   
-  const invoiceNumber = await getNextInvoiceNumber();
+  const existingIncome = incomeId ? getThirdPartyIncomeById(incomeId) : null;
+  const invoiceNumber = incomeId
+    ? (existingIncome?.invoiceNumber || await getNextInvoiceNumber())
+    : await getNextInvoiceNumber();
   
   const incomeData = {
     id: incomeId || generateId(),
@@ -206,11 +209,12 @@ async function saveThirdPartyIncomeFromForm() {
     method,
     notes,
     invoiceNumber,
-    createdAt: getCurrentDate()
+    createdAt: existingIncome?.createdAt || getCurrentDate()
   };
   
   if (incomeId) {
     incomeData.editedBy = getAuditInfo();
+    incomeData.createdBy = existingIncome?.createdBy || null;
     updateThirdPartyIncome(incomeId, incomeData);
     showToast('✅ Ingreso actualizado');
   } else {
