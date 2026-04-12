@@ -164,8 +164,8 @@ my-club/
     ├── cache.js                  # Gestion de cache
     ├── pwa-icons.js              # Iconos dinamicos
     ├── import-players.js         # Importacion masiva de jugadores
-    ├── super-admin-sugerencias.js # Sistema de sugerencias
-    └── admin-chat-sugerencias.js  # Chat de sugerencias
+    ├── session-check.js           # Control de sesión
+    └── bootstrap.js               # Arranque modular
 ```
 
 ## Instalacion

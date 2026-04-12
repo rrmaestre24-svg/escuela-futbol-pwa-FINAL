@@ -275,9 +275,6 @@ function showPlayerProfile() {
         `).join('')
     : '<p class="text-center text-gray-500 dark:text-gray-400 py-8">No hay pagos registrados</p>';
 
-  // Assuming unreadResponses is defined elsewhere or will be added. For now, setting to 0.
-  const unreadResponses = 0; // Placeholder for unread suggestions count
-
   profileContainer.innerHTML = `
     <!-- Header Premium -->
     <div class="bg-slate-900/95 backdrop-blur-xl border-b border-slate-800/80 text-white p-4 flex items-center gap-3 sticky top-0 z-30 shadow-md">
@@ -286,10 +283,6 @@ function showPlayerProfile() {
         <h1 class="font-bold text-lg tracking-tight text-slate-100">${currentClubSettings?.name || 'Escuela de Fútbol'}</h1>
         <p class="text-xs font-medium text-emerald-400 uppercase tracking-wider">Portal de Padres</p>
       </div>
-      <button onclick="openSuggestionModal()" class="p-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl transition-all border border-slate-700 hover:border-slate-600 relative group" title="Sugerencias">
-        <span class="text-lg group-hover:scale-110 transition-transform block">💡</span>
-        ${unreadResponses > 0 ? `<span class="absolute -top-1.5 -right-1.5 bg-rose-500 text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center border-2 border-slate-900 shadow-sm">${unreadResponses}</span>` : ''}
-      </button>
       <button onclick="parentLogout()" class="p-2.5 bg-slate-800 hover:bg-rose-900/40 hover:text-rose-400 text-slate-400 rounded-xl transition-all border border-slate-700 hover:border-rose-900/50" title="Cerrar sesión">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
