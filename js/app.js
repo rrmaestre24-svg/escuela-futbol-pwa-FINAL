@@ -206,6 +206,50 @@ function applyDarkMode() {
   
   updateDarkModeIcons();
 }
+
+function extractVersionLabelFromCacheName(cacheName) {
+  if (!cacheName || typeof cacheName !== 'string') return '';
+
+  const semverMatch = cacheName.match(/v(\d+\.\d+\.\d+)/i);
+  if (semverMatch) return `v${semverMatch[1]}`;
+
+  const fallbackMatch = cacheName.match(/-v([a-z0-9._-]+)/i);
+  if (fallbackMatch) return `v${fallbackMatch[1]}`;
+
+  return '';
+}
+
+function setHeaderAppVersion(versionLabel) {
+  const versionEl = document.getElementById('headerAppVersion');
+  if (!versionEl) return;
+
+  versionEl.textContent = versionLabel || 'v--';
+  versionEl.title = versionLabel ? `Versión ${versionLabel}` : 'Versión';
+}
+
+async function refreshHeaderAppVersion() {
+  const cachedVersionLabel = localStorage.getItem('appVersionLabel');
+  if (cachedVersionLabel) {
+    setHeaderAppVersion(cachedVersionLabel);
+  }
+
+  try {
+    const response = await fetch(`./sw.js?version_ts=${Date.now()}`, { cache: 'no-store' });
+    if (!response.ok) return;
+
+    const swContent = await response.text();
+    const cacheNameMatch = swContent.match(/CACHE_NAME\s*=\s*['\"`]([^'\"`]+)['\"`]/);
+    if (!cacheNameMatch) return;
+
+    const versionLabel = extractVersionLabelFromCacheName(cacheNameMatch[1]);
+    if (!versionLabel) return;
+
+    localStorage.setItem('appVersionLabel', versionLabel);
+    setHeaderAppVersion(versionLabel);
+  } catch (error) {
+    console.warn('⚠️ No se pudo actualizar la versión visible:', error?.message || error);
+  }
+}
 // ========================================
 // ANIMACIÓN DE BIENVENIDA - PWA PRINCIPAL
 // ========================================
@@ -292,6 +336,7 @@ async function initApp() {
 
   // Aplicar modo oscuro PRIMERO
   applyDarkMode();
+  refreshHeaderAppVersion();
 
   // Cargar datos del localStorage inmediatamente
   const settings = getSchoolSettings();
@@ -392,6 +437,7 @@ window.addEventListener('error', function(e) {
 // Verificar que todas las funciones críticas estén cargadas
 window.addEventListener('DOMContentLoaded', function() {
   console.log('🔍 Verificando funciones...');
+  refreshHeaderAppVersion();
   
   const criticalFunctions = [
     'navigateTo',
