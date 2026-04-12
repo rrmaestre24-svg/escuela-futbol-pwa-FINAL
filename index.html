@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#0d9488">
     <meta name="description" content="Gestión completa de escuelas de fútbol infantil">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://unpkg.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://www.gstatic.com https://www.googleapis.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; img-src 'self' data: blob: https:; font-src 'self' data: https://cdnjs.cloudflare.com https://fonts.gstatic.com; connect-src 'self' https://unpkg.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://*.googleapis.com https://www.googleapis.com https://*.gstatic.com https://*.firebaseio.com wss://*.firebaseio.com https://*.firebasedatabase.app https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com https://firebasestorage.googleapis.com https://*.cloudfunctions.net https://*.run.app; manifest-src 'self'; worker-src 'self' blob:; frame-src 'self' https://*.google.com https://*.firebaseapp.com https://*.gstatic.com; form-action 'self'; upgrade-insecure-requests">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://unpkg.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://www.gstatic.com https://www.googleapis.com https://apis.google.com https://accounts.google.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; img-src 'self' data: blob: https:; font-src 'self' data: https://cdnjs.cloudflare.com https://fonts.gstatic.com; connect-src 'self' https://unpkg.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://*.googleapis.com https://www.googleapis.com https://*.gstatic.com https://*.firebaseio.com wss://*.firebaseio.com https://*.firebasedatabase.app https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com https://firebasestorage.googleapis.com https://*.cloudfunctions.net https://*.run.app; manifest-src 'self'; worker-src 'self' blob:; frame-src 'self' https://*.google.com https://*.firebaseapp.com https://*.gstatic.com; form-action 'self'; upgrade-insecure-requests">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="mobile-web-app-capable" content="yes">
@@ -663,74 +663,65 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
                         </div>
                     </div>
                     <form id="clubSettingsForm" class="space-y-3">
-                        <input type="text" id="clubName" placeholder="Nombre del club"
-                            class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
-                        <!-- Campo para Club ID -->
-                        <div class="mb-4">
-                            <label class="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">
-                                ID único del club <span class="text-red-500">*</span>
-                            </label>
-                            <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">
-                                Este ID identifica tu club en la nube. No se puede cambiar.
-                            </p>
-                            <input type="text" id="clubIdInput"
-                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white"
-                                placeholder="club_mi_escuela" readonly>
-                        </div>
-                        <div class="grid grid-cols-2 gap-3">
-                            <input type="email" id="clubEmail" placeholder="Email del club"
+                        <div class="rounded-xl border border-gray-200 dark:border-gray-700 p-3 space-y-3">
+                            <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-200">Identidad</h4>
+                            <input type="text" id="clubName" placeholder="Nombre del club"
                                 class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
-                            <input type="tel" id="clubPhone" placeholder="Teléfono"
-                                class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
-                        </div>
-                        <input type="text" id="clubAddress" placeholder="Dirección"
-                            class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
-                        <div class="grid grid-cols-2 gap-3">
-                            <input type="text" id="clubCity" placeholder="Ciudad"
-                                class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
-                            <input type="text" id="clubCountry" placeholder="País"
-                                class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
-                        </div>
-                        <input type="url" id="clubWebsite" placeholder="Sitio web"
-                            class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
-                        <input type="text" id="clubSocial" placeholder="Redes sociales (@usuario)"
-                            class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
-                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">
+                                    ID único del club <span class="text-red-500">*</span>
+                                </label>
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                                    Este ID identifica tu club en la nube. No se puede cambiar.
+                                </p>
+                                <input type="text" id="clubIdInput"
+                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white"
+                                    placeholder="club_mi_escuela" readonly>
+                            </div>
                             <input type="number" id="clubFoundedYear" placeholder="Año de fundación" min="1900"
-                                max="2024"
                                 class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
-                            <div>
-                                <input type="number" id="clubMonthlyFee" placeholder="Cuota mensual"
-                                    class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
-                                <input type="password" id="coachCode" placeholder="Código Asistencia (6 dígitos)" maxlength="6"
-                                    class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white mt-2">
-                                <p class="text-[10px] text-gray-500 mt-1 pl-1">Código para la App de Asistencia</p>
-                            </div>
                         </div>
-                        <div class="grid grid-cols-2 gap-3">
-                            <div>
-                                <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Día de vencimiento mensual</label>
-                                <input type="number" id="monthlyDueDay" min="1" max="28" placeholder="10"
+
+                        <div class="rounded-xl border border-gray-200 dark:border-gray-700 p-3 space-y-3">
+                            <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-200">Contacto</h4>
+                            <div class="grid grid-cols-2 gap-3">
+                                <input type="email" id="clubEmail" placeholder="Email del club"
+                                    class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+                                <input type="tel" id="clubPhone" placeholder="Teléfono"
                                     class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
                             </div>
-                            <div>
-                                <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Días de gracia</label>
-                                <input type="number" id="monthlyGraceDays" min="0" max="60" placeholder="5"
+                            <input type="text" id="clubAddress" placeholder="Dirección"
+                                class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+                            <div class="grid grid-cols-2 gap-3">
+                                <input type="text" id="clubCity" placeholder="Ciudad"
+                                    class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+                                <input type="text" id="clubCountry" placeholder="País"
                                     class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
                             </div>
+                            <input type="url" id="clubWebsite" placeholder="Sitio web"
+                                class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+                            <input type="text" id="clubSocial" placeholder="Redes sociales (@usuario)"
+                                class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
                         </div>
-                        <!-- Color Primario -->
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Color
-                                Primario del Club</label>
-                            <div class="flex gap-3 items-center">
-                                <input type="color" id="clubPrimaryColor"
-                                    class="w-20 h-10 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer">
-                                <div id="colorPreview"
-                                    class="flex-1 h-10 rounded-lg border-2 border-gray-300 dark:border-gray-600"></div>
+
+                        <div class="rounded-xl border border-gray-200 dark:border-gray-700 p-3 space-y-3">
+                            <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-200">Administrativo</h4>
+                            <div>
+                                <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Cuota mensual base (COP)</label>
+                                <input type="number" id="clubMonthlyFee" placeholder="Ej: 120000"
+                                    class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+                                <p class="text-[10px] text-gray-500 mt-1 pl-1">Valor de referencia para mensualidades del club.</p>
                             </div>
-                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Este color personalizará toda la
-                                aplicación</p>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Color Primario del Club</label>
+                                <div class="flex gap-3 items-center">
+                                    <input type="color" id="clubPrimaryColor"
+                                        class="w-20 h-10 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer">
+                                    <div id="colorPreview"
+                                        class="flex-1 h-10 rounded-lg border-2 border-gray-300 dark:border-gray-600"></div>
+                                </div>
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Este color personalizará toda la aplicación</p>
+                            </div>
                         </div>
                         <button type="submit"
                             class="w-full bg-teal-600 hover:bg-teal-700 text-white py-2 rounded-lg">Guardar
@@ -747,31 +738,50 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
                     <i data-lucide="chevron-down" class="w-5 h-5 text-gray-500 dark:text-gray-400"></i>
                 </button>
                 <div id="messagingSection" class="p-4 border-t border-gray-200 dark:border-gray-700 hidden space-y-3">
+                    <div class="rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 px-3 py-2">
+                        <p class="text-xs text-blue-700 dark:text-blue-300 font-medium">Guía rápida (Admin principal)</p>
+                        <p class="text-[11px] text-blue-700/90 dark:text-blue-300/90 mt-1">1) Escribe el mensaje de WhatsApp (o usa el recomendado). 2) Escribe el mensaje final para los PDF. 3) Toca <strong>Guardar Mensajería y Notificaciones</strong>.</p>
+                    </div>
+                    <div class="rounded-xl border border-gray-200 dark:border-gray-700 p-3">
+                        <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">Cobranza mensual</h4>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Día de vencimiento mensual</label>
+                                <input type="number" id="monthlyDueDay" min="1" max="28" placeholder="10"
+                                    class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Días de gracia</label>
+                                <input type="number" id="monthlyGraceDays" min="0" max="60" placeholder="5"
+                                    class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+                            </div>
+                        </div>
+                    </div>
                     <div>
                         <div class="flex items-center justify-between gap-2 mb-1">
-                            <label class="block text-xs text-gray-500 dark:text-gray-400">Mensaje personalizado para recordatorio por WhatsApp (opcional)</label>
+                            <label class="block text-xs text-gray-500 dark:text-gray-400">1) Mensaje para enviar por WhatsApp (opcional)</label>
                             <button type="button" id="fillMonthlyReminderTemplate"
                                 class="text-[11px] px-2 py-1 rounded-md bg-teal-100 text-teal-700 hover:bg-teal-200 dark:bg-teal-900/40 dark:text-teal-300 dark:hover:bg-teal-900/60">
-                                Usar mensaje recomendado
+                                Cargar mensaje recomendado
                             </button>
                         </div>
                         <textarea id="monthlyReminderTemplate" rows="4" maxlength="900"
-                            placeholder="Ejemplo: Hola, te recordamos la mensualidad de este mes. Si ya realizaste el pago, por favor ignora este mensaje."
+                            placeholder="Ejemplo: Hola, te recordamos la mensualidad de este mes. Si ya pagaste, por favor ignora este mensaje."
                             class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"></textarea>
-                        <p class="text-[10px] text-gray-500 mt-1 pl-1">Si lo dejas vacío, la app envía un mensaje recomendado automáticamente.</p>
+                        <p class="text-[10px] text-gray-500 mt-1 pl-1">Si lo dejas vacío, la app enviará un mensaje recomendado automáticamente.</p>
                         <details class="mt-1 pl-1">
-                            <summary class="text-[10px] text-gray-500 cursor-pointer">Opcional: usar datos automáticos en el texto</summary>
-                            <p class="text-[10px] text-gray-500 mt-1">Puedes agregar: {clubName}, {playerName}, {parentName}, {monthName}, {year}, {dueDate}, {graceDays}, {category}, {phone}</p>
+                            <summary class="text-[10px] text-gray-500 cursor-pointer">Opcional: agregar datos automáticos</summary>
+                            <p class="text-[10px] text-gray-500 mt-1">Puedes usar estos textos para que la app los complete sola: {clubName}, {playerName}, {parentName}, {monthName}, {year}, {dueDate}, {graceDays}, {category}, {phone}</p>
                         </details>
                     </div>
                     <div>
                         <div class="flex items-center justify-between gap-2 mb-1">
-                            <label class="block text-xs text-gray-500 dark:text-gray-400">Mensaje al pie de cada PDF (opcional)</label>
+                            <label class="block text-xs text-gray-500 dark:text-gray-400">2) Mensaje final para facturas y recibos PDF (opcional)</label>
                         </div>
                         <textarea id="pdfFooterMessage" rows="3" maxlength="260"
-                            placeholder="Ejemplo: Gracias por confiar en nuestro club. Para soporte comunícate al +57..."
+                            placeholder="Ejemplo: Gracias por su apoyo. Para ayuda, comuníquese con administración al +57..."
                             class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"></textarea>
-                        <p class="text-[10px] text-gray-500 mt-1 pl-1">Este mensaje aparece al final de facturas y recibos en color del club.</p>
+                        <p class="text-[10px] text-gray-500 mt-1 pl-1">Este texto saldrá al final de todos los PDF de cobro, con el color del club.</p>
                     </div>
                     <button type="button" onclick="document.getElementById('clubSettingsForm')?.requestSubmit()"
                         class="w-full bg-teal-600 hover:bg-teal-700 text-white py-2 rounded-lg">Guardar Mensajería y Notificaciones</button>

@@ -20,25 +20,76 @@ function updateNotifications() {
   }
 }
 // 🆕 Gestión de notificaciones omitidas (persistencia)
+function normalizeNotifId(notifId) {
+  return String(notifId || '').trim();
+}
+
+function uniqueNotifIds(list = []) {
+  return Array.from(new Set(
+    (Array.isArray(list) ? list : [])
+      .map(normalizeNotifId)
+      .filter(Boolean)
+  ));
+}
+
 function getDismissedNotifications() {
-  const dismissed = localStorage.getItem('dismissedNotifications');
-  return dismissed ? JSON.parse(dismissed) : [];
+  let localDismissed = [];
+  try {
+    const dismissed = localStorage.getItem('dismissedNotifications');
+    localDismissed = dismissed ? JSON.parse(dismissed) : [];
+  } catch (e) {
+    localDismissed = [];
+  }
+
+  const settings = typeof getSchoolSettings === 'function' ? getSchoolSettings() : {};
+  const settingsDismissed = Array.isArray(settings?.dismissedNotifications)
+    ? settings.dismissedNotifications
+    : [];
+
+  const merged = uniqueNotifIds([...localDismissed, ...settingsDismissed]);
+
+  try {
+    localStorage.setItem('dismissedNotifications', JSON.stringify(merged));
+  } catch (e) {}
+
+  return merged;
+}
+
+function persistDismissedNotifications(list) {
+  const safeList = uniqueNotifIds(list);
+
+  try {
+    localStorage.setItem('dismissedNotifications', JSON.stringify(safeList));
+  } catch (e) {}
+
+  if (typeof updateSchoolSettings === 'function') {
+    const currentSettings = typeof getSchoolSettings === 'function' ? getSchoolSettings() : {};
+    const currentDismissed = uniqueNotifIds(currentSettings?.dismissedNotifications || []);
+
+    if (JSON.stringify(currentDismissed) !== JSON.stringify(safeList)) {
+      updateSchoolSettings({ dismissedNotifications: safeList });
+    }
+  }
 }
 
 window.dismissNotification = function(notifId) {
+  const safeId = normalizeNotifId(notifId);
+  if (!safeId) return;
+
   const dismissed = getDismissedNotifications();
-  if (!dismissed.includes(notifId)) {
-    dismissed.push(notifId);
-    localStorage.setItem('dismissedNotifications', JSON.stringify(dismissed));
-    showToast('👁️ Notificación omitida');
+  if (!dismissed.includes(safeId)) {
+    dismissed.push(safeId);
+    persistDismissedNotifications(dismissed);
+    showToast('🗑️ Notificación eliminada permanentemente');
     // Refrescar vistas
     if (typeof updateNotifications === 'function') updateNotifications();
     if (typeof updateDashboardNotifications === 'function') updateDashboardNotifications();
+    if (typeof renderNotifications === 'function') renderNotifications();
   }
 };
 
 function isDismissed(notifId) {
-  return getDismissedNotifications().includes(notifId);
+  return getDismissedNotifications().includes(normalizeNotifId(notifId));
 }
 
 function getMonthlyAutomationSettings() {
@@ -68,7 +119,7 @@ function getPaymentNotifications() {
     let priority = '';
     let message = '';
     
-    if (daysDiff > 0 && daysDiff <= 10) {
+    if (daysDiff === 4 || daysDiff === 3) {
       type = 'warning';
       priority = 'media';
       message = `Pago próximo a vencer en ${daysDiff} día${daysDiff > 1 ? 's' : ''}`;
@@ -212,10 +263,10 @@ function getVirtualNotifications() {
         let priority = '';
         let message = '';
 
-        if (daysDiff > 0 && daysDiff <= 25) {
+        if (daysDiff === 4 || daysDiff === 3) {
           type = 'warning';
           priority = 'media';
-          message = `Mensualidad de ${target.name.toUpperCase()} pronto a vencer (día ${monthlyDueDay})`;
+          message = `Mensualidad de ${target.name.toUpperCase()} pronto a vencer en ${daysDiff} día${daysDiff > 1 ? 's' : ''}`;
         } else if (daysDiff <= 0) {
           type = daysDiff < (monthlyGraceDays * -1) ? 'danger' : 'warning';
           priority = 'alta';

@@ -60,7 +60,13 @@ function loadSettings() {
   if (clubElements.clubCountry) clubElements.clubCountry.value = settings.country || '';
   if (clubElements.clubWebsite) clubElements.clubWebsite.value = settings.website || '';
   if (clubElements.clubSocial) clubElements.clubSocial.value = settings.socialMedia || '';
-  if (clubElements.clubFoundedYear) clubElements.clubFoundedYear.value = settings.foundedYear || '';
+  if (clubElements.clubFoundedYear) {
+    const currentYear = new Date().getFullYear();
+    const savedYear = Number(settings.foundedYear);
+    const effectiveMax = Number.isFinite(savedYear) ? Math.max(currentYear, savedYear) : currentYear;
+    clubElements.clubFoundedYear.max = String(effectiveMax);
+    clubElements.clubFoundedYear.value = settings.foundedYear || '';
+  }
   if (clubElements.clubMonthlyFee) clubElements.clubMonthlyFee.value = settings.monthlyFee || '';
   if (clubElements.coachCode) clubElements.coachCode.value = settings.coachCode || '';
   const dueDayNum = Number(settings.monthlyDueDay);
@@ -509,6 +515,7 @@ document.getElementById('clubSettingsForm')?.addEventListener('submit', function
   const clubSocial = document.getElementById('clubSocial');
   const clubFoundedYear = document.getElementById('clubFoundedYear');
   const clubMonthlyFee = document.getElementById('clubMonthlyFee');
+  const coachCodeInput = document.getElementById('coachCode');
   const monthlyDueDay = document.getElementById('monthlyDueDay');
   const monthlyGraceDays = document.getElementById('monthlyGraceDays');
   const monthlyReminderTemplate = document.getElementById('monthlyReminderTemplate');
@@ -523,9 +530,16 @@ document.getElementById('clubSettingsForm')?.addEventListener('submit', function
     country: clubCountry ? clubCountry.value : '',
     website: clubWebsite ? clubWebsite.value : '',
     socialMedia: clubSocial ? clubSocial.value : '',
-    foundedYear: clubFoundedYear ? clubFoundedYear.value : '',
+    foundedYear: (() => {
+      if (!clubFoundedYear) return '';
+      const raw = Number(clubFoundedYear.value);
+      if (!Number.isFinite(raw)) return '';
+      const currentYear = new Date().getFullYear();
+      const normalized = Math.max(1900, Math.min(currentYear, Math.trunc(raw)));
+      return String(normalized);
+    })(),
     monthlyFee: clubMonthlyFee ? parseFloat(clubMonthlyFee.value) : 0,
-    coachCode: document.getElementById('coachCode') ? document.getElementById('coachCode').value : '',
+    coachCode: coachCodeInput ? coachCodeInput.value : undefined,
     monthlyDueDay: (() => {
       const value = Number(monthlyDueDay?.value);
       return Number.isFinite(value) ? Math.max(1, Math.min(28, value)) : 10;
@@ -540,6 +554,9 @@ document.getElementById('clubSettingsForm')?.addEventListener('submit', function
   
  // Preservar clubId y logo existentes
   const existing = getSchoolSettings();
+  if (settings.coachCode === undefined) {
+    settings.coachCode = existing.coachCode || '';
+  }
   settings.autoWhatsAppEnabled = existing.autoWhatsAppEnabled === true;
   if (existing.clubId) {
     settings.clubId = existing.clubId;

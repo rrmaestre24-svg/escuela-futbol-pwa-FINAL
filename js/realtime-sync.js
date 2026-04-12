@@ -561,6 +561,16 @@ async function loadAllPaymentsHistory() {
     return;
   }
   if (localStorage.getItem('paymentsFullHistory') === 'true') {
+    if (typeof window.fixMissingPaymentLogEntries === 'function') {
+      let existingPayments = [];
+      try {
+        existingPayments = JSON.parse(localStorage.getItem('payments') || '[]');
+      } catch (e) {
+        existingPayments = [];
+      }
+      window.fixMissingPaymentLogEntries({ force: true, payments: existingPayments });
+      if (typeof refreshPaymentsUI === 'function') refreshPaymentsUI();
+    }
     showToast('ℹ️ El historial completo ya está cargado');
     return;
   }
@@ -575,6 +585,10 @@ async function loadAllPaymentsHistory() {
 
     localStorage.setItem('payments', JSON.stringify(payments));
     localStorage.setItem('paymentsFullHistory', 'true');
+
+    if (typeof window.fixMissingPaymentLogEntries === 'function') {
+      window.fixMissingPaymentLogEntries({ force: true, payments });
+    }
 
     showToast(`✅ ${payments.length} pagos cargados`);
     if (typeof refreshPaymentsUI === 'function') refreshPaymentsUI();

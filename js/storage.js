@@ -1091,13 +1091,15 @@ window.addPaymentLogEntry = addPaymentLogEntry;
  * 🛠️ MIGRACIÓN: Recuperar facturas antiguas que no están en el Log de Movimientos
  * Se ejecuta una sola vez para poblar el historial con datos previos a la actualización.
  */
-function fixMissingPaymentLogEntries() {
+function fixMissingPaymentLogEntries(options = {}) {
   try {
+    const force = options.force === true;
+    const providedPayments = Array.isArray(options.payments) ? options.payments : null;
     const log = getPaymentLog();
-    const payments = getPayments();
+    const payments = providedPayments || getPayments();
     
     // Si ya hay muchos registros o ya se hizo, no procesar (optimización)
-    if (localStorage.getItem('paymentLogBackfill_v1') === 'true') return;
+    if (!force && localStorage.getItem('paymentLogBackfill_v1') === 'true') return;
 
     const existingInvoicesInLog = new Set(log.map(e => e.invoiceNumber));
     let newEntries = [];
@@ -1140,6 +1142,8 @@ function fixMissingPaymentLogEntries() {
     console.warn('⚠️ Error en migración de historial:', error);
   }
 }
+
+window.fixMissingPaymentLogEntries = fixMissingPaymentLogEntries;
 
 // Ejecutar migración al cargar el script
 setTimeout(fixMissingPaymentLogEntries, 2000);
