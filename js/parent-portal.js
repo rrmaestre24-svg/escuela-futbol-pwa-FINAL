@@ -110,8 +110,18 @@ async function loadClubDataFromFirebase(clubId, accessCode) {
     }
     
     const paymentsRef = window.firebase.collection(window.firebase.db, `clubs/${clubId}/payments`);
-    const paymentsSnapshot = await window.firebase.getDocs(paymentsRef);
-    
+    let paymentsSnapshot;
+
+    if (window.firebase.query && window.firebase.where) {
+      const paymentsQuery = window.firebase.query(
+        paymentsRef,
+        window.firebase.where('playerId', '==', playerId)
+      );
+      paymentsSnapshot = await window.firebase.getDocs(paymentsQuery);
+    } else {
+      paymentsSnapshot = await window.firebase.getDocs(paymentsRef);
+    }
+
     const playerPayments = [];
     paymentsSnapshot.forEach(doc => {
       const payment = { id: doc.id, ...doc.data() };

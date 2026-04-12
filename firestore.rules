@@ -106,10 +106,17 @@ service cloud.firestore {
     }
 
     // ── Jugadores ───────────────────────────────────────────
-    // Lectura: admin, entrenadores y padres con sesión activa en este club.
+    // Lectura:
+    // - Admin y super admin: acceso completo.
+    // - Padres: solo su jugador asociado en sesión.
+    // - Entrenadores (y sesiones legacy no-parent): lectura del club.
     // Escritura parcial: los padres pueden actualizar solo campos de perfil personal.
     match /clubs/{clubId}/players/{playerId} {
-      allow read: if isMemberOfClub(clubId) || isSuperAdmin() || isSessionForClub(clubId);
+      allow read: if isMemberOfClub(clubId)
+        || isSuperAdmin()
+        || isParentSessionForPlayer(clubId, playerId)
+        || (isSessionForClub(clubId)
+          && get(/databases/$(database)/documents/clubs/$(clubId)/authorized_sessions/$(request.auth.uid)).data.role != 'parent');
       allow update: if isMemberOfClub(clubId) || isSuperAdmin() ||
         (isParentSessionForPlayer(clubId, playerId) &&
           request.resource.data.diff(resource.data).affectedKeys()
@@ -124,10 +131,12 @@ service cloud.firestore {
 
     // ── Pagos ───────────────────────────────────────────────
     // Solo el admin puede leer y escribir pagos.
-    // Los padres con sesión activa pueden leer pagos de su club (el JS ya filtra por playerId).
+    // Los padres con sesión activa solo pueden leer pagos de SU jugador asociado.
     // Los entrenadores NO tienen acceso a pagos.
     match /clubs/{clubId}/payments/{document} {
-      allow read: if isMemberOfClub(clubId) || isSuperAdmin() || isSessionForClub(clubId);
+      allow read: if isMemberOfClub(clubId)
+        || isSuperAdmin()
+        || isParentSessionForPlayer(clubId, resource.data.playerId);
       allow write: if isMemberOfClub(clubId) || isSuperAdmin();
     }
 
