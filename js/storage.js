@@ -983,6 +983,29 @@ function deleteParentCode(playerId) {
   let parentCodes = getParentCodes();
   parentCodes = parentCodes.filter(pc => pc.playerId !== playerId);
   localStorage.setItem('parentCodes', JSON.stringify(parentCodes));
+
+  // Intentar revocar también en Firebase para cortar acceso real en portal
+  revokeParentCodeFromFirebase(playerId);
+}
+
+// Eliminar código de acceso en Firebase
+async function revokeParentCodeFromFirebase(playerId) {
+  if (!window.APP_STATE?.firebaseReady || !window.firebase?.db || !window.firebase?.deleteDoc) {
+    return;
+  }
+
+  try {
+    const clubId = localStorage.getItem('clubId');
+    if (!clubId || !playerId) return;
+
+    await window.firebase.deleteDoc(
+      window.firebase.doc(window.firebase.db, `clubs/${clubId}/parentCodes`, playerId)
+    );
+
+    console.log('✅ Código de padre revocado en Firebase');
+  } catch (error) {
+    console.warn('⚠️ No se pudo revocar código de padre en Firebase:', error);
+  }
 }
 
 // Sincronizar código con Firebase

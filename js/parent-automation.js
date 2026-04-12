@@ -7,10 +7,48 @@ let parentAccessData = {
     players: [],
     codes: {},
     isProcessing: false,
-    currentFilter: 'all', // all, pending, sent
+    currentFilter: 'all', // all, pending, sent, noaccess
     currentIndex: 0,
     batchPlayers: []
 };
+
+const PARENT_PORTAL_REVOKE_DELAY_MINUTES = 30;
+
+function parseDateSafe(value) {
+    if (!value) return null;
+    const date = new Date(value);
+    return isNaN(date.getTime()) ? null : date;
+}
+
+function isInactivePlayer(player) {
+    const status = (player?.status || 'Activo').toString().trim().toLowerCase();
+    return status === 'inactivo' || status === 'inactive';
+}
+
+function isNoAccessPlayer(player) {
+    if (!isInactivePlayer(player)) return false;
+
+    const now = Date.now();
+    const revokeAt = parseDateSafe(player?.portalAccessRevokesAt);
+    if (revokeAt) return now >= revokeAt.getTime();
+
+    const inactivatedAt = parseDateSafe(player?.lastInactivatedAt);
+    if (!inactivatedAt) return true;
+
+    return (now - inactivatedAt.getTime()) >= PARENT_PORTAL_REVOKE_DELAY_MINUTES * 60 * 1000;
+}
+
+function hasPortalAccess(player, codesByPlayer) {
+    const access = codesByPlayer?.[player?.id];
+    const hasCode = !!access?.code;
+    if (!hasCode) return false;
+
+    // Jugador activo + código válido => tiene acceso
+    if (!isInactivePlayer(player)) return true;
+
+    // Jugador inactivo: mantiene acceso solo durante la ventana de 30 minutos
+    return !isNoAccessPlayer(player);
+}
 
 /**
  * Show the Parent Access Management Modal
@@ -39,6 +77,129 @@ function closeParentAccessModal() {
     }
 }
 
+function showFormalConfirmModal({
+    title = 'Confirmar acción',
+    message = '',
+    confirmText = 'Aceptar',
+    cancelText = 'Cancelar',
+    tone = 'primary' // primary | warning | danger
+} = {}) {
+    return new Promise((resolve) => {
+        const existing = document.getElementById('formalConfirmModal');
+        if (existing) existing.remove();
+
+        const toneConfig = {
+            primary: {
+                header: 'from-indigo-600 via-blue-600 to-cyan-600',
+                ring: 'border-blue-100 dark:border-blue-900/40 bg-blue-50 dark:bg-blue-900/20',
+                text: 'text-blue-900 dark:text-blue-200',
+                button: 'from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700'
+            },
+            warning: {
+                header: 'from-amber-500 via-orange-500 to-yellow-500',
+                ring: 'border-amber-100 dark:border-amber-900/40 bg-amber-50 dark:bg-amber-900/20',
+                text: 'text-amber-900 dark:text-amber-200',
+                button: 'from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700'
+            },
+            danger: {
+                header: 'from-rose-600 via-red-600 to-orange-600',
+                ring: 'border-red-100 dark:border-red-900/40 bg-red-50 dark:bg-red-900/20',
+                text: 'text-red-900 dark:text-red-200',
+                button: 'from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700'
+            }
+        };
+
+        const cfg = toneConfig[tone] || toneConfig.primary;
+
+        const modal = document.createElement('div');
+        modal.id = 'formalConfirmModal';
+        modal.className = 'fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm';
+        modal.innerHTML = `
+            <div class="w-full max-w-md rounded-3xl overflow-hidden bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 shadow-2xl">
+                <div class="px-5 py-4 bg-gradient-to-r ${cfg.header} text-white">
+                    <h4 class="text-lg font-black tracking-tight">${title}</h4>
+                </div>
+                <div class="p-5 space-y-4">
+                    <div class="rounded-2xl border ${cfg.ring} p-4">
+                        <p class="text-sm leading-relaxed ${cfg.text}">${message}</p>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <button id="formalConfirmCancelBtn" class="py-2.5 px-4 rounded-xl font-bold text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">${cancelText}</button>
+                        <button id="formalConfirmAcceptBtn" class="py-2.5 px-4 rounded-xl font-bold text-white bg-gradient-to-r ${cfg.button} shadow-md transition-all">${confirmText}</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        const close = (accepted) => {
+            modal.remove();
+            resolve(accepted);
+        };
+
+        modal.querySelector('#formalConfirmCancelBtn')?.addEventListener('click', () => close(false));
+        modal.querySelector('#formalConfirmAcceptBtn')?.addEventListener('click', () => close(true));
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) close(false);
+        });
+
+        document.body.appendChild(modal);
+    });
+}
+
+function showWhatsAppBatchStartModal(totalToSend) {
+    return new Promise((resolve) => {
+        const existing = document.getElementById('whatsappBatchStartModal');
+        if (existing) existing.remove();
+
+        const modal = document.createElement('div');
+        modal.id = 'whatsappBatchStartModal';
+        modal.className = 'fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm';
+
+        modal.innerHTML = `
+            <div class="w-full max-w-md rounded-3xl overflow-hidden bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 shadow-2xl">
+                <div class="px-5 py-4 bg-gradient-to-r from-emerald-500 via-green-500 to-teal-500 text-white">
+                    <div class="flex items-center gap-3">
+                        <span class="w-10 h-10 rounded-2xl bg-white/20 flex items-center justify-center shadow-inner">
+                            <svg viewBox="0 0 24 24" class="w-6 h-6 fill-current" aria-hidden="true">
+                                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+                            </svg>
+                        </span>
+                        <div>
+                            <p class="text-sm font-semibold opacity-90">Confirmar envío masivo</p>
+                            <h4 class="text-lg font-black leading-tight">WhatsApp a Padres</h4>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-5 space-y-4">
+                    <div class="rounded-2xl border border-emerald-100 dark:border-emerald-900/40 bg-emerald-50 dark:bg-emerald-900/20 p-4">
+                        <p class="text-sm text-emerald-900 dark:text-emerald-200 font-semibold">Se prepararán <span class="font-black text-lg">${totalToSend}</span> envíos.</p>
+                        <p class="text-xs mt-1 text-emerald-700 dark:text-emerald-300">Por seguridad del navegador, debes pulsar el botón para cada alumno.</p>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <button id="waBatchCancelBtn" class="py-2.5 px-4 rounded-xl font-bold text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">Cancelar</button>
+                        <button id="waBatchAcceptBtn" class="py-2.5 px-4 rounded-xl font-bold text-white bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 shadow-md transition-all">Empezar</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        const close = (accepted) => {
+            modal.remove();
+            resolve(accepted);
+        };
+
+        modal.querySelector('#waBatchCancelBtn')?.addEventListener('click', () => close(false));
+        modal.querySelector('#waBatchAcceptBtn')?.addEventListener('click', () => close(true));
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) close(false);
+        });
+
+        document.body.appendChild(modal);
+    });
+}
+
 /**
  * Load current players and their access codes from Firebase
  */
@@ -62,17 +223,28 @@ async function loadParentAccessStatus() {
         }
     });
 
+    // Auto-revocar códigos vencidos (inactivos con más de 30 min)
+    players.forEach(player => {
+        if (isInactivePlayer(player) && isNoAccessPlayer(player) && codesByPlayer[player.id]?.code) {
+            if (typeof deleteParentCode === 'function') {
+                deleteParentCode(player.id);
+            }
+            delete codesByPlayer[player.id];
+        }
+    });
+
     parentAccessData.players = players;
     parentAccessData.codes = codesByPlayer;
 
-    const total     = players.length;
-    const processed = players.filter(p => codesByPlayer[p.id]?.sentAt).length;
+    const activePlayers = players.filter(player => !isInactivePlayer(player));
+    const total = activePlayers.length;
+    const withAccess = activePlayers.filter(p => !!codesByPlayer[p.id]?.code).length;
 
     const totalElem     = document.getElementById('totalParentsCount');
     const processedElem = document.getElementById('processedParentsCount');
     
-    if (totalElem)     totalElem.textContent     = total;
-    if (processedElem) processedElem.textContent = processed;
+    if (totalElem) totalElem.textContent = total;
+    if (processedElem) processedElem.textContent = withAccess;
 }
 
 /**
@@ -81,7 +253,7 @@ async function loadParentAccessStatus() {
 function filterParentAccessList(filter) {
     parentAccessData.currentFilter = filter;
     
-    ['all', 'pending', 'sent'].forEach(f => {
+    ['all', 'pending', 'sent', 'noaccess'].forEach(f => {
         const btn = document.getElementById(`tab_parent_${f}`);
         if (btn) {
             btn.classList.toggle('bg-emerald-600', f === filter);
@@ -105,16 +277,25 @@ function renderParentAccessList() {
 
     const { players, codes, currentFilter: filter } = parentAccessData;
 
-    let filteredPlayers = players;
+    const activePlayers = players.filter(player => !isInactivePlayer(player));
+
+    let filteredPlayers = activePlayers;
     if (filter === 'pending') {
-        filteredPlayers = players.filter(p => !codes[p.id] || !codes[p.id].sentAt);
+        filteredPlayers = activePlayers.filter(p => !codes[p.id] || !codes[p.id].sentAt);
     } else if (filter === 'sent') {
-        filteredPlayers = players.filter(p => codes[p.id]?.sentAt);
+        filteredPlayers = activePlayers.filter(p => codes[p.id]?.sentAt);
+    } else if (filter === 'noaccess') {
+        filteredPlayers = players.filter(p => !hasPortalAccess(p, codes));
     }
 
     const titleElem = document.getElementById('parentListTitle');
     if (titleElem) {
-        const labels = { all: 'Todos los Alumnos', pending: 'Pendientes por Notificar', sent: 'Notificados Exitosamente' };
+        const labels = {
+            all: 'Todos los Alumnos',
+            pending: 'Pendientes por Notificar',
+            sent: 'Notificados Exitosamente',
+            noaccess: 'Sin acceso al Portal'
+        };
         titleElem.textContent = `${labels[filter]} (${filteredPlayers.length})`;
     }
 
@@ -132,45 +313,54 @@ function renderParentAccessList() {
         const access = codes[player.id];
         const hasCode = !!access;
         const isSent  = !!access?.sentAt;
+        const isNoAccess = filter === 'noaccess';
         // FIX 2: Escapar comillas en el nombre para evitar romper el onclick
         const safeName = (player.name || '').replace(/'/g, "\\'");
-        const phone = player.phone || 'Sin teléfono';
+        const contactPhone = player.phone || player.emergencyContact || '';
+        const phone = contactPhone || 'Sin teléfono';
         
         return `
-            <div data-player-id="${player.id}" class="group flex items-center justify-between p-3 glass-card rounded-2xl border border-gray-100 dark:border-gray-700 hover:border-emerald-500/30 hover:shadow-lg transition-all">
-                <div class="flex items-center gap-3">
-                    <div class="relative">
+            <div data-player-id="${player.id}" class="group flex items-center justify-between p-3.5 bg-white dark:bg-gray-800/70 rounded-2xl border border-gray-100 dark:border-gray-700 hover:border-emerald-500/30 hover:shadow-md transition-all">
+                <div class="flex items-center gap-3 min-w-0">
+                    <div class="relative shrink-0">
                         <img src="${player.avatar || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(player.name) + '&background=random'}" 
-                             class="w-11 h-11 rounded-full object-cover border-2 border-white dark:border-gray-700 shadow-sm"
+                             class="w-12 h-12 rounded-full object-cover border-2 border-white dark:border-gray-700 shadow-sm"
                              onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(player.name)}&background=random'">
                         ${isSent ? `
                             <span class="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full border-2 border-white dark:border-gray-800 flex items-center justify-center">
                                 <i data-lucide="check" class="w-3 h-3 text-white"></i>
                             </span>` : ''}
                     </div>
-                    <div>
+                    <div class="min-w-0">
                         <p class="font-bold text-gray-800 dark:text-white text-sm truncate">${player.name}</p>
-                        <div class="flex items-center gap-2">
-                            <p class="text-[10px] text-gray-500 flex items-center gap-1">
-                                <i data-lucide="phone" class="w-3 h-3"></i> ${phone}
-                            </p>
-                            ${hasCode ? `<span class="text-[10px] font-mono font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-1.5 rounded">#${access.code}</span>` : ''}
+                        <p class="text-[11px] text-gray-500 dark:text-gray-400 truncate flex items-center gap-1 mt-0.5">
+                            <i data-lucide="phone" class="w-3 h-3 shrink-0"></i> ${phone}
+                        </p>
+                        <div class="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                            ${hasCode ? `<span class="text-[10px] font-mono font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 rounded-md border border-emerald-100 dark:border-emerald-800/40">#${access.code}</span>` : `<span class="text-[10px] font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 px-2 py-0.5 rounded-md border border-amber-100 dark:border-amber-800/40">Sin código</span>`}
+                            ${isNoAccess
+                                ? `<span class="text-[10px] font-bold text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/30 px-2 py-0.5 rounded-md border border-red-100 dark:border-red-800/40">Acceso revocado</span>`
+                                : (isSent
+                                    ? `<span class="text-[10px] font-bold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-md border border-blue-100 dark:border-blue-800/40">Enviado</span>`
+                                    : `<span class="text-[10px] font-bold text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700/60 px-2 py-0.5 rounded-md border border-gray-200 dark:border-gray-600">Pendiente</span>`)}
                         </div>
                     </div>
                 </div>
                 
-                <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onclick="resendParentCode('${player.id}')" 
-                            title="${isSent ? 'Volver a enviar' : 'Enviar ahora'}"
-                            class="p-2 rounded-xl text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/40 transition-colors">
-                        <i data-lucide="send" class="w-5 h-5"></i>
-                    </button>
-                    <button onclick="regenerateParentCode('${player.id}')" 
-                            title="Regenerar nuevo código"
-                            class="p-2 rounded-xl text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/40 transition-colors">
-                        <i data-lucide="refresh-cw" class="w-5 h-5"></i>
-                    </button>
-                </div>
+                ${isNoAccess
+                    ? `<div class="ml-2 shrink-0 text-[10px] font-bold text-red-600 dark:text-red-300 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded-lg border border-red-100 dark:border-red-800/40">Sin portal</div>`
+                    : `<div class="flex items-center gap-1 ml-2 shrink-0 opacity-100 sm:opacity-80 sm:group-hover:opacity-100 transition-opacity">
+                        <button onclick="resendParentCode('${player.id}')" 
+                                title="${isSent ? 'Volver a enviar' : 'Enviar ahora'}"
+                                class="p-2 rounded-xl text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/40 transition-colors border border-transparent hover:border-emerald-200 dark:hover:border-emerald-800/40">
+                            <i data-lucide="send" class="w-4 h-4"></i>
+                        </button>
+                        <button onclick="regenerateParentCode('${player.id}')" 
+                                title="Regenerar nuevo código"
+                                class="p-2 rounded-xl text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/40 transition-colors border border-transparent hover:border-amber-200 dark:hover:border-amber-800/40">
+                            <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                        </button>
+                    </div>`}
             </div>
         `;
     }).join('');
@@ -211,7 +401,14 @@ async function regenerateParentCode(playerId) {
     const player = parentAccessData.players.find(p => p.id === playerId);
     if (!player) return;
 
-    if (!confirm(`¿Estás seguro de REGENERAR el código para ${player.name}?\n\nEl código anterior dejará de funcionar.`)) return;
+    const shouldRegenerate = await showFormalConfirmModal({
+        title: 'Regenerar código de acceso',
+        message: `Se generará un nuevo código para ${player.name}. El código anterior dejará de funcionar.`,
+        confirmText: 'Regenerar',
+        cancelText: 'Cancelar',
+        tone: 'warning'
+    });
+    if (!shouldRegenerate) return;
 
     showToast('⏳ Generando nuevo código...');
     const newCode = window.generateParentAccessCode
@@ -237,7 +434,8 @@ async function openWhatsAppForParent(player, access) {
     const settings = JSON.parse(localStorage.getItem('schoolSettings') || '{}');
     const clubName = settings.name || 'Mi Escuela de Fútbol';
     
-    const phone = (player.phone || '').replace(/[^0-9+]/g, '');
+    const rawPhone = player.phone || player.emergencyContact || '';
+    const phone = String(rawPhone).replace(/[^0-9+]/g, '');
     if (!phone || phone.replace(/[^0-9]/g, '').length < 7) {
         showToast(`❌ Teléfono inválido para ${player.name}`);
         return;
@@ -273,12 +471,23 @@ async function openWhatsAppForParent(player, access) {
  * FIX 3: deleteField ya viene desestructurado — no necesita typeof
  */
 async function confirmResetAllParentAccess() {
-    if (!confirm(
-        '⚠️ ¿Estás seguro de REINICIAR todos los envíos?\n\n' +
-        'Esto permitirá volver a enviar el código a TODOS los padres. Los códigos NO cambian.'
-    )) return;
-    
-    if (!confirm('🔴 SEGUNDA CONFIRMACIÓN:\nEsto marcará todos como "Pendientes". ¿Confirmas?')) return;
+    const firstConfirm = await showFormalConfirmModal({
+        title: 'Reiniciar historial de envíos',
+        message: 'Esto permitirá volver a enviar el código a TODOS los padres. Los códigos no cambian.',
+        confirmText: 'Continuar',
+        cancelText: 'Cancelar',
+        tone: 'warning'
+    });
+    if (!firstConfirm) return;
+
+    const secondConfirm = await showFormalConfirmModal({
+        title: 'Confirmación final',
+        message: 'Todos pasarán a estado "Pendiente" para reenviar acceso. ¿Deseas proceder?',
+        confirmText: 'Sí, reiniciar',
+        cancelText: 'Volver',
+        tone: 'danger'
+    });
+    if (!secondConfirm) return;
 
     try {
         showToast('⏳ Reiniciando historial de envíos...');
@@ -313,6 +522,7 @@ async function processBatchParentAccess() {
     // Fase 1: Inicializar
     if (!parentAccessData.isProcessing) {
         const playersToNotify = parentAccessData.players.filter(p => {
+            if (isInactivePlayer(p)) return false;
             const access = parentAccessData.codes[p.id];
             return !access || !access.sentAt;
         });
@@ -321,10 +531,8 @@ async function processBatchParentAccess() {
             return showToast('✅ Todos los alumnos ya están notificados');
         }
 
-        if (!confirm(
-            `Se prepararán ${playersToNotify.length} envíos.\n` +
-            `Deberás pulsar el botón para cada alumno (requerido por el navegador).\n\n¿Empezar?`
-        )) return;
+        const shouldStart = await showWhatsAppBatchStartModal(playersToNotify.length);
+        if (!shouldStart) return;
 
         parentAccessData.isProcessing  = true;
         parentAccessData.batchPlayers  = playersToNotify;

@@ -2845,80 +2845,84 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
 
     <!-- MODAL: GESTIÓN DE ACCESO A PADRES -->
     <div id="parentAccessModal"
-        class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4">
         <div
-            class="bg-white dark:bg-gray-800 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-scale-in">
+            class="bg-white dark:bg-gray-800 rounded-3xl max-w-3xl w-full max-h-[92vh] overflow-hidden flex flex-col animate-scale-in border border-white/10 shadow-2xl shadow-black/30">
             <div
-                class="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4 flex items-center justify-between z-10">
-                <h3 class="font-bold text-xl text-gray-800 dark:text-white flex items-center gap-2">
-                    <span>👨‍👩‍👧</span> Acceso a Padres
+                class="sticky top-0 bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-600 text-white p-4 sm:p-5 flex items-center justify-between z-10">
+                <h3 class="font-black text-xl sm:text-2xl flex items-center gap-2 sm:gap-3 tracking-tight">
+                    <span class="text-2xl sm:text-3xl">👨‍👩‍👧</span> Acceso a Padres
                 </h3>
-                <button onclick="closeParentAccessModal()" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
-                    <i data-lucide="x" class="w-6 h-6 text-gray-600 dark:text-gray-300"></i>
+                <button onclick="closeParentAccessModal()" class="p-2 rounded-xl bg-white/10 hover:bg-white/20 transition-colors">
+                    <i data-lucide="x" class="w-6 h-6 text-white"></i>
                 </button>
             </div>
-            <div class="p-6 overflow-y-auto space-y-6">
+            <div class="p-4 sm:p-6 overflow-y-auto space-y-5 sm:space-y-6 bg-slate-50 dark:bg-gray-900/40">
                 <!-- Estadísticas Rápidas -->
                 <div class="grid grid-cols-2 gap-4">
-                    <div class="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-2xl border border-gray-100 dark:border-gray-700">
-                        <p class="text-xs text-gray-500 dark:text-gray-400 uppercase font-bold tracking-wider mb-1">Total Alumnos</p>
+                    <div class="bg-white dark:bg-gray-800/70 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm">
+                        <p class="text-[11px] text-gray-500 dark:text-gray-400 uppercase font-bold tracking-wider mb-1">Total Alumnos</p>
                         <div class="flex items-end gap-2">
-                            <span id="totalParentsCount" class="text-3xl font-black text-gray-800 dark:text-white">0</span>
+                            <span id="totalParentsCount" class="text-3xl sm:text-4xl font-black text-gray-800 dark:text-white leading-none">0</span>
                         </div>
                     </div>
-                    <div class="bg-emerald-50 dark:bg-emerald-900/20 p-4 rounded-2xl border border-emerald-100 dark:border-emerald-800">
-                        <p class="text-xs text-emerald-600 dark:text-emerald-400 uppercase font-bold tracking-wider mb-1">Con Acceso / Enviados</p>
+                    <div class="bg-emerald-50 dark:bg-emerald-900/20 p-4 rounded-2xl border border-emerald-100 dark:border-emerald-800 shadow-sm">
+                        <p class="text-[11px] text-emerald-600 dark:text-emerald-400 uppercase font-bold tracking-wider mb-1">Con Acceso / Enviados</p>
                         <div class="flex items-end gap-2">
-                            <span id="processedParentsCount" class="text-3xl font-black text-emerald-600 dark:text-emerald-400">0</span>
+                            <span id="processedParentsCount" class="text-3xl sm:text-4xl font-black text-emerald-600 dark:text-emerald-400 leading-none">0</span>
                         </div>
                     </div>
                 </div>
 
-                <div class="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-800">
+                <div class="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl border border-blue-100 dark:border-blue-800 shadow-sm">
                     <div class="flex gap-3">
-                        <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white shrink-0">
+                        <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white shrink-0 shadow-md">
                             <i data-lucide="info" class="w-6 h-6"></i>
                         </div>
-                        <p class="text-sm text-blue-800 dark:text-blue-300 leading-relaxed">
+                        <p class="text-sm text-blue-800 dark:text-blue-300 leading-relaxed font-medium">
                             Al enviar, el sistema generará un código único para cada padre y abrirá WhatsApp con el mensaje.
                         </p>
                     </div>
                 </div>
 
                 <!-- Pestañas de Filtro -->
-                <div class="flex gap-1 p-1 bg-gray-100 dark:bg-gray-900 rounded-xl">
+                <div class="flex gap-1 p-1.5 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm">
                     <button onclick="filterParentAccessList('all')" id="tab_parent_all" 
-                            class="flex-1 py-2 px-3 rounded-lg text-sm font-bold transition-all bg-emerald-600 text-white shadow-sm">
+                            class="flex-1 py-2.5 px-3 rounded-xl text-sm font-bold transition-all bg-emerald-600 text-white shadow-sm">
                         Todos
                     </button>
                     <button onclick="filterParentAccessList('pending')" id="tab_parent_pending" 
-                            class="flex-1 py-2 px-3 rounded-lg text-sm font-bold transition-all text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-800">
+                            class="flex-1 py-2.5 px-3 rounded-xl text-sm font-bold transition-all text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700">
                         Pendientes
                     </button>
                     <button onclick="filterParentAccessList('sent')" id="tab_parent_sent" 
-                            class="flex-1 py-2 px-3 rounded-lg text-sm font-bold transition-all text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-800">
+                            class="flex-1 py-2.5 px-3 rounded-xl text-sm font-bold transition-all text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700">
                         Enviados
+                    </button>
+                    <button onclick="filterParentAccessList('noaccess')" id="tab_parent_noaccess" 
+                            class="flex-1 py-2.5 px-3 rounded-xl text-sm font-bold transition-all text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700">
+                        Sin acceso
                     </button>
                 </div>
 
                 <div class="space-y-3">
                     <div class="flex items-center justify-between text-sm">
-                        <h4 class="font-bold text-gray-700 dark:text-gray-300" id="parentListTitle">Lista de Alumnos</h4>
+                        <h4 class="font-bold text-gray-700 dark:text-gray-200 text-base" id="parentListTitle">Lista de Alumnos</h4>
                         <button onclick="confirmResetAllParentAccess()" 
-                                class="text-red-500 hover:text-red-400 flex items-center gap-1 font-bold transition-colors">
+                                class="text-red-500 hover:text-red-400 flex items-center gap-1 font-bold transition-colors px-2 py-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20">
                             <i data-lucide="refresh-cw" class="w-4 h-4"></i>
                             Reiniciar Envíos
                         </button>
                     </div>
-                    <div id="parentAccessList" class="space-y-2 max-h-60 overflow-y-auto pr-2 scrollbar-thin">
+                    <div id="parentAccessList" class="space-y-2.5 max-h-64 sm:max-h-72 overflow-y-auto pr-1 sm:pr-2 scrollbar-thin">
                         <div class="text-center py-8 text-gray-500">Cargando datos...</div>
                     </div>
                 </div>
             </div>
             
-            <div class="p-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+            <div class="p-4 border-t border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800/80 backdrop-blur-sm">
                 <button onclick="processBatchParentAccess()" id="btnProcessBatchAccess"
-                    class="w-full bg-gradient-to-r from-teal-600 to-blue-600 hover:from-teal-700 hover:to-blue-700 text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+                    class="w-full bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-600 hover:from-indigo-700 hover:to-cyan-700 text-white font-bold py-4 rounded-2xl shadow-lg shadow-blue-600/25 flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
                     <i data-lucide="send" class="w-5 h-5"></i>
                     Empezar a enviar por WhatsApp
                 </button>

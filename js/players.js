@@ -205,11 +205,15 @@ async function togglePlayerStatus(playerId) {
   const newStatus = player.status === 'Activo' ? 'Inactivo' : 'Activo';
   const updateData = { status: newStatus };
   const REACTIVATION_GRACE_MINUTES = 10;
+  const PORTAL_REVOKE_DELAY_MINUTES = 30;
   const now = new Date();
 
   // Si se inactiva, guardar marca temporal para detectar reactivación accidental.
   if (newStatus === 'Inactivo') {
     updateData.lastInactivatedAt = now.toISOString();
+    updateData.portalAccessRevokesAt = new Date(
+      now.getTime() + PORTAL_REVOKE_DELAY_MINUTES * 60 * 1000
+    ).toISOString();
   }
 
   // Si se reactiva, reiniciar notificaciones solo si realmente estuvo inactivo
@@ -230,6 +234,7 @@ async function togglePlayerStatus(playerId) {
     }
 
     updateData.lastInactivatedAt = null;
+    updateData.portalAccessRevokesAt = null;
   }
   
   // Actualizar localmente
