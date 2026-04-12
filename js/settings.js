@@ -519,6 +519,7 @@ document.getElementById('clubSettingsForm')?.addEventListener('submit', function
   
  // Preservar clubId y logo existentes
   const existing = getSchoolSettings();
+  settings.autoWhatsAppEnabled = existing.autoWhatsAppEnabled === true;
   if (existing.clubId) {
     settings.clubId = existing.clubId;
   }

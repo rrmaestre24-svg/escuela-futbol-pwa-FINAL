@@ -39,6 +39,7 @@ function initStorage() {
       monthlyDueDay: 10,
       monthlyGraceDays: 5,
       monthlyReminderTemplate: '',
+      autoWhatsAppEnabled: false,
       coachCode: '',
       currency: 'COP',
       primaryColor: '#0d9488'
@@ -518,6 +519,7 @@ function getSchoolSettings() {
       monthlyDueDay: 10,
       monthlyGraceDays: 5,
       monthlyReminderTemplate: '',
+      autoWhatsAppEnabled: false,
       ...settings
     };
   } catch (e) {
