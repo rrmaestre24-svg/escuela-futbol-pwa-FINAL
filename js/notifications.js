@@ -43,8 +43,10 @@ function isDismissed(notifId) {
 
 function getMonthlyAutomationSettings() {
   const settings = typeof getSchoolSettings === 'function' ? getSchoolSettings() : {};
-  const monthlyDueDay = Math.max(1, Math.min(28, Number(settings.monthlyDueDay) || 10));
-  const monthlyGraceDays = Math.max(0, Math.min(60, Number(settings.monthlyGraceDays) || 5));
+  const dueDayNum = Number(settings.monthlyDueDay);
+  const graceDaysNum = Number(settings.monthlyGraceDays);
+  const monthlyDueDay = Number.isFinite(dueDayNum) ? Math.max(1, Math.min(28, dueDayNum)) : 10;
+  const monthlyGraceDays = Number.isFinite(graceDaysNum) ? Math.max(0, Math.min(60, graceDaysNum)) : 5;
   return { monthlyDueDay, monthlyGraceDays };
 }
 

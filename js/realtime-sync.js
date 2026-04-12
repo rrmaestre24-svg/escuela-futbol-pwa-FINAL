@@ -9,7 +9,8 @@ window.realtimeListeners = {
   payments: null,
   events: null,
   expenses: null,
-  settings: null
+  settings: null,
+  logo: null
 };
 
 // Estado de sincronización
@@ -67,6 +68,9 @@ async function startRealtimeSync(clubId) {
     
     // 5️⃣ Listener de Configuración
     startSettingsListener(clubId);
+
+    // 6️⃣ Listener del logo (documento separado)
+    startLogoListener(clubId);
     
     // Actualizar estado
     window.realtimeSyncState.isActive = true;
@@ -116,8 +120,8 @@ async function downloadAllDataInitially(clubId) {
     );
     if (settingsDoc.exists()) {
       const settingsData = settingsDoc.data();
-      if (typeof updateSchoolSettings === 'function') {
-        updateSchoolSettings(settingsData);
+      if (typeof saveSchoolSettings === 'function') {
+        saveSchoolSettings(settingsData);
       } else {
         localStorage.setItem('schoolSettings', JSON.stringify(settingsData));
       }
@@ -705,6 +709,45 @@ function startSettingsListener(clubId) {
 }
 
 // ========================================
+// 🖼️ LISTENER DE LOGO DEL CLUB
+// ========================================
+function startLogoListener(clubId) {
+  const logoRef = window.firebase.doc(
+    window.firebase.db,
+    `clubs/${clubId}/assets`,
+    'logo'
+  );
+
+  window.realtimeListeners.logo = window.firebase.onSnapshot(
+    logoRef,
+    (doc) => {
+      if (!doc.exists()) return;
+
+      const logo = doc.data()?.logo;
+      if (!logo) return;
+
+      const currentSettings = typeof getSchoolSettings === 'function'
+        ? (getSchoolSettings() || {})
+        : JSON.parse(localStorage.getItem('schoolSettings') || '{}');
+
+      localStorage.setItem('schoolSettings', JSON.stringify({
+        ...currentSettings,
+        logo
+      }));
+
+      if (window.realtimeSyncState.initialLoadComplete) {
+        updateHeaderInfo();
+      }
+    },
+    (error) => {
+      console.error('❌ Error en listener de logo:', error);
+    }
+  );
+
+  console.log('🖼️ Listener de logo iniciado');
+}
+
+// ========================================
 // 🔄 FUNCIONES DE ACTUALIZACIÓN DE UI
 // ========================================
 
@@ -858,17 +901,21 @@ function updateHeaderInfo() {
     
     if (!settings) return;
     
-    const logoElements = document.querySelectorAll('#clubLogo, [data-club-logo]');
+    const logoElements = document.querySelectorAll('#clubLogo, #headerLogo, [data-club-logo]');
     logoElements.forEach(el => {
       if (settings.logo && el.tagName === 'IMG') {
         el.src = settings.logo;
       }
     });
     
-    const nameElements = document.querySelectorAll('#clubName, [data-club-name]');
+    const nameElements = document.querySelectorAll('#clubName, #headerClubName, [data-club-name]');
     nameElements.forEach(el => {
       if (settings.name) {
-        el.textContent = settings.name;
+        if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+          el.value = settings.name;
+        } else {
+          el.textContent = settings.name;
+        }
       }
     });
     

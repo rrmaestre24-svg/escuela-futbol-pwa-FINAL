@@ -63,8 +63,12 @@ function loadSettings() {
   if (clubElements.clubFoundedYear) clubElements.clubFoundedYear.value = settings.foundedYear || '';
   if (clubElements.clubMonthlyFee) clubElements.clubMonthlyFee.value = settings.monthlyFee || '';
   if (clubElements.coachCode) clubElements.coachCode.value = settings.coachCode || '';
-  if (clubElements.monthlyDueDay) clubElements.monthlyDueDay.value = Number(settings.monthlyDueDay) || 10;
-  if (clubElements.monthlyGraceDays) clubElements.monthlyGraceDays.value = Number(settings.monthlyGraceDays) || 5;
+  const dueDayNum = Number(settings.monthlyDueDay);
+  const graceDaysNum = Number(settings.monthlyGraceDays);
+  const safeDueDay = Number.isFinite(dueDayNum) ? Math.max(1, Math.min(28, dueDayNum)) : 10;
+  const safeGraceDays = Number.isFinite(graceDaysNum) ? Math.max(0, Math.min(60, graceDaysNum)) : 5;
+  if (clubElements.monthlyDueDay) clubElements.monthlyDueDay.value = safeDueDay;
+  if (clubElements.monthlyGraceDays) clubElements.monthlyGraceDays.value = safeGraceDays;
   if (clubElements.monthlyReminderTemplate) {
     clubElements.monthlyReminderTemplate.value = settings.monthlyReminderTemplate || '';
   }
@@ -225,8 +229,13 @@ document.getElementById('changeClubLogo')?.addEventListener('change', function(e
       if (clubLogo) clubLogo.src = compressed;
       if (headerLogo) headerLogo.src = compressed;
 
-      // ✅ Guardar base64 local inmediatamente
-      updateSchoolSettings({ logo: compressed });
+      // ✅ Guardar base64 local inmediatamente (sin forzar escritura en settings/main)
+      if (typeof saveSchoolSettings === 'function') {
+        saveSchoolSettings({ logo: compressed });
+      } else {
+        const current = JSON.parse(localStorage.getItem('schoolSettings') || '{}');
+        localStorage.setItem('schoolSettings', JSON.stringify({ ...current, logo: compressed }));
+      }
       showToast('⏳ Subiendo logo a la nube...');
 
       // ✅ Subir a Firebase Storage
@@ -517,8 +526,14 @@ document.getElementById('clubSettingsForm')?.addEventListener('submit', function
     foundedYear: clubFoundedYear ? clubFoundedYear.value : '',
     monthlyFee: clubMonthlyFee ? parseFloat(clubMonthlyFee.value) : 0,
     coachCode: document.getElementById('coachCode') ? document.getElementById('coachCode').value : '',
-    monthlyDueDay: Math.max(1, Math.min(28, Number(monthlyDueDay?.value) || 10)),
-    monthlyGraceDays: Math.max(0, Math.min(60, Number(monthlyGraceDays?.value) || 5)),
+    monthlyDueDay: (() => {
+      const value = Number(monthlyDueDay?.value);
+      return Number.isFinite(value) ? Math.max(1, Math.min(28, value)) : 10;
+    })(),
+    monthlyGraceDays: (() => {
+      const value = Number(monthlyGraceDays?.value);
+      return Number.isFinite(value) ? Math.max(0, Math.min(60, value)) : 5;
+    })(),
     monthlyReminderTemplate: (monthlyReminderTemplate?.value || '').trim(),
     pdfFooterMessage: (pdfFooterMessage?.value || '').trim()
   };

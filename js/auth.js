@@ -75,7 +75,12 @@ function updateUser(userId, updates) {
 // Guardar configuración del club
 function saveSchoolSettings(settings) {
   try {
-    localStorage.setItem('schoolSettings', JSON.stringify(settings));
+    const current = typeof getSchoolSettings === 'function'
+      ? (getSchoolSettings() || {})
+      : JSON.parse(localStorage.getItem('schoolSettings') || '{}');
+
+    const updated = { ...current, ...(settings || {}) };
+    localStorage.setItem('schoolSettings', JSON.stringify(updated));
   } catch (error) {
     console.error('Error al guardar configuración:', error);
   }
@@ -84,9 +89,29 @@ function saveSchoolSettings(settings) {
 // Actualizar configuración
 function updateSchoolSettings(updates) {
   try {
-    const current = getSchoolSettings() || {};
-    const updated = { ...current, ...updates };
-    saveSchoolSettings(updated);
+    const current = typeof getSchoolSettings === 'function'
+      ? (getSchoolSettings() || {})
+      : JSON.parse(localStorage.getItem('schoolSettings') || '{}');
+
+    const updated = { ...current, ...(updates || {}) };
+    localStorage.setItem('schoolSettings', JSON.stringify(updated));
+
+    if (window.APP_STATE?.firebaseReady && window.firebase?.db) {
+      const clubId = localStorage.getItem('clubId');
+      if (clubId) {
+        window.firebase.setDoc(
+          window.firebase.doc(window.firebase.db, `clubs/${clubId}/settings`, 'main'),
+          { ...updated, lastUpdated: new Date().toISOString() }
+        ).catch(err => console.warn('⚠️ No se pudo sincronizar configuración:', err));
+
+        if ((updates || {}).coachCode !== undefined) {
+          window.firebase.setDoc(
+            window.firebase.doc(window.firebase.db, `clubs/${clubId}/settings`, 'attendance'),
+            { coachCode: (updates || {}).coachCode, updatedAt: new Date().toISOString() }
+          ).catch(err => console.warn('⚠️ No se pudo sincronizar código de asistencia:', err));
+        }
+      }
+    }
   } catch (error) {
     console.error('Error al actualizar configuración:', error);
   }
