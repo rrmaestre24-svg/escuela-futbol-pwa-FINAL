@@ -50,6 +50,10 @@ function hasPortalAccess(player, codesByPlayer) {
     return !isNoAccessPlayer(player);
 }
 
+function hasSentNotification(access) {
+    return !!access?.sentAt;
+}
+
 /**
  * Show the Parent Access Management Modal
  */
@@ -213,15 +217,38 @@ async function loadParentAccessStatus() {
     const codesSnapshot = await window.firebase.getDocs(codesRef);
     
     const codesByPlayer = {};
+    const legacyCodesToMigrate = [];
     codesSnapshot.forEach(doc => {
         const data = doc.data();
         if (data.playerId) {
+            let sentAt = data.sentAt;
+            if (data.code && !sentAt) {
+                sentAt = data.createdAt || new Date().toISOString();
+                legacyCodesToMigrate.push({ docId: doc.id, sentAt });
+            }
+
             codesByPlayer[data.playerId] = {
                 id: doc.id,
-                ...data
+                ...data,
+                sentAt
             };
         }
     });
+
+    if (legacyCodesToMigrate.length > 0 && window.firebase?.updateDoc && window.firebase?.doc) {
+        Promise.all(
+            legacyCodesToMigrate.map(({ docId, sentAt }) =>
+                window.firebase.updateDoc(
+                    window.firebase.doc(window.firebase.db, `clubs/${clubId}/parentCodes`, docId),
+                    { sentAt }
+                )
+            )
+        ).then(() => {
+            console.log(`✅ Migración de accesos históricos completada: ${legacyCodesToMigrate.length}`);
+        }).catch((error) => {
+            console.warn('⚠️ No se pudo completar la migración histórica de sentAt:', error);
+        });
+    }
 
     // Auto-revocar códigos vencidos (inactivos con más de 30 min)
     players.forEach(player => {
@@ -238,7 +265,7 @@ async function loadParentAccessStatus() {
 
     const activePlayers = players.filter(player => !isInactivePlayer(player));
     const total = activePlayers.length;
-    const withAccess = activePlayers.filter(p => !!codesByPlayer[p.id]?.code).length;
+    const withAccess = activePlayers.filter(p => hasSentNotification(codesByPlayer[p.id])).length;
 
     const totalElem     = document.getElementById('totalParentsCount');
     const processedElem = document.getElementById('processedParentsCount');
@@ -281,9 +308,9 @@ function renderParentAccessList() {
 
     let filteredPlayers = activePlayers;
     if (filter === 'pending') {
-        filteredPlayers = activePlayers.filter(p => !codes[p.id] || !codes[p.id].sentAt);
+        filteredPlayers = activePlayers.filter(p => !hasSentNotification(codes[p.id]));
     } else if (filter === 'sent') {
-        filteredPlayers = activePlayers.filter(p => codes[p.id]?.sentAt);
+        filteredPlayers = activePlayers.filter(p => hasSentNotification(codes[p.id]));
     } else if (filter === 'noaccess') {
         filteredPlayers = players.filter(p => !hasPortalAccess(p, codes));
     }
@@ -312,7 +339,7 @@ function renderParentAccessList() {
     list.innerHTML = sortedPlayers.map(player => {
         const access = codes[player.id];
         const hasCode = !!access;
-        const isSent  = !!access?.sentAt;
+        const isSent  = hasSentNotification(access);
         const isNoAccess = filter === 'noaccess';
         // FIX 2: Escapar comillas en el nombre para evitar romper el onclick
         const safeName = (player.name || '').replace(/'/g, "\\'");
@@ -524,7 +551,7 @@ async function processBatchParentAccess() {
         const playersToNotify = parentAccessData.players.filter(p => {
             if (isInactivePlayer(p)) return false;
             const access = parentAccessData.codes[p.id];
-            return !access || !access.sentAt;
+            return !hasSentNotification(access);
         });
 
         if (playersToNotify.length === 0) {
