@@ -272,8 +272,12 @@ function editThirdPartyIncome(incomeId) {
 // ELIMINAR INGRESO
 // ========================================
 
-function deleteThirdPartyIncomeConfirm(incomeId) {
-  if (confirmAction('¿Estás seguro de eliminar este ingreso?')) {
+async function deleteThirdPartyIncomeConfirm(incomeId) {
+  if (await confirmAction('¿Estás seguro de eliminar este ingreso?', {
+    type: 'danger',
+    title: 'Eliminar ingreso',
+    confirmText: 'Sí, eliminar'
+  })) {
     deleteThirdPartyIncome(incomeId);
     showToast('✅ Ingreso eliminado');
     renderPayments();

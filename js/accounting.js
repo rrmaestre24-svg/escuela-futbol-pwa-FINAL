@@ -24,7 +24,11 @@ function showAccountingView() {
     
     if (!accountingView) {
       console.error('❌ ERROR: accountingView no existe en el HTML');
-      alert('Error: Vista de contabilidad no encontrada');
+      showAppAlert('No se encontró la vista de contabilidad en el HTML.', {
+        title: 'Error de interfaz',
+        type: 'danger',
+        confirmText: 'Cerrar'
+      });
       return;
     }
     
@@ -47,7 +51,11 @@ function showAccountingView() {
     
   } catch (error) {
     console.error('❌ ERROR:', error);
-    alert('Error: ' + error.message);
+    showAppAlert('Error: ' + error.message, {
+      title: 'Error de contabilidad',
+      type: 'danger',
+      confirmText: 'Cerrar'
+    });
   }
 }
 

@@ -25,11 +25,16 @@ function closeInvoiceProgressModal() {
 }
 
 // Modal de WhatsApp manual
-function showManualWhatsAppModal(itemId, itemType) {
+async function showManualWhatsAppModal(itemId, itemType) {
   const modal = document.getElementById('manualWhatsAppModal');
   
   if (!modal) {
-    const phone = prompt('El contacto no tiene teléfono registrado.\n\nIngresa el número de WhatsApp (con código de país):');
+    const phone = await showAppPrompt('El contacto no tiene teléfono registrado.\n\nIngresa el número de WhatsApp (con código de país):', {
+      title: 'WhatsApp manual',
+      type: 'info',
+      confirmText: 'Continuar',
+      placeholder: '+57XXXXXXXXXX'
+    });
     if (phone && phone.trim() !== '') {
       const normalizedPhone = normalizePhone(phone);
       if (itemType === 'payment')          sendInvoiceWhatsAppManual(itemId, normalizedPhone);

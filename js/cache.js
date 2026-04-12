@@ -4,7 +4,12 @@
 
 // Limpiar caché y recargar la aplicación
 async function clearAppCache() {
-  if (!confirm('⚠️ Esto limpiará el caché de la aplicación y recargará la página.\n\n¿Deseas continuar?')) {
+  const confirmed = await showAppConfirm('⚠️ Esto limpiará el caché de la aplicación y recargará la página.\n\n¿Deseas continuar?', {
+    type: 'warning',
+    title: 'Limpiar caché de la app',
+    confirmText: 'Sí, limpiar'
+  });
+  if (!confirmed) {
     return;
   }
   

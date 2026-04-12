@@ -102,8 +102,8 @@ function saveAllPlayers(players) {
 }
 
 // Confirmar acción
-function confirmAction(message) {
-  return confirm(message);
+async function confirmAction(message, options = {}) {
+  return showAppConfirm(message, options);
 }
 
 // Obtener fecha y hora actual en formato ISO (para Firestore)
@@ -1341,7 +1341,7 @@ function copyNavbarClubId() {
 
 // Logout - Limpia TODO al cerrar sesión (solo cuando el usuario lo pide)
 async function logout() {
-  if (confirmAction('¿Estás seguro de cerrar sesión?')) {
+  if (await confirmAction('¿Estás seguro de cerrar sesión?', { type: 'warning', title: 'Cerrar sesión' })) {
     try {
       // Cancelar listeners de Firebase antes de salir
       if (typeof window.userDeletionUnsubscribe === 'function') {

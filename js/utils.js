@@ -242,6 +242,10 @@ function imageToBase64(file, callback) {
 // Mostrar toast notification
 function showToast(message, duration = 3000) {
   const toast = document.getElementById('toast');
+  if (!toast) {
+    console.log(message);
+    return;
+  }
   toast.textContent = message;
   toast.classList.remove('hidden');
   
@@ -250,9 +254,186 @@ function showToast(message, duration = 3000) {
   }, duration);
 }
 
+function getAppDialogTheme(type = 'info') {
+  const themes = {
+    success: { icon: '✅', title: 'Operación completada', accent: 'teal' },
+    warning: { icon: '⚠️', title: 'Atención', accent: 'amber' },
+    danger: { icon: '🛑', title: 'Confirmación requerida', accent: 'rose' },
+    info: { icon: 'ℹ️', title: 'Información', accent: 'slate' }
+  };
+  return themes[type] || themes.info;
+}
+
+function showAppDialog({
+  title,
+  message,
+  type = 'info',
+  confirmText = 'Aceptar',
+  cancelText = '',
+  withInput = false,
+  inputPlaceholder = 'Escribe aquí...',
+  inputValue = ''
+} = {}) {
+  return new Promise((resolve) => {
+    const hasDOM = typeof document !== 'undefined' && document.body;
+    if (!hasDOM) {
+      if (withInput) {
+        resolve(null);
+        return;
+      }
+      resolve(true);
+      return;
+    }
+
+    const theme = getAppDialogTheme(type);
+    const finalTitle = title || theme.title;
+    const finalMessage = String(message || '').trim();
+    const lines = finalMessage.split('\n').filter(Boolean);
+
+    const overlay = document.createElement('div');
+    overlay.className = 'fixed inset-0 z-[4000] bg-black/65 backdrop-blur-[1px] flex items-center justify-center p-4';
+
+    const card = document.createElement('div');
+    card.className = `w-full max-w-md rounded-2xl border border-${theme.accent}-200/40 dark:border-${theme.accent}-900/50 bg-white dark:bg-slate-900 shadow-2xl overflow-hidden`;
+
+    const header = document.createElement('div');
+    header.className = `px-5 py-4 bg-${theme.accent}-50/80 dark:bg-${theme.accent}-900/20 border-b border-${theme.accent}-200/40 dark:border-${theme.accent}-900/40`;
+    header.innerHTML = `
+      <div class="flex items-center gap-2.5">
+        <span class="text-lg">${theme.icon}</span>
+        <h3 class="text-sm font-bold text-slate-800 dark:text-slate-100">${finalTitle}</h3>
+      </div>
+    `;
+
+    const body = document.createElement('div');
+    body.className = 'px-5 py-4 space-y-2';
+
+    if (lines.length === 0) {
+      const p = document.createElement('p');
+      p.className = 'text-sm text-slate-600 dark:text-slate-300 leading-relaxed';
+      p.textContent = finalMessage || 'Continuar con esta acción.';
+      body.appendChild(p);
+    } else {
+      lines.forEach(line => {
+        const p = document.createElement('p');
+        p.className = 'text-sm text-slate-600 dark:text-slate-300 leading-relaxed';
+        p.textContent = line;
+        body.appendChild(p);
+      });
+    }
+
+    let input = null;
+    if (withInput) {
+      input = document.createElement('input');
+      input.type = 'text';
+      input.value = inputValue || '';
+      input.placeholder = inputPlaceholder;
+      input.className = `w-full mt-2 px-3 py-2.5 rounded-lg border border-${theme.accent}-200 dark:border-${theme.accent}-900/50 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-${theme.accent}-500`;
+      body.appendChild(input);
+    }
+
+    const footer = document.createElement('div');
+    footer.className = 'px-5 pb-5 pt-1 flex items-center justify-end gap-2';
+
+    const closeWith = (result) => {
+      document.removeEventListener('keydown', onKeyDown);
+      overlay.remove();
+      resolve(result);
+    };
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.className = 'px-4 py-2 rounded-lg bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-sm font-semibold transition-colors';
+    cancelBtn.textContent = cancelText || 'Cancelar';
+    cancelBtn.onclick = () => closeWith(withInput ? null : false);
+
+    const confirmBtn = document.createElement('button');
+    confirmBtn.type = 'button';
+    confirmBtn.className = `px-4 py-2 rounded-lg bg-${theme.accent}-600 hover:bg-${theme.accent}-700 text-white text-sm font-semibold transition-colors`;
+    confirmBtn.textContent = confirmText;
+    confirmBtn.onclick = () => {
+      if (withInput) {
+        const value = (input?.value || '').trim();
+        if (!value) return;
+        closeWith(value);
+        return;
+      }
+      closeWith(true);
+    };
+
+    if (cancelText || withInput) {
+      footer.appendChild(cancelBtn);
+    }
+    footer.appendChild(confirmBtn);
+
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeWith(withInput ? null : false);
+      }
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        confirmBtn.click();
+      }
+    };
+
+    document.addEventListener('keydown', onKeyDown);
+    overlay.appendChild(card);
+    card.appendChild(header);
+    card.appendChild(body);
+    card.appendChild(footer);
+    document.body.appendChild(overlay);
+
+    setTimeout(() => {
+      if (input) {
+        input.focus();
+      } else {
+        confirmBtn.focus();
+      }
+    }, 30);
+  });
+}
+
+function showAppAlert(message, options = {}) {
+  return showAppDialog({
+    message,
+    type: options.type || 'info',
+    title: options.title,
+    confirmText: options.confirmText || 'Entendido'
+  });
+}
+
+function showAppConfirm(message, options = {}) {
+  return showAppDialog({
+    message,
+    type: options.type || 'warning',
+    title: options.title,
+    confirmText: options.confirmText || 'Sí, continuar',
+    cancelText: options.cancelText || 'Cancelar'
+  });
+}
+
+function showAppPrompt(message, options = {}) {
+  return showAppDialog({
+    message,
+    type: options.type || 'info',
+    title: options.title,
+    confirmText: options.confirmText || 'Continuar',
+    cancelText: options.cancelText || 'Cancelar',
+    withInput: true,
+    inputPlaceholder: options.placeholder || 'Ingresa el valor',
+    inputValue: options.value || ''
+  });
+}
+
+window.showAppDialog = showAppDialog;
+window.showAppAlert = showAppAlert;
+window.showAppConfirm = showAppConfirm;
+window.showAppPrompt = showAppPrompt;
+
 // Confirmar acción
-function confirmAction(message) {
-  return confirm(message);
+async function confirmAction(message, options = {}) {
+  return showAppConfirm(message, options);
 }
 
 // Obtener nombre del mes

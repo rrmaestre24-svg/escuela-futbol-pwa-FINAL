@@ -416,8 +416,13 @@ function showPlayerProfile() {
 // FUNCIONES DE PAGO
 // ========================================
 
-function parentLogout() {
-  if (confirm('¿Cerrar sesión?')) {
+async function parentLogout() {
+  const confirmed = await showAppConfirm('¿Cerrar sesión?', {
+    type: 'warning',
+    title: 'Salir del portal',
+    confirmText: 'Sí, cerrar sesión'
+  });
+  if (confirmed) {
     clearParentSession();
     location.reload();
   }

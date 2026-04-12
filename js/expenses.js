@@ -266,8 +266,12 @@ if (expenseFormElement) {
 }
 
 // Eliminar egresos
-function deleteExpenseConfirm(expenseId) {
-  if (confirmAction('¿Estás seguro de eliminar este egreso?')) {
+async function deleteExpenseConfirm(expenseId) {
+  if (await confirmAction('¿Estás seguro de eliminar este egreso?', {
+    type: 'danger',
+    title: 'Eliminar egreso',
+    confirmText: 'Sí, eliminar'
+  })) {
     deleteExpense(expenseId);
     showToast('✅ Egreso eliminado');
     

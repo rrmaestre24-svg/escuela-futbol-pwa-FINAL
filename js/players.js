@@ -823,8 +823,13 @@ async function uploadPlayerDocument(playerId, input) {
 }
 
 // Elimina un documento del perfil del jugador
-function deletePlayerDocument(playerId, docId) {
-  if (!confirm('¿Eliminar este documento? El registro se borrará del perfil.')) return;
+async function deletePlayerDocument(playerId, docId) {
+  const confirmed = await showAppConfirm('¿Eliminar este documento? El registro se borrará del perfil.', {
+    type: 'danger',
+    title: 'Eliminar documento',
+    confirmText: 'Sí, eliminar'
+  });
+  if (!confirmed) return;
 
   const player = getPlayerById(playerId);
   if (!player) return;
@@ -867,11 +872,15 @@ function deletePlayerDocument(playerId, docId) {
 }
 
 // Eliminar jugador
-function deletePlayerConfirm(playerId) {
+async function deletePlayerConfirm(playerId) {
   const player = getPlayerById(playerId);
   if (!player) return;
   
-  if (confirmAction(`¿Estás seguro de eliminar a ${player.name}? Esta acción eliminará también todos sus pagos.`)) {
+  if (await confirmAction(`¿Estás seguro de eliminar a ${player.name}? Esta acción eliminará también todos sus pagos.`, {
+    type: 'danger',
+    title: 'Eliminar jugador',
+    confirmText: 'Sí, eliminar'
+  })) {
     deletePlayer(playerId);
     showToast('✅ Jugador eliminado');
     renderPlayersList();
@@ -915,14 +924,18 @@ function generateParentCode(playerId) {
 }
 
 // Regenerar código de acceso
-function regenerateParentCode(playerId) {
+async function regenerateParentCode(playerId) {
   const player = getPlayerById(playerId);
   if (!player) {
     showToast('❌ Jugador no encontrado');
     return;
   }
   
-  if (!confirmAction('¿Regenerar código? El código anterior dejará de funcionar.')) {
+  if (!await confirmAction('¿Regenerar código? El código anterior dejará de funcionar.', {
+    type: 'warning',
+    title: 'Regenerar código de acceso',
+    confirmText: 'Sí, regenerar'
+  })) {
     return;
   }
   
@@ -1655,11 +1668,16 @@ function keepThisPlayerDeleteRest(keepId, allIds) {
 // ========================================
 
 // Exporta todos los jugadores a un archivo Excel con todos sus datos
-function exportPlayersExcel() {
+async function exportPlayersExcel() {
   const players = getPlayers().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   if (players.length === 0) { showToast('No hay jugadores para exportar'); return; }
 
-  if (!confirm(`¿Descargar el listado de ${players.length} jugadores en Excel?\n\nIncluye todos los datos: categoría, documento, teléfono, datos médicos, etc.`)) return;
+  const confirmed = await showAppConfirm(`¿Descargar el listado de ${players.length} jugadores en Excel?\n\nIncluye todos los datos: categoría, documento, teléfono, datos médicos, etc.`, {
+    type: 'info',
+    title: 'Exportar jugadores a Excel',
+    confirmText: 'Descargar Excel'
+  });
+  if (!confirmed) return;
 
   loadXLSX(function() {
     if (typeof XLSX === 'undefined') { showToast('❌ No se pudo cargar la librería Excel'); return; }
@@ -1715,13 +1733,18 @@ function exportPlayersExcel() {
 }
 
 // Exporta todos los jugadores a PDF (hoja apaisada, campos principales)
-function exportPlayersPDF() {
+async function exportPlayersPDF() {
   if (this._exportingPDF) return; // Prevenir doble clic
   
   const allPlayers = getPlayers();
   if (allPlayers.length === 0) { showToast('No hay jugadores para exportar'); return; }
 
-  if (!confirm(`¿Descargar el listado de ${allPlayers.length} jugadores en PDF?\n\nLa lista estará ordenada alfabéticamente.`)) return;
+  const confirmed = await showAppConfirm(`¿Descargar el listado de ${allPlayers.length} jugadores en PDF?\n\nLa lista estará ordenada alfabéticamente.`, {
+    type: 'info',
+    title: 'Exportar jugadores a PDF',
+    confirmText: 'Descargar PDF'
+  });
+  if (!confirmed) return;
 
   if (typeof window.jspdf === 'undefined') {
     loadJsPDF(() => exportPlayersPDF());

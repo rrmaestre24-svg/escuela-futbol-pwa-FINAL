@@ -146,7 +146,12 @@ function replyToSuggestion(originalMessage) {
 }
 
 async function deleteClubSuggestion(suggestionId) {
-    if (!confirm('¿Eliminar esta sugerencia? Esta acción no se puede deshacer.')) return;
+    const confirmed = await showAppConfirm('¿Eliminar esta sugerencia? Esta acción no se puede deshacer.', {
+        type: 'danger',
+        title: 'Eliminar sugerencia',
+        confirmText: 'Sí, eliminar'
+    });
+    if (!confirmed) return;
 
     try {
         showToast('⏳ Eliminando...');

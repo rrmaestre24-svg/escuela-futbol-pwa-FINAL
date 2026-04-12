@@ -169,8 +169,12 @@ function showDayEvents(date) {
     </div>
   `;
   
-  // Mostrar en un modal simple (puedes crear un modal específico si prefieres)
-  alert(message.replace(/<[^>]*>/g, '')); // Versión simple con alert
+  // Mostrar en modal visual
+  showAppAlert(message.replace(/<[^>]*>/g, ''), {
+    title: `Eventos del ${formatDate(date)}`,
+    type: 'info',
+    confirmText: 'Cerrar'
+  });
   renderCalendar(); // Re-renderizar para aplicar cambios
   lucide.createIcons();
 }
@@ -224,8 +228,12 @@ function renderUpcomingEvents() {
 }
 
 // Eliminar evento
-function deleteEventConfirm(eventId) {
-  if (confirmAction('¿Estás seguro de eliminar este evento?')) {
+async function deleteEventConfirm(eventId) {
+  if (await confirmAction('¿Estás seguro de eliminar este evento?', {
+    type: 'danger',
+    title: 'Eliminar evento',
+    confirmText: 'Sí, eliminar'
+  })) {
     deleteEvent(eventId);
     showToast('✅ Evento eliminado');
     renderCalendar();

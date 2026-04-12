@@ -65,11 +65,23 @@ async function installPWA() {
     
     // Instrucciones manuales según el navegador
     if (navigator.userAgent.includes('iPhone') || navigator.userAgent.includes('iPad')) {
-      alert('📱 Para instalar en iOS:\n\n1. Toca el botón de Compartir (⬆️)\n2. Selecciona "Agregar a pantalla de inicio"\n3. Toca "Agregar"');
+      await showAppAlert('📱 Para instalar en iOS:\n\n1. Toca el botón de Compartir (⬆️)\n2. Selecciona "Agregar a pantalla de inicio"\n3. Toca "Agregar"', {
+        title: 'Instalar MY CLUB',
+        type: 'info',
+        confirmText: 'Entendido'
+      });
     } else if (navigator.userAgent.includes('Android')) {
-      alert('📱 Para instalar:\n\n1. Toca el menú (⋮) arriba a la derecha\n2. Selecciona "Instalar aplicación" o "Agregar a pantalla de inicio"');
+      await showAppAlert('📱 Para instalar:\n\n1. Toca el menú (⋮) arriba a la derecha\n2. Selecciona "Instalar aplicación" o "Agregar a pantalla de inicio"', {
+        title: 'Instalar MY CLUB',
+        type: 'info',
+        confirmText: 'Entendido'
+      });
     } else {
-      alert('💻 Para instalar:\n\n1. Busca el ícono de instalación en la barra de direcciones\n2. O ve al menú del navegador y busca "Instalar MY CLUB"');
+      await showAppAlert('💻 Para instalar:\n\n1. Busca el ícono de instalación en la barra de direcciones\n2. O ve al menú del navegador y busca "Instalar MY CLUB"', {
+        title: 'Instalar MY CLUB',
+        type: 'info',
+        confirmText: 'Entendido'
+      });
     }
     return;
   }

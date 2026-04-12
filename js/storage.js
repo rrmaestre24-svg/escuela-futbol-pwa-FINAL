@@ -773,8 +773,12 @@ function importData(jsonData) {
 }
 
 // LIMPIAR TODOS LOS DATOS
-function clearAllData() {
-  if (confirmAction('⚠️ ¿Estás seguro de eliminar TODOS los datos? Esta acción no se puede deshacer.')) {
+async function clearAllData() {
+  if (await confirmAction('⚠️ ¿Estás seguro de eliminar TODOS los datos? Esta acción no se puede deshacer.', {
+    type: 'danger',
+    title: 'Eliminar todos los datos',
+    confirmText: 'Sí, eliminar todo'
+  })) {
     localStorage.clear();
     initStorage();
     showToast('✅ Todos los datos han sido eliminados');
@@ -830,7 +834,7 @@ function saveSchoolSettings(settings) {
 function importDataFromJSON(file) {
   const reader = new FileReader();
   
-  reader.onload = function(e) {
+  reader.onload = async function(e) {
     try {
       const jsonData = e.target.result;
       const data = JSON.parse(jsonData);
@@ -840,7 +844,12 @@ function importDataFromJSON(file) {
         return;
       }
       
-      if (!confirm('⚠️ ADVERTENCIA: Esto reemplazará TODOS los datos actuales.\n\n¿Estás seguro de continuar?')) {
+      const confirmed = await showAppConfirm('⚠️ ADVERTENCIA: Esto reemplazará TODOS los datos actuales.\n\n¿Estás seguro de continuar?', {
+        type: 'danger',
+        title: 'Importar datos desde JSON',
+        confirmText: 'Sí, reemplazar datos'
+      });
+      if (!confirmed) {
         return;
       }
       

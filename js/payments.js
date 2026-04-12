@@ -1603,9 +1603,14 @@ async function saveEditedPayment() {
   // Si está pagado, ofrecer generar PDF + WhatsApp
   if (status === 'Pagado') {
     setTimeout(() => {
-      if (confirm('¿Deseas generar la factura PDF y enviarla por WhatsApp?')) {
+      showAppConfirm('¿Deseas generar la factura PDF y enviarla por WhatsApp?', {
+        type: 'info',
+        title: 'Factura lista',
+        confirmText: 'Sí, enviar por WhatsApp'
+      }).then((confirmed) => {
+        if (!confirmed) return;
         generateInvoicePDFWithWhatsApp(paymentId);
-      }
+      });
     }, 500);
   }
 }

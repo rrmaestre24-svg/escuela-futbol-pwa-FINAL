@@ -874,7 +874,11 @@ async function deleteSchoolUser(userId) {
     return;
   }
   
-  if (!confirmAction(`¿Eliminar PERMANENTEMENTE a ${userToDelete.name}?\n\n⚠️ Esta acción es IRREVERSIBLE.\n⚠️ Se cerrará su sesión INMEDIATAMENTE.\n⚠️ NO podrá volver a ingresar.`)) {
+  if (!await confirmAction(`¿Eliminar PERMANENTEMENTE a ${userToDelete.name}?\n\n⚠️ Esta acción es IRREVERSIBLE.\n⚠️ Se cerrará su sesión INMEDIATAMENTE.\n⚠️ NO podrá volver a ingresar.`, {
+    type: 'danger',
+    title: 'Eliminar usuario',
+    confirmText: 'Sí, eliminar permanentemente'
+  })) {
     return;
   }
   

@@ -240,7 +240,12 @@ async function saveCoachPWA() {
  * Delete Coach
  */
 async function deleteCoachPWA(coachId) {
-    if (!confirm('¿Estás seguro de eliminar a este profesor? No perderás los registros de asistencia previos elaborados por él.')) return;
+    const confirmed = await showAppConfirm('¿Estás seguro de eliminar a este profesor? No perderás los registros de asistencia previos elaborados por él.', {
+        type: 'danger',
+        title: 'Eliminar profesor',
+        confirmText: 'Sí, eliminar'
+    });
+    if (!confirmed) return;
     
     try {
         const clubId = localStorage.getItem('clubId');
