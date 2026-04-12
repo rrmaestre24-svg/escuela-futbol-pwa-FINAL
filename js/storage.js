@@ -39,6 +39,7 @@ function initStorage() {
       monthlyDueDay: 10,
       monthlyGraceDays: 5,
       monthlyReminderTemplate: '',
+      pdfFooterMessage: '',
       autoWhatsAppEnabled: false,
       coachCode: '',
       currency: 'COP',

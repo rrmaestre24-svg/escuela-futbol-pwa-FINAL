@@ -20,6 +20,17 @@ function normalizeForPDF(text) {
   return text.replace(/[áéíóúÁÉÍÓÚñÑüÜ]/g, match => map[match] || match);
 }
 
+function hexToRgbArray(hexColor) {
+  if (!hexColor || typeof hexColor !== 'string') return [13, 148, 136];
+  const clean = hexColor.replace('#', '').trim();
+  if (clean.length !== 6) return [13, 148, 136];
+  const r = parseInt(clean.slice(0, 2), 16);
+  const g = parseInt(clean.slice(2, 4), 16);
+  const b = parseInt(clean.slice(4, 6), 16);
+  if ([r, g, b].some(v => Number.isNaN(v))) return [13, 148, 136];
+  return [r, g, b];
+}
+
 
 // ========================================
 // 🆕 FUNCIÓN UNIVERSAL: AGREGAR FIRMA AUTOMÁTICA
@@ -95,6 +106,23 @@ function addSignatureToDocument(doc, yPosition = 245) {
   doc.setFontSize(8);
   doc.setTextColor(...lightGray);
   doc.text(`${dateStr} a las ${timeStr}`, textX, yPosition + 17);
+
+  const settings = typeof getSchoolSettings === 'function' ? getSchoolSettings() : {};
+  const footerMessage = (settings?.pdfFooterMessage || '').trim();
+  if (footerMessage) {
+    const footerColor = hexToRgbArray(settings?.primaryColor || '#0d9488');
+    doc.setFont(undefined, 'italic');
+    doc.setFontSize(8.5);
+    doc.setTextColor(...footerColor);
+
+    const lines = doc.splitTextToSize(normalizeForPDF(footerMessage), 170).slice(0, 2);
+    const footerY = 282;
+    lines.forEach((line, idx) => {
+      const lineWidth = doc.getTextWidth(line);
+      const x = (210 - lineWidth) / 2;
+      doc.text(line, x, footerY + (idx * 4.5));
+    });
+  }
   
   return yPosition + 22;
 }

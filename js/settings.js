@@ -47,7 +47,8 @@ function loadSettings() {
     coachCode: document.getElementById('coachCode'),
     monthlyDueDay: document.getElementById('monthlyDueDay'),
     monthlyGraceDays: document.getElementById('monthlyGraceDays'),
-    monthlyReminderTemplate: document.getElementById('monthlyReminderTemplate')
+    monthlyReminderTemplate: document.getElementById('monthlyReminderTemplate'),
+    pdfFooterMessage: document.getElementById('pdfFooterMessage')
   };
   
   if (clubElements.clubLogo) clubElements.clubLogo.src = settings.logo || getDefaultLogo();
@@ -66,6 +67,9 @@ function loadSettings() {
   if (clubElements.monthlyGraceDays) clubElements.monthlyGraceDays.value = Number(settings.monthlyGraceDays) || 5;
   if (clubElements.monthlyReminderTemplate) {
     clubElements.monthlyReminderTemplate.value = settings.monthlyReminderTemplate || '';
+  }
+  if (clubElements.pdfFooterMessage) {
+    clubElements.pdfFooterMessage.value = settings.pdfFooterMessage || '';
   }
   
   // ✅ Cargar clubId (solo lectura para todos)
@@ -499,6 +503,7 @@ document.getElementById('clubSettingsForm')?.addEventListener('submit', function
   const monthlyDueDay = document.getElementById('monthlyDueDay');
   const monthlyGraceDays = document.getElementById('monthlyGraceDays');
   const monthlyReminderTemplate = document.getElementById('monthlyReminderTemplate');
+  const pdfFooterMessage = document.getElementById('pdfFooterMessage');
   
   const settings = {
     name: clubName ? clubName.value : '',
@@ -514,7 +519,8 @@ document.getElementById('clubSettingsForm')?.addEventListener('submit', function
     coachCode: document.getElementById('coachCode') ? document.getElementById('coachCode').value : '',
     monthlyDueDay: Math.max(1, Math.min(28, Number(monthlyDueDay?.value) || 10)),
     monthlyGraceDays: Math.max(0, Math.min(60, Number(monthlyGraceDays?.value) || 5)),
-    monthlyReminderTemplate: (monthlyReminderTemplate?.value || '').trim()
+    monthlyReminderTemplate: (monthlyReminderTemplate?.value || '').trim(),
+    pdfFooterMessage: (pdfFooterMessage?.value || '').trim()
   };
   
  // Preservar clubId y logo existentes
@@ -1015,6 +1021,31 @@ icon.setAttribute('data-lucide', 'chevron-down');
 } else {
 icon.setAttribute('data-lucide', 'chevron-up');
 }}}
+
+function openPdfFooterMessageSettings() {
+  const messagingSection = document.getElementById('messagingSection');
+  if (messagingSection?.classList.contains('hidden')) {
+    toggleSection('messagingSection');
+  }
+
+  setTimeout(() => {
+    const input = document.getElementById('pdfFooterMessage');
+    if (!input) {
+      showToast('⚠️ Campo de mensaje PDF no encontrado');
+      return;
+    }
+
+    input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    input.focus();
+    input.classList.add('ring-2', 'ring-teal-500', 'ring-offset-2', 'dark:ring-offset-gray-800');
+    setTimeout(() => {
+      input.classList.remove('ring-2', 'ring-teal-500', 'ring-offset-2', 'dark:ring-offset-gray-800');
+    }, 1500);
+  }, 180);
+}
+
+window.openPdfFooterMessageSettings = openPdfFooterMessageSettings;
+window.openMessagingSettings = openPdfFooterMessageSettings;
 
 
 // ========================================
