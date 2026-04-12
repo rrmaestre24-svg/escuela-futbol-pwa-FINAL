@@ -203,9 +203,37 @@ async function togglePlayerStatus(playerId) {
   
   // Cambiar estado
   const newStatus = player.status === 'Activo' ? 'Inactivo' : 'Activo';
+  const updateData = { status: newStatus };
+  const REACTIVATION_GRACE_MINUTES = 10;
+  const now = new Date();
+
+  // Si se inactiva, guardar marca temporal para detectar reactivación accidental.
+  if (newStatus === 'Inactivo') {
+    updateData.lastInactivatedAt = now.toISOString();
+  }
+
+  // Si se reactiva, reiniciar notificaciones solo si realmente estuvo inactivo
+  // más de una ventana corta (evita efectos por clic accidental).
+  if (newStatus === 'Activo') {
+    const lastInactivated = player.lastInactivatedAt ? parseLocalDate(player.lastInactivatedAt) : null;
+    const hasValidInactivation = lastInactivated && !isNaN(lastInactivated.getTime());
+
+    let shouldResetNotifications = true;
+    if (hasValidInactivation) {
+      const diffMs = now.getTime() - lastInactivated.getTime();
+      const diffMinutes = diffMs / (1000 * 60);
+      shouldResetNotifications = diffMinutes >= REACTIVATION_GRACE_MINUTES;
+    }
+
+    if (shouldResetNotifications) {
+      updateData.notificationsStartDate = getCurrentDate();
+    }
+
+    updateData.lastInactivatedAt = null;
+  }
   
   // Actualizar localmente
-  updatePlayer(playerId, { status: newStatus });
+  updatePlayer(playerId, updateData);
   
   // Sincronizar con Firebase si está disponible
   if (window.APP_STATE?.firebaseReady && window.firebase?.db) {
@@ -216,7 +244,7 @@ async function togglePlayerStatus(playerId) {
       if (clubId) {
         await window.firebase.setDoc(
           window.firebase.doc(window.firebase.db, `clubs/${clubId}/players`, playerId),
-          { status: newStatus },
+          updateData,
           { merge: true }
         );
         console.log('✅ Estado sincronizado con Firebase');

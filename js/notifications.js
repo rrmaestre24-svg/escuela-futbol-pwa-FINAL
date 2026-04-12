@@ -129,22 +129,42 @@ function getVirtualNotifications() {
   players.forEach(player => {
     const playerPayments = allPayments.filter(p => p.playerId === player.id);
 
-    // Sin facturas → no generar ninguna notificación para este jugador
+    // Mantener comportamiento original: sin pagos registrados no se generan virtuales.
     if (playerPayments.length === 0) return;
 
-    // Obtener la fecha de la primera factura usando paidDate o dueDate
-    const dates = playerPayments
-      .map(p => new Date(p.paidDate || p.dueDate))
-      .filter(d => !isNaN(d.getTime()))
-      .map(d => d.getTime());
+    // Regla de negocio: nunca notificar meses anteriores al inicio válido.
+    // Prioridad de inicio:
+    // 1) notificationsStartDate (cuando se reactiva)
+    // 2) enrollmentDate (inscripción)
+    // 3) primera mensualidad histórica válida (datos antiguos)
+    let notifyFromMonth = null;
+    const startCandidates = [];
+    const notificationsStart = player.notificationsStartDate ? parseLocalDate(player.notificationsStartDate) : null;
+    const enrollment = player.enrollmentDate ? parseLocalDate(player.enrollmentDate) : null;
 
-    if (dates.length === 0) return; // Si todas las fechas son inválidas, saltar
+    if (notificationsStart && !isNaN(notificationsStart.getTime())) {
+      startCandidates.push(new Date(notificationsStart.getFullYear(), notificationsStart.getMonth(), 1).getTime());
+    }
+    if (enrollment && !isNaN(enrollment.getTime())) {
+      startCandidates.push(new Date(enrollment.getFullYear(), enrollment.getMonth(), 1).getTime());
+    }
 
-    const firstPaymentDate = new Date(Math.min(...dates));
+    if (startCandidates.length > 0) {
+      // Tomar la más reciente para evitar reclamar meses anteriores al reingreso.
+      notifyFromMonth = Math.max(...startCandidates);
+    } else {
+      const monthlyDates = playerPayments
+        .filter(p => {
+          const concept = (p.concept || '').toLowerCase();
+          return p.type === 'Mensualidad' || concept.includes('mensua');
+        })
+        .map(p => parseLocalDate(p.paidDate || p.dueDate))
+        .filter(d => !isNaN(d.getTime()))
+        .map(d => new Date(d.getFullYear(), d.getMonth(), 1).getTime());
 
-    // Notificar solo desde el mes SIGUIENTE a la primera factura
-    // Ejemplo: primera factura en abril → notificar desde mayo en adelante
-    const notifyFromMonth = new Date(firstPaymentDate.getFullYear(), firstPaymentDate.getMonth() + 1, 1).getTime();
+      if (monthlyDates.length === 0) return;
+      notifyFromMonth = Math.min(...monthlyDates);
+    }
 
     // Buscar para cada mes objetivo si está cubierto
     for (const target of targets) {
@@ -159,7 +179,7 @@ function getVirtualNotifications() {
 
       const pConcept = target.name.toLowerCase();
       const isPaid = playerPayments.some(p => {
-        const pDate = new Date(p.paidDate || p.dueDate);
+        const pDate = parseLocalDate(p.paidDate || p.dueDate);
         const pConceptStr = (p.concept || '').toLowerCase();
 
         // Cubierto si:
