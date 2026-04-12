@@ -719,11 +719,21 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
                             </div>
                         </div>
                         <div>
-                            <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Plantilla recordatorio mensual (WhatsApp)</label>
+                            <div class="flex items-center justify-between gap-2 mb-1">
+                                <label class="block text-xs text-gray-500 dark:text-gray-400">Mensaje personalizado para recordatorio por WhatsApp (opcional)</label>
+                                <button type="button" id="fillMonthlyReminderTemplate"
+                                    class="text-[11px] px-2 py-1 rounded-md bg-teal-100 text-teal-700 hover:bg-teal-200 dark:bg-teal-900/40 dark:text-teal-300 dark:hover:bg-teal-900/60">
+                                    Usar mensaje recomendado
+                                </button>
+                            </div>
                             <textarea id="monthlyReminderTemplate" rows="4" maxlength="900"
-                                placeholder="Hola {parentName}, te recordamos la mensualidad de {monthName} {year}. Vence el {dueDate}."
+                                placeholder="Ejemplo: Hola, te recordamos la mensualidad de este mes. Si ya realizaste el pago, por favor ignora este mensaje."
                                 class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"></textarea>
-                            <p class="text-[10px] text-gray-500 mt-1 pl-1">Variables: {clubName}, {playerName}, {parentName}, {monthName}, {year}, {dueDate}, {graceDays}, {category}, {phone}</p>
+                            <p class="text-[10px] text-gray-500 mt-1 pl-1">Si lo dejas vacío, la app envía un mensaje recomendado automáticamente.</p>
+                            <details class="mt-1 pl-1">
+                                <summary class="text-[10px] text-gray-500 cursor-pointer">Opcional: usar datos automáticos en el texto</summary>
+                                <p class="text-[10px] text-gray-500 mt-1">Puedes agregar: {clubName}, {playerName}, {parentName}, {monthName}, {year}, {dueDate}, {graceDays}, {category}, {phone}</p>
+                            </details>
                         </div>
                         <!-- Color Primario -->
                         <div>

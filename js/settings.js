@@ -552,6 +552,15 @@ document.getElementById('clubPrimaryColor')?.addEventListener('input', function(
   }
 });
 
+document.getElementById('fillMonthlyReminderTemplate')?.addEventListener('click', function() {
+  const input = document.getElementById('monthlyReminderTemplate');
+  if (!input) return;
+
+  input.value = 'Hola {parentName}, te saludamos de {clubName}. Te recordamos la mensualidad de {monthName} {year}, con vencimiento el {dueDate}. Si ya realizaste el pago, por favor ignora este mensaje. Gracias por tu apoyo.';
+  input.focus();
+  showToast('✅ Mensaje recomendado cargado. Puedes editarlo libremente.');
+});
+
 // Exportar datos
 function exportData() {
   exportAllData();
