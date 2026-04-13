@@ -516,6 +516,20 @@ async function markAsPaid(paymentId) {
     editedBy: getAuditInfo() // 🆕 AUDITORÍA
   });
   
+  // 🆕 REGISTRAR EN EL HISTORIAL AL MARCAR PAGADO
+  if (typeof addPaymentLogEntry === 'function') {
+    const player = getPlayerById(payment.playerId);
+    addPaymentLogEntry({
+      action: 'Modificado',
+      invoiceNumber: invoiceNumber || payment.invoiceNumber || '-',
+      playerName: player ? player.name : 'Desconocido',
+      concept: payment.concept || payment.type || '-',
+      amount: payment.amount || 0,
+      adminName: (typeof getCurrentUser === 'function' && getCurrentUser()?.name) || 'Admin',
+      reason: 'Marcado como pagado'
+    });
+  }
+  
   showToast('✅ Pago marcado como pagado');
 
   // Mostrar modal de opción WhatsApp/PDF
@@ -862,12 +876,14 @@ function renderPaymentMovementLog() {
   const actionStyle = {
     'Creado':     { color: 'text-green-600 dark:text-green-400',  emoji: '✅' },
     'Modificado': { color: 'text-blue-600 dark:text-blue-400',    emoji: '✏️' },
-    'Anulado':    { color: 'text-red-600 dark:text-red-400',      emoji: '🚫' }
+    'Anulado':    { color: 'text-red-600 dark:text-red-400',      emoji: '🚫' },
+    'Recuperado': { color: 'text-purple-600 dark:text-purple-400', emoji: '🛠️' }
   };
 
   tbody.innerHTML = log.map((entry, i) => {
     const style = actionStyle[entry.action] || { color: 'text-gray-600', emoji: '•' };
-    const date = new Date(entry.timestamp);
+    // Usar el timestamp si existe, si no, la fecha actual como fallback
+    const date = entry.timestamp ? new Date(entry.timestamp) : new Date();
     const dateStr = date.toLocaleDateString('es-CO', { day:'2-digit', month:'2-digit', year:'numeric' });
     const timeStr = date.toLocaleTimeString('es-CO', { hour:'2-digit', minute:'2-digit' });
     const rowBg = i % 2 === 0 ? '' : 'bg-gray-50 dark:bg-gray-700/30';
@@ -884,6 +900,68 @@ function renderPaymentMovementLog() {
       </tr>`;
   }).join('');
 }
+
+// ========================================
+// 🆕 RECONCILIACIÓN DE HISTORIAL ANTIGUO
+// ========================================
+
+async function reconcileMissingHistory() {
+  showToast('🛠️ Reconciliando historial antiguo... Esto puede tardar un momento.');
+
+  // Obtenemos todos los datos necesarios
+  const allPayments = getPayments();
+  const allLogEntries = getPaymentLog();
+  const allPlayers = getPlayers();
+
+  // Creamos un mapa de jugadores para buscar sus nombres rápidamente
+  const playerMap = new Map(allPlayers.map(p => [p.id, p]));
+
+  // Creamos un Set (una lista súper rápida) con los números de factura que ya están en el historial
+  const loggedInvoiceNumbers = new Set(allLogEntries.map(entry => entry.invoiceNumber).filter(Boolean));
+
+  let newEntriesCount = 0;
+
+  // Recorremos todas las facturas
+  for (const payment of allPayments) {
+    // Nos interesan solo las facturas pagadas, con número de factura, que NO estén ya en el historial
+    if (payment.status === 'Pagado' && payment.invoiceNumber && !loggedInvoiceNumbers.has(payment.invoiceNumber)) {
+      
+      const player = playerMap.get(payment.playerId);
+      
+      // Creamos una nueva entrada en el historial para esta factura "encontrada"
+      addPaymentLogEntry({
+        action: 'Recuperado', // Una acción especial para estos casos
+        invoiceNumber: payment.invoiceNumber,
+        playerName: player ? player.name : 'Jugador Desconocido',
+        concept: payment.concept || payment.type || '-',
+        amount: payment.amount || 0,
+        adminName: 'Sistema', // Se atribuye al sistema porque es una acción automática
+        reason: 'Historial antiguo',
+        // Usamos la fecha de pago de la factura para que se ordene correctamente en el historial
+        timestamp: new Date(payment.paidDate || payment.createdAt).toISOString() 
+      });
+      
+      newEntriesCount++;
+    }
+  }
+
+  if (newEntriesCount > 0) {
+    showToast(`✅ ¡Se recuperaron ${newEntriesCount} registros del historial!`);
+    // Volvemos a renderizar el historial para que se vean los cambios al instante
+    renderPaymentMovementLog();
+  } else {
+    showToast('👍 El historial ya estaba completo.');
+  }
+
+  // Ocultamos el banner para siempre después de ejecutar esto
+  const banner = document.getElementById('loadHistoryBanner');
+  if (banner) banner.classList.add('hidden');
+  localStorage.setItem('paymentsFullHistory', 'true');
+}
+
+// Hacemos la función global para que el HTML la pueda llamar
+window.reconcileMissingHistory = reconcileMissingHistory;
+
 
 // Eliminar pago — abre modal para pedir motivo de anulación (solo admin principal)
 function deletePaymentConfirm(paymentId) {
@@ -2209,6 +2287,21 @@ async function handlePaymentFormSubmit(e) {
       };
 
       savePayment(newPayment);
+      
+      // 🆕 REGISTRAR EN EL HISTORIAL (LOG DE MOVIMIENTOS)
+      if (typeof addPaymentLogEntry === 'function') {
+        const player = getPlayerById(playerId);
+        addPaymentLogEntry({
+          action: 'Creado',
+          invoiceNumber: invoiceNumber || '-',
+          playerName: player ? player.name : 'Desconocido',
+          concept: concept || '-',
+          amount: amount || 0,
+          adminName: (typeof getCurrentUser === 'function' && getCurrentUser()?.name) || 'Admin',
+          reason: 'Registro inicial'
+        });
+      }
+      
       showToast('✅ Pago registrado');
 
       // Mostrar modal de opción WhatsApp/PDF si está pagado
