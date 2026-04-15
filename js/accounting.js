@@ -961,3 +961,155 @@ window.calculateCashRegisterDiscrepancy = calculateCashRegisterDiscrepancy;
 window.saveCashRegister = saveCashRegister;
 
 console.log('✅ accounting.js cargado correctamente CON DOCUMENTO DE IDENTIDAD');
+
+// ========================================
+// AUDITORÍA DE MONTOS - DETECTA DISCREPANCIAS finalAmount vs amount
+// ========================================
+function runAmountAudit() {
+  const payments = typeof getPayments === 'function' ? getPayments() : [];
+  const players  = typeof getPlayers  === 'function' ? getPlayers()  : [];
+
+  const getPlayerName = id => {
+    const p = players.find(p => p.id === id);
+    return p ? p.name : 'Desconocido';
+  };
+
+  // Caso 1: Editados con finalAmount desincronizado (EL BUG)
+  const buggedEdited = payments.filter(p =>
+    p.editedBy && p.finalAmount !== undefined && p.finalAmount !== p.amount
+  );
+
+  // Caso 2: Sin editar pero tienen finalAmount != amount (descuentos legítimos)
+  const withDiscount = payments.filter(p =>
+    !p.editedBy && p.finalAmount !== undefined && p.finalAmount !== p.amount
+  );
+
+  // Caso 3: Pagados sin ningún monto
+  const noAmount = payments.filter(p =>
+    p.status === 'Pagado' && !p.finalAmount && !p.amount
+  );
+
+  // Totales
+  const totalPaid   = payments.filter(p => p.status === 'Pagado').length;
+  const totalAll    = payments.length;
+
+  // Mostrar modal de resultados
+  const lines = [];
+
+  lines.push(`<div class="space-y-4 text-sm">`);
+
+  // Resumen general
+  lines.push(`
+    <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 grid grid-cols-3 gap-2 text-center">
+      <div><div class="text-xl font-bold text-blue-600">${totalAll}</div><div class="text-gray-500 text-xs">Total facturas</div></div>
+      <div><div class="text-xl font-bold text-green-600">${totalPaid}</div><div class="text-gray-500 text-xs">Pagadas</div></div>
+      <div><div class="text-xl font-bold text-red-600">${buggedEdited.length}</div><div class="text-gray-500 text-xs">Con error</div></div>
+    </div>
+  `);
+
+  // ERRORES (editados desincronizados)
+  if (buggedEdited.length > 0) {
+    lines.push(`<div class="border border-red-300 dark:border-red-700 rounded-lg overflow-hidden">`);
+    lines.push(`<div class="bg-red-100 dark:bg-red-900/40 px-3 py-2 font-semibold text-red-700 dark:text-red-300">
+      ⚠️ Facturas editadas con monto desactualizado (${buggedEdited.length})
+    </div>`);
+    lines.push(`<div class="divide-y divide-gray-100 dark:divide-gray-700">`);
+    buggedEdited.forEach(p => {
+      lines.push(`
+        <div class="px-3 py-2 flex justify-between items-center gap-2">
+          <div class="min-w-0">
+            <span class="font-mono text-xs text-gray-500">${p.invoiceNumber || p.id}</span>
+            <span class="ml-2 text-gray-700 dark:text-gray-300 truncate">${getPlayerName(p.playerId)}</span>
+            <span class="ml-2 text-gray-400 text-xs truncate hidden sm:inline">${p.concept || p.type || ''}</span>
+          </div>
+          <div class="shrink-0 text-right">
+            <span class="line-through text-red-400 text-xs">${formatCurrency(p.finalAmount)}</span>
+            <span class="ml-1 font-bold text-green-600">${formatCurrency(p.amount)}</span>
+          </div>
+        </div>
+      `);
+    });
+    lines.push(`</div></div>`);
+  } else {
+    lines.push(`<div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg px-3 py-2 text-green-700 dark:text-green-400">
+      ✅ Sin facturas editadas con error de monto
+    </div>`);
+  }
+
+  // DESCUENTOS LEGÍTIMOS
+  if (withDiscount.length > 0) {
+    lines.push(`<div class="border border-yellow-300 dark:border-yellow-700 rounded-lg overflow-hidden">`);
+    lines.push(`<div class="bg-yellow-50 dark:bg-yellow-900/30 px-3 py-2 font-semibold text-yellow-700 dark:text-yellow-300">
+      🏷️ Facturas con descuento aplicado (${withDiscount.length})
+    </div>`);
+    lines.push(`<div class="divide-y divide-gray-100 dark:divide-gray-700">`);
+    withDiscount.forEach(p => {
+      const disc = p.amount - p.finalAmount;
+      lines.push(`
+        <div class="px-3 py-2 flex justify-between items-center gap-2">
+          <div class="min-w-0">
+            <span class="font-mono text-xs text-gray-500">${p.invoiceNumber || p.id}</span>
+            <span class="ml-2 text-gray-700 dark:text-gray-300 truncate">${getPlayerName(p.playerId)}</span>
+          </div>
+          <div class="shrink-0 text-right text-xs">
+            <span class="text-gray-400">${formatCurrency(p.amount)}</span>
+            <span class="mx-1 text-yellow-600">- ${formatCurrency(disc)}</span>
+            <span class="font-bold text-gray-700 dark:text-gray-200">= ${formatCurrency(p.finalAmount)}</span>
+          </div>
+        </div>
+      `);
+    });
+    lines.push(`</div></div>`);
+  }
+
+  // SIN MONTO
+  if (noAmount.length > 0) {
+    lines.push(`<div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg px-3 py-2 text-red-700 dark:text-red-400">
+      ❌ Facturas pagadas sin monto registrado: ${noAmount.length}
+    </div>`);
+  }
+
+  // Botón reparar si hay errores
+  if (buggedEdited.length > 0) {
+    lines.push(`
+      <button onclick="repairFinalAmounts(); closeAuditModal()"
+        class="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium">
+        Reparar ${buggedEdited.length} factura(s) ahora
+      </button>
+    `);
+  }
+
+  lines.push(`</div>`);
+
+  // Crear y mostrar modal
+  let modal = document.getElementById('auditModal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'auditModal';
+    modal.className = 'fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4';
+    document.body.appendChild(modal);
+  }
+
+  modal.innerHTML = `
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col">
+      <div class="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-700">
+        <h2 class="font-bold text-gray-800 dark:text-white text-lg">Auditoría de Montos</h2>
+        <button onclick="closeAuditModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-2xl leading-none">&times;</button>
+      </div>
+      <div class="overflow-y-auto flex-1 p-4">
+        ${lines.join('')}
+      </div>
+    </div>
+  `;
+
+  modal.classList.remove('hidden');
+  modal.onclick = e => { if (e.target === modal) closeAuditModal(); };
+}
+
+function closeAuditModal() {
+  const modal = document.getElementById('auditModal');
+  if (modal) modal.classList.add('hidden');
+}
+
+window.runAmountAudit = runAmountAudit;
+window.closeAuditModal = closeAuditModal;

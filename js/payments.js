@@ -1643,6 +1643,7 @@ async function saveEditedPayment() {
     type,     // ✅ AHORA SE PUEDE CAMBIAR
     concept,
     amount,
+    finalAmount: amount, // ✅ SINCRONIZAR finalAmount al editar
     dueDate: dueDate || paidDate || getCurrentDate(),
     status,
     paidDate: status === 'Pagado' ? (paidDate || getCurrentDate()) : null,
@@ -1806,6 +1807,37 @@ window.saveEditedPayment = saveEditedPayment;
 window.autoFillEditConcept = autoFillEditConcept;
 
 console.log('✅ Sistema de edición COMPLETA de facturas cargado');
+
+// ========================================
+// REPARACIÓN DE finalAmount EN PAGOS EDITADOS
+// ========================================
+function repairFinalAmounts() {
+  const payments = getPayments();
+  let fixed = 0;
+  const repaired = payments.map(p => {
+    // Si fue editado y tiene finalAmount distinto a amount, sincronizar
+    if (p.editedBy && p.finalAmount !== undefined && p.finalAmount !== p.amount) {
+      fixed++;
+      return { ...p, finalAmount: p.amount };
+    }
+    return p;
+  });
+  if (fixed > 0) {
+    localStorage.setItem('payments', JSON.stringify(repaired));
+    // Sincronizar con Firebase los reparados
+    if (typeof savePaymentToFirebase === 'function') {
+      repaired.filter(p => p.editedBy && p.finalAmount === p.amount).forEach(p => {
+        savePaymentToFirebase(p).catch(() => {});
+      });
+    }
+    showToast(`✅ Se repararon ${fixed} pago(s) con monto desactualizado`);
+    renderPayments();
+    updateDashboard();
+  } else {
+    showToast('✅ Todos los pagos ya tienen el monto correcto');
+  }
+}
+window.repairFinalAmounts = repairFinalAmounts;
 
 // ========================================
 // BUSCADOR DE FACTURAS - CÓDIGO COMPLETO
