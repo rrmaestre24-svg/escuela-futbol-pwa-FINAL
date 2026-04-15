@@ -1,4 +1,4 @@
-const CACHE_NAME = 'my-club-v1.1.3';
+const CACHE_NAME = 'my-club-v1.1.4';
 
 const urlsToCache = [
   '/',
@@ -125,7 +125,8 @@ self.addEventListener('fetch', event => {
     event.request.url.includes('unpkg.com') ||
     event.request.url.includes('cdn.tailwindcss.com') ||
     event.request.url.includes('cdn.jsdelivr.net') ||
-    event.request.url.includes('cdnjs.cloudflare.com')
+    event.request.url.includes('cdnjs.cloudflare.com') ||
+    event.request.url.includes('ui-avatars.com')
   ) {
     return;
   }

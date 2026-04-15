@@ -217,38 +217,15 @@ async function loadParentAccessStatus() {
     const codesSnapshot = await window.firebase.getDocs(codesRef);
     
     const codesByPlayer = {};
-    const legacyCodesToMigrate = [];
     codesSnapshot.forEach(doc => {
         const data = doc.data();
         if (data.playerId) {
-            let sentAt = data.sentAt;
-            if (data.code && !sentAt) {
-                sentAt = data.createdAt || new Date().toISOString();
-                legacyCodesToMigrate.push({ docId: doc.id, sentAt });
-            }
-
             codesByPlayer[data.playerId] = {
                 id: doc.id,
-                ...data,
-                sentAt
+                ...data
             };
         }
     });
-
-    if (legacyCodesToMigrate.length > 0 && window.firebase?.updateDoc && window.firebase?.doc) {
-        Promise.all(
-            legacyCodesToMigrate.map(({ docId, sentAt }) =>
-                window.firebase.updateDoc(
-                    window.firebase.doc(window.firebase.db, `clubs/${clubId}/parentCodes`, docId),
-                    { sentAt }
-                )
-            )
-        ).then(() => {
-            console.log(`✅ Migración de accesos históricos completada: ${legacyCodesToMigrate.length}`);
-        }).catch((error) => {
-            console.warn('⚠️ No se pudo completar la migración histórica de sentAt:', error);
-        });
-    }
 
     // Auto-revocar códigos vencidos (inactivos con más de 30 min)
     players.forEach(player => {
@@ -382,7 +359,7 @@ function renderParentAccessList() {
                                 class="p-2 rounded-xl text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/40 transition-colors border border-transparent hover:border-emerald-200 dark:hover:border-emerald-800/40">
                             <i data-lucide="send" class="w-4 h-4"></i>
                         </button>
-                        <button onclick="regenerateParentCode('${player.id}')" 
+                        <button onclick="regenerateParentCodeBatch('${player.id}')"
                                 title="Regenerar nuevo código"
                                 class="p-2 rounded-xl text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/40 transition-colors border border-transparent hover:border-amber-200 dark:hover:border-amber-800/40">
                             <i data-lucide="refresh-cw" class="w-4 h-4"></i>
@@ -424,7 +401,7 @@ async function resendParentCode(playerId) {
 /**
  * Generate a NEW code and send via WhatsApp
  */
-async function regenerateParentCode(playerId) {
+async function regenerateParentCodeBatch(playerId) {
     const player = parentAccessData.players.find(p => p.id === playerId);
     if (!player) return;
 
@@ -479,10 +456,12 @@ async function openWhatsAppForParent(player, access) {
     const waUrl = `https://wa.me/${phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(message)}`;
     
     // Marcar como enviado en Firebase
+    // Usamos setDoc con merge:true para que funcione aunque el documento aún no exista
+    // (puede pasar cuando el código se acaba de crear y la sync de Firebase aún no terminó)
     try {
         const updateRef = window.firebase.doc(window.firebase.db, `clubs/${clubId}/parentCodes`, player.id);
         const sentAt = new Date().toISOString();
-        await window.firebase.updateDoc(updateRef, { sentAt });
+        await window.firebase.setDoc(updateRef, { playerId: player.id, sentAt }, { merge: true });
         if (parentAccessData.codes[player.id]) {
             parentAccessData.codes[player.id].sentAt = sentAt;
         }
@@ -633,7 +612,7 @@ window.closeParentAccessModal       = closeParentAccessModal;
 window.processBatchParentAccess     = processBatchParentAccess;
 window.filterParentAccessList       = filterParentAccessList;
 window.resendParentCode             = resendParentCode;
-window.regenerateParentCode         = regenerateParentCode;
+window.regenerateParentCodeBatch    = regenerateParentCodeBatch;
 window.confirmResetAllParentAccess  = confirmResetAllParentAccess;
 
 console.log('✅ parent-automation.js cargado');
