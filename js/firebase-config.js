@@ -46,31 +46,41 @@ async function initFirebase() {
   try {
     console.log('[FIREBASE] Inicializando...');
     
-    const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js');
-    
-    const firestoreModule = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
-    const { 
-      getFirestore, 
-      collection, 
-      doc, 
-      getDoc, 
-      getDocs, 
-      setDoc, 
-      addDoc, 
-      updateDoc, 
-      deleteDoc, 
-      query, 
-      where, 
-      orderBy, 
+    // Cargar todos los módulos de Firebase en paralelo — evita el freeze al inicio
+    const [
+      { initializeApp },
+      firestoreModule,
+      storageModule,
+      authModule,
+      { getFunctions, httpsCallable }
+    ] = await Promise.all([
+      import('https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js'),
+      import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js'),
+      import('https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js'),
+      import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js'),
+      import('https://www.gstatic.com/firebasejs/10.7.1/firebase-functions.js')
+    ]);
+
+    const {
+      getFirestore,
+      collection,
+      doc,
+      getDoc,
+      getDocs,
+      setDoc,
+      addDoc,
+      updateDoc,
+      deleteDoc,
+      query,
+      where,
+      orderBy,
       limit,
       onSnapshot,
       runTransaction,
       serverTimestamp,
-      deleteField 
+      deleteField
     } = firestoreModule;
-    
 
-    const storageModule = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js');
     const {
       getStorage,
       ref,
@@ -80,8 +90,6 @@ async function initFirebase() {
       deleteObject
     } = storageModule;
 
-
-    const authModule = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');
     const {
       getAuth,
       signInWithEmailAndPassword,
@@ -96,9 +104,6 @@ async function initFirebase() {
       signInWithRedirect,
       getRedirectResult
     } = authModule;
-
-    // Cloud Functions — para llamar funciones del backend (ej. eliminar cuenta Auth)
-    const { getFunctions, httpsCallable } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-functions.js');
 
     const app = initializeApp(firebaseConfig);
     db = getFirestore(app);
