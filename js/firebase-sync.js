@@ -285,6 +285,18 @@ async function syncAllToFirebase() {
     console.log(`✅ ${thirdPartyCount} otros ingresos subidos`);
     syncedItems.push(`${thirdPartyCount} otros ingresos`);
 
+    // 8️⃣ Log de Movimientos de Pagos - lotes de 20
+    const logEntries = (typeof getPaymentLog === 'function' ? getPaymentLog() : []).filter(e => e.id);
+    const logCount = await processInChunks(logEntries, 20, async (entry) => {
+      await window.firebase.setDoc(
+        window.firebase.doc(window.firebase.db, `clubs/${clubId}/paymentMovementLog`, entry.id),
+        entry
+      );
+      return true;
+    });
+    console.log(`✅ ${logCount} entradas del log de movimientos subidas`);
+    syncedItems.push(`${logCount} mov. de pagos`);
+
     console.log('✅ Sincronización completada');
     showToast(`✅ Datos subidos: ${syncedItems.join(', ')}`);
   } catch (error) {
@@ -396,7 +408,17 @@ async function downloadFromFirebase() {
     localStorage.setItem('thirdPartyIncomes', JSON.stringify(thirdPartyIncomes));
     console.log(`✅ ${thirdPartyIncomes.length} otros ingresos descargados`);
 
-    // ✅ 8️⃣ IMPORTANTE: Limpiar marca de sincronización y re-sincronizar contador
+    // 8️⃣ Log de Movimientos de Pagos
+    const logSnapshot = await window.firebase.getDocs(
+      window.firebase.collection(window.firebase.db, `clubs/${clubId}/paymentMovementLog`)
+    );
+    const logEntries = [];
+    logSnapshot.forEach(doc => logEntries.push(doc.data()));
+    logEntries.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    localStorage.setItem('paymentMovementLog', JSON.stringify(logEntries.slice(0, 500)));
+    console.log(`✅ ${logEntries.length} entradas del log de movimientos descargadas`);
+
+    // ✅ 9️⃣ IMPORTANTE: Limpiar marca de sincronización y re-sincronizar contador
     const syncKey = `counterSynced_${clubId}`;
     localStorage.removeItem(syncKey);
     console.log('🔄 Forzando re-sincronización del contador de facturas...');
@@ -799,6 +821,123 @@ async function deleteThirdPartyIncomeFromFirebase(incomeId) {
   }
 }
 
+// ========================================
+// 📋 LOG DE MOVIMIENTOS DE PAGOS — FIREBASE
+// ========================================
+
+/**
+ * Guarda una sola entrada del log en Firebase (llamado en tiempo real al crear cada entrada)
+ */
+async function savePaymentLogEntryToFirebase(entry) {
+  if (!window.APP_STATE?.firebaseReady || !window.firebase?.auth?.currentUser) return false;
+  const clubId = getClubId();
+  if (!clubId || !entry?.id) return false;
+  try {
+    await window.firebase.setDoc(
+      window.firebase.doc(window.firebase.db, `clubs/${clubId}/paymentMovementLog`, entry.id),
+      entry
+    );
+    return true;
+  } catch (error) {
+    console.warn('⚠️ Error al guardar entrada de log en Firebase:', error);
+    return false;
+  }
+}
+
+/**
+ * Migración única: sube todas las entradas locales existentes a Firebase.
+ * Solo corre una vez por dispositivo/club (flag paymentLogFirebaseMigration_v1).
+ */
+async function migrateLocalPaymentLogToFirebase() {
+  const clubId = getClubId();
+  if (!clubId) return;
+  const FLAG = `paymentLogFirebaseMigration_v1_${clubId}`;
+  if (localStorage.getItem(FLAG) === 'true') return;
+  if (!window.APP_STATE?.firebaseReady || !window.firebase?.auth?.currentUser) return;
+  try {
+    const entries = (typeof getPaymentLog === 'function' ? getPaymentLog() : []).filter(e => e.id);
+    if (entries.length === 0) { localStorage.setItem(FLAG, 'true'); return; }
+    console.log(`📤 Migrando ${entries.length} entradas del log de pagos a Firebase...`);
+    await processInChunks(entries, 20, async (entry) => {
+      await window.firebase.setDoc(
+        window.firebase.doc(window.firebase.db, `clubs/${clubId}/paymentMovementLog`, entry.id),
+        entry
+      );
+      return true;
+    });
+    localStorage.setItem(FLAG, 'true');
+    console.log(`✅ Migración del log completada: ${entries.length} entradas subidas`);
+  } catch (error) {
+    console.warn('⚠️ Error en migración del log de pagos:', error);
+  }
+}
+
+/**
+ * Limpieza única: elimina entradas 'Recuperado' con timestamps incorrectos,
+ * las regenera con la fecha real del pago y sincroniza con Firebase.
+ */
+async function fixRecoveredPaymentLogEntries() {
+  const clubId = getClubId();
+  if (!clubId) return;
+  const FLAG = `paymentLogRecoveredFix_v1_${clubId}`;
+  if (localStorage.getItem(FLAG) === 'true') return;
+
+  try {
+    const log = typeof getPaymentLog === 'function' ? getPaymentLog() : [];
+    const recovered = log.filter(e => e.action === 'Recuperado');
+    if (recovered.length === 0) { localStorage.setItem(FLAG, 'true'); return; }
+
+    console.log(`🧹 Corrigiendo ${recovered.length} entradas 'Recuperado' con fechas incorrectas...`);
+
+    // Quitar todas las entradas 'Recuperado' del log local
+    const cleaned = log.filter(e => e.action !== 'Recuperado');
+    localStorage.setItem('paymentMovementLog', JSON.stringify(cleaned));
+
+    // Re-generar con fechas correctas via fixMissingPaymentLogEntries (usa createdAt/paidDate del pago)
+    localStorage.removeItem('paymentLogBackfill_v1');
+    if (typeof window.fixMissingPaymentLogEntries === 'function') {
+      window.fixMissingPaymentLogEntries({ force: true });
+    }
+
+    // Limpiar en Firebase: borrar los 'Recuperado' y subir el log corregido
+    if (window.APP_STATE?.firebaseReady && window.firebase?.auth?.currentUser) {
+      const snap = await window.firebase.getDocs(
+        window.firebase.collection(window.firebase.db, `clubs/${clubId}/paymentMovementLog`)
+      );
+      const deleteOps = [];
+      snap.forEach(doc => {
+        if (doc.data().action === 'Recuperado') {
+          deleteOps.push(window.firebase.deleteDoc(doc.ref));
+        }
+      });
+      await Promise.allSettled(deleteOps);
+      console.log(`🗑️ ${deleteOps.length} entradas 'Recuperado' eliminadas de Firebase`);
+
+      // Subir el log corregido
+      const correctLog = (typeof getPaymentLog === 'function' ? getPaymentLog() : []).filter(e => e.id);
+      await processInChunks(correctLog, 20, async (entry) => {
+        await window.firebase.setDoc(
+          window.firebase.doc(window.firebase.db, `clubs/${clubId}/paymentMovementLog`, entry.id),
+          entry
+        );
+        return true;
+      });
+      // Resetear flag de migración para que se vuelva a hacer con datos correctos
+      localStorage.removeItem(`paymentLogFirebaseMigration_v1_${clubId}`);
+      console.log(`✅ Log corregido subido a Firebase: ${correctLog.length} entradas`);
+    }
+
+    localStorage.setItem(FLAG, 'true');
+    console.log('✅ Limpieza de entradas Recuperado completada');
+  } catch (error) {
+    console.warn('⚠️ Error en limpieza de log:', error);
+  }
+}
+
+window.savePaymentLogEntryToFirebase = savePaymentLogEntryToFirebase;
+window.migrateLocalPaymentLogToFirebase = migrateLocalPaymentLogToFirebase;
+window.fixRecoveredPaymentLogEntries = fixRecoveredPaymentLogEntries;
+
 console.log('✅ firebase-sync.js cargado (MULTI-CLUB CON PERMISOS POR ROL)');
 
 // ========================================
@@ -1062,6 +1201,16 @@ window.addEventListener('load', async () => {
   if (!clubId) {
     console.log('⏳ No hay clubId aún, saltando sincronización');
     return;
+  }
+
+  // Limpiar entradas 'Recuperado' con fechas incorrectas (una sola vez)
+  if (typeof window.fixRecoveredPaymentLogEntries === 'function') {
+    await window.fixRecoveredPaymentLogEntries();
+  }
+
+  // Migrar log de movimientos a Firebase (una sola vez, no bloquea el contador)
+  if (typeof window.migrateLocalPaymentLogToFirebase === 'function') {
+    window.migrateLocalPaymentLogToFirebase();
   }
 
   // Verificar si ya se sincronizó antes en este dispositivo

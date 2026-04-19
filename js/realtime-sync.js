@@ -10,7 +10,8 @@ window.realtimeListeners = {
   events: null,
   expenses: null,
   settings: null,
-  logo: null
+  logo: null,
+  paymentMovementLog: null
 };
 
 // Estado de sincronización
@@ -71,6 +72,9 @@ async function startRealtimeSync(clubId) {
 
     // 6️⃣ Listener del logo (documento separado)
     startLogoListener(clubId);
+
+    // 7️⃣ Listener del log de movimientos de pagos
+    startPaymentLogListener(clubId);
     
     // Actualizar estado
     window.realtimeSyncState.isActive = true;
@@ -109,7 +113,8 @@ async function downloadAllDataInitially(clubId) {
     users: 0,
     thirdPartyIncomes: 0,
     parentCodes: 0,
-    config: 0
+    config: 0,
+    paymentMovementLog: 0
   };
   
 // 1️⃣ CONFIGURACIÓN
@@ -375,7 +380,23 @@ async function downloadAllDataInitially(clubId) {
   } catch (error) {
     console.error('⚠️ Error config:', error);
   }
-  
+
+  // 🔟 LOG DE MOVIMIENTOS DE PAGOS
+  try {
+    console.log('📥 10/10 - Log de movimientos de pagos...');
+    const logSnapshot = await window.firebase.getDocs(
+      window.firebase.collection(window.firebase.db, `clubs/${clubId}/paymentMovementLog`)
+    );
+    const logEntries = [];
+    logSnapshot.forEach(doc => logEntries.push(doc.data()));
+    logEntries.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    localStorage.setItem('paymentMovementLog', JSON.stringify(logEntries.slice(0, 500)));
+    stats.paymentMovementLog = logEntries.length;
+    console.log(`✅ ${logEntries.length} entradas del log de movimientos`);
+  } catch (error) {
+    console.error('⚠️ Error log de movimientos:', error);
+  }
+
   // 🔄 ACTUALIZAR VISTAS
   console.log('🔄 Actualizando todas las vistas...');
   if (typeof updateDashboard === 'function') updateDashboard();
@@ -397,6 +418,7 @@ async function downloadAllDataInitially(clubId) {
   console.log(`   ✅ Ingresos externos: ${stats.thirdPartyIncomes}`);
   console.log(`   ✅ Códigos padres: ${stats.parentCodes}`);
   console.log(`   ✅ Config adicional: ${stats.config}`);
+  console.log(`   ✅ Log de movimientos: ${stats.paymentMovementLog}`);
   console.log('========================================');
   
   const total = stats.players + stats.payments + stats.events + stats.expenses;
@@ -759,6 +781,39 @@ function startLogoListener(clubId) {
   );
 
   console.log('🖼️ Listener de logo iniciado');
+}
+
+// ========================================
+// 📋 LISTENER DE LOG DE MOVIMIENTOS DE PAGOS
+// ========================================
+function startPaymentLogListener(clubId) {
+  const logRef = window.firebase.collection(
+    window.firebase.db,
+    `clubs/${clubId}/paymentMovementLog`
+  );
+
+  window.realtimeListeners.paymentMovementLog = window.firebase.onSnapshot(
+    logRef,
+    (snapshot) => {
+      if (snapshot.empty) return;
+      const entries = [];
+      snapshot.forEach(doc => entries.push(doc.data()));
+      entries.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+      localStorage.setItem('paymentMovementLog', JSON.stringify(entries.slice(0, 500)));
+
+      if (window.realtimeSyncState.initialLoadComplete) {
+        if (typeof renderPaymentMovementLog === 'function') {
+          renderPaymentMovementLog();
+        }
+        console.log(`🔄 Log de movimientos actualizado: ${entries.length} entradas`);
+      }
+    },
+    (error) => {
+      console.warn('⚠️ Error en listener de log de movimientos:', error);
+    }
+  );
+
+  console.log('📋 Listener de log de movimientos iniciado');
 }
 
 // ========================================

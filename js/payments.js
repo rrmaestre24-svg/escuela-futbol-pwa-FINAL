@@ -2319,21 +2319,6 @@ async function handlePaymentFormSubmit(e) {
       };
 
       savePayment(newPayment);
-      
-      // 🆕 REGISTRAR EN EL HISTORIAL (LOG DE MOVIMIENTOS)
-      if (typeof addPaymentLogEntry === 'function') {
-        const player = getPlayerById(playerId);
-        addPaymentLogEntry({
-          action: 'Creado',
-          invoiceNumber: invoiceNumber || '-',
-          playerName: player ? player.name : 'Desconocido',
-          concept: concept || '-',
-          amount: amount || 0,
-          adminName: (typeof getCurrentUser === 'function' && getCurrentUser()?.name) || 'Admin',
-          reason: 'Registro inicial'
-        });
-      }
-      
       showToast('✅ Pago registrado');
 
       // Mostrar modal de opción WhatsApp/PDF si está pagado
