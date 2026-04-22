@@ -2,7 +2,8 @@
 window.APP_STATE = {
   firebaseReady: false,
   currentUser: null,
-  authRestored: false
+  authRestored: false,
+  version: '1.1.17' // Versión estática para evitar v-- en local
 };
 
 // ========================================
@@ -228,11 +229,17 @@ function setHeaderAppVersion(versionLabel) {
 }
 
 async function refreshHeaderAppVersion() {
+  // 1. Mostrar la versión del estado global (rápido y funciona en local)
+  const appVersion = window.APP_STATE.version || '1.1.17';
+  setHeaderAppVersion(appVersion);
+
+  // 2. Intentar leer del cache previo
   const cachedVersionLabel = localStorage.getItem('appVersionLabel');
   if (cachedVersionLabel) {
     setHeaderAppVersion(cachedVersionLabel);
   }
 
+  // 3. Intentar detectar versión real del SW (solo funciona en HTTP/Localhost)
   try {
     const response = await fetch(`./sw.js?version_ts=${Date.now()}`, { cache: 'no-store' });
     if (!response.ok) return;
@@ -247,7 +254,8 @@ async function refreshHeaderAppVersion() {
     localStorage.setItem('appVersionLabel', versionLabel);
     setHeaderAppVersion(versionLabel);
   } catch (error) {
-    console.warn('⚠️ No se pudo actualizar la versión visible:', error?.message || error);
+    // Es normal que falle en file://
+    console.log('ℹ️ Usando versión estática (Modo Local)');
   }
 }
 // ========================================

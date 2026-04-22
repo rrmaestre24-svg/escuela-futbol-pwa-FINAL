@@ -1,4 +1,4 @@
-const CACHE_NAME = 'my-club-v1.1.12';
+const CACHE_NAME = 'my-club-v1.1.17';
 
 const urlsToCache = [
   '/',
@@ -19,6 +19,7 @@ const urlsToCache = [
 
   // CSS
   '/css/styles.css',
+  '/css/tailwind.out.css',
 
   // JS CORE
   '/js/app.js',
