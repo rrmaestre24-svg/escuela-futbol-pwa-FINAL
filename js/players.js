@@ -9,6 +9,10 @@ let currentStatusFilter = 'activo'; // 'todos', 'activo', 'inactivo' — por def
 let currentCategoryFilter = 'todas'; // 'todas' o nombre de categoría
 let _pendingDuplicateConfirm = null; // Guarda el callback del modal de duplicados
 
+// Variables de paginación (Infinite Scroll)
+let currentPlayersPage = 1;
+const PLAYERS_PER_PAGE = 20;
+
 // Mostrar modal agregar jugador
 function showAddPlayerModal() {
   currentEditingPlayerId = null;
@@ -329,7 +333,9 @@ function getDocumentTypeName(type) {
 }
 
 // Renderizar lista de jugadores - MEJORADO CON TELÉFONOS FORMATEADOS Y DOCUMENTO
-function renderPlayersList() {
+function renderPlayersList(append = false) {
+  if (!append) currentPlayersPage = 1;
+
   // Actualizar badge del botón Duplicados automáticamente
   const allPlayers = getPlayers();
   const dupCount = findAllDuplicates(allPlayers).length;
@@ -391,7 +397,14 @@ function renderPlayersList() {
     return;
   }
   
-  container.innerHTML = sorted.map(player => {
+  if (!append) container.innerHTML = '';
+  
+  const startIndex = append ? (currentPlayersPage - 1) * PLAYERS_PER_PAGE : 0;
+  const endIndex = currentPlayersPage * PLAYERS_PER_PAGE;
+  const pageItems = sorted.slice(startIndex, endIndex);
+
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = pageItems.map(player => {
     const age = calculateAge(player.birthDate);
     const isActive = player.status === 'Activo';
     const statusColor = isActive 
@@ -454,7 +467,49 @@ function renderPlayersList() {
     `;
   }).join('');
   
-  lucide.createIcons();
+  const sentinel = document.getElementById('playersScrollSentinel');
+  if (sentinel) sentinel.remove();
+
+  if (typeof lucide !== 'undefined' && lucide.createIcons) {
+      try { lucide.createIcons({ root: tempDiv }); } catch(e) {}
+  }
+
+  while (tempDiv.firstChild) {
+      container.appendChild(tempDiv.firstChild);
+  }
+
+  const hasMore = endIndex < sorted.length;
+  if (hasMore) {
+      container.insertAdjacentHTML('beforeend', `
+          <div id="playersScrollSentinel" class="w-full py-4 flex justify-center items-center">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
+          </div>
+      `);
+      if (typeof setupPlayersIntersectionObserver === 'function') {
+          setupPlayersIntersectionObserver();
+      }
+  }
+  
+  // Iconos de jugadores inyectados óptimamente
+}
+
+// NUEVA FUNCIÓN PARA INFINITE SCROLL
+let playersObserver = null;
+function setupPlayersIntersectionObserver() {
+    const sentinel = document.getElementById('playersScrollSentinel');
+    if (!sentinel) return;
+
+    if (playersObserver) playersObserver.disconnect();
+
+    playersObserver = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting) {
+            playersObserver.disconnect();
+            currentPlayersPage++;
+            renderPlayersList(true);
+        }
+    }, { rootMargin: '150px' });
+
+    playersObserver.observe(sentinel);
 }
 
 // Buscar jugadores en tiempo real — con debounce para no reconstruir

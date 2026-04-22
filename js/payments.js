@@ -11,6 +11,15 @@ let filteredPlayers = [];
 let historyDateFrom = null;
 let historyDateTo = null;
 
+// Variables de paginación para historial/logs
+let currentHistoryPage = 1;
+let currentMovementLogPage = 1;
+const PAYMENTS_PER_PAGE = 30;
+
+let currentMonthlyPage = 1;
+let currentExtraPage = 1;
+let currentExpensePage = 1;
+
 
 // ========================================
 // MODAL SELECTOR DE TIPO
@@ -238,7 +247,8 @@ function renderPayments() {
   }
 }
 // Renderizar mensualidades
-function renderMonthlyPayments(payments) {
+function renderMonthlyPayments(payments, append = false) {
+  if (!append) currentMonthlyPage = 1;
   const container = document.getElementById('monthlyPaymentsContent');
   
   if (payments.length === 0) {
@@ -251,6 +261,8 @@ function renderMonthlyPayments(payments) {
     return;
   }
   
+  if (!append) container.innerHTML = '';
+  
   // Ordenar por número de factura (más alto/reciente primero) y las que no tienen factura ordenarlas por fecha
   const sorted = [...payments].sort((a, b) => {
     if (a.invoiceNumber && b.invoiceNumber) return b.invoiceNumber.localeCompare(a.invoiceNumber);
@@ -259,18 +271,59 @@ function renderMonthlyPayments(payments) {
     return (b.createdAt || '').localeCompare(a.createdAt || '');
   });
 
-  container.innerHTML = sorted.map(payment => {
+  const startIndex = append ? (currentMonthlyPage - 1) * PAYMENTS_PER_PAGE : 0;
+  const endIndex = currentMonthlyPage * PAYMENTS_PER_PAGE;
+  const pageItems = sorted.slice(startIndex, endIndex);
+
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = pageItems.map(payment => {
     const player = getPlayerById(payment.playerId);
     if (!player) return '';
 
     return renderPaymentCard(payment, player);
   }).join('');
 
-  lucide.createIcons();
+  const sentinel = document.getElementById('monthlyScrollSentinel');
+  if (sentinel) sentinel.remove();
+
+  if (typeof lucide !== 'undefined' && lucide.createIcons) {
+      try { lucide.createIcons({ root: tempDiv }); } catch(e) {}
+  }
+
+  while (tempDiv.firstChild) {
+      container.appendChild(tempDiv.firstChild);
+  }
+
+  if (endIndex < sorted.length) {
+      container.insertAdjacentHTML('beforeend', `
+          <div id="monthlyScrollSentinel" class="w-full py-4 flex justify-center items-center">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
+          </div>
+      `);
+      if (typeof setupMonthlyObserver === 'function') setupMonthlyObserver(payments);
+  }
+
+  // Iconos procesados de forma local en tempDiv
+}
+
+let monthlyObserver = null;
+function setupMonthlyObserver(payments) {
+    const sentinel = document.getElementById('monthlyScrollSentinel');
+    if (!sentinel) return;
+    if (monthlyObserver) monthlyObserver.disconnect();
+    monthlyObserver = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting) {
+            monthlyObserver.disconnect();
+            currentMonthlyPage++;
+            renderMonthlyPayments(payments, true);
+        }
+    }, { rootMargin: '150px' });
+    monthlyObserver.observe(sentinel);
 }
 
 // Renderizar pagos extras
-function renderExtraPayments(payments) {
+function renderExtraPayments(payments, append = false) {
+  if (!append) currentExtraPage = 1;
   const container = document.getElementById('extrasPaymentsContent');
 
   if (payments.length === 0) {
@@ -283,6 +336,8 @@ function renderExtraPayments(payments) {
     return;
   }
 
+  if (!append) container.innerHTML = '';
+
   // Ordenar por número de factura (más alto/reciente primero) y las que no tienen factura ordenarlas por fecha
   const sorted = [...payments].sort((a, b) => {
     if (a.invoiceNumber && b.invoiceNumber) return b.invoiceNumber.localeCompare(a.invoiceNumber);
@@ -291,18 +346,58 @@ function renderExtraPayments(payments) {
     return (b.createdAt || '').localeCompare(a.createdAt || '');
   });
   
-  container.innerHTML = sorted.map(payment => {
+  const startIndex = append ? (currentExtraPage - 1) * PAYMENTS_PER_PAGE : 0;
+  const endIndex = currentExtraPage * PAYMENTS_PER_PAGE;
+  const pageItems = sorted.slice(startIndex, endIndex);
+
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = pageItems.map(payment => {
     const player = getPlayerById(payment.playerId);
     if (!player) return '';
-    
     return renderPaymentCard(payment, player);
   }).join('');
+
+  const sentinel = document.getElementById('extraScrollSentinel');
+  if (sentinel) sentinel.remove();
+
+  if (typeof lucide !== 'undefined' && lucide.createIcons) {
+      try { lucide.createIcons({ root: tempDiv }); } catch(e) {}
+  }
+
+  while (tempDiv.firstChild) {
+      container.appendChild(tempDiv.firstChild);
+  }
+
+  if (endIndex < sorted.length) {
+      container.insertAdjacentHTML('beforeend', `
+          <div id="extraScrollSentinel" class="w-full py-4 flex justify-center items-center">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
+          </div>
+      `);
+      if (typeof setupExtraObserver === 'function') setupExtraObserver(payments);
+  }
   
-  lucide.createIcons();
+  // Iconos procesados de forma local en tempDiv
+}
+
+let extraObserver = null;
+function setupExtraObserver(payments) {
+    const sentinel = document.getElementById('extraScrollSentinel');
+    if (!sentinel) return;
+    if (extraObserver) extraObserver.disconnect();
+    extraObserver = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting) {
+            extraObserver.disconnect();
+            currentExtraPage++;
+            renderExtraPayments(payments, true);
+        }
+    }, { rootMargin: '150px' });
+    extraObserver.observe(sentinel);
 }
 
 // Renderizar egresos dentro de pagos
-function renderExpensesInPayments(expenses) {
+function renderExpensesInPayments(expenses, append = false) {
+  if (!append) currentExpensePage = 1;
   const container = document.getElementById('expensesPaymentsContent');
   
   if (expenses.length === 0) {
@@ -315,11 +410,53 @@ function renderExpensesInPayments(expenses) {
     return;
   }
   
+  if (!append) container.innerHTML = '';
+  
   const sorted = sortBy(expenses, 'date', 'desc');
   
-  container.innerHTML = sorted.map(expense => renderExpenseCard(expense)).join('');
+  const startIndex = append ? (currentExpensePage - 1) * PAYMENTS_PER_PAGE : 0;
+  const endIndex = currentExpensePage * PAYMENTS_PER_PAGE;
+  const pageItems = sorted.slice(startIndex, endIndex);
+
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = pageItems.map(expense => renderExpenseCard(expense)).join('');
   
-  lucide.createIcons();
+  const sentinel = document.getElementById('expenseScrollSentinel');
+  if (sentinel) sentinel.remove();
+
+  if (typeof lucide !== 'undefined' && lucide.createIcons) {
+      try { lucide.createIcons({ root: tempDiv }); } catch(e) {}
+  }
+
+  while (tempDiv.firstChild) {
+      container.appendChild(tempDiv.firstChild);
+  }
+
+  if (endIndex < sorted.length) {
+      container.insertAdjacentHTML('beforeend', `
+          <div id="expenseScrollSentinel" class="w-full py-4 flex justify-center items-center">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
+          </div>
+      `);
+      if (typeof setupExpenseObserver === 'function') setupExpenseObserver(expenses);
+  }
+  
+  // Iconos procesados de forma local en tempDiv
+}
+
+let expenseObserver = null;
+function setupExpenseObserver(expenses) {
+    const sentinel = document.getElementById('expenseScrollSentinel');
+    if (!sentinel) return;
+    if (expenseObserver) expenseObserver.disconnect();
+    expenseObserver = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting) {
+            expenseObserver.disconnect();
+            currentExpensePage++;
+            renderExpensesInPayments(expenses, true);
+        }
+    }, { rootMargin: '150px' });
+    expenseObserver.observe(sentinel);
 }
 
 // Renderizar card de pago (INGRESO)
@@ -541,8 +678,13 @@ async function markAsPaid(paymentId) {
 }
 
 // Renderizar historial completo (INGRESOS + EGRESOS)
-function renderPaymentsHistory(payments, expenses) {
+function renderPaymentsHistory(payments = null, expenses = null, append = false) {
+  if (!append) currentHistoryPage = 1;
   const tbody = document.getElementById('paymentsHistoryTable');
+  if (!tbody) return;
+
+  if (!payments) payments = typeof getPayments === 'function' ? getPayments() : [];
+  if (!expenses) expenses = typeof getExpenses === 'function' ? getExpenses() : [];
 
   // Combinar pagos y egresos en una sola lista
   const allTransactions = [];
@@ -603,7 +745,13 @@ function renderPaymentsHistory(payments, expenses) {
     return;
   }
 
-  tbody.innerHTML = filtered.map(t => {
+  if (!append) tbody.innerHTML = '';
+
+  const startIndex = append ? (currentHistoryPage - 1) * PAYMENTS_PER_PAGE : 0;
+  const endIndex = currentHistoryPage * PAYMENTS_PER_PAGE;
+  const pageItems = filtered.slice(startIndex, endIndex);
+
+  const html = pageItems.map(t => {
     const statusColor = t.type === 'ingreso'
       ? (t.status === 'Pagado' ? 'text-green-600' : 'text-red-600')
       : 'text-red-600';
@@ -628,6 +776,40 @@ function renderPaymentsHistory(payments, expenses) {
       </tr>
     `;
   }).join('');
+
+  const sentinel = document.getElementById('historyScrollSentinel');
+  if (sentinel) sentinel.remove();
+
+  tbody.insertAdjacentHTML('beforeend', html);
+
+  if (endIndex < filtered.length) {
+      tbody.insertAdjacentHTML('beforeend', `
+          <tr id="historyScrollSentinel">
+            <td colspan="6" class="py-4 text-center">
+              <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
+            </td>
+          </tr>
+      `);
+      if (typeof setupHistoryObserver === 'function') {
+          setupHistoryObserver();
+      }
+  }
+}
+
+// NUEVA FUNCIÓN PARA INFINITE SCROLL EN HISTORIAL
+let historyObserver = null;
+function setupHistoryObserver() {
+    const sentinel = document.getElementById('historyScrollSentinel');
+    if (!sentinel) return;
+    if (historyObserver) historyObserver.disconnect();
+    historyObserver = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting) {
+            historyObserver.disconnect();
+            currentHistoryPage++;
+            renderPaymentsHistory(null, null, true);
+        }
+    }, { rootMargin: '150px' });
+    historyObserver.observe(sentinel);
 }
 
 // Aplica un filtro rápido (hoy / esta semana / este mes / todo)
@@ -832,7 +1014,8 @@ function exportHistoryPDF() {
 }
 
 // Renderizar tabla de log de movimientos en el Historial
-function renderPaymentMovementLog() {
+function renderPaymentMovementLog(append = false) {
+  if (!append) currentMovementLogPage = 1;
   const tbody = document.getElementById('paymentMovementLogTable');
   if (!tbody) return;
 
@@ -872,6 +1055,12 @@ function renderPaymentMovementLog() {
     return;
   }
 
+  if (!append) tbody.innerHTML = '';
+
+  const startIndex = append ? (currentMovementLogPage - 1) * PAYMENTS_PER_PAGE : 0;
+  const endIndex = currentMovementLogPage * PAYMENTS_PER_PAGE;
+  const pageItems = log.slice(startIndex, endIndex);
+
   // Colores y emojis según la acción
   const actionStyle = {
     'Creado':     { color: 'text-green-600 dark:text-green-400',  emoji: '✅' },
@@ -880,13 +1069,14 @@ function renderPaymentMovementLog() {
     'Recuperado': { color: 'text-purple-600 dark:text-purple-400', emoji: '🛠️' }
   };
 
-  tbody.innerHTML = log.map((entry, i) => {
+  const html = pageItems.map((entry, i) => {
+    const globalIndex = startIndex + i;
     const style = actionStyle[entry.action] || { color: 'text-gray-600', emoji: '•' };
     // Usar el timestamp si existe, si no, la fecha actual como fallback
     const date = entry.timestamp ? new Date(entry.timestamp) : new Date();
     const dateStr = date.toLocaleDateString('es-CO', { day:'2-digit', month:'2-digit', year:'numeric' });
     const timeStr = date.toLocaleTimeString('es-CO', { hour:'2-digit', minute:'2-digit' });
-    const rowBg = i % 2 === 0 ? '' : 'bg-gray-50 dark:bg-gray-700/30';
+    const rowBg = globalIndex % 2 === 0 ? '' : 'bg-gray-50 dark:bg-gray-700/30';
 
     return `
       <tr class="border-b border-gray-100 dark:border-gray-700 ${rowBg}">
@@ -899,6 +1089,40 @@ function renderPaymentMovementLog() {
         <td class="py-2 px-3 text-gray-500 dark:text-gray-400 text-xs">${entry.adminName}</td>
       </tr>`;
   }).join('');
+
+  const sentinel = document.getElementById('movementLogScrollSentinel');
+  if (sentinel) sentinel.remove();
+
+  tbody.insertAdjacentHTML('beforeend', html);
+
+  if (endIndex < log.length) {
+      tbody.insertAdjacentHTML('beforeend', `
+          <tr id="movementLogScrollSentinel">
+            <td colspan="7" class="py-4 text-center">
+              <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
+            </td>
+          </tr>
+      `);
+      if (typeof setupMovementLogObserver === 'function') {
+          setupMovementLogObserver();
+      }
+  }
+}
+
+// NUEVA FUNCIÓN PARA INFINITE SCROLL EN MOVIMIENTOS
+let movementLogObserver = null;
+function setupMovementLogObserver() {
+    const sentinel = document.getElementById('movementLogScrollSentinel');
+    if (!sentinel) return;
+    if (movementLogObserver) movementLogObserver.disconnect();
+    movementLogObserver = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting) {
+            movementLogObserver.disconnect();
+            currentMovementLogPage++;
+            renderPaymentMovementLog(true);
+        }
+    }, { rootMargin: '150px' });
+    movementLogObserver.observe(sentinel);
 }
 
 // ========================================
@@ -1844,6 +2068,7 @@ window.repairFinalAmounts = repairFinalAmounts;
 // ========================================
 
 let currentSearchTerm = '';
+let _paymentSearchDebounceTimer = null;
 
 function togglePaymentSearch() {
   const searchContainer = document.getElementById('paymentSearchContainer');
@@ -1868,41 +2093,44 @@ function togglePaymentSearch() {
 }
 
 function searchPayments() {
-  const searchInput = document.getElementById('paymentSearchInput');
-  if (!searchInput) return;
-  
-  currentSearchTerm = searchInput.value.toLowerCase().trim();
-  
-  if (currentSearchTerm === '') {
-    renderPayments();
-    return;
-  }
-  
-  const payments = getPayments();
-  const expenses = getExpenses();
-  let filteredData = [];
-  
-  if (currentPaymentTab === 'monthly') {
-    filteredData = payments
-      .filter(p => p.type === 'Mensualidad')
-      .filter(p => matchesSearch(p, 'payment'));
-    renderFilteredMonthlyPayments(filteredData);
+  clearTimeout(_paymentSearchDebounceTimer);
+  _paymentSearchDebounceTimer = setTimeout(() => {
+    const searchInput = document.getElementById('paymentSearchInput');
+    if (!searchInput) return;
     
-  } else if (currentPaymentTab === 'extras') {
-    filteredData = payments
-      .filter(p => p.type !== 'Mensualidad')
-      .filter(p => matchesSearch(p, 'payment'));
-    renderFilteredExtraPayments(filteredData);
+    currentSearchTerm = searchInput.value.toLowerCase().trim();
     
-  } else if (currentPaymentTab === 'expenses') {
-    filteredData = expenses.filter(e => matchesSearch(e, 'expense'));
-    renderFilteredExpenses(filteredData);
+    if (currentSearchTerm === '') {
+      renderPayments();
+      return;
+    }
     
-  } else if (currentPaymentTab === 'history') {
-    renderPaymentMovementLog();
-  }
-  
-  showSearchResultsCount(filteredData.length);
+    const payments = getPayments();
+    const expenses = getExpenses();
+    let filteredData = [];
+    
+    if (currentPaymentTab === 'monthly') {
+      filteredData = payments
+        .filter(p => p.type === 'Mensualidad')
+        .filter(p => matchesSearch(p, 'payment'));
+      renderFilteredMonthlyPayments(filteredData);
+      
+    } else if (currentPaymentTab === 'extras') {
+      filteredData = payments
+        .filter(p => p.type !== 'Mensualidad')
+        .filter(p => matchesSearch(p, 'payment'));
+      renderFilteredExtraPayments(filteredData);
+      
+    } else if (currentPaymentTab === 'expenses') {
+      filteredData = expenses.filter(e => matchesSearch(e, 'expense'));
+      renderFilteredExpenses(filteredData);
+      
+    } else if (currentPaymentTab === 'history') {
+      renderPaymentMovementLog();
+    }
+    
+    showSearchResultsCount(filteredData.length);
+  }, 300);
 }
 
 function matchesSearch(item, type) {
