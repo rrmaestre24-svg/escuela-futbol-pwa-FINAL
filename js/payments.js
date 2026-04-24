@@ -20,6 +20,17 @@ let currentMonthlyPage = 1;
 let currentExtraPage = 1;
 let currentExpensePage = 1;
 
+// Escape HTML para evitar XSS en texto ingresado por el usuario (motivo/observación)
+function _payEscapeHtml(text) {
+  if (text === null || text === undefined) return '';
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 
 // ========================================
 // MODAL SELECTOR DE TIPO
@@ -57,7 +68,13 @@ function selectPaymentType(type) {
 function showPaymentTab(tab) {
   currentPaymentTab = tab;
 
-  // Actualizar botones
+  // 🆕 Sincronizar el dropdown visual con el tab actual.
+  // Sin esto, al navegar a Pagos desde otra vista el <select> queda "pegado"
+  // en el último valor elegido, y volver a seleccionarlo no dispara onchange.
+  const select = document.getElementById('paymentTabSelect');
+  if (select && select.value !== tab) select.value = tab;
+
+  // Actualizar botones (legacy — los tabs fueron reemplazados por el dropdown)
   ['monthly', 'extras', 'expenses', 'thirdParty', 'history'].forEach(t => {
     const btn = document.getElementById(`${t}Tab`);
     if (btn) {
@@ -477,6 +494,18 @@ function renderPaymentCard(payment, player) {
   const createdInfo = payment.createdBy ? formatAuditInfo(payment.createdBy) : '';
   const editedInfo = payment.editedBy ? formatAuditInfo(payment.editedBy) : '';
 
+  // 🆕 Motivo u observación (el que use la escuelita) — útil para detectar beca, acuerdo, etc.
+  const observationText = (payment.discountReason || payment.notes || '').trim();
+  const observationHtml = observationText
+    ? `<div class="flex items-start gap-2 mt-2 px-2 py-1.5 rounded bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50">
+         <i data-lucide="info" class="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5"></i>
+         <div class="min-w-0">
+           <p class="text-[10px] uppercase tracking-wide text-amber-700 dark:text-amber-400 font-semibold">Observación</p>
+           <p class="text-xs text-amber-800 dark:text-amber-200 break-words">${_payEscapeHtml(observationText)}</p>
+         </div>
+       </div>`
+    : '';
+
   return `
     <div class="glass-card rounded-xl p-4 shadow-sm animate-slide-in">
       <div class="flex items-start justify-between mb-3">
@@ -523,6 +552,7 @@ function renderPaymentCard(payment, player) {
             <span class="text-xs text-gray-500 dark:text-gray-400">Editado: ${editedInfo}</span>
           </div>
         ` : ''}
+        ${observationHtml}
       </div>
 
       <div class="flex gap-2">
@@ -1939,6 +1969,18 @@ function renderPaymentCard(payment, player) {
   const createdInfo = payment.createdBy ? formatAuditInfo(payment.createdBy) : '';
   const editedInfo = payment.editedBy ? formatAuditInfo(payment.editedBy) : '';
 
+  // 🆕 Motivo u observación (el que use la escuelita) — útil para detectar beca, acuerdo, etc.
+  const observationText = (payment.discountReason || payment.notes || '').trim();
+  const observationHtml = observationText
+    ? `<div class="flex items-start gap-2 mt-2 px-2 py-1.5 rounded bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50">
+         <i data-lucide="info" class="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5"></i>
+         <div class="min-w-0">
+           <p class="text-[10px] uppercase tracking-wide text-amber-700 dark:text-amber-400 font-semibold">Observación</p>
+           <p class="text-xs text-amber-800 dark:text-amber-200 break-words">${_payEscapeHtml(observationText)}</p>
+         </div>
+       </div>`
+    : '';
+
   return `
     <div class="glass-card rounded-xl p-4 shadow-sm animate-slide-in">
       <div class="flex items-start justify-between mb-3">
@@ -1985,6 +2027,7 @@ function renderPaymentCard(payment, player) {
             <span class="text-xs text-gray-500 dark:text-gray-400">Editado: ${editedInfo}</span>
           </div>
         ` : ''}
+        ${observationHtml}
       </div>
 
       <div class="flex gap-2">
