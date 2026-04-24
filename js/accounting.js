@@ -444,6 +444,12 @@ function renderIncomeByTypeChart() {
   });
 }
 
+// Variables para scroll infinito en contabilidad
+let accountingPlayersData = [];
+let accountingCurrentRenderIndex = 0;
+let accountingObserver = null;
+const ACCOUNTING_CHUNK_SIZE = 15;
+
 // Tabla de jugadores - 🆕 CON DOCUMENTO DE IDENTIDAD + última factura + WhatsApp + vista móvil
 function renderAccountingPlayersTable() {
   const tbody = document.getElementById('accountingPlayersTable');
@@ -452,6 +458,15 @@ function renderAccountingPlayersTable() {
 
   const players = getPlayers();
 
+  // Limpiar estado anterior
+  if (accountingObserver) {
+    accountingObserver.disconnect();
+    accountingObserver = null;
+  }
+  accountingCurrentRenderIndex = 0;
+  if (tbody) tbody.innerHTML = '';
+  if (cards) cards.innerHTML = '';
+
   if (players.length === 0) {
     if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="text-center py-8 text-gray-500 dark:text-gray-400">No hay jugadores</td></tr>';
     if (cards) cards.innerHTML = '<p class="text-center py-6 text-gray-500 dark:text-gray-400 text-sm">No hay jugadores</p>';
@@ -459,7 +474,7 @@ function renderAccountingPlayersTable() {
   }
 
   // Precalcular datos por jugador
-  const rows = players.map(player => {
+  accountingPlayersData = players.map(player => {
     const payments = getPaymentsByPlayer(player.id);
     const paid     = payments.filter(p => p.status === 'Pagado');
     const pending  = payments.filter(p => p.status === 'Pendiente');
@@ -487,6 +502,17 @@ function renderAccountingPlayersTable() {
     return { player, totalPaid, totalPending, compliance, color, documentInfo, lastInvoice, reasonText, hasPhone, hasPending, missingMonths, hasMissing };
   });
 
+  // Renderizar el primer lote
+  renderAccountingChunk(tbody, cards);
+}
+
+// Función para renderizar lotes (scroll infinito)
+function renderAccountingChunk(tbody, cards) {
+  if (accountingCurrentRenderIndex >= accountingPlayersData.length) return;
+
+  const nextIndex = Math.min(accountingCurrentRenderIndex + ACCOUNTING_CHUNK_SIZE, accountingPlayersData.length);
+  const chunk = accountingPlayersData.slice(accountingCurrentRenderIndex, nextIndex);
+
   // Helpers de fragmentos reutilizables
   const lastInvoiceHtml = r => r.lastInvoice
     ? `<p class="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5 flex items-center gap-1" title="Última factura">
@@ -499,7 +525,6 @@ function renderAccountingPlayersTable() {
          <i data-lucide="info" class="w-3 h-3"></i>${_accEscapeHtml(r.reasonText)}
        </span>` : '';
 
-  // 🆕 Badge sutil: meses vencidos sin facturar
   const missingHtml = r => r.hasMissing
     ? `<span class="inline-flex items-center gap-1 mt-1 px-1.5 py-0.5 rounded text-[10px] bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300"
              title="Meses vencidos sin factura: ${r.missingMonths.map(_accFormatBillingMonth).join(', ')}">
@@ -507,8 +532,6 @@ function renderAccountingPlayersTable() {
          ${r.missingMonths.length} ${r.missingMonths.length === 1 ? 'mes sin facturar' : 'meses sin facturar'}
        </span>` : '';
 
-  // WhatsApp: siempre visible si el jugador tiene teléfono.
-  // Se usa color rojo si hay pendientes/meses sin facturar, verde normal si está al día.
   const waButtonHtml = r => {
     if (!r.hasPhone) return '';
     const alerta = r.hasPending || r.hasMissing;
@@ -523,16 +546,70 @@ function renderAccountingPlayersTable() {
             </button>`;
   };
 
-  // Vista tabla (desktop)
+  // Renderizar filas en tbody
   if (tbody) {
-    tbody.innerHTML = rows.map(r => `
-      <tr class="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
-        <td class="py-3 text-gray-800 dark:text-white min-w-[220px]">
-          <div class="flex items-start gap-2">
-            <img src="${r.player.avatar || getDefaultAvatar()}" alt="${r.player.name}" class="w-8 h-8 rounded-full flex-shrink-0 mt-0.5">
-            <div class="min-w-0">
-              <span class="font-medium block truncate">${r.player.name}</span>
-              <p class="text-xs text-gray-500 dark:text-gray-400">${r.documentInfo}</p>
+    chunk.forEach(r => {
+      tbody.insertAdjacentHTML('beforeend', `
+        <tr class="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
+          <td class="py-3 text-gray-800 dark:text-white sm:min-w-[220px] align-top">
+            <div class="flex items-start gap-2">
+              <img src="${r.player.avatar || getDefaultAvatar()}" alt="${r.player.name}" class="w-8 h-8 rounded-full flex-shrink-0 mt-0.5">
+              <div class="min-w-0 flex-1">
+                <span class="font-medium block truncate">${r.player.name}</span>
+                <p class="text-xs text-gray-500 dark:text-gray-400">${r.documentInfo}</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 sm:hidden">${r.player.category}</p>
+                ${lastInvoiceHtml(r)}
+                <div class="flex flex-wrap gap-1 mt-1">
+                  ${reasonHtml(r)}
+                  ${missingHtml(r)}
+                </div>
+                <!-- Resumen compacto solo en mobile -->
+                <div class="flex items-center gap-3 mt-2 sm:hidden text-xs">
+                  <span class="text-green-600 font-semibold">${formatCurrency(r.totalPaid)}</span>
+                  <span class="text-gray-400">·</span>
+                  <span class="text-red-500 font-semibold">${formatCurrency(r.totalPending)}</span>
+                  <div class="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 overflow-hidden">
+                    <div class="${r.color} h-full rounded-full" style="width:${r.compliance}%"></div>
+                  </div>
+                  <span class="text-gray-500 dark:text-gray-400 text-[11px]">${Math.round(r.compliance)}%</span>
+                </div>
+              </div>
+            </div>
+          </td>
+          <td class="py-3 text-gray-800 dark:text-white whitespace-nowrap hidden sm:table-cell">${r.player.category}</td>
+          <td class="py-3 text-right text-green-600 whitespace-nowrap hidden sm:table-cell">${formatCurrency(r.totalPaid)}</td>
+          <td class="py-3 text-right text-red-600 whitespace-nowrap hidden sm:table-cell">${formatCurrency(r.totalPending)}</td>
+          <td class="py-3 min-w-[120px] hidden sm:table-cell">
+            <div class="flex items-center gap-2">
+              <div class="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
+                <div class="${r.color} h-full rounded-full transition-all" style="width: ${r.compliance}%"></div>
+              </div>
+              <span class="text-sm text-gray-600 dark:text-gray-400">${Math.round(r.compliance)}%</span>
+            </div>
+          </td>
+          <td class="py-3 text-center align-top sm:align-middle">
+            <div class="inline-flex flex-col sm:flex-row items-center gap-1 sm:gap-1">
+              ${waButtonHtml(r)}
+              <button onclick="generatePlayerAccountStatementPDF('${r.player.id}')" class="bg-teal-600 hover:bg-teal-700 text-white px-2 sm:px-3 py-1 rounded text-xs sm:text-sm whitespace-nowrap">
+                <span class="hidden sm:inline">Estado </span>PDF
+              </button>
+            </div>
+          </td>
+        </tr>
+      `);
+    });
+  }
+
+  // Renderizar tarjetas (móvil alternativo, si aplica)
+  if (cards) {
+    chunk.forEach(r => {
+      cards.insertAdjacentHTML('beforeend', `
+        <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-3 bg-white/50 dark:bg-gray-800/40">
+          <div class="flex items-start gap-3">
+            <img src="${r.player.avatar || getDefaultAvatar()}" alt="${r.player.name}" class="w-10 h-10 rounded-full flex-shrink-0">
+            <div class="flex-1 min-w-0">
+              <p class="font-semibold text-gray-800 dark:text-white truncate">${r.player.name}</p>
+              <p class="text-xs text-gray-500 dark:text-gray-400">${r.player.category} · ${r.documentInfo}</p>
               ${lastInvoiceHtml(r)}
               <div class="flex flex-wrap gap-1">
                 ${reasonHtml(r)}
@@ -540,74 +617,73 @@ function renderAccountingPlayersTable() {
               </div>
             </div>
           </div>
-        </td>
-        <td class="py-3 text-gray-800 dark:text-white whitespace-nowrap">${r.player.category}</td>
-        <td class="py-3 text-right text-green-600 whitespace-nowrap">${formatCurrency(r.totalPaid)}</td>
-        <td class="py-3 text-right text-red-600 whitespace-nowrap">${formatCurrency(r.totalPending)}</td>
-        <td class="py-3 min-w-[120px]">
-          <div class="flex items-center gap-2">
+          <div class="grid grid-cols-2 gap-2 mt-3 text-xs">
+            <div class="bg-green-50 dark:bg-green-900/20 rounded px-2 py-1.5">
+              <p class="text-green-700 dark:text-green-400 font-semibold">${formatCurrency(r.totalPaid)}</p>
+              <p class="text-[10px] text-gray-500 dark:text-gray-400">Pagado</p>
+            </div>
+            <div class="bg-red-50 dark:bg-red-900/20 rounded px-2 py-1.5">
+              <p class="text-red-700 dark:text-red-400 font-semibold">${formatCurrency(r.totalPending)}</p>
+              <p class="text-[10px] text-gray-500 dark:text-gray-400">Pendiente</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 mt-2">
             <div class="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
               <div class="${r.color} h-full rounded-full transition-all" style="width: ${r.compliance}%"></div>
             </div>
-            <span class="text-sm text-gray-600 dark:text-gray-400">${Math.round(r.compliance)}%</span>
+            <span class="text-xs text-gray-600 dark:text-gray-400">${Math.round(r.compliance)}%</span>
           </div>
-        </td>
-        <td class="py-3 text-center whitespace-nowrap">
-          <div class="inline-flex items-center gap-1">
+          <div class="flex items-center gap-2 mt-3">
             ${waButtonHtml(r)}
-            <button onclick="generatePlayerAccountStatementPDF('${r.player.id}')" class="bg-teal-600 hover:bg-teal-700 text-white px-3 py-1 rounded text-sm">
+            <button onclick="generatePlayerAccountStatementPDF('${r.player.id}')" class="flex-1 bg-teal-600 hover:bg-teal-700 text-white px-3 py-2 rounded text-sm font-medium">
               Estado PDF
             </button>
           </div>
-        </td>
-      </tr>
-    `).join('');
-  }
-
-  // Vista tarjetas (móvil)
-  if (cards) {
-    cards.innerHTML = rows.map(r => `
-      <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-3 bg-white/50 dark:bg-gray-800/40">
-        <div class="flex items-start gap-3">
-          <img src="${r.player.avatar || getDefaultAvatar()}" alt="${r.player.name}" class="w-10 h-10 rounded-full flex-shrink-0">
-          <div class="flex-1 min-w-0">
-            <p class="font-semibold text-gray-800 dark:text-white truncate">${r.player.name}</p>
-            <p class="text-xs text-gray-500 dark:text-gray-400">${r.player.category} · ${r.documentInfo}</p>
-            ${lastInvoiceHtml(r)}
-            <div class="flex flex-wrap gap-1">
-              ${reasonHtml(r)}
-              ${missingHtml(r)}
-            </div>
-          </div>
         </div>
-        <div class="grid grid-cols-2 gap-2 mt-3 text-xs">
-          <div class="bg-green-50 dark:bg-green-900/20 rounded px-2 py-1.5">
-            <p class="text-green-700 dark:text-green-400 font-semibold">${formatCurrency(r.totalPaid)}</p>
-            <p class="text-[10px] text-gray-500 dark:text-gray-400">Pagado</p>
-          </div>
-          <div class="bg-red-50 dark:bg-red-900/20 rounded px-2 py-1.5">
-            <p class="text-red-700 dark:text-red-400 font-semibold">${formatCurrency(r.totalPending)}</p>
-            <p class="text-[10px] text-gray-500 dark:text-gray-400">Pendiente</p>
-          </div>
-        </div>
-        <div class="flex items-center gap-2 mt-2">
-          <div class="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
-            <div class="${r.color} h-full rounded-full transition-all" style="width: ${r.compliance}%"></div>
-          </div>
-          <span class="text-xs text-gray-600 dark:text-gray-400">${Math.round(r.compliance)}%</span>
-        </div>
-        <div class="flex items-center gap-2 mt-3">
-          ${waButtonHtml(r)}
-          <button onclick="generatePlayerAccountStatementPDF('${r.player.id}')" class="flex-1 bg-teal-600 hover:bg-teal-700 text-white px-3 py-2 rounded text-sm font-medium">
-            Estado PDF
-          </button>
-        </div>
-      </div>
-    `).join('');
+      `);
+    });
   }
 
   if (typeof lucide !== 'undefined' && lucide.createIcons) {
     lucide.createIcons();
+  }
+
+  accountingCurrentRenderIndex = nextIndex;
+
+  // Si quedan elementos, configurar el observer
+  if (accountingCurrentRenderIndex < accountingPlayersData.length) {
+    setupAccountingObserver(tbody, cards);
+  }
+}
+
+function setupAccountingObserver(tbody, cards) {
+  if (accountingObserver) {
+    accountingObserver.disconnect();
+  }
+
+  const options = {
+    root: null,
+    rootMargin: '200px', // Cargar un poco antes de llegar al final
+    threshold: 0.1
+  };
+
+  accountingObserver = new IntersectionObserver((entries) => {
+    if (entries[0].isIntersecting) {
+      accountingObserver.disconnect();
+      renderAccountingChunk(tbody, cards);
+    }
+  }, options);
+
+  // Observar el último elemento renderizado
+  let target = null;
+  if (tbody && tbody.lastElementChild) {
+    target = tbody.lastElementChild;
+  } else if (cards && cards.lastElementChild) {
+    target = cards.lastElementChild;
+  }
+  
+  if (target) {
+    accountingObserver.observe(target);
   }
 }
 
