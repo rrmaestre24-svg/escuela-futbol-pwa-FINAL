@@ -96,7 +96,7 @@ function showMultiInvoicePlayerPicker() {
             <!-- Buscador -->
             <div class="px-4 pt-3 pb-2">
                 <input type="text" id="_miSearchInput"
-                    placeholder="Buscar jugador..."
+                    placeholder="Buscar por nombre, apellido o categoría..."
                     oninput="_mi_filterPlayers(this.value)"
                     class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500"
                     autocomplete="off">
@@ -134,12 +134,14 @@ function _mi_renderPlayerItems(players) {
     }).join('');
 }
 
-// Filtrar jugadores mientras el admin escribe
+// Filtrar jugadores mientras el admin escribe (acento-insensible, multi-token)
 function _mi_filterPlayers(query) {
     const all = getActivePlayers ? getActivePlayers() : [];
-    const q   = query.toLowerCase().trim();
+    const q   = (query || '').trim();
     const filtered = q
-        ? all.filter(p => (p.name || '').toLowerCase().includes(q) || (p.category || '').toLowerCase().includes(q))
+        ? (typeof filterBySearch === 'function'
+            ? filterBySearch(all, q, ['name', 'category', 'documentNumber', 'phone'])
+            : all.filter(p => (p.name || '').toLowerCase().includes(q.toLowerCase())))
         : all;
     document.getElementById('_miPlayerList').innerHTML = _mi_renderPlayerItems(filtered);
 }

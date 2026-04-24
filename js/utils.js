@@ -471,16 +471,29 @@ function sortBy(array, field, order = 'asc') {
   });
 }
 
-// Filtrar array por búsqueda
+// Normalizar texto para búsqueda (minúsculas + sin tildes/diacríticos)
+function normalizeSearchText(text) {
+  if (text === null || text === undefined) return '';
+  return text.toString()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim();
+}
+
+// Filtrar array por búsqueda (acento-insensible, multi-token: cada palabra debe aparecer)
 function filterBySearch(array, searchTerm, fields) {
   if (!searchTerm) return array;
-  
-  const term = searchTerm.toLowerCase();
+
+  const tokens = normalizeSearchText(searchTerm).split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) return array;
+
   return array.filter(item => {
-    return fields.some(field => {
-      const value = item[field];
-      return value && value.toString().toLowerCase().includes(term);
-    });
+    const haystack = fields
+      .map(f => normalizeSearchText(item[f]))
+      .filter(Boolean)
+      .join(' ');
+    return tokens.every(tok => haystack.includes(tok));
   });
 }
 

@@ -56,7 +56,7 @@ function selectPaymentType(type) {
 // Mostrar tab de pagos
 function showPaymentTab(tab) {
   currentPaymentTab = tab;
-  
+
   // Actualizar botones
   ['monthly', 'extras', 'expenses', 'thirdParty', 'history'].forEach(t => {
     const btn = document.getElementById(`${t}Tab`);
@@ -70,7 +70,7 @@ function showPaymentTab(tab) {
       }
     }
   });
-  
+
   document.getElementById('monthlyPaymentsContent').classList.add('hidden');
   document.getElementById('extrasPaymentsContent').classList.add('hidden');
   document.getElementById('expensesPaymentsContent').classList.add('hidden');
@@ -476,7 +476,7 @@ function renderPaymentCard(payment, player) {
   // 🆕 Información de auditoría
   const createdInfo = payment.createdBy ? formatAuditInfo(payment.createdBy) : '';
   const editedInfo = payment.editedBy ? formatAuditInfo(payment.editedBy) : '';
-  
+
   return `
     <div class="glass-card rounded-xl p-4 shadow-sm animate-slide-in">
       <div class="flex items-start justify-between mb-3">
@@ -489,7 +489,7 @@ function renderPaymentCard(payment, player) {
         </div>
         <span class="badge ${statusColor}">${payment.invoiceNumber ? payment.invoiceNumber : payment.status}</span>
       </div>
-      
+
       <div class="space-y-2 mb-3">
         <div class="flex items-center gap-2">
           <i data-lucide="tag" class="w-4 h-4 ${typeColors[payment.type] || 'text-gray-600'}"></i>
@@ -524,7 +524,7 @@ function renderPaymentCard(payment, player) {
           </div>
         ` : ''}
       </div>
-      
+
       <div class="flex gap-2">
         ${payment.status === 'Pagado' ? `
           <button onclick="generateInvoicePDFWithWhatsApp('${payment.id}')" class="flex-1 bg-teal-600 hover:bg-teal-700 text-white text-sm py-2 rounded-lg flex items-center justify-center gap-1">
@@ -1938,7 +1938,7 @@ function renderPaymentCard(payment, player) {
   
   const createdInfo = payment.createdBy ? formatAuditInfo(payment.createdBy) : '';
   const editedInfo = payment.editedBy ? formatAuditInfo(payment.editedBy) : '';
-  
+
   return `
     <div class="glass-card rounded-xl p-4 shadow-sm animate-slide-in">
       <div class="flex items-start justify-between mb-3">
@@ -1951,7 +1951,7 @@ function renderPaymentCard(payment, player) {
         </div>
         <span class="badge ${statusColor}">${payment.invoiceNumber ? payment.invoiceNumber : payment.status}</span>
       </div>
-      
+
       <div class="space-y-2 mb-3">
         <div class="flex items-center gap-2">
           <i data-lucide="tag" class="w-4 h-4 ${typeColors[payment.type] || 'text-gray-600'}"></i>
@@ -1986,10 +1986,10 @@ function renderPaymentCard(payment, player) {
           </div>
         ` : ''}
       </div>
-      
+
       <div class="flex gap-2">
         ${payment.status === 'Pagado' ? `
-          <button onclick="showEditPaymentModal('${payment.id}')" 
+          <button onclick="showEditPaymentModal('${payment.id}')"
             class="bg-blue-600 hover:bg-blue-700 text-white text-sm py-2 px-3 rounded-lg flex items-center gap-1"
             title="Editar factura">
             <i data-lucide="edit-3" class="w-4 h-4"></i>
@@ -2285,24 +2285,18 @@ console.log('✅ Sistema de búsqueda de pagos completo cargado')
 // 🔍 BUSCADOR DE JUGADORES - FUNCIONES
 // ========================================
 
-// Buscar jugadores en tiempo real
+// Buscar jugadores en tiempo real (acento-insensible, multi-token)
 function searchPlayers() {
   const searchInput = document.getElementById('playerSearchInput');
   if (!searchInput) return;
-  
-  const searchTerm = searchInput.value.toLowerCase().trim();
+
+  const searchTerm = searchInput.value.trim();
   const allPlayers = getActivePlayers();
-  
-  if (searchTerm === '') {
-    filteredPlayers = allPlayers;
-  } else {
-    filteredPlayers = allPlayers.filter(player => {
-      const name = (player.name || '').toLowerCase();
-      const category = (player.category || '').toLowerCase();
-      return name.includes(searchTerm) || category.includes(searchTerm);
-    });
-  }
-  
+
+  filteredPlayers = searchTerm === ''
+    ? allPlayers
+    : filterBySearch(allPlayers, searchTerm, ['name', 'category', 'documentNumber', 'phone']);
+
   renderPlayerSearchResults(filteredPlayers);
 }
 

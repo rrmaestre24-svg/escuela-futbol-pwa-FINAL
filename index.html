@@ -1464,26 +1464,34 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
                         class="w-5 h-5 text-gray-500 dark:text-gray-400 transition-transform duration-200"></i>
                 </button>
                 <!-- Contenido colapsable -->
-                <div id="accountingTableBody" class="overflow-x-auto p-4">
-                    <table class="w-full text-sm">
-                        <thead>
-                            <tr class="border-b border-gray-200 dark:border-gray-700">
-                                <th class="text-left py-2 text-gray-600 dark:text-gray-300">Jugador</th>
-                                <th class="text-left py-2 text-gray-600 dark:text-gray-300">Categoría</th>
-                                <th class="text-right py-2 text-gray-600 dark:text-gray-300">Pagado</th>
-                                <th class="text-right py-2 text-gray-600 dark:text-gray-300">Pendiente</th>
-                                <th class="text-center py-2 text-gray-600 dark:text-gray-300">Cumplimiento</th>
-                                <th class="text-center py-2 text-gray-600 dark:text-gray-300">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody id="accountingPlayersTable">
-                            <tr>
-                                <td colspan="6" class="text-center py-8 text-gray-500 dark:text-gray-400">
-                                    Cargando datos...
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+                <div id="accountingTableBody" class="p-4">
+                    <!-- Vista tabla (tablet/desktop) -->
+                    <div class="hidden md:block overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="border-b border-gray-200 dark:border-gray-700">
+                                    <th class="text-left py-2 text-gray-600 dark:text-gray-300">Jugador</th>
+                                    <th class="text-left py-2 text-gray-600 dark:text-gray-300">Categoría</th>
+                                    <th class="text-right py-2 text-gray-600 dark:text-gray-300">Pagado</th>
+                                    <th class="text-right py-2 text-gray-600 dark:text-gray-300">Pendiente</th>
+                                    <th class="text-center py-2 text-gray-600 dark:text-gray-300">Cumplimiento</th>
+                                    <th class="text-center py-2 text-gray-600 dark:text-gray-300">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="accountingPlayersTable">
+                                <tr>
+                                    <td colspan="6" class="text-center py-8 text-gray-500 dark:text-gray-400">
+                                        Cargando datos...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Vista tarjetas (móvil) -->
+                    <div id="accountingPlayersCards" class="md:hidden space-y-3">
+                        <p class="text-center py-6 text-gray-500 dark:text-gray-400 text-sm">Cargando datos...</p>
+                    </div>
                 </div>
             </div>
 
@@ -2163,7 +2171,7 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
                     <!-- Input de Búsqueda -->
                     <div class="relative">
                         <i data-lucide="search" class="absolute left-3 top-3 w-5 h-5 text-gray-400"></i>
-                        <input type="text" id="playerSearchInput" placeholder="Buscar por nombre o categoría..."
+                        <input type="text" id="playerSearchInput" placeholder="Buscar por nombre, apellido, categoría o documento..."
                             oninput="searchPlayers()"
                             class="w-full px-4 py-2.5 pl-10 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                             autocomplete="off">

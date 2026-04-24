@@ -8,6 +8,72 @@ console.log('📄 Cargando accounting.js con egresos, otros ingresos y documento
 
 let accountingCharts = {};
 
+// Escape HTML para evitar XSS en texto ingresado por el usuario (motivo/observación)
+function _accEscapeHtml(text) {
+  if (text === null || text === undefined) return '';
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+// Retorna array de meses (YYYY-MM) que debieron facturarse y no aparecen en los pagos.
+// Arranca desde la fecha de inscripción (o primer pago/fecha de creación) 
+// y llega hasta el mes anterior al actual (el mes en curso aún no está vencido).
+function _accMissingMonthsForPlayer(player, payments) {
+  const billed = new Set(
+    payments
+      .filter(p => p.type === 'Mensualidad' && p.billingMonth)
+      .map(p => p.billingMonth)
+  );
+
+  let startMonth = '';
+  
+  const firstBilled = billed.size > 0 ? Array.from(billed).sort()[0] : null;
+
+  if (firstBilled) {
+    // 1. Si ya tiene al menos una factura mensual, empezamos a contar estrictamente desde ese mes.
+    startMonth = firstBilled;
+  } else {
+    // 2. Si NO tiene facturas, empezamos a contar desde que se inscribió o creó en el sistema.
+    let baseStart = player.enrollmentDate ? String(player.enrollmentDate).substring(0, 7) : null;
+    if (!baseStart && player.createdAt) {
+      baseStart = String(player.createdAt).substring(0, 7);
+    }
+    startMonth = baseStart || '';
+  }
+
+  if (!startMonth || !/^\d{4}-\d{2}$/.test(startMonth)) return [];
+
+  const today = new Date();
+  let endY = today.getFullYear();
+  let endM = today.getMonth(); // 0-indexed; equivale al mes anterior en base 1
+  if (endM === 0) { endM = 12; endY--; }
+  const endStr = `${endY}-${String(endM).padStart(2, '0')}`;
+  if (startMonth > endStr) return [];
+
+  let [y, m] = startMonth.split('-').map(Number);
+  const missing = [];
+  while (true) {
+    const ms = `${y}-${String(m).padStart(2, '0')}`;
+    if (ms > endStr) break;
+    if (!billed.has(ms)) missing.push(ms);
+    m++;
+    if (m > 12) { m = 1; y++; }
+  }
+  return missing;
+}
+
+// Formatea "YYYY-MM" → "Mayo 2026"
+function _accFormatBillingMonth(ms) {
+  if (!ms || !/^\d{4}-\d{2}$/.test(ms)) return ms;
+  const [y, m] = ms.split('-').map(Number);
+  const meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  return `${meses[m-1]} ${y}`;
+}
+
 // FUNCIÓN PRINCIPAL - Mostrar vista de contabilidad
 function showAccountingView() {
   console.log('📊 Botón de contabilidad presionado');
@@ -378,66 +444,250 @@ function renderIncomeByTypeChart() {
   });
 }
 
-// Tabla de jugadores - 🆕 CON DOCUMENTO DE IDENTIDAD
+// Tabla de jugadores - 🆕 CON DOCUMENTO DE IDENTIDAD + última factura + WhatsApp + vista móvil
 function renderAccountingPlayersTable() {
   const tbody = document.getElementById('accountingPlayersTable');
-  if (!tbody) return;
-  
+  const cards = document.getElementById('accountingPlayersCards');
+  if (!tbody && !cards) return;
+
   const players = getPlayers();
-  
+
   if (players.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="7" class="text-center py-8 text-gray-500 dark:text-gray-400">No hay jugadores</td></tr>';
+    if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="text-center py-8 text-gray-500 dark:text-gray-400">No hay jugadores</td></tr>';
+    if (cards) cards.innerHTML = '<p class="text-center py-6 text-gray-500 dark:text-gray-400 text-sm">No hay jugadores</p>';
     return;
   }
-  
-  tbody.innerHTML = players.map(player => {
+
+  // Precalcular datos por jugador
+  const rows = players.map(player => {
     const payments = getPaymentsByPlayer(player.id);
-    const paid = payments.filter(p => p.status === 'Pagado');
-    const pending = payments.filter(p => p.status === 'Pendiente');
-    
-    const totalPaid = paid.reduce((sum, p) => sum + (p.finalAmount || p.amount || 0), 0);
-    const totalPending = pending.reduce((sum, p) => sum + (p.finalAmount || p.amount || 0), 0);
+    const paid     = payments.filter(p => p.status === 'Pagado');
+    const pending  = payments.filter(p => p.status === 'Pendiente');
+
+    const totalPaid    = paid.reduce((s, p) => s + (p.finalAmount || p.amount || 0), 0);
+    const totalPending = pending.reduce((s, p) => s + (p.finalAmount || p.amount || 0), 0);
     const totalExpected = totalPaid + totalPending;
-    const compliance = totalExpected > 0 ? (totalPaid / totalExpected * 100) : 0;
-    
-    const color = compliance >= 80 ? 'bg-green-500' : compliance >= 50 ? 'bg-yellow-500' : 'bg-red-500';
-    
-    // 🆕 Formatear documento
-    const documentInfo = player.documentType && player.documentNumber 
-      ? `${player.documentType}: ${player.documentNumber}` 
-      : '-';
-    
-    return `
+    const compliance    = totalExpected > 0 ? (totalPaid / totalExpected * 100) : 0;
+    const color         = compliance >= 80 ? 'bg-green-500' : compliance >= 50 ? 'bg-yellow-500' : 'bg-red-500';
+
+    const documentInfo = player.documentType && player.documentNumber
+      ? `${player.documentType}: ${player.documentNumber}` : '-';
+
+    const lastInvoice = paid.slice()
+      .sort((a, b) => (b.paidDate || b.dueDate || '').localeCompare(a.paidDate || a.dueDate || ''))[0];
+
+    const reasonText = (lastInvoice?.discountReason || lastInvoice?.notes || '').trim();
+    const hasPhone   = !!(player.phone && String(player.phone).trim());
+    const hasPending = totalPending > 0;
+
+    // 🆕 Meses sin facturar (vencidos hasta hoy)
+    const missingMonths = _accMissingMonthsForPlayer(player, payments);
+    const hasMissing    = missingMonths.length > 0;
+
+    return { player, totalPaid, totalPending, compliance, color, documentInfo, lastInvoice, reasonText, hasPhone, hasPending, missingMonths, hasMissing };
+  });
+
+  // Helpers de fragmentos reutilizables
+  const lastInvoiceHtml = r => r.lastInvoice
+    ? `<p class="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5 flex items-center gap-1" title="Última factura">
+         <i data-lucide="file-text" class="w-3 h-3"></i>
+         ${r.lastInvoice.invoiceNumber || '—'} · ${r.lastInvoice.paidDate || r.lastInvoice.dueDate || ''}
+       </p>` : '';
+
+  const reasonHtml = r => r.reasonText
+    ? `<span class="inline-flex items-center gap-1 mt-1 px-1.5 py-0.5 rounded text-[10px] bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300" title="Motivo/observación de la última factura">
+         <i data-lucide="info" class="w-3 h-3"></i>${_accEscapeHtml(r.reasonText)}
+       </span>` : '';
+
+  // 🆕 Badge sutil: meses vencidos sin facturar
+  const missingHtml = r => r.hasMissing
+    ? `<span class="inline-flex items-center gap-1 mt-1 px-1.5 py-0.5 rounded text-[10px] bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300"
+             title="Meses vencidos sin factura: ${r.missingMonths.map(_accFormatBillingMonth).join(', ')}">
+         <i data-lucide="alert-triangle" class="w-3 h-3"></i>
+         ${r.missingMonths.length} ${r.missingMonths.length === 1 ? 'mes sin facturar' : 'meses sin facturar'}
+       </span>` : '';
+
+  // WhatsApp: siempre visible si el jugador tiene teléfono.
+  // Se usa color rojo si hay pendientes/meses sin facturar, verde normal si está al día.
+  const waButtonHtml = r => {
+    if (!r.hasPhone) return '';
+    const alerta = r.hasPending || r.hasMissing;
+    const cls    = alerta
+      ? 'text-red-600 border-red-600 hover:bg-red-600'
+      : 'text-green-600 border-green-600 hover:bg-green-600';
+    const title  = alerta ? 'Recordar pago por WhatsApp' : 'Enviar WhatsApp';
+    return `<button onclick="sendPendingReminderWA('${r.player.id}')"
+                    title="${title}"
+                    class="inline-flex items-center justify-center w-8 h-8 rounded hover:text-white border transition-colors ${cls}">
+              <i data-lucide="message-circle" class="w-4 h-4"></i>
+            </button>`;
+  };
+
+  // Vista tabla (desktop)
+  if (tbody) {
+    tbody.innerHTML = rows.map(r => `
       <tr class="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
-        <td class="py-3 text-gray-800 dark:text-white">
-          <div class="flex items-center gap-2">
-            <img src="${player.avatar || getDefaultAvatar()}" alt="${player.name}" class="w-8 h-8 rounded-full">
-            <div>
-              <span class="font-medium">${player.name}</span>
-              <p class="text-xs text-gray-500 dark:text-gray-400">${documentInfo}</p>
+        <td class="py-3 text-gray-800 dark:text-white min-w-[220px]">
+          <div class="flex items-start gap-2">
+            <img src="${r.player.avatar || getDefaultAvatar()}" alt="${r.player.name}" class="w-8 h-8 rounded-full flex-shrink-0 mt-0.5">
+            <div class="min-w-0">
+              <span class="font-medium block truncate">${r.player.name}</span>
+              <p class="text-xs text-gray-500 dark:text-gray-400">${r.documentInfo}</p>
+              ${lastInvoiceHtml(r)}
+              <div class="flex flex-wrap gap-1">
+                ${reasonHtml(r)}
+                ${missingHtml(r)}
+              </div>
             </div>
           </div>
         </td>
-        <td class="py-3 text-gray-800 dark:text-white">${player.category}</td>
-        <td class="py-3 text-right text-green-600">${formatCurrency(totalPaid)}</td>
-        <td class="py-3 text-right text-red-600">${formatCurrency(totalPending)}</td>
-        <td class="py-3">
+        <td class="py-3 text-gray-800 dark:text-white whitespace-nowrap">${r.player.category}</td>
+        <td class="py-3 text-right text-green-600 whitespace-nowrap">${formatCurrency(r.totalPaid)}</td>
+        <td class="py-3 text-right text-red-600 whitespace-nowrap">${formatCurrency(r.totalPending)}</td>
+        <td class="py-3 min-w-[120px]">
           <div class="flex items-center gap-2">
             <div class="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
-              <div class="${color} h-full rounded-full transition-all" style="width: ${compliance}%"></div>
+              <div class="${r.color} h-full rounded-full transition-all" style="width: ${r.compliance}%"></div>
             </div>
-            <span class="text-sm text-gray-600 dark:text-gray-400">${Math.round(compliance)}%</span>
+            <span class="text-sm text-gray-600 dark:text-gray-400">${Math.round(r.compliance)}%</span>
           </div>
         </td>
-        <td class="py-3 text-center">
-          <button onclick="generatePlayerAccountStatementPDF('${player.id}')" class="bg-teal-600 hover:bg-teal-700 text-white px-3 py-1 rounded text-sm">
-            Estado PDF
-          </button>
+        <td class="py-3 text-center whitespace-nowrap">
+          <div class="inline-flex items-center gap-1">
+            ${waButtonHtml(r)}
+            <button onclick="generatePlayerAccountStatementPDF('${r.player.id}')" class="bg-teal-600 hover:bg-teal-700 text-white px-3 py-1 rounded text-sm">
+              Estado PDF
+            </button>
+          </div>
         </td>
       </tr>
-    `;
-  }).join('');
+    `).join('');
+  }
+
+  // Vista tarjetas (móvil)
+  if (cards) {
+    cards.innerHTML = rows.map(r => `
+      <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-3 bg-white/50 dark:bg-gray-800/40">
+        <div class="flex items-start gap-3">
+          <img src="${r.player.avatar || getDefaultAvatar()}" alt="${r.player.name}" class="w-10 h-10 rounded-full flex-shrink-0">
+          <div class="flex-1 min-w-0">
+            <p class="font-semibold text-gray-800 dark:text-white truncate">${r.player.name}</p>
+            <p class="text-xs text-gray-500 dark:text-gray-400">${r.player.category} · ${r.documentInfo}</p>
+            ${lastInvoiceHtml(r)}
+            <div class="flex flex-wrap gap-1">
+              ${reasonHtml(r)}
+              ${missingHtml(r)}
+            </div>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-2 mt-3 text-xs">
+          <div class="bg-green-50 dark:bg-green-900/20 rounded px-2 py-1.5">
+            <p class="text-green-700 dark:text-green-400 font-semibold">${formatCurrency(r.totalPaid)}</p>
+            <p class="text-[10px] text-gray-500 dark:text-gray-400">Pagado</p>
+          </div>
+          <div class="bg-red-50 dark:bg-red-900/20 rounded px-2 py-1.5">
+            <p class="text-red-700 dark:text-red-400 font-semibold">${formatCurrency(r.totalPending)}</p>
+            <p class="text-[10px] text-gray-500 dark:text-gray-400">Pendiente</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 mt-2">
+          <div class="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
+            <div class="${r.color} h-full rounded-full transition-all" style="width: ${r.compliance}%"></div>
+          </div>
+          <span class="text-xs text-gray-600 dark:text-gray-400">${Math.round(r.compliance)}%</span>
+        </div>
+        <div class="flex items-center gap-2 mt-3">
+          ${waButtonHtml(r)}
+          <button onclick="generatePlayerAccountStatementPDF('${r.player.id}')" class="flex-1 bg-teal-600 hover:bg-teal-700 text-white px-3 py-2 rounded text-sm font-medium">
+            Estado PDF
+          </button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  if (typeof lucide !== 'undefined' && lucide.createIcons) {
+    lucide.createIcons();
+  }
 }
+
+// 🆕 Enviar recordatorio por WhatsApp (pendientes registrados + meses sin facturar)
+function sendPendingReminderWA(playerId) {
+  const player = getPlayerById(playerId);
+  if (!player) { showToast('❌ Jugador no encontrado'); return; }
+  if (!player.phone || !String(player.phone).trim()) {
+    showToast('⚠️ Este jugador no tiene teléfono registrado');
+    return;
+  }
+
+  const allPayments = getPaymentsByPlayer(playerId);
+  const pending     = allPayments.filter(p => p.status === 'Pendiente');
+  const missing     = _accMissingMonthsForPlayer(player, allPayments);
+  const totalPending = pending.reduce((s, p) => s + (p.finalAmount || p.amount || 0), 0);
+
+  // 🆕 Detectar si nunca ha tenido facturas mensuales
+  const monthlyPayments = allPayments.filter(p => p.type === 'Mensualidad' || p.concept === 'Mensualidad');
+  const hasNeverBeenInvoiced = monthlyPayments.length === 0;
+
+  const settings  = (typeof getSchoolSettings === 'function') ? getSchoolSettings() : {};
+  const clubName  = settings?.schoolName || 'la escuela';
+  const firstName = (player.name || '').split(' ')[0] || '';
+
+  let message;
+  if (pending.length === 0 && missing.length === 0) {
+    // Al día → saludo genérico (el admin puede editar antes de enviar)
+    message = `Hola ${firstName}, te saludamos desde ${clubName}.`;
+  } else {
+    const detallePendientes = pending.length > 0
+      ? '📌 *Facturas pendientes:*\n' + pending.slice(0, 5)
+          .map(p => `• ${p.concept || p.type || 'Pago'}${p.dueDate ? ` (vence ${p.dueDate})` : ''} — ${formatCurrency(p.finalAmount || p.amount || 0)}`)
+          .join('\n')
+      : '';
+
+    let detalleMissing = '';
+    if (missing.length > 0) {
+      const mesesList = missing.slice(0, 6).map(m => `• ${_accFormatBillingMonth(m)}`).join('\n')
+        + (missing.length > 6 ? `\n• … y ${missing.length - 6} mes(es) más` : '');
+        
+      if (hasNeverBeenInvoiced) {
+        let regDateStr = player.enrollmentDate || player.createdAt || '';
+        let fechaTexto = 'recientemente';
+        if (regDateStr) {
+          // Extraer YYYY-MM-DD por si viene con formato de hora
+          const isoDate = regDateStr.split('T')[0];
+          const parts = isoDate.split('-');
+          if (parts.length === 3) fechaTexto = `el ${parts[2]}/${parts[1]}/${parts[0]}`;
+        }
+        detalleMissing = `⚠️ *Primera factura pendiente:*\nRegistrado ${fechaTexto}. Meses a cobrar:\n${mesesList}`;
+      } else {
+        detalleMissing = `⚠️ *Meses sin factura registrada:*\n${mesesList}`;
+      }
+    }
+
+    let intro = `Hola ${firstName}, te recordamos que tienes pendiente la mensualidad en ${clubName}.`;
+    if (pending.length === 0 && hasNeverBeenInvoiced && missing.length > 0) {
+       intro = `Hola ${firstName}, te saludamos desde la administración de ${clubName}.`;
+    }
+
+    message = [
+      intro,
+      detallePendientes,
+      detalleMissing,
+      totalPending > 0 ? `\nTotal pendiente de pago: *${formatCurrency(totalPending)}*.` : '',
+      `\nAgradecemos tu atención. ¡Gracias!`
+    ].filter(Boolean).join('\n\n');
+  }
+
+  if (typeof openWhatsAppWithConfirm === 'function') {
+    openWhatsAppWithConfirm(player.phone, message, player.name);
+  } else if (typeof openWhatsApp === 'function') {
+    openWhatsApp(player.phone, message);
+  } else {
+    showToast('❌ WhatsApp no disponible');
+  }
+}
+
+window.sendPendingReminderWA = sendPendingReminderWA;
 
 // Generar reporte PDF
 function generateFullReport() {
