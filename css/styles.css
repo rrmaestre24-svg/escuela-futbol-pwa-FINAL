@@ -1,4 +1,11 @@
 /* ========================================
+   MOBILE FLUIDITY (cero cambio visual)
+======================================== */
+html, body { -webkit-overflow-scrolling: touch; scroll-behavior: smooth; }
+* { -webkit-tap-highlight-color: transparent; }
+button, [role="button"], a, label, input[type="checkbox"], input[type="radio"] { touch-action: manipulation; }
+
+/* ========================================
    CONFIGURACIÓN BASE MODO OSCURO
 ======================================== */
 

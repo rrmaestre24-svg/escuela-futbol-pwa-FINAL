@@ -20,6 +20,11 @@
     <style>
         * { font-family: 'Inter', sans-serif; }
 
+        /* ── Mobile fluidity (cero cambio visual) ── */
+        html, body { -webkit-overflow-scrolling: touch; scroll-behavior: smooth; }
+        * { -webkit-tap-highlight-color: transparent; }
+        button, [role="button"], a, label, input[type="checkbox"], input[type="radio"] { touch-action: manipulation; }
+
         /* ── Fondo animado ── */
         @keyframes bgShift {
             0%   { background-position: 0% 50%; }
