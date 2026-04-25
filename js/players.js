@@ -415,7 +415,7 @@ function renderPlayersList(append = false) {
     return `
       <div class="glass-card rounded-xl p-4 shadow-sm card-hover animate-slide-in ${!isActive ? 'opacity-75' : ''}">
         <div class="flex items-start gap-3">
-          <img src="${player.avatar || getDefaultAvatar()}" alt="${player.name}" class="w-16 h-16 rounded-full object-cover border-2 ${isActive ? 'border-teal-500' : 'border-gray-400'}">
+          <img src="${player.avatar || getDefaultAvatar()}" alt="${player.name}" loading="lazy" decoding="async" width="64" height="64" class="w-16 h-16 rounded-full object-cover border-2 ${isActive ? 'border-teal-500' : 'border-gray-400'}">
           <div class="flex-1 min-w-0">
             <div class="flex items-start justify-between gap-2">
               <div class="flex-1 min-w-0">
@@ -542,7 +542,7 @@ function showPlayerDetails(playerId) {
     <div class="space-y-4">
       <!-- Avatar y datos básicos -->
       <div class="text-center">
-        <img src="${player.avatar || getDefaultAvatar()}" alt="${player.name}" class="w-32 h-32 rounded-full object-cover border-4 border-teal-500 mx-auto mb-4">
+        <img src="${player.avatar || getDefaultAvatar()}" alt="${player.name}" decoding="async" width="128" height="128" class="w-32 h-32 rounded-full object-cover border-4 border-teal-500 mx-auto mb-4">
         <h2 class="text-2xl font-bold text-gray-800 dark:text-white">${player.name}</h2>
         <p class="text-gray-500 dark:text-gray-400">${player.category} • ${age} años</p>
         ${player.position || player.jerseyNumber ? `
@@ -1028,7 +1028,7 @@ function showParentCodeModal(player, code, isExisting) {
       <!-- Info del jugador -->
       <div class="flex items-center gap-4 mb-6">
         <div class="p-1 rounded-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700">
-          <img src="${player.avatar || getDefaultAvatar()}" alt="${player.name}" class="w-14 h-14 rounded-full object-cover">
+          <img src="${player.avatar || getDefaultAvatar()}" alt="${player.name}" loading="lazy" decoding="async" width="56" height="56" class="w-14 h-14 rounded-full object-cover">
         </div>
         <div>
           <p class="font-semibold text-lg text-slate-800 dark:text-white">${player.name}</p>
@@ -1414,7 +1414,7 @@ function renderDuplicatePairHTML(pair, idx) {
           📅 Más antiguo
         </div>`}
       <div class="flex items-center gap-2 mb-2 pr-24">
-        <img src="${p.avatar || ''}" onerror="this.style.display='none'"
+        <img src="${p.avatar || ''}" alt="" loading="lazy" decoding="async" width="32" height="32" onerror="this.style.display='none'"
           class="w-8 h-8 rounded-full object-cover flex-shrink-0">
         <p class="text-sm font-bold leading-tight ${matchName ? 'text-green-700 dark:text-green-300' : 'text-gray-800 dark:text-white'}">${p.name}</p>
       </div>
@@ -1673,7 +1673,7 @@ function renderNameDuplicateGroup(group) {
 
   const rows = sorted.map((p, idx) => `
     <div class="flex items-center gap-3 p-3 rounded-xl border ${idx === 0 ? 'border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/20' : 'border-gray-200 dark:border-gray-700'}">
-      <img src="${p.avatar || ''}" onerror="this.style.display='none'"
+      <img src="${p.avatar || ''}" alt="" loading="lazy" decoding="async" width="36" height="36" onerror="this.style.display='none'"
         class="w-9 h-9 rounded-full object-cover flex-shrink-0 bg-gray-200 dark:bg-gray-600">
       <div class="flex-1 min-w-0">
         <p class="text-sm font-semibold text-gray-800 dark:text-white truncate">${p.name}</p>

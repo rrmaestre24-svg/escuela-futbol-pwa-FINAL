@@ -78,7 +78,7 @@ function updateDashboardBirthdays() {
     
     return `
       <div class="flex items-center gap-3 bg-white bg-opacity-20 rounded-lg p-2">
-        <img src="${birthday.avatar || getDefaultAvatar()}" alt="${birthday.name}" class="w-12 h-12 rounded-full object-cover border-2 border-white">
+        <img src="${birthday.avatar || getDefaultAvatar()}" alt="${birthday.name}" loading="lazy" decoding="async" width="48" height="48" class="w-12 h-12 rounded-full object-cover border-2 border-white">
         <div class="flex-1 min-w-0">
           <p class="font-medium text-white truncate">${birthday.name} ${birthday.type === 'staff' ? '⭐' : ''}</p>
           <p class="text-sm text-white text-opacity-90">
