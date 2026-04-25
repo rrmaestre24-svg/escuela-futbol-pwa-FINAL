@@ -4,6 +4,8 @@
 html, body { -webkit-overflow-scrolling: touch; scroll-behavior: smooth; }
 * { -webkit-tap-highlight-color: transparent; }
 button, [role="button"], a, label, input[type="checkbox"], input[type="radio"] { touch-action: manipulation; }
+/* Renderizar fuera del viewport sólo cuando se acerque (mejora scroll en listas largas) */
+#playersList > .glass-card { content-visibility: auto; contain-intrinsic-size: 0 130px; }
 
 /* ========================================
    CONFIGURACIÓN BASE MODO OSCURO
