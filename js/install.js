@@ -19,11 +19,16 @@ function isAppInstalled() {
   return false;
 }
 
+// Detectar iOS — Safari nunca dispara beforeinstallprompt, hay que mostrar botón a mano
+function isIOS() {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+}
+
 // Inicializar botones de instalación
 window.addEventListener('DOMContentLoaded', () => {
   installButtonHeader = document.getElementById('installButton');
   installButtonLogin = document.getElementById('installButtonLogin');
-  
+
   // Si ya está instalada, ocultar botones
   if (isAppInstalled()) {
     console.log('✅ App ya instalada');
@@ -31,8 +36,17 @@ window.addEventListener('DOMContentLoaded', () => {
     if (installButtonLogin) installButtonLogin.classList.add('hidden');
     return;
   }
-  
-  console.log('📱 App no instalada - Mostrando botones');
+
+  // En iOS: mostrar botones desde el inicio (beforeinstallprompt nunca llegará).
+  // Al tocarlos, installPWA() detecta que no hay deferredPrompt y muestra las instrucciones iOS.
+  if (isIOS()) {
+    console.log('📱 iOS detectado - Mostrando botones con instrucciones manuales');
+    if (installButtonHeader) installButtonHeader.classList.remove('hidden');
+    if (installButtonLogin) installButtonLogin.classList.remove('hidden');
+    return;
+  }
+
+  console.log('📱 App no instalada - Esperando beforeinstallprompt');
 });
 
 // Escuchar el evento beforeinstallprompt
