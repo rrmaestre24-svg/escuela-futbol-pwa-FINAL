@@ -1289,6 +1289,8 @@ async function confirmVoidPayment() {
       originalPaymentId: paymentId,
       invoiceNumber: payment.invoiceNumber || 'N/A',
       amount: payment.amount || 0,
+      type: payment.type || '',
+      dueDate: payment.dueDate || payment.paidDate || '',
       concept: payment.concept || payment.type || 'N/A',
       playerId: payment.playerId || '',
       playerName: player ? player.name : 'Desconocido',
@@ -2554,6 +2556,54 @@ async function handlePaymentFormSubmit(e) {
       return;
     }
 
+    // Validar duplicado de Mensualidad — solo al CREAR (no al editar).
+    // - Si existe una ACTIVA: bloqueo directo (no se puede crear).
+    // - Si existe una ANULADA: pide confirmación al admin (puede ser corrección de monto).
+    if (!paymentId && type === 'Mensualidad') {
+      const mesRef = (dueDate || paidDate || '').slice(0, 7); // YYYY-MM
+      if (mesRef) {
+        const player = getPlayerById(playerId);
+        const nombreMes = new Date(mesRef + '-01').toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
+        const nombreJugador = player?.name || 'este jugador';
+
+        // 1. Activa en storage local → BLOQUEO TOTAL
+        const activoExiste = getPayments().some(p =>
+          p.playerId === playerId &&
+          p.type === 'Mensualidad' &&
+          (p.dueDate || p.paidDate || '').slice(0, 7) === mesRef
+        );
+        if (activoExiste) {
+          showToast(`⚠️ Ya existe una mensualidad activa de ${nombreJugador} para ${nombreMes}`);
+          return;
+        }
+
+        // 2. Anulada en Firebase → CONFIRMACIÓN del admin
+        let anuladoExiste = false;
+        try {
+          if (window.firebase?.db && typeof getClubId === 'function') {
+            const voidedSnap = await window.firebase.getDocs(
+              window.firebase.collection(window.firebase.db, `clubs/${getClubId()}/voided_payments`)
+            );
+            voidedSnap.forEach(doc => {
+              const v = doc.data();
+              if (v.playerId === playerId &&
+                  v.type === 'Mensualidad' &&
+                  (v.dueDate || '').slice(0, 7) === mesRef) {
+                anuladoExiste = true;
+              }
+            });
+          }
+        } catch (e) {
+          console.warn('[validación] No se pudo consultar facturas anuladas:', e.message);
+        }
+
+        if (anuladoExiste) {
+          const confirmado = await mostrarConfirmacionMensualidadAnulada(nombreJugador, nombreMes);
+          if (!confirmado) return; // Admin canceló → no crear
+        }
+      }
+    }
+
     const paymentData = {
       playerId,
       type,
@@ -2618,4 +2668,72 @@ document.addEventListener('DOMContentLoaded', function() {
 }, { once: true }); // ← ESTO ASEGURA QUE SOLO SE REGISTRE UNA VEZ
 
 window.renderPaymentMovementLog = renderPaymentMovementLog;
+
+// ========================================
+// CONFIRMACIÓN: mensualidad con factura anulada previa
+// Retorna Promise<boolean> — true si el admin confirma, false si cancela.
+// ========================================
+function mostrarConfirmacionMensualidadAnulada(nombreJugador, nombreMes) {
+  return new Promise(resolve => {
+    // Eliminar modal previo si existe
+    document.getElementById('_dupConfirmModal')?.remove();
+
+    const modal = document.createElement('div');
+    modal.id = '_dupConfirmModal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;';
+
+    modal.innerHTML = `
+      <div style="background:#1e293b;color:#e2e8f0;border-radius:20px;width:100%;max-width:400px;
+                  padding:24px;box-shadow:0 20px 60px rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.08);
+                  animation:_slideIn .2s ease;">
+        <style>@keyframes _slideIn{from{opacity:0;transform:translateY(-12px)}to{opacity:1;transform:translateY(0)}}</style>
+
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+          <div style="width:44px;height:44px;border-radius:12px;background:rgba(245,158,11,.15);
+                      border:1px solid rgba(245,158,11,.3);display:flex;align-items:center;
+                      justify-content:center;font-size:22px;flex-shrink:0;">⚠️</div>
+          <div>
+            <p style="font-weight:800;font-size:15px;margin:0;color:#fff;">Factura anulada previa</p>
+            <p style="font-size:12px;color:#94a3b8;margin:2px 0 0;">Confirmación requerida</p>
+          </div>
+        </div>
+
+        <p style="font-size:14px;color:#cbd5e1;line-height:1.6;margin-bottom:6px;">
+          Ya existe una factura <strong style="color:#fbbf24;">anulada</strong> de
+          <strong style="color:#fff;">${nombreJugador}</strong> para
+          <strong style="color:#fff;">${nombreMes}</strong>.
+        </p>
+        <p style="font-size:13px;color:#94a3b8;line-height:1.5;margin-bottom:20px;">
+          ¿Deseas crear una nueva de todas formas? (Por ejemplo, para corregir el monto.)
+        </p>
+
+        <div style="display:flex;gap:10px;">
+          <button id="_dupCancel"
+            style="flex:1;padding:11px;border-radius:12px;background:rgba(255,255,255,.06);
+                   border:1px solid rgba(255,255,255,.1);color:#94a3b8;font-weight:600;
+                   font-size:14px;cursor:pointer;transition:all .15s;">
+            Cancelar
+          </button>
+          <button id="_dupConfirm"
+            style="flex:1;padding:11px;border-radius:12px;background:#0d9488;
+                   border:none;color:#fff;font-weight:700;font-size:14px;
+                   cursor:pointer;transition:all .15s;">
+            Sí, crear nueva
+          </button>
+        </div>
+      </div>`;
+
+    document.body.appendChild(modal);
+
+    const cleanup = (result) => {
+      modal.remove();
+      resolve(result);
+    };
+
+    document.getElementById('_dupConfirm').addEventListener('click', () => cleanup(true));
+    document.getElementById('_dupCancel').addEventListener('click',  () => cleanup(false));
+    modal.addEventListener('click', e => { if (e.target === modal) cleanup(false); });
+  });
+}
+
 console.log('✅ Sistema anti-duplicación de pagos activado');
