@@ -9,6 +9,14 @@ console.log('📄 Cargando accounting.js con egresos, otros ingresos y documento
 let accountingCharts = {};
 
 // Escape HTML para evitar XSS en texto ingresado por el usuario (motivo/observación)
+// Devuelve el monto efectivo de un pago considerando descuentos.
+// Usa finalAmount si está definido (incluyendo 0 = descuento 100%);
+// de lo contrario, usa amount. El patrón "finalAmount || amount" era
+// incorrecto porque 0 es falsy y caía al amount sin descuento.
+function _getAmt(p) {
+  return (p.finalAmount != null) ? p.finalAmount : (p.amount || 0);
+}
+
 function _accEscapeHtml(text) {
   if (text === null || text === undefined) return '';
   return String(text)
@@ -25,8 +33,9 @@ function _accEscapeHtml(text) {
 function _accMissingMonthsForPlayer(player, payments) {
   const billed = new Set(
     payments
-      .filter(p => p.type === 'Mensualidad' && p.billingMonth)
-      .map(p => p.billingMonth)
+      .filter(p => p.type === 'Mensualidad')
+      .map(p => p.billingMonth || (p.dueDate || p.paidDate || '').slice(0, 7))
+      .filter(m => m && /^\d{4}-\d{2}$/.test(m))
   );
 
   let startMonth = '';
@@ -144,14 +153,14 @@ function renderAccountingSummary() {
   
   // 💰 INGRESOS (Pagos de jugadores + Otros ingresos)
   const totalThirdParty = thirdPartyIncomes.reduce((sum, i) => sum + (i.amount || 0), 0);
-  const totalPaymentsIncome = paid.reduce((sum, p) => sum + (p.finalAmount || p.amount || 0), 0);
+  const totalPaymentsIncome = paid.reduce((sum, p) => sum + _getAmt(p), 0);
   const totalIncome = totalPaymentsIncome + totalThirdParty;
-  const totalPending = pending.reduce((sum, p) => sum + (p.finalAmount || p.amount || 0), 0);
+  const totalPending = pending.reduce((sum, p) => sum + _getAmt(p), 0);
 
   const thisMonth = paid.filter(p => p.paidDate && isThisMonth(p.paidDate));
   const thisMonthThirdParty = thirdPartyIncomes.filter(i => i.date && isThisMonth(i.date));
   const monthThirdParty = thisMonthThirdParty.reduce((sum, i) => sum + (i.amount || 0), 0);
-  const monthPaymentsIncome = thisMonth.reduce((sum, p) => sum + (p.finalAmount || p.amount || 0), 0);
+  const monthPaymentsIncome = thisMonth.reduce((sum, p) => sum + _getAmt(p), 0);
   const monthIncome = monthPaymentsIncome + monthThirdParty;
   
   // 💸 EGRESOS
@@ -266,7 +275,7 @@ function renderIncomeVsExpensesChart() {
       return paymentDate.getMonth() === date.getMonth() && 
              paymentDate.getFullYear() === date.getFullYear();
     });
-    const paymentsTotal = monthPayments.reduce((sum, p) => sum + (p.finalAmount || p.amount || 0), 0);
+    const paymentsTotal = monthPayments.reduce((sum, p) => sum + _getAmt(p), 0);
     
     // 🆕 Otros ingresos del mes
     const monthThirdParty = thirdPartyIncomes.filter(i => {
@@ -361,7 +370,7 @@ function renderIncomeByCategoryChart() {
     const categoryPlayers = players.filter(p => p.category === category);
     const playerIds = categoryPlayers.map(p => p.id);
     const categoryPayments = payments.filter(p => playerIds.includes(p.playerId));
-    data.push(categoryPayments.reduce((sum, p) => sum + (p.finalAmount || p.amount || 0), 0));
+    data.push(categoryPayments.reduce((sum, p) => sum + _getAmt(p), 0));
   });
   
   const colors = [
@@ -410,7 +419,7 @@ function renderIncomeByTypeChart() {
   
   types.forEach(type => {
     const typePayments = payments.filter(p => p.type === type);
-    data.push(typePayments.reduce((sum, p) => sum + (p.finalAmount || p.amount || 0), 0));
+    data.push(typePayments.reduce((sum, p) => sum + _getAmt(p), 0));
   });
   
   accountingCharts.byType = new Chart(ctx, {
@@ -479,8 +488,8 @@ function renderAccountingPlayersTable() {
     const paid     = payments.filter(p => p.status === 'Pagado');
     const pending  = payments.filter(p => p.status === 'Pendiente');
 
-    const totalPaid    = paid.reduce((s, p) => s + (p.finalAmount || p.amount || 0), 0);
-    const totalPending = pending.reduce((s, p) => s + (p.finalAmount || p.amount || 0), 0);
+    const totalPaid    = paid.reduce((s, p) => s + _getAmt(p), 0);
+    const totalPending = pending.reduce((s, p) => s + _getAmt(p), 0);
     const totalExpected = totalPaid + totalPending;
     const compliance    = totalExpected > 0 ? (totalPaid / totalExpected * 100) : 0;
     const color         = compliance >= 80 ? 'bg-green-500' : compliance >= 50 ? 'bg-yellow-500' : 'bg-red-500';
@@ -699,7 +708,7 @@ function sendPendingReminderWA(playerId) {
   const allPayments = getPaymentsByPlayer(playerId);
   const pending     = allPayments.filter(p => p.status === 'Pendiente');
   const missing     = _accMissingMonthsForPlayer(player, allPayments);
-  const totalPending = pending.reduce((s, p) => s + (p.finalAmount || p.amount || 0), 0);
+  const totalPending = pending.reduce((s, p) => s + _getAmt(p), 0);
 
   // 🆕 Detectar si nunca ha tenido facturas mensuales
   const monthlyPayments = allPayments.filter(p => p.type === 'Mensualidad' || p.concept === 'Mensualidad');
@@ -716,7 +725,7 @@ function sendPendingReminderWA(playerId) {
   } else {
     const detallePendientes = pending.length > 0
       ? '📌 *Facturas pendientes:*\n' + pending.slice(0, 5)
-          .map(p => `• ${p.concept || p.type || 'Pago'}${p.dueDate ? ` (vence ${p.dueDate})` : ''} — ${formatCurrency(p.finalAmount || p.amount || 0)}`)
+          .map(p => `• ${p.concept || p.type || 'Pago'}${p.dueDate ? ` (vence ${p.dueDate})` : ''} — ${formatCurrency_getAmt(p)}`)
           .join('\n')
       : '';
 
@@ -802,7 +811,7 @@ function exportCSV() {
       'Número Documento': player ? (player.documentNumber || 'N/A') : 'N/A', // 🆕
       'Categoría': player ? player.category : 'N/A',
       'Concepto': payment.concept || payment.type || 'N/A',
-      'Monto': payment.finalAmount || payment.amount || 0,
+      'Monto': _getAmt(payment),
       'Estado': payment.status || 'N/A',
       'Método': payment.method || 'N/A',
       'Teléfono': player ? (player.phone || '') : '',
@@ -868,8 +877,8 @@ function exportPlayersSummaryCSV() {
       'Tipo Documento': player.documentType || 'N/A', // 🆕
       'Número Documento': player.documentNumber || 'N/A', // 🆕
       'Categoría': player.category || 'N/A',
-      'Total Pagado': paid.reduce((sum, p) => sum + (p.finalAmount || p.amount || 0), 0),
-      'Total Pendiente': pending.reduce((sum, p) => sum + (p.finalAmount || p.amount || 0), 0),
+      'Total Pagado': paid.reduce((sum, p) => sum + _getAmt(p), 0),
+      'Total Pendiente': pending.reduce((sum, p) => sum + _getAmt(p), 0),
       'Cantidad Pagos': paid.length,
       'Última Factura': lastPayment ? (lastPayment.invoiceNumber || 'N/A') : 'N/A',
       'Último Pago': lastPayment ? formatDate(lastPayment.paidDate) : 'N/A',
@@ -936,7 +945,7 @@ function exportFullReportCSV() {
       'Número Documento': player ? (player.documentNumber || 'N/A') : 'N/A', // 🆕
       'Categoría': player ? player.category : 'N/A',
       'Concepto': payment.concept || payment.type || 'N/A',
-      'Ingreso': payment.status === 'Pagado' ? (payment.finalAmount || payment.amount || 0) : 0,
+      'Ingreso': payment.status === 'Pagado' ? _getAmt(payment) : 0,
       'Egreso': 0,
       'Estado': payment.status || 'N/A',
       'Método': payment.method || 'N/A'
@@ -1143,7 +1152,7 @@ function openCashRegisterModal() {
   let expectedBankIncome = 0;
   
   payments.forEach(p => {
-      const amt = parseFloat(p.finalAmount || p.amount || 0);
+      const amt = parseFloat_getAmt(p);
       totalIncomeAmount += amt;
       if (p.method === 'Efectivo') expectedCashIncome += amt;
       else expectedBankIncome += amt;
@@ -1300,14 +1309,15 @@ function runAmountAudit() {
     return p ? p.name : 'Desconocido';
   };
 
-  // Caso 1: Editados con finalAmount desincronizado (EL BUG)
+  // Caso 1: Pagos con finalAmount desincronizado (EL BUG)
+  // Pueden ser editados, o pagos antiguos mal creados sin descuento legítimo
   const buggedEdited = payments.filter(p =>
-    p.editedBy && p.finalAmount !== undefined && p.finalAmount !== p.amount
+    p.finalAmount !== undefined && p.finalAmount !== p.amount && !p.discount
   );
 
-  // Caso 2: Sin editar pero tienen finalAmount != amount (descuentos legítimos)
+  // Caso 2: Pagos con finalAmount != amount (descuentos legítimos)
   const withDiscount = payments.filter(p =>
-    !p.editedBy && p.finalAmount !== undefined && p.finalAmount !== p.amount
+    p.finalAmount !== undefined && p.finalAmount !== p.amount && p.discount
   );
 
   // Caso 3: Pagados sin ningún monto

@@ -52,7 +52,16 @@ async function startRealtimeSync(clubId) {
   
   try {
     // 🎯 PASO 1: DESCARGA INICIAL COMPLETA
-    await downloadAllDataInitially(clubId);
+    // Si auth.js ya descargó los datos hace menos de 3 minutos, saltamos
+    // la descarga para no duplicar lecturas de Firestore.
+    const _lastDL = JSON.parse(localStorage.getItem('_lastFullDownload') || 'null');
+    const _skipDownload = _lastDL?.clubId === clubId && (Date.now() - _lastDL.ts) < 10 * 60 * 1000;
+    if (_skipDownload) {
+      const minAgo = Math.round((Date.now() - _lastDL.ts) / 60000);
+      console.log(`⚡ Datos en localStorage de hace ${minAgo} min — omitiendo descarga, listeners activos`);
+    } else {
+      await downloadAllDataInitially(clubId);
+    }
     
     // 🎯 PASO 2: ACTIVAR LISTENERS
     // 1️⃣ Listener de Jugadores
@@ -381,18 +390,22 @@ async function downloadAllDataInitially(clubId) {
     console.error('⚠️ Error config:', error);
   }
 
-  // 🔟 LOG DE MOVIMIENTOS DE PAGOS
+  // 🔟 LOG DE MOVIMIENTOS DE PAGOS — limitado a últimos 200 para reducir lecturas
   try {
-    console.log('📥 10/10 - Log de movimientos de pagos...');
+    console.log('📥 10/10 - Log de movimientos de pagos (últimos 200)...');
     const logSnapshot = await window.firebase.getDocs(
-      window.firebase.collection(window.firebase.db, `clubs/${clubId}/paymentMovementLog`)
+      window.firebase.query(
+        window.firebase.collection(window.firebase.db, `clubs/${clubId}/paymentMovementLog`),
+        window.firebase.orderBy('timestamp', 'desc'),
+        window.firebase.limit(200)
+      )
     );
     const logEntries = [];
     logSnapshot.forEach(doc => logEntries.push(doc.data()));
-    logEntries.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-    localStorage.setItem('paymentMovementLog', JSON.stringify(logEntries.slice(0, 500)));
+    // Ya llegan ordenados desc por el query
+    localStorage.setItem('paymentMovementLog', JSON.stringify(logEntries));
     stats.paymentMovementLog = logEntries.length;
-    console.log(`✅ ${logEntries.length} entradas del log de movimientos`);
+    console.log(`✅ ${logEntries.length} entradas del log de movimientos cargadas`);
   } catch (error) {
     console.error('⚠️ Error log de movimientos:', error);
   }
@@ -787,9 +800,12 @@ function startLogoListener(clubId) {
 // 📋 LISTENER DE LOG DE MOVIMIENTOS DE PAGOS
 // ========================================
 function startPaymentLogListener(clubId) {
-  const logRef = window.firebase.collection(
-    window.firebase.db,
-    `clubs/${clubId}/paymentMovementLog`
+  // Limitado a los últimos 200 registros para evitar lecturas masivas.
+  // El log completo se carga bajo demanda cuando el admin lo solicita.
+  const logRef = window.firebase.query(
+    window.firebase.collection(window.firebase.db, `clubs/${clubId}/paymentMovementLog`),
+    window.firebase.orderBy('timestamp', 'desc'),
+    window.firebase.limit(200)
   );
 
   window.realtimeListeners.paymentMovementLog = window.firebase.onSnapshot(
@@ -798,8 +814,8 @@ function startPaymentLogListener(clubId) {
       if (snapshot.empty) return;
       const entries = [];
       snapshot.forEach(doc => entries.push(doc.data()));
-      entries.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-      localStorage.setItem('paymentMovementLog', JSON.stringify(entries.slice(0, 500)));
+      // Ya llegan ordenados desc por el query; guardar directo
+      localStorage.setItem('paymentMovementLog', JSON.stringify(entries));
 
       if (window.realtimeSyncState.initialLoadComplete) {
         if (typeof renderPaymentMovementLog === 'function') {

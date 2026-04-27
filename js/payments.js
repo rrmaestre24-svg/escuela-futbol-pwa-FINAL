@@ -1904,6 +1904,7 @@ async function saveEditedPayment() {
     status,
     paidDate: status === 'Pagado' ? (paidDate || getCurrentDate()) : null,
     method: status === 'Pagado' ? (method || 'Efectivo') : null,
+    billingMonth: type === 'Mensualidad' ? (dueDate || paidDate || '').slice(0, 7) || null : null,
     editedBy: getAuditInfo()
   };
   
@@ -2078,14 +2079,14 @@ window.autoFillEditConcept = autoFillEditConcept;
 console.log('✅ Sistema de edición COMPLETA de facturas cargado');
 
 // ========================================
-// REPARACIÓN DE finalAmount EN PAGOS EDITADOS
+// REPARACIÓN DE finalAmount EN PAGOS DESINCRONIZADOS
 // ========================================
 function repairFinalAmounts() {
   const payments = getPayments();
   let fixed = 0;
   const repaired = payments.map(p => {
-    // Si fue editado y tiene finalAmount distinto a amount, sincronizar
-    if (p.editedBy && p.finalAmount !== undefined && p.finalAmount !== p.amount) {
+    // Si tiene finalAmount distinto a amount Y no es un descuento legítimo (no tiene p.discount), sincronizar
+    if (p.finalAmount !== undefined && p.finalAmount !== p.amount && !p.discount) {
       fixed++;
       return { ...p, finalAmount: p.amount };
     }
@@ -2095,7 +2096,7 @@ function repairFinalAmounts() {
     localStorage.setItem('payments', JSON.stringify(repaired));
     // Sincronizar con Firebase los reparados
     if (typeof savePaymentToFirebase === 'function') {
-      repaired.filter(p => p.editedBy && p.finalAmount === p.amount).forEach(p => {
+      repaired.filter(p => p.finalAmount !== undefined && p.finalAmount === p.amount && !p.discount).forEach(p => {
         savePaymentToFirebase(p).catch(() => {});
       });
     }
@@ -2570,7 +2571,7 @@ async function handlePaymentFormSubmit(e) {
         const activoExiste = getPayments().some(p =>
           p.playerId === playerId &&
           p.type === 'Mensualidad' &&
-          (p.dueDate || p.paidDate || '').slice(0, 7) === mesRef
+          (p.billingMonth || (p.dueDate || p.paidDate || '').slice(0, 7)) === mesRef
         );
         if (activoExiste) {
           showToast(`⚠️ Ya existe una mensualidad activa de ${nombreJugador} para ${nombreMes}`);
@@ -2612,7 +2613,8 @@ async function handlePaymentFormSubmit(e) {
       dueDate: dueDate || paidDate || getCurrentDate(),
       status,
       paidDate: status === 'Pagado' ? (paidDate || getCurrentDate()) : null,
-      method: status === 'Pagado' ? (method || 'Efectivo') : null
+      method: status === 'Pagado' ? (method || 'Efectivo') : null,
+      billingMonth: type === 'Mensualidad' ? (dueDate || paidDate || '').slice(0, 7) || null : null
     };
 
     if (paymentId) {

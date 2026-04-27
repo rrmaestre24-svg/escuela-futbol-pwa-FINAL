@@ -229,6 +229,7 @@ function initApp() {
       console.warn('⚠️ Usuario eliminado por el admin. Cerrando sesión...');
       localStorage.removeItem('currentUser');
       localStorage.removeItem('clubId');
+      localStorage.removeItem('_lastFullDownload');
       sessionStorage.clear();
       if (window.firebase?.auth) {
         window.firebase.signOut(window.firebase.auth).catch(() => {});
@@ -485,6 +486,9 @@ async function downloadAllClubData(clubId) {
 
     localStorage.setItem('thirdPartyIncomes', JSON.stringify(thirdPartyIncomes));
     console.log(`✅ ${thirdPartyIncomes.length} otros ingresos descargados`);
+
+    // Marca el momento de la descarga para que realtime-sync no vuelva a bajar los mismos datos
+    localStorage.setItem('_lastFullDownload', JSON.stringify({ clubId, ts: Date.now() }));
 
     showToast('✅ Datos sincronizados correctamente');
     return true;
@@ -1391,6 +1395,7 @@ async function logout() {
       localStorage.removeItem('calendarEvents');
       localStorage.removeItem('users');
       localStorage.removeItem('schoolSettings');
+      localStorage.removeItem('_lastFullDownload'); // ← forzar descarga limpia en próximo login
       sessionStorage.clear();
       
       showToast('👋 Sesión cerrada');

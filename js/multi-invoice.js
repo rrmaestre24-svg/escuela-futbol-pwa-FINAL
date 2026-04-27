@@ -57,7 +57,9 @@ function _mi_lastDayOfMonth(yyyyMm) {
 // ========================================
 function _mi_monthExists(playerId, billingMonth) {
     return getPaymentsByPlayer(playerId).some(
-        p => p.billingMonth === billingMonth && p.status !== 'Anulado'
+        p => p.type === 'Mensualidad' && 
+             (p.billingMonth || (p.dueDate || p.paidDate || '').slice(0, 7)) === billingMonth && 
+             p.status !== 'Anulado'
     );
 }
 
@@ -772,7 +774,7 @@ function _mi_sendWA(idsCsv) {
 
     // Totales con/sin descuento
     const totalBruto    = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
-    const totalFinal    = payments.reduce((sum, p) => sum + (p.finalAmount || p.amount || 0), 0);
+    const totalFinal    = payments.reduce((sum, p) => sum + (p.finalAmount != null ? p.finalAmount : (p.amount || 0)), 0);
     const totalDescuento = totalBruto - totalFinal;
 
     let docLine = '';
