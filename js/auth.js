@@ -171,6 +171,14 @@ function formatClubId(input) {
   return formatted || null;
 }
 
+window.onClubIdInput = function(value) {
+  const inputEl = document.getElementById('regClubId');
+  if (inputEl) {
+    const formatted = formatClubId(value);
+    inputEl.value = formatted !== null ? formatted : '';
+  }
+};
+
 // ✅ FUNCIÓN CORREGIDA: Verificar si el Club ID ya existe en Firebase
 async function checkClubIdExists(clubId) {
   if (!window.firebase?.db) {
