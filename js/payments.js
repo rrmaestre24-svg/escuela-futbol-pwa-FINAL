@@ -1904,7 +1904,7 @@ async function saveEditedPayment() {
     status,
     paidDate: status === 'Pagado' ? (paidDate || getCurrentDate()) : null,
     method: status === 'Pagado' ? (method || 'Efectivo') : null,
-    billingMonth: type === 'Mensualidad' ? (dueDate || paidDate || '').slice(0, 7) || null : null,
+    billingMonth: type === 'Mensualidad' ? extractBillingMonth({ type, concept, dueDate: dueDate || paidDate || getCurrentDate(), billingMonth: originalPayment.billingMonth, createdAt: originalPayment.createdAt }) : null,
     editedBy: getAuditInfo()
   };
   
@@ -2561,7 +2561,7 @@ async function handlePaymentFormSubmit(e) {
     // - Si existe una ACTIVA: bloqueo directo (no se puede crear).
     // - Si existe una ANULADA: pide confirmación al admin (puede ser corrección de monto).
     if (!paymentId && type === 'Mensualidad') {
-      const mesRef = (dueDate || paidDate || '').slice(0, 7); // YYYY-MM
+      const mesRef = extractBillingMonth({ type, concept, dueDate: dueDate || paidDate || getCurrentDate() });
       if (mesRef) {
         const player = getPlayerById(playerId);
         const nombreMes = new Date(mesRef + '-01').toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
@@ -2571,7 +2571,7 @@ async function handlePaymentFormSubmit(e) {
         const activoExiste = getPayments().some(p =>
           p.playerId === playerId &&
           p.type === 'Mensualidad' &&
-          (p.billingMonth || (p.dueDate || p.paidDate || '').slice(0, 7)) === mesRef
+          extractBillingMonth(p) === mesRef
         );
         if (activoExiste) {
           showToast(`⚠️ Ya existe una mensualidad activa de ${nombreJugador} para ${nombreMes}`);
@@ -2614,7 +2614,7 @@ async function handlePaymentFormSubmit(e) {
       status,
       paidDate: status === 'Pagado' ? (paidDate || getCurrentDate()) : null,
       method: status === 'Pagado' ? (method || 'Efectivo') : null,
-      billingMonth: type === 'Mensualidad' ? (dueDate || paidDate || '').slice(0, 7) || null : null
+      billingMonth: type === 'Mensualidad' ? extractBillingMonth({ type, concept, dueDate: dueDate || paidDate || getCurrentDate() }) : null
     };
 
     if (paymentId) {

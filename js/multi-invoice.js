@@ -58,7 +58,7 @@ function _mi_lastDayOfMonth(yyyyMm) {
 function _mi_monthExists(playerId, billingMonth) {
     return getPaymentsByPlayer(playerId).some(
         p => p.type === 'Mensualidad' && 
-             (p.billingMonth || (p.dueDate || p.paidDate || '').slice(0, 7)) === billingMonth && 
+             extractBillingMonth(p) === billingMonth && 
              p.status !== 'Anulado'
     );
 }

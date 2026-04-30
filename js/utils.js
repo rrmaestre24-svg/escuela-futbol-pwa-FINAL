@@ -153,6 +153,34 @@ function addMonths(dateStr, months) {
 // FIN FUNCIONES DE FECHA
 // ========================================
 
+// ✅ Obtener el mes de facturación de forma inteligente basado en el concepto
+function extractBillingMonth(payment) {
+  if (payment.type !== 'Mensualidad') return null;
+
+  // 1. Intentar extraer mes y año del concepto (ej: "Mensualidad Mayo 2026")
+  const c = (payment.concept || '').toLowerCase();
+  const months = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+  let mIndex = -1;
+  for (let i = 0; i < months.length; i++) {
+    if (c.includes(months[i])) { mIndex = i + 1; break; }
+  }
+  let yMatch = c.match(/\b(20\d{2})\b/);
+  
+  if (mIndex !== -1) {
+    let year = yMatch ? yMatch[1] : (payment.billingMonth || payment.dueDate || payment.paidDate || payment.createdAt || new Date().toISOString()).slice(0, 4);
+    return `${year}-${String(mIndex).padStart(2, '0')}`;
+  }
+
+  // 2. Confiar en billingMonth si no se detectó el mes en el concepto y el billingMonth es válido
+  if (payment.billingMonth && /^\d{4}-\d{2}$/.test(payment.billingMonth)) {
+    return payment.billingMonth;
+  }
+
+  // 3. Fallback a la fecha de vencimiento, pago o creación
+  return (payment.dueDate || payment.paidDate || payment.createdAt || '').slice(0, 7) || null;
+}
+window.extractBillingMonth = extractBillingMonth;
+
 // Formatear moneda COP
 function formatCurrency(amount) {
   const currency = getSchoolSettings().currency || 'COP';

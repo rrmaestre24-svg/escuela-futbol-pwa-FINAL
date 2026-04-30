@@ -34,7 +34,7 @@ function _accMissingMonthsForPlayer(player, payments) {
   const billed = new Set(
     payments
       .filter(p => p.type === 'Mensualidad')
-      .map(p => p.billingMonth || (p.dueDate || p.paidDate || '').slice(0, 7))
+      .map(p => extractBillingMonth(p))
       .filter(m => m && /^\d{4}-\d{2}$/.test(m))
   );
 
@@ -725,7 +725,7 @@ function sendPendingReminderWA(playerId) {
   } else {
     const detallePendientes = pending.length > 0
       ? '📌 *Facturas pendientes:*\n' + pending.slice(0, 5)
-          .map(p => `• ${p.concept || p.type || 'Pago'}${p.dueDate ? ` (vence ${p.dueDate})` : ''} — ${formatCurrency_getAmt(p)}`)
+          .map(p => `• ${p.concept || p.type || 'Pago'}${p.dueDate ? ` (vence ${p.dueDate})` : ''} — ${formatCurrency(_getAmt(p))}`)
           .join('\n')
       : '';
 
@@ -1152,7 +1152,7 @@ function openCashRegisterModal() {
   let expectedBankIncome = 0;
   
   payments.forEach(p => {
-      const amt = parseFloat_getAmt(p);
+      const amt = _getAmt(p);
       totalIncomeAmount += amt;
       if (p.method === 'Efectivo') expectedCashIncome += amt;
       else expectedBankIncome += amt;
