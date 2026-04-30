@@ -519,6 +519,33 @@ async function savePlayerToFirebase(player) {
 /**
  * ✅ Guardar pago individual en Firebase
  */
+async function saveSchoolSettingsToFirebase(settings) {
+  if (!checkFirebaseReady()) return false;
+
+  const clubId = getClubId();
+  if (!clubId || !settings) return false;
+
+  try {
+    await window.firebase.setDoc(
+      window.firebase.doc(window.firebase.db, `clubs/${clubId}/settings`, 'main'),
+      { ...settings, lastUpdated: new Date().toISOString() }
+    );
+    // Sincronizar coachCode por separado para la App de Asistencia
+    if (settings.coachCode !== undefined) {
+      await window.firebase.setDoc(
+        window.firebase.doc(window.firebase.db, `clubs/${clubId}/settings`, 'attendance'),
+        { coachCode: settings.coachCode, updatedAt: new Date().toISOString() }
+      );
+    }
+    console.log('✅ Configuración del club guardada en Firebase');
+    return true;
+  } catch (error) {
+    console.warn('⚠️ No se pudo sincronizar configuración:', error);
+    return false;
+  }
+}
+window.saveSchoolSettingsToFirebase = saveSchoolSettingsToFirebase;
+
 async function savePaymentToFirebase(payment) {
   if (!checkFirebaseReady()) return false;
 

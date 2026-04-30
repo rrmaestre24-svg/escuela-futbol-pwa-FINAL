@@ -535,23 +535,11 @@ function updateSchoolSettings(settings) {
   const updated = { ...current, ...settings };
   localStorage.setItem('schoolSettings', JSON.stringify(updated));
   
-  // ⭐ SINCRONIZACIÓN AUTOMÁTICA
-  if (typeof syncAllToFirebase === 'function' && window.APP_STATE?.firebaseReady) {
-    const clubId = localStorage.getItem('clubId');
-    if (clubId && window.firebase?.db) {
-      window.firebase.setDoc(
-        window.firebase.doc(window.firebase.db, `clubs/${clubId}/settings`, "main"),
-        { ...updated, lastUpdated: new Date().toISOString() }
-      ).catch(err => console.warn('⚠️ No se pudo sincronizar configuración:', err));
-
-      // 🆕 Sincronizar coachCode por separado para la App de Asistencia
-      if (settings.coachCode !== undefined) {
-        window.firebase.setDoc(
-          window.firebase.doc(window.firebase.db, `clubs/${clubId}/settings`, "attendance"),
-          { coachCode: settings.coachCode, updatedAt: new Date().toISOString() }
-        ).catch(err => console.warn('⚠️ No se pudo sincronizar código de asistencia:', err));
-      }
-    }
+  // ⭐ SINCRONIZACIÓN AUTOMÁTICA — delega a firebase-sync.js para consistencia
+  if (typeof saveSchoolSettingsToFirebase === 'function' && window.APP_STATE?.firebaseReady) {
+    saveSchoolSettingsToFirebase(updated).catch(err =>
+      console.warn('⚠️ No se pudo sincronizar configuración:', err)
+    );
   }
 }
 

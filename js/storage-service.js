@@ -64,12 +64,30 @@ function compressImage(file) {
   });
 }
 
+// ── Mapa de extensión → mimetype (fallback para browsers móviles sin file.type) ──
+const EXT_TO_TYPE = {
+  '.pdf':  'application/pdf',
+  '.jpg':  'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.png':  'image/png',
+  '.webp': 'image/webp',
+  '.doc':  'application/msword',
+  '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+};
+
+function resolveFileType(file) {
+  if (file.type && ALLOWED_TYPES.includes(file.type)) return file.type;
+  const ext = '.' + (file.name || '').split('.').pop().toLowerCase();
+  return EXT_TO_TYPE[ext] || '';
+}
+
 // ── uploadDocument ───────────────────────────────────────────
 // Sube un archivo a Firebase Storage y devuelve { url, publicId, fileType }
 // Los archivos se guardan en: players/{clubId}/{playerId}/{timestamp}_{nombre}
 async function uploadDocument(file, playerId) {
-  // Validar tipo
-  if (!ALLOWED_TYPES.includes(file.type)) {
+  // Validar tipo — usa file.type si está disponible, extensión como fallback
+  const resolvedType = resolveFileType(file);
+  if (!resolvedType) {
     throw new Error('Solo se permiten PDF, imágenes (JPG, PNG) o Word (.doc, .docx)');
   }
 
@@ -90,7 +108,7 @@ async function uploadDocument(file, playerId) {
   const clubId = currentUser.schoolId || 'sin-club';
 
   // Comprimir si es imagen — PDFs y Word se suben tal cual
-  const isImage = file.type.startsWith('image/');
+  const isImage = resolvedType.startsWith('image/');
   const fileToUpload = isImage ? await compressImage(file) : file;
 
   // Crear nombre único para el archivo: timestamp + nombre original
@@ -109,9 +127,9 @@ async function uploadDocument(file, playerId) {
 
   // Determinar tipo de archivo para el ícono
   let fileType = 'imagen';
-  if (file.type === 'application/pdf') fileType = 'pdf';
-  if (file.type === 'application/msword' ||
-      file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+  if (resolvedType === 'application/pdf') fileType = 'pdf';
+  if (resolvedType === 'application/msword' ||
+      resolvedType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
     fileType = 'word';
   }
 
