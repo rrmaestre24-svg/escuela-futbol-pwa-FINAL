@@ -162,7 +162,11 @@ async function initFirebase() {
 
     // LISTENER DE ESTADO DE AUTENTICACION
     // Restaura la sesion automaticamente al recargar/reabrir la PWA
-    onAuthStateChanged(auth, async (user) => {
+    // Cancelar suscripción anterior si existe (evita listeners duplicados)
+    if (typeof window.APP_STATE._authUnsubscribe === 'function') {
+      window.APP_STATE._authUnsubscribe();
+    }
+    window.APP_STATE._authUnsubscribe = onAuthStateChanged(auth, async (user) => {
       console.log('[AUTH] Estado cambio:', user ? user.email : 'No autenticado');
       
       if (user) {

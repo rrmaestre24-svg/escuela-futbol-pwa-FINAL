@@ -9,7 +9,15 @@ if (typeof initFirebase === 'function') {
 }
 
 // Inicializar Lucide Icons
-lucide.createIcons();
+try {
+    if (typeof lucide !== 'undefined' && typeof lucide.createIcons === 'function') {
+        lucide.createIcons();
+    } else {
+        console.warn('⚠️ Lucide Icons no disponible — iconos no renderizados');
+    }
+} catch (e) {
+    console.warn('⚠️ Error al inicializar Lucide Icons:', e);
+}
 
 // Registrar Service Worker
 if ('serviceWorker' in navigator) {

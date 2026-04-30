@@ -429,11 +429,17 @@ async function downloadFromFirebase() {
     }
 
     showToast(`✅ Datos descargados: ${players.length} jugadores, ${payments.length} pagos, ${events.length} eventos, ${users.length} usuarios, ${expenses.length} egresos`);
-    
-    // Recargar para aplicar cambios
-    setTimeout(() => {
-      location.reload();
-    }, 1500);
+
+    // Preguntar antes de recargar para no perder datos en formularios abiertos
+    if (typeof showAppConfirm === 'function') {
+      const ok = await showAppConfirm(
+        'Datos sincronizados correctamente.\n¿Recargar la app ahora para aplicar los cambios?',
+        { confirmText: 'Recargar ahora', cancelText: 'Después', type: 'success' }
+      );
+      if (ok) location.reload();
+    } else {
+      setTimeout(() => location.reload(), 1500);
+    }
   } catch (error) {
     console.error('❌ Error al descargar:', error);
     showToast('⚠️ Error al descargar datos: ' + error.message);
@@ -1017,45 +1023,42 @@ async function getNextInvoiceNumberFromFirebase() {
   }
 
   try {
-    const counterRef = window.firebase.doc(window.firebase.db, `clubs/${clubId}/config`, 'invoiceCounter');
-    let bootstrapBase = 0;
+    const invoiceNumber = await Promise.race([
+      // Lógica principal con Firebase
+      (async () => {
+        const counterRef = window.firebase.doc(window.firebase.db, `clubs/${clubId}/config`, 'invoiceCounter');
+        let bootstrapBase = 0;
 
-    // Bootstrap defensivo: incluso si el contador existe, reconciliar con el mayor folio real.
-    // Esto evita una ventana en primer arranque de dispositivo si el auto-sync aún no terminó.
-    const counterSnap = await window.firebase.getDoc(counterRef);
-    const counterValue = counterSnap.exists() ? (counterSnap.data().lastNumber || 0) : 0;
-    const maxRealSequence = await getMaxInvoiceSequenceFromFirebase(clubId);
-    bootstrapBase = Math.max(Number.isFinite(counterValue) ? counterValue : 0, maxRealSequence);
-    
-    // Usar transacción para evitar duplicados
-    const newNumber = await window.firebase.runTransaction(window.firebase.db, async (transaction) => {
-      const counterDoc = await transaction.get(counterRef);
-      
-      let currentNumber = 0;
-      if (counterDoc.exists()) {
-        currentNumber = counterDoc.data().lastNumber || 0;
-      }
+        // Bootstrap defensivo: reconciliar con el mayor folio real.
+        const counterSnap = await window.firebase.getDoc(counterRef);
+        const counterValue = counterSnap.exists() ? (counterSnap.data().lastNumber || 0) : 0;
+        const maxRealSequence = await getMaxInvoiceSequenceFromFirebase(clubId);
+        bootstrapBase = Math.max(Number.isFinite(counterValue) ? counterValue : 0, maxRealSequence);
 
-      currentNumber = Math.max(currentNumber, bootstrapBase);
-      
-      const nextNumber = currentNumber + 1;
-      
-      transaction.set(counterRef, {
-        lastNumber: nextNumber,
-        lastUpdated: new Date().toISOString()
-      });
-      
-      return nextNumber;
-    });
+        // Transacción atómica para evitar duplicados entre dispositivos
+        const newNumber = await window.firebase.runTransaction(window.firebase.db, async (transaction) => {
+          const counterDoc = await transaction.get(counterRef);
+          let currentNumber = counterDoc.exists() ? (counterDoc.data().lastNumber || 0) : 0;
+          currentNumber = Math.max(currentNumber, bootstrapBase);
+          const nextNumber = currentNumber + 1;
+          transaction.set(counterRef, { lastNumber: nextNumber, lastUpdated: new Date().toISOString() });
+          return nextNumber;
+        });
 
-    const year = new Date().getFullYear();
-    const invoiceNumber = `INV-${year}-${String(newNumber).padStart(4, '0')}`;
-    
+        const year = new Date().getFullYear();
+        return `INV-${year}-${String(newNumber).padStart(4, '0')}`;
+      })(),
+      // Timeout de seguridad: si Firebase no responde en 10s, usar fallback local
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Firebase timeout')), 10000)
+      )
+    ]);
+
     console.log('✅ Consecutivo desde Firebase:', invoiceNumber);
     return invoiceNumber;
 
   } catch (error) {
-    console.error('❌ Error al obtener consecutivo de Firebase:', error);
+    console.warn('⚠️ Consecutivo Firebase falló, usando local:', error.message);
     return getNextInvoiceNumberLocal();
   }
 }
