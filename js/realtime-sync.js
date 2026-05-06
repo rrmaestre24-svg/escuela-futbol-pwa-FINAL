@@ -709,28 +709,14 @@ function startSettingsListener(clubId) {
   
   window.realtimeListeners.settings = window.firebase.onSnapshot(
     settingsRef,
-    async (doc) => {
+    (doc) => {
       if (doc.exists()) {
         const settings = doc.data();
 
-        // ✅ Recuperar logo del documento separado
-        try {
-          const clubId = window.realtimeSyncState.clubId;
-          if (clubId) {
-            const logoDoc = await window.firebase.getDoc(
-              window.firebase.doc(window.firebase.db, `clubs/${clubId}/assets`, 'logo')
-            );
-            if (logoDoc.exists() && logoDoc.data().logo) {
-              settings.logo = logoDoc.data().logo;
-            } else {
-              const local = JSON.parse(localStorage.getItem('schoolSettings') || '{}');
-              if (local.logo) settings.logo = local.logo;
-            }
-          }
-        } catch (e) {
-          const local = JSON.parse(localStorage.getItem('schoolSettings') || '{}');
-          if (local.logo) settings.logo = local.logo;
-        }
+        // ✅ FIX: El logo lo maneja startLogoListener() en tiempo real.
+        // Aquí solo lo recuperamos de localStorage para no duplicar lecturas.
+        const local = JSON.parse(localStorage.getItem('schoolSettings') || '{}');
+        if (!settings.logo && local.logo) settings.logo = local.logo;
 
         if (typeof saveSchoolSettings === 'function') {
           saveSchoolSettings(settings);
@@ -1019,6 +1005,13 @@ function updateHeaderInfo() {
 // ========================================
 document.addEventListener('DOMContentLoaded', function() {
   console.log('🔄 Módulo de sincronización en tiempo real cargado');
+  // ✅ FIX 1: Limpiar flag de historial completo en cada inicio
+  // Evita que un clic previo en "Ver historial completo" deje el listener
+  // de pagos sin límite de fecha de forma permanente.
+  if (localStorage.getItem('paymentsFullHistory') === 'true') {
+    localStorage.removeItem('paymentsFullHistory');
+    console.log('🧹 Flag paymentsFullHistory limpiado al iniciar');
+  }
   
   let attempts = 0;
   const maxAttempts = 30;

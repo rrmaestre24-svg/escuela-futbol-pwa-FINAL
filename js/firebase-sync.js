@@ -340,14 +340,22 @@ async function downloadFromFirebase() {
     localStorage.setItem('players', JSON.stringify(players));
     console.log(`✅ ${players.length} jugadores descargados`);
 
-    // 3️⃣ Pagos - ✅ RUTA CORREGIDA
+    // 3️⃣ Pagos — filtro 12 meses para evitar lecturas masivas
+    const _dlCutoff = new Date();
+    _dlCutoff.setFullYear(_dlCutoff.getFullYear() - 1);
+    const _dlCutoffStr = _dlCutoff.toISOString().split('T')[0];
     const paymentsSnapshot = await window.firebase.getDocs(
-      window.firebase.collection(window.firebase.db, `clubs/${clubId}/payments`)
+      window.firebase.query(
+        window.firebase.collection(window.firebase.db, `clubs/${clubId}/payments`),
+        window.firebase.where('dueDate', '>=', _dlCutoffStr)
+      )
     );
     const payments = [];
-    paymentsSnapshot.forEach(doc => payments.push(doc.data()));
+    paymentsSnapshot.forEach(doc => payments.push({ id: doc.id, ...doc.data() }));
+    // ✅ Resetear flag de historial completo al descargar
+    localStorage.removeItem('paymentsFullHistory');
     localStorage.setItem('payments', JSON.stringify(payments));
-    console.log(`✅ ${payments.length} pagos descargados`);
+    console.log(`✅ ${payments.length} pagos descargados (últimos 12 meses desde ${_dlCutoffStr})`);
 
     // 4️⃣ Eventos - ✅ RUTA CORREGIDA
     const eventsSnapshot = await window.firebase.getDocs(
