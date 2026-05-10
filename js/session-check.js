@@ -36,9 +36,14 @@ window.addEventListener('DOMContentLoaded', async function () {
 
     console.log('[INDEX] No hay sesion local, esperando Firebase...');
 
-    // 2. Esperar a que Firebase Auth verifique (hasta 10 segundos)
+    // 2. Esperar a que Firebase Auth verifique
+    // ⚡ OPTIMIZADO: En dispositivos de gama baja, reducir polling (cada 1000ms en vez de 500ms)
     let attempts = 0;
-    const maxAttempts = 20;
+    const isLowEnd = document.body.dataset.qualityLevel === 'low';
+    const pollInterval = isLowEnd ? 1000 : 500; // Reducir CPU en gama baja
+    const maxAttempts = isLowEnd ? 15 : 20;      // Timeout más corto en gama baja (7.5s vs 10s)
+
+    console.log(`🔍 Polling de sesión cada ${pollInterval}ms (device:${isLowEnd ? 'low-end' : 'normal'})`);
 
     const checkFirebase = setInterval(async () => {
         attempts++;
@@ -143,7 +148,7 @@ window.addEventListener('DOMContentLoaded', async function () {
             hideLoader();
             window.location.href = 'login.html';
         }
-    }, 500);
+    }, pollInterval);
 });
 
 console.log('✅ session-check.js cargado');

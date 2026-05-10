@@ -25,19 +25,26 @@
         * { -webkit-tap-highlight-color: transparent; }
         button, [role="button"], a, label, input[type="checkbox"], input[type="radio"] { touch-action: manipulation; }
 
-        /* ── Fondo animado ── */
+        /* ── Fondo animado (OPTIMIZADO PARA GAMA BAJA) ── */
         @keyframes bgShift {
             0%   { background-position: 0% 50%; }
             50%  { background-position: 100% 50%; }
             100% { background-position: 0% 50%; }
         }
+        /* Por defecto: sin animación en modo bajo */
         body {
             background: linear-gradient(-45deg, #020617, #0f172a, #0d4a44, #1e3a5f, #0f172a);
             background-size: 400% 400%;
-            animation: bgShift 18s ease infinite;
+            animation: none;
+        }
+        /* Solo animar en dispositivos con capacidad */
+        @media (prefers-reduced-motion: no-preference) {
+            body:not(.perf-low) {
+                animation: bgShift 18s ease infinite;
+            }
         }
 
-        /* ── Orbes decorativos ── */
+        /* ── Orbes decorativos (DESACTIVOS EN MODO BAJO) ── */
         @keyframes orbFloat {
             0%, 100% { transform: translateY(0px) scale(1); }
             50%       { transform: translateY(-30px) scale(1.05); }
@@ -48,6 +55,10 @@
             filter: blur(80px);
             opacity: 0.18;
             animation: orbFloat ease-in-out infinite;
+        }
+        /* Desactivar orbes en modo bajo */
+        body.perf-low .orb {
+            display: none;
         }
 
         /* ── Líneas decorativas de campo ── */
@@ -78,7 +89,7 @@
             background: white;
         }
 
-        /* ── Card glassmorphism ── */
+        /* ── Card glassmorphism (OPTIMIZADO PARA GAMA BAJA) ── */
         .glass-card {
             background: rgba(2, 6, 23, 0.75);
             backdrop-filter: blur(24px);
@@ -89,8 +100,14 @@
                 0 25px 50px rgba(0,0,0,0.6),
                 0 0 80px rgba(13, 148, 136, 0.08);
         }
+        /* En modo bajo: sin blur, solo sombra */
+        body.perf-low .glass-card {
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3) !important;
+        }
 
-        /* ── Animación de entrada ── */
+        /* ── Animación de entrada (REDUCIDA EN MODO BAJO) ── */
         @keyframes fadeInUp {
             from { opacity: 0; transform: translateY(24px); }
             to   { opacity: 1; transform: translateY(0); }
@@ -99,13 +116,22 @@
         .fade-up-delay-1 { animation-delay: 0.1s; }
         .fade-up-delay-2 { animation-delay: 0.2s; }
         .fade-up-delay-3 { animation-delay: 0.3s; }
+        /* Sin animaciones en modo bajo */
+        body.perf-low .fade-up {
+            animation: none !important;
+            opacity: 1 !important;
+            transform: translateY(0) !important;
+        }
 
-        /* ── Logo flotante ── */
+        /* ── Logo flotante (DESACTIVO EN MODO BAJO) ── */
         @keyframes float {
             0%, 100% { transform: translateY(0px); }
             50%       { transform: translateY(-10px); }
         }
         .logo-float { animation: float 3.5s ease-in-out infinite; }
+        body.perf-low .logo-float {
+            animation: none !important;
+        }
 
         /* ── Inputs ── */
         .input-field {
@@ -655,6 +681,9 @@
     </div>
 
     <!-- Scripts -->
+    <!-- 0️⃣ DETECTOR DE DISPOSITIVO GAMA BAJA (PRIMERO) -->
+    <script src="js/low-end-detector.js"></script>
+    
     <script src="js/utils.js"></script>
     <script src="js/firebase-config.js"></script>
     <script src="js/storage.js"></script>

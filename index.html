@@ -2796,6 +2796,9 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
     <!-- SCRIPTS EN ORDEN CORRECTO                 -->
     <!-- ========================================== -->
 
+    <!-- 0️⃣ DETECCIÓN DE DISPOSITIVO GAMA BAJA (PRIMERO - antes de performance.js) -->
+    <script src="js/low-end-detector.js"></script>
+
     <!-- 1️⃣ CONFIGURACIÓN Y UTILIDADES BASE -->
     <script src="js/firebase-config.js"></script>
     <script src="js/utils.js"></script>
@@ -2823,40 +2826,41 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
     <script src="js/expenses.js"></script>
     <script src="js/third-party-income.js"></script>
 
-    <!-- 6️⃣ MÓDULOS DE COMUNICACIÓN Y REPORTES -->
-    <script src="js/whatsapp.js"></script>
-    <script src="js/pdf.js"></script>
-    <script src="js/multi-invoice.js"></script>
-    <script src="js/notifications.js"></script>
-    <script src="js/parent-automation.js"></script>
+    <!-- 6️⃣ MÓDULOS DE COMUNICACIÓN Y REPORTES (CARGA DIFERIDA) -->
+    <script defer src="js/whatsapp.js"></script>
+    <script defer src="js/pdf.js"></script>
+    <script defer src="js/multi-invoice.js"></script>
+    <script defer src="js/notifications.js"></script>
+    <script defer src="js/parent-automation.js"></script>
 
-    <!-- 7️⃣ MÓDULOS DE CALENDARIO Y FECHAS -->
-    <script src="js/calendar.js"></script>
-    <script src="js/birthdays.js"></script>
+    <!-- 7️⃣ MÓDULOS DE CALENDARIO Y FECHAS (CARGA DIFERIDA) -->
+    <script defer src="js/calendar.js"></script>
+    <script defer src="js/birthdays.js"></script>
 
-    <!-- 8️⃣ MÓDULOS DE ANÁLISIS Y CONFIGURACIÓN -->
-    <script src="js/accounting.js"></script>
-    <script src="js/dashboard.js"></script>
-    <script src="js/settings.js"></script>
-    <script src="js/club-settings-protection.js"></script>
+    <!-- 8️⃣ MÓDULOS DE ANÁLISIS Y CONFIGURACIÓN (CARGA DIFERIDA) -->
+    <script defer src="js/accounting.js"></script>
+    <script defer src="js/dashboard.js"></script>
+    <script defer src="js/settings.js"></script>
+    <script defer src="js/club-settings-protection.js"></script>
 
-    <!-- 9️⃣ MODALES (depende de varios módulos) -->
-    <script src="js/modals.js"></script>
+    <!-- 9️⃣ MODALES (CARGA DIFERIDA) -->
+    <script defer src="js/modals.js"></script>
 
     <!-- 🔟 PWA Y CACHÉ (dependen de storage y settings) -->
-    <script src="js/install.js"></script>
-    <script src="js/cache.js"></script>
-    <script src="js/pwa-icons.js"></script>
+    <script defer src="js/install.js"></script>
+    <script defer src="js/cache.js"></script>
+    <script defer src="js/pwa-icons.js"></script>
     <!-- 📱 EXPERIENCIA NATIVA PWA (swipe, orientación, transiciones) -->
-    <script src="js/pwa-native.js"></script>
+    <script defer src="js/pwa-native.js"></script>
 
     <!-- ⭐ APP (SIEMPRE DE ÚLTIMO - Inicializa todo) -->
     <script src="js/app.js"></script>
 
-
-    <script src="js/import-players.js"></script>
+    <!-- MÓDULOS FINALES (cargar al final para no bloquear inicio) -->
+    <script defer src="js/import-players.js"></script>
+    <script defer src="js/coach-automation.js"></script>
     <script src="js/session-check.js"></script>
-    <script src="js/vibration.js"></script>
+    <script defer src="js/vibration.js"></script>
     <script src="js/bootstrap.js"></script>
 
     <!-- Botón Flotante de Instalación -->
