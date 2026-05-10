@@ -3,7 +3,7 @@ window.APP_STATE = {
   firebaseReady: false,
   currentUser: null,
   authRestored: false,
-  version: '1.1.17' // Versión estática para evitar v-- en local
+  version: '1.1.33' // Fallback de versión si no se puede leer sw.js
 };
 
 // ========================================
@@ -230,7 +230,7 @@ function setHeaderAppVersion(versionLabel) {
 
 async function refreshHeaderAppVersion() {
   // 1. Mostrar la versión del estado global (rápido y funciona en local)
-  const appVersion = window.APP_STATE.version || '1.1.17';
+  const appVersion = window.APP_STATE.version || '1.1.33';
   setHeaderAppVersion(appVersion);
 
   // 2. Intentar leer del cache previo
