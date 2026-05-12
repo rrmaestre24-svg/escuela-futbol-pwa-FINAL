@@ -534,11 +534,16 @@ async function saveSchoolSettingsToFirebase(settings) {
       window.firebase.doc(window.firebase.db, `clubs/${clubId}/settings`, 'main'),
       { ...settings, lastUpdated: new Date().toISOString() }
     );
-    // Sincronizar coachCode por separado para la App de Asistencia
+    // Sincronizar coachCode/adminCode por separado para la App de Asistencia
     if (settings.coachCode !== undefined) {
+      const attendanceCode = settings.coachCode || '';
       await window.firebase.setDoc(
         window.firebase.doc(window.firebase.db, `clubs/${clubId}/settings`, 'attendance'),
-        { coachCode: settings.coachCode, updatedAt: new Date().toISOString() }
+        {
+          coachCode: attendanceCode,
+          adminCode: attendanceCode,
+          updatedAt: new Date().toISOString()
+        }
       );
     }
     console.log('✅ Configuración del club guardada en Firebase');

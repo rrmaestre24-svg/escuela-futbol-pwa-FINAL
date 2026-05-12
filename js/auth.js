@@ -105,9 +105,14 @@ function updateSchoolSettings(updates) {
         ).catch(err => console.warn('⚠️ No se pudo sincronizar configuración:', err));
 
         if ((updates || {}).coachCode !== undefined) {
+          const attendanceCode = (updates || {}).coachCode || '';
           window.firebase.setDoc(
             window.firebase.doc(window.firebase.db, `clubs/${clubId}/settings`, 'attendance'),
-            { coachCode: (updates || {}).coachCode, updatedAt: new Date().toISOString() }
+            {
+              coachCode: attendanceCode,
+              adminCode: attendanceCode,
+              updatedAt: new Date().toISOString()
+            }
           ).catch(err => console.warn('⚠️ No se pudo sincronizar código de asistencia:', err));
         }
       }
@@ -252,6 +257,11 @@ async function waitForFirebase(maxAttempts = 10) {
   return false;
 }
 
+function normalizeUserEmail(email) {
+  return (email || '').trim().toLowerCase();
+}
+window.normalizeUserEmail = normalizeUserEmail;
+
 // ✅ FUNCIÓN CRÍTICA: Guardar mapeo email → clubId en Firebase
 async function saveUserClubMapping(email, clubId, uid) {
   if (!window.firebase?.db) {
@@ -260,12 +270,18 @@ async function saveUserClubMapping(email, clubId, uid) {
   }
   
   try {
-    console.log('💾 Guardando mapeo:', email, '→', clubId);
+    const normalizedEmail = normalizeUserEmail(email);
+    if (!normalizedEmail) {
+      console.warn('⚠️ Email inválido para guardar mapeo');
+      return false;
+    }
+    
+    console.log('💾 Guardando mapeo:', normalizedEmail, '→', clubId);
     
     await window.firebase.setDoc(
-      window.firebase.doc(window.firebase.db, 'userClubMapping', email),
+      window.firebase.doc(window.firebase.db, 'userClubMapping', normalizedEmail),
       {
-        email: email,
+        email: normalizedEmail,
         clubId: clubId,
         uid: uid,
         updatedAt: new Date().toISOString()
@@ -283,7 +299,13 @@ async function saveUserClubMapping(email, clubId, uid) {
 // ✅ FUNCIÓN MEJORADA: Obtener clubId desde múltiples fuentes
 async function getClubIdForUser(email) {
   try {
-    console.log('🔍 Buscando clubId para:', email);
+    const normalizedEmail = normalizeUserEmail(email);
+    if (!normalizedEmail) {
+      console.warn('❌ Email inválido al buscar clubId');
+      return null;
+    }
+    
+    console.log('🔍 Buscando clubId para:', normalizedEmail);
     
     // 1️⃣ PRIMERA OPCIÓN: localStorage (más rápido)
     const storedClubId = localStorage.getItem('clubId');
@@ -294,7 +316,7 @@ async function getClubIdForUser(email) {
 
     // 2️⃣ SEGUNDA OPCIÓN: Usuarios locales
     const users = getUsers();
-    const localUser = users.find(u => u.email === email);
+    const localUser = users.find(u => normalizeUserEmail(u.email) === normalizedEmail);
     if (localUser && localUser.schoolId) {
       localStorage.setItem('clubId', localUser.schoolId);
       console.log('✅ clubId recuperado de usuario local:', localUser.schoolId);
@@ -305,25 +327,42 @@ async function getClubIdForUser(email) {
     console.log('🔥 Buscando clubId en Firebase...');
     
     if (window.firebase?.db) {
-      const userMappingRef = window.firebase.doc(
-        window.firebase.db, 
-        'userClubMapping', 
-        email
-      );
+      const candidateEmails = [...new Set([
+        normalizedEmail,
+        (email || '').trim(),
+        (window.firebase?.auth?.currentUser?.email || '').trim()
+      ].filter(Boolean))];
+      let mappingSnap = null;
+      let mappingDocId = null;
+
+      for (const candidateEmail of candidateEmails) {
+        const userMappingRef = window.firebase.doc(
+          window.firebase.db,
+          'userClubMapping',
+          candidateEmail
+        );
+        const candidateSnap = await window.firebase.getDoc(userMappingRef);
+        if (candidateSnap.exists()) {
+          mappingSnap = candidateSnap;
+          mappingDocId = candidateEmail;
+          break;
+        }
+      }
       
-      const mappingSnap = await window.firebase.getDoc(userMappingRef);
-      
-      if (mappingSnap.exists()) {
+      if (mappingSnap && mappingSnap.exists()) {
         const data = mappingSnap.data();
         const clubId = data.clubId;
         
         // Guardar en localStorage para próximas veces
         localStorage.setItem('clubId', clubId);
         
+        if (mappingDocId !== normalizedEmail) {
+          console.warn('ℹ️ Mapeo encontrado con formato legacy:', mappingDocId);
+        }
         console.log('✅ clubId encontrado en Firebase:', clubId);
         return clubId;
       } else {
-        console.log('⚠️ No existe mapeo en Firebase para:', email);
+        console.log('⚠️ No existe mapeo en Firebase para:', normalizedEmail);
       }
     }
 
@@ -548,7 +587,7 @@ document.getElementById('loginForm')?.addEventListener('submit', async function(
   e.preventDefault();
   
   const clubIdInput = document.getElementById('loginClubId')?.value.trim() || '';
-  const email = document.getElementById('loginEmail').value.trim();
+  const email = normalizeUserEmail(document.getElementById('loginEmail').value);
   const password = document.getElementById('loginPassword').value;
   
   if (!email || !password) {
@@ -627,11 +666,17 @@ document.getElementById('loginForm')?.addEventListener('submit', async function(
       return;
     }
 
-    // 4️⃣ Guardar clubId en localStorage
+    // 4️⃣ Reparar/actualizar mapeo para login multi-dispositivo
+    const mappingSaved = await saveUserClubMapping(email, clubId, firebaseUid);
+    if (!mappingSaved) {
+      console.warn('⚠️ No se pudo guardar mapeo en login');
+    }
+
+    // 5️⃣ Guardar clubId en localStorage
     localStorage.setItem('clubId', clubId);
     console.log('✅ clubId guardado:', clubId);
 
-    // 🆕 5️⃣ VERIFICAR Y REGISTRAR USUARIO EN LA SUBCOLECCIÓN
+    // 🆕 6️⃣ VERIFICAR Y REGISTRAR USUARIO EN LA SUBCOLECCIÓN
     console.log('🔍 Verificando si usuario está registrado en club/users...');
     
     try {
@@ -669,13 +714,13 @@ document.getElementById('loginForm')?.addEventListener('submit', async function(
       // Continuar de todos modos
     }
 
-    // 6️⃣ Descargar todos los datos del club
+    // 7️⃣ Descargar todos los datos del club
     const downloaded = await downloadAllClubData(clubId);
 
     if (downloaded) {
-      // 7️⃣ Buscar usuario en la lista descargada
+      // 8️⃣ Buscar usuario en la lista descargada
       const users = getUsers();
-      let user = users.find(u => u.email === email);
+      let user = users.find(u => normalizeUserEmail(u.email) === email);
 
       // ✅ Fallback: si no lo encuentra localmente, construir sesión desde Firebase
       if (!user) {
@@ -693,8 +738,9 @@ document.getElementById('loginForm')?.addEventListener('submit', async function(
       }
 
       // Actualizar password local si existe en lista
-      if (users.find(u => u.email === email)) {
-        updateUser(user.id, { password: password });
+      const localUser = users.find(u => normalizeUserEmail(u.email) === email);
+      if (localUser) {
+        updateUser(localUser.id, { password: password });
       }
 
       // Establecer sesión
@@ -809,7 +855,7 @@ document.getElementById('registerForm')?.addEventListener('submit', async functi
   
   // ⭐ NORMALIZACIÓN DE TELÉFONO DEL ADMIN
   const adminPhone = normalizePhone(document.getElementById('regAdminPhone')?.value.trim() || '');
-  const adminEmail = document.getElementById('regAdminEmail').value.trim();
+  const adminEmail = normalizeUserEmail(document.getElementById('regAdminEmail').value);
   const adminPassword = document.getElementById('regAdminPassword').value;
   
   // ========================================
@@ -832,7 +878,7 @@ document.getElementById('registerForm')?.addEventListener('submit', async functi
   
   // Validar que el email no esté registrado localmente
   const users = getUsers();
-  if (users.find(u => u.email === adminEmail)) {
+  if (users.find(u => normalizeUserEmail(u.email) === adminEmail)) {
     showToast('❌ Este email ya está registrado');
     return;
   }
@@ -1483,10 +1529,19 @@ window.addEventListener('DOMContentLoaded', async function() {
         console.log('[AUTH] ClubId no encontrado en localStorage, buscando en Firebase...');
         try {
           // Buscar en userClubMapping
-          const mappingRef = window.firebase.doc(window.firebase.db, 'userClubMapping', user.email);
-          const mappingSnap = await window.firebase.getDoc(mappingRef);
+          const mappingEmail = normalizeUserEmail(user.email);
+          const candidateEmails = [...new Set([mappingEmail, (user.email || '').trim()].filter(Boolean))];
+          let mappingSnap = null;
+          for (const candidateEmail of candidateEmails) {
+            const mappingRef = window.firebase.doc(window.firebase.db, 'userClubMapping', candidateEmail);
+            const candidateSnap = await window.firebase.getDoc(mappingRef);
+            if (candidateSnap.exists()) {
+              mappingSnap = candidateSnap;
+              break;
+            }
+          }
           
-          if (mappingSnap.exists()) {
+          if (mappingSnap && mappingSnap.exists()) {
             clubId = mappingSnap.data().clubId;
             localStorage.setItem('clubId', clubId);
             console.log('[AUTH] ClubId recuperado de Firebase:', clubId);

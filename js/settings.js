@@ -946,9 +946,24 @@ async function deleteSchoolUser(userId) {
     // 4️⃣ Eliminar mapeo (impide login)
     if (userToDelete.email) {
       try {
-        await window.firebase.deleteDoc(
-          window.firebase.doc(window.firebase.db, 'userClubMapping', userToDelete.email)
-        );
+        const mappingEmail = typeof normalizeUserEmail === 'function'
+          ? normalizeUserEmail(userToDelete.email)
+          : (userToDelete.email || '').trim().toLowerCase();
+        const mappingCandidates = [...new Set([mappingEmail, (userToDelete.email || '').trim()].filter(Boolean))];
+        let deletedAnyMapping = false;
+        for (const candidateEmail of mappingCandidates) {
+          try {
+            await window.firebase.deleteDoc(
+              window.firebase.doc(window.firebase.db, 'userClubMapping', candidateEmail)
+            );
+            deletedAnyMapping = true;
+          } catch (candidateError) {
+            console.log('⚠️ No se pudo eliminar mapeo candidato:', candidateEmail, candidateError.code);
+          }
+        }
+        if (!deletedAnyMapping) {
+          throw new Error('No se pudo eliminar ningún mapeo de usuario');
+        }
         console.log('✅ Mapeo eliminado - Usuario bloqueado completamente');
       } catch (mappingError) {
         console.log('⚠️ No se pudo eliminar el mapeo:', mappingError.code);
@@ -1531,9 +1546,24 @@ async function executeClubDestruction(clubId, currentUser) {
       
       // 7️⃣ Eliminar Mapeo
       try {
-        await window.firebase.deleteDoc(
-          window.firebase.doc(window.firebase.db, 'userClubMapping', currentUser.email)
-        );
+        const mappingEmail = typeof normalizeUserEmail === 'function'
+          ? normalizeUserEmail(currentUser.email)
+          : (currentUser.email || '').trim().toLowerCase();
+        const mappingCandidates = [...new Set([mappingEmail, (currentUser.email || '').trim()].filter(Boolean))];
+        let deletedAnyMapping = false;
+        for (const candidateEmail of mappingCandidates) {
+          try {
+            await window.firebase.deleteDoc(
+              window.firebase.doc(window.firebase.db, 'userClubMapping', candidateEmail)
+            );
+            deletedAnyMapping = true;
+          } catch (candidateError) {
+            console.log('⚠️ No se pudo eliminar mapeo candidato:', candidateEmail, candidateError.code);
+          }
+        }
+        if (!deletedAnyMapping) {
+          throw new Error('No se pudo eliminar ningún mapeo de usuario');
+        }
         console.log('✅ Mapeo eliminado');
       } catch (error) {
         console.log('ℹ️ No se pudo eliminar mapeo:', error.code);

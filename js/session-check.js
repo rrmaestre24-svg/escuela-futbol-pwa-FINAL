@@ -72,9 +72,20 @@ window.addEventListener('DOMContentLoaded', async function () {
             // Buscar clubId en Firebase si no esta local
             if (!clubId && window.firebase.db) {
                 try {
-                    const mappingRef = window.firebase.doc(window.firebase.db, 'userClubMapping', user.email);
-                    const mappingSnap = await window.firebase.getDoc(mappingRef);
-                    if (mappingSnap.exists()) {
+                    const mappingEmail = typeof normalizeUserEmail === 'function'
+                        ? normalizeUserEmail(user.email)
+                        : (user.email || '').trim().toLowerCase();
+                    const candidateEmails = [...new Set([mappingEmail, (user.email || '').trim()].filter(Boolean))];
+                    let mappingSnap = null;
+                    for (const candidateEmail of candidateEmails) {
+                        const mappingRef = window.firebase.doc(window.firebase.db, 'userClubMapping', candidateEmail);
+                        const candidateSnap = await window.firebase.getDoc(mappingRef);
+                        if (candidateSnap.exists()) {
+                            mappingSnap = candidateSnap;
+                            break;
+                        }
+                    }
+                    if (mappingSnap && mappingSnap.exists()) {
                         clubId = mappingSnap.data().clubId;
                         localStorage.setItem('clubId', clubId);
                     }
