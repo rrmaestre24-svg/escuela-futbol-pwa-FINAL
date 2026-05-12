@@ -421,12 +421,18 @@ async function updatePlayerCount() {
     const players = JSON.parse(localStorage.getItem('players') || '[]');
     const totalPlayers = players.length;
 
+    // ✅ Solo escribir si el número cambió — evita snapshot/reload innecesario
+    const cachedCount = Number(localStorage.getItem('_cachedPlayerCount') ?? '-1');
+    if (cachedCount === totalPlayers) {
+      console.log('📊 Contador de jugadores sin cambios, omitiendo escritura a Firestore');
+      return;
+    }
+    localStorage.setItem('_cachedPlayerCount', String(totalPlayers));
+
     await window.firebase.updateDoc(
       window.firebase.doc(window.firebase.db, 'licenses', clubId),
-      {
-        totalPlayers: totalPlayers,
-        lastUpdated: new Date().toISOString()
-      }
+      { totalPlayers: totalPlayers }
+      // ⚠️ NO incluir lastUpdated — causaba que onSnapshot siempre detectara cambio
     );
 
     console.log('📊 Contador de jugadores actualizado:', totalPlayers);
@@ -482,16 +488,20 @@ function listenToLicenseChanges() {
         console.log('📡 Estado actual:', currentStatus, '→ Nuevo estado:', newStatus);
 
         const modulosChanged = JSON.stringify(licenseData.modulos) !== localStorage.getItem('licenseModulos');
-localStorage.setItem('licenseModulos', JSON.stringify(licenseData.modulos || {}));
+        localStorage.setItem('licenseModulos', JSON.stringify(licenseData.modulos || {}));
 
-if ((currentStatus && currentStatus !== newStatus) || modulosChanged) {
+        if ((currentStatus && currentStatus !== newStatus) || modulosChanged) {
           console.log('🔄 Estado de licencia cambió...');
           
           localStorage.setItem('licenseStatus', newStatus);
 
+          // ✅ Anti-rebote: evitar recargas en cascada
+          if (window._licenseReloadInProgress) return;
+
           // Solo recargar si la licencia fue DESACTIVADA
           if (newStatus !== 'activo') {
             showToast(`🔴 Licencia desactivada. Contacta al administrador.`);
+            window._licenseReloadInProgress = true;
             setTimeout(() => {
               window.location.reload();
             }, 2000);
