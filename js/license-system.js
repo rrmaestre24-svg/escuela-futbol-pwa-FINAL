@@ -18,6 +18,133 @@ if (typeof LICENSE_CONFIG === 'undefined') {
   };
 }
 
+const LICENSE_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 horas
+
+function getLicenseCacheKey(clubId) {
+  return `licenseCache_${clubId}`;
+}
+
+function getLicenseCacheTimeKey(clubId) {
+  return `licenseLastCheckTime_${clubId}`;
+}
+
+function hydrateLicenseStatus(data) {
+  if (!data) return null;
+
+  return {
+    ...data,
+    endDate: data.endDate ? new Date(data.endDate) : null,
+    cachedAt: Number(data.cachedAt || 0)
+  };
+}
+
+function persistLicenseStatus(clubId, status, modulos = {}) {
+  if (!clubId || !status) return status;
+
+  const serialized = {
+    ...status,
+    modulos: modulos || status.modulos || {},
+    endDate: status.endDate instanceof Date
+      ? status.endDate.toISOString()
+      : (status.endDate || null),
+    cachedAt: Date.now()
+  };
+
+  localStorage.setItem('licenseStatus', serialized.status || 'error');
+  if (serialized.endDate) {
+    localStorage.setItem('licenseEndDate', serialized.endDate);
+  }
+  if (serialized.plan) {
+    localStorage.setItem('licensePlan', serialized.plan);
+  }
+  localStorage.setItem('licenseModulos', JSON.stringify(serialized.modulos || {}));
+  localStorage.setItem(getLicenseCacheKey(clubId), JSON.stringify(serialized));
+  localStorage.setItem(getLicenseCacheTimeKey(clubId), String(serialized.cachedAt));
+
+  return hydrateLicenseStatus(serialized);
+}
+
+function readCachedLicenseStatus(clubId) {
+  if (!clubId) return null;
+
+  try {
+    const raw = localStorage.getItem(getLicenseCacheKey(clubId));
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw);
+    const cachedAt = Number(parsed.cachedAt || localStorage.getItem(getLicenseCacheTimeKey(clubId)) || '0');
+    if (!cachedAt) return null;
+
+    const data = hydrateLicenseStatus({ ...parsed, cachedAt });
+    if (!data) return null;
+
+    return {
+      data,
+      cachedAt,
+      isFresh: (Date.now() - cachedAt) < LICENSE_CACHE_TTL_MS
+    };
+  } catch (error) {
+    console.warn('⚠️ Error leyendo caché de licencia:', error);
+    return null;
+  }
+}
+
+function applyCachedLicenseState(clubId, status) {
+  if (!clubId || !status) return status;
+
+  const normalized = hydrateLicenseStatus({
+    ...status,
+    cachedAt: Number(status.cachedAt || 0)
+  });
+
+  localStorage.setItem('licenseStatus', normalized.status || 'error');
+  if (normalized.endDate) {
+    localStorage.setItem('licenseEndDate', normalized.endDate.toISOString());
+  }
+  if (normalized.plan) {
+    localStorage.setItem('licensePlan', normalized.plan);
+  }
+  localStorage.setItem('licenseModulos', JSON.stringify(normalized.modulos || {}));
+
+  return normalized;
+}
+
+function clearReadOnlyMode() {
+  if (!window._licenseReadOnlyApplied) return;
+
+  console.log('🔓 Restableciendo modo interactivo...');
+
+  document.querySelectorAll('[data-license-prev-disabled]').forEach((el) => {
+    const prevDisabled = el.dataset.licensePrevDisabled === '1';
+    const prevOnclick = el.dataset.licensePrevOnclick;
+
+    el.disabled = prevDisabled;
+    if (prevOnclick === '') {
+      el.removeAttribute('onclick');
+    } else if (typeof prevOnclick === 'string') {
+      el.setAttribute('onclick', prevOnclick);
+    }
+
+    el.classList.remove('opacity-50', 'cursor-not-allowed');
+    delete el.dataset.licensePrevDisabled;
+    delete el.dataset.licensePrevOnclick;
+  });
+
+  document.querySelectorAll('.license-readonly-overlay').forEach((overlay) => overlay.remove());
+  document.querySelectorAll('[data-license-readonly-applied="1"]').forEach((modal) => {
+    modal.style.position = '';
+    delete modal.dataset.licenseReadonlyApplied;
+  });
+
+  const banner = document.getElementById('licenseBanner');
+  if (banner) {
+    banner.remove();
+  }
+
+  document.body.style.paddingTop = '';
+  window._licenseReadOnlyApplied = false;
+}
+
 // ========================================
 // FUNCIONES DE VALIDACIÓN DE CÓDIGOS
 // ========================================
@@ -166,14 +293,19 @@ async function checkLicenseStatus() {
     return { status: 'sin_licencia', daysRemaining: 0, message: 'No hay club registrado' };
   }
 
+  const cachedStatus = readCachedLicenseStatus(clubId);
+  if (cachedStatus?.data && (cachedStatus.isFresh || !window.firebase?.db)) {
+    console.log('💾 Usando caché de licencia:', cachedStatus.data);
+    return applyCachedLicenseState(clubId, cachedStatus.data);
+  }
+
   if (!window.firebase?.db) {
     await new Promise(resolve => setTimeout(resolve, 1500));
   }
 
   if (!window.firebase?.db) {
-    const cachedEndDate = localStorage.getItem('licenseEndDate');
-    if (cachedEndDate) {
-      return calculateLicenseState(new Date(cachedEndDate));
+    if (cachedStatus?.data) {
+      return applyCachedLicenseState(clubId, cachedStatus.data);
     }
     return { status: 'error', daysRemaining: 0, message: 'Sin conexión' };
   }
@@ -191,13 +323,14 @@ async function checkLicenseStatus() {
     
     if (licenseData.status === 'inactivo') {
       console.log('🔴 Licencia desactivada por administrador');
-      localStorage.setItem('licenseStatus', 'inactivo');
-      return {
+      return persistLicenseStatus(clubId, {
         status: 'inactivo',
         daysRemaining: 0,
         endDate: new Date(licenseData.endDate),
+        plan: licenseData.plan,
+        modulos: licenseData.modulos || {},
         message: '🔴 Licencia desactivada - Contacta al administrador'
-      };
+      });
     }
 
     const endDate = new Date(licenseData.endDate);
@@ -216,19 +349,22 @@ async function checkLicenseStatus() {
     if (licenseData.modulos?.convocatoria === true) {
       document.getElementById('btnConvocatoriaWrapper')?.classList.remove('hidden');
     }
-    localStorage.setItem('licenseStatus', result.status);
-    localStorage.setItem('licenseEndDate', licenseData.endDate);
-    localStorage.setItem('licensePlan', licenseData.plan);
 
-    console.log('📋 Estado de licencia:', result);
-    return result;
+    const persisted = persistLicenseStatus(clubId, {
+      ...result,
+      plan: licenseData.plan,
+      modulos: licenseData.modulos || {},
+      endDate
+    });
+
+    console.log('📋 Estado de licencia:', persisted);
+    return persisted;
 
   } catch (error) {
     console.error('❌ Error al verificar licencia:', error);
     
-    const cachedEndDate = localStorage.getItem('licenseEndDate');
-    if (cachedEndDate) {
-      return calculateLicenseState(new Date(cachedEndDate));
+    if (cachedStatus?.data) {
+      return applyCachedLicenseState(clubId, cachedStatus.data);
     }
     
     return { status: 'error', daysRemaining: 0, message: 'Error de conexión' };
@@ -336,12 +472,21 @@ function showLicenseBanner(status) {
 }
 
 function applyReadOnlyMode() {
+  if (window._licenseReadOnlyApplied) return;
+
   console.log('🔒 Aplicando modo solo lectura...');
+  window._licenseReadOnlyApplied = true;
   
   const actionButtons = document.querySelectorAll('button[onclick*="show"], button[onclick*="add"], button[onclick*="save"], button[onclick*="delete"]');
   
   actionButtons.forEach(btn => {
     if (!btn.classList.contains('license-exempt')) {
+      if (typeof btn.dataset.licensePrevDisabled === 'undefined') {
+        btn.dataset.licensePrevDisabled = btn.disabled ? '1' : '0';
+      }
+      if (typeof btn.dataset.licensePrevOnclick === 'undefined') {
+        btn.dataset.licensePrevOnclick = btn.getAttribute('onclick') ?? '';
+      }
       btn.disabled = true;
       btn.classList.add('opacity-50', 'cursor-not-allowed');
       btn.onclick = function(e) {
@@ -355,6 +500,9 @@ function applyReadOnlyMode() {
   const inputs = document.querySelectorAll('input:not([type="search"]), textarea, select');
   inputs.forEach(input => {
     if (!input.classList.contains('license-exempt')) {
+      if (typeof input.dataset.licensePrevDisabled === 'undefined') {
+        input.dataset.licensePrevDisabled = input.disabled ? '1' : '0';
+      }
       input.disabled = true;
       input.classList.add('bg-gray-100', 'dark:bg-gray-700', 'cursor-not-allowed');
     }
@@ -362,8 +510,9 @@ function applyReadOnlyMode() {
 
   const modals = document.querySelectorAll('[id*="Modal"]');
   modals.forEach(modal => {
+    if (modal.dataset.licenseReadonlyApplied === '1') return;
     const overlay = document.createElement('div');
-    overlay.className = 'absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+    overlay.className = 'absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 license-readonly-overlay';
     overlay.innerHTML = `
       <div class="bg-white dark:bg-gray-800 rounded-lg p-6 text-center max-w-sm">
         <div class="text-4xl mb-3">🔒</div>
@@ -379,6 +528,7 @@ function applyReadOnlyMode() {
       </div>
     `;
     modal.style.position = 'relative';
+    modal.dataset.licenseReadonlyApplied = '1';
     modal.appendChild(overlay);
   });
 
@@ -408,6 +558,8 @@ async function initLicenseSystem() {
 
   if (status.status === 'inactivo') {
     applyReadOnlyMode();
+  } else {
+    clearReadOnlyMode();
   }
 
   updatePlayerCount();
@@ -427,13 +579,14 @@ async function updatePlayerCount() {
       console.log('📊 Contador de jugadores sin cambios, omitiendo escritura a Firestore');
       return;
     }
-    localStorage.setItem('_cachedPlayerCount', String(totalPlayers));
 
     await window.firebase.updateDoc(
       window.firebase.doc(window.firebase.db, 'licenses', clubId),
       { totalPlayers: totalPlayers }
       // ⚠️ NO incluir lastUpdated — causaba que onSnapshot siempre detectara cambio
     );
+
+    localStorage.setItem('_cachedPlayerCount', String(totalPlayers));
 
     console.log('📊 Contador de jugadores actualizado:', totalPlayers);
   } catch (error) {
@@ -492,25 +645,43 @@ function listenToLicenseChanges() {
 
         if ((currentStatus && currentStatus !== newStatus) || modulosChanged) {
           console.log('🔄 Estado de licencia cambió...');
-          
-          localStorage.setItem('licenseStatus', newStatus);
 
-          // ✅ Anti-rebote: evitar recargas en cascada
-          if (window._licenseReloadInProgress) return;
+          const daysRemaining = newStatus === 'activo'
+            ? calculateLicenseState(new Date(licenseData.endDate)).daysRemaining
+            : 0;
+          const nextStatus = persistLicenseStatus(clubId, {
+            status: newStatus,
+            daysRemaining,
+            endDate: licenseData.endDate ? new Date(licenseData.endDate) : null,
+            plan: licenseData.plan,
+            modulos: licenseData.modulos || {},
+            message: newStatus === 'activo'
+              ? 'Licencia activa'
+              : '🔴 Licencia desactivada - Contacta al administrador'
+          });
 
-          // Solo recargar si la licencia fue DESACTIVADA
+          showLicenseBanner(nextStatus);
+
           if (newStatus !== 'activo') {
             showToast(`🔴 Licencia desactivada. Contacta al administrador.`);
-            window._licenseReloadInProgress = true;
-            setTimeout(() => {
-              window.location.reload();
-            }, 2000);
+            applyReadOnlyMode();
           } else {
-            // Si se activó, solo mostrar mensaje sin recargar
+            clearReadOnlyMode();
             showToast(`✅ Licencia activada correctamente`);
           }
         } else {
-          localStorage.setItem('licenseStatus', newStatus);
+          persistLicenseStatus(clubId, {
+            status: newStatus,
+            daysRemaining: newStatus === 'activo'
+              ? calculateLicenseState(new Date(licenseData.endDate)).daysRemaining
+              : 0,
+            endDate: licenseData.endDate ? new Date(licenseData.endDate) : null,
+            plan: licenseData.plan,
+            modulos: licenseData.modulos || {},
+            message: newStatus === 'activo'
+              ? 'Licencia activa'
+              : '🔴 Licencia desactivada - Contacta al administrador'
+          });
         }
       }, 
       (error) => {

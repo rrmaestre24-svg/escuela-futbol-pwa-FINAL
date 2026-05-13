@@ -1893,20 +1893,6 @@ async function processGoogleUser(firebaseUser) {
 
   setCurrentUser(user);
 
-  try {
-    window.firebase.addDoc(
-      window.firebase.collection(window.firebase.db, `clubs/${clubId}/audit_log`),
-      {
-        action: 'login_google',
-        userEmail: email,
-        userName: user.name || email,
-        role: user.role || 'admin',
-        date: new Date().toISOString().split('T')[0],
-        timestamp: new Date().toISOString()
-      }
-    );
-  } catch(e) {}
-
   showToast('✅ Bienvenido ' + user.name);
   setTimeout(() => { window.location.href = 'index.html'; }, 500);
 }

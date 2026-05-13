@@ -68,7 +68,7 @@ async function startRealtimeSync(clubId) {
   try {
     // Si auth.js acaba de descargar datos, no repetir descarga auxiliar
     const _lastDL = JSON.parse(localStorage.getItem('_lastFullDownload') || 'null');
-    const _skipDownloadFromAuth = _lastDL?.clubId === clubId && (Date.now() - _lastDL.ts) < 10 * 60 * 1000;
+    const _skipDownloadFromAuth = _lastDL?.clubId === clubId && (Date.now() - _lastDL.ts) < AUX_SYNC_TTL_MS;
 
     // 🎯 PASO 1: ACTIVAR LISTENERS PRINCIPALES
     // 1️⃣ Listener de Jugadores
