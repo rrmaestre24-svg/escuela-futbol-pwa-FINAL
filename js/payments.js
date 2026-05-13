@@ -260,6 +260,15 @@ function renderPayments() {
     renderThirdPartyIncomes(thirdPartyIncomes);
   } else if (currentPaymentTab === 'history') {
     document.getElementById('historyPaymentsContent').classList.remove('hidden');
+    if (typeof window.refreshPaymentMovementLogOnDemand === 'function') {
+      window.refreshPaymentMovementLogOnDemand()
+        .then(updated => {
+          if (updated) renderPaymentMovementLog();
+        })
+        .catch(error => {
+          console.warn('⚠️ No se pudo refrescar el historial bajo demanda:', error);
+        });
+    }
     renderPaymentMovementLog();
   }
 }

@@ -1,6 +1,6 @@
 // ========================================
 // 🔄 SINCRONIZACIÓN EN TIEMPO REAL - FIREBASE
-// CON DESCARGA INICIAL COMPLETA
+// CON CARGA INICIAL INTELIGENTE
 // ========================================
 
 // Almacenar referencias a los listeners para poder desconectarlos
@@ -21,6 +21,21 @@ window.realtimeSyncState = {
   lastSync: null,
   initialLoadComplete: false
 };
+
+const AUX_SYNC_TTL_MS = 30 * 60 * 1000; // 30 minutos
+const PAYMENT_LOG_FETCH_TTL_MS = 5 * 60 * 1000; // 5 minutos
+
+function shouldRunAuxSync(clubId, { force = false } = {}) {
+  if (force) return true;
+  const key = `auxLastSync_${clubId}`;
+  const last = Number(localStorage.getItem(key) || '0');
+  if (!last) return true;
+  return (Date.now() - last) > AUX_SYNC_TTL_MS;
+}
+
+function markAuxSyncRun(clubId) {
+  localStorage.setItem(`auxLastSync_${clubId}`, String(Date.now()));
+}
 
 // ========================================
 // 🎯 INICIAR SINCRONIZACIÓN EN TIEMPO REAL
@@ -51,19 +66,11 @@ async function startRealtimeSync(clubId) {
   console.log('📍 Club ID:', clubId);
   
   try {
-    // 🎯 PASO 1: DESCARGA INICIAL COMPLETA
-    // Si auth.js ya descargó los datos hace menos de 3 minutos, saltamos
-    // la descarga para no duplicar lecturas de Firestore.
+    // Si auth.js acaba de descargar datos, no repetir descarga auxiliar
     const _lastDL = JSON.parse(localStorage.getItem('_lastFullDownload') || 'null');
-    const _skipDownload = _lastDL?.clubId === clubId && (Date.now() - _lastDL.ts) < 30 * 60 * 1000;
-    if (_skipDownload) {
-      const minAgo = Math.round((Date.now() - _lastDL.ts) / 60000);
-      console.log(`⚡ Datos en localStorage de hace ${minAgo} min — omitiendo descarga, listeners activos`);
-    } else {
-      await downloadAllDataInitially(clubId);
-    }
-    
-    // 🎯 PASO 2: ACTIVAR LISTENERS
+    const _skipDownloadFromAuth = _lastDL?.clubId === clubId && (Date.now() - _lastDL.ts) < 10 * 60 * 1000;
+
+    // 🎯 PASO 1: ACTIVAR LISTENERS PRINCIPALES
     // 1️⃣ Listener de Jugadores
     startPlayersListener(clubId);
     
@@ -81,9 +88,6 @@ async function startRealtimeSync(clubId) {
 
     // 6️⃣ Listener del logo (documento separado)
     startLogoListener(clubId);
-
-    // 7️⃣ Listener del log de movimientos de pagos
-    startPaymentLogListener(clubId);
     
     // Actualizar estado
     window.realtimeSyncState.isActive = true;
@@ -96,12 +100,134 @@ async function startRealtimeSync(clubId) {
     console.log('✅ Sincronización en tiempo real activada');
     console.log('========================================');
     showToast('🔄 Sincronización en tiempo real activa');
+
+    // 🎯 PASO 2: DESCARGA AUXILIAR (solo colecciones sin listener en tiempo real)
+    if (_skipDownloadFromAuth) {
+      const minAgo = Math.round((Date.now() - _lastDL.ts) / 60000);
+      console.log(`⚡ Descarga auxiliar omitida: datos recientes de auth (${minAgo} min)`);
+    } else if (shouldRunAuxSync(clubId)) {
+      const synced = await downloadAuxiliaryDataInitially(clubId);
+      if (synced) {
+        markAuxSyncRun(clubId);
+      }
+    } else {
+      console.log('⚡ Descarga auxiliar omitida por TTL (30 min)');
+    }
+
     return true;
     
   } catch (error) {
     console.error('❌ Error al iniciar sincronización:', error);
     return false;
   }
+}
+
+// ========================================
+// 📥 DESCARGA AUXILIAR INICIAL (anti-duplicado)
+// Solo colecciones sin listener en tiempo real.
+// ========================================
+async function downloadAuxiliaryDataInitially(clubId) {
+  console.log('📥 ========================================');
+  console.log('📥 DESCARGA AUXILIAR (SIN DUPLICAR LISTENERS)');
+  console.log('📥 ========================================');
+
+  let stats = {
+    users: 0,
+    thirdPartyIncomes: 0,
+    parentCodes: 0,
+    config: 0
+  };
+  let syncedCollections = 0;
+
+  // 1️⃣ USUARIOS
+  try {
+    console.log('📥 1/4 - Usuarios...');
+    const usersSnapshot = await window.firebase.getDocs(
+      window.firebase.collection(window.firebase.db, `clubs/${clubId}/users`)
+    );
+
+    const users = [];
+    usersSnapshot.forEach(doc => {
+      const userData = doc.data();
+      if (!userData.deleted) {
+        users.push({ id: doc.id, ...userData, schoolId: clubId });
+      }
+    });
+
+    localStorage.setItem('users', JSON.stringify(users));
+    stats.users = users.length;
+    syncedCollections++;
+    console.log(`✅ ${users.length} usuarios`);
+  } catch (error) {
+    console.error('⚠️ Error usuarios:', error);
+  }
+
+  // 2️⃣ INGRESOS DE TERCEROS
+  try {
+    console.log('📥 2/4 - Ingresos de terceros...');
+    const incomesSnapshot = await window.firebase.getDocs(
+      window.firebase.collection(window.firebase.db, `clubs/${clubId}/thirdPartyIncomes`)
+    );
+
+    const incomes = [];
+    incomesSnapshot.forEach(doc => {
+      incomes.push({ id: doc.id, ...doc.data() });
+    });
+
+    localStorage.setItem('thirdPartyIncomes', JSON.stringify(incomes));
+    stats.thirdPartyIncomes = incomes.length;
+    syncedCollections++;
+    console.log(`✅ ${incomes.length} ingresos externos`);
+  } catch (error) {
+    console.error('⚠️ Error ingresos:', error);
+  }
+
+  // 3️⃣ CÓDIGOS DE PADRES
+  try {
+    console.log('📥 3/4 - Códigos de padres...');
+    const codesSnapshot = await window.firebase.getDocs(
+      window.firebase.collection(window.firebase.db, `clubs/${clubId}/parentCodes`)
+    );
+
+    const codes = [];
+    codesSnapshot.forEach(doc => {
+      codes.push({ id: doc.id, ...doc.data() });
+    });
+
+    localStorage.setItem('parentCodes', JSON.stringify(codes));
+    stats.parentCodes = codes.length;
+    syncedCollections++;
+    console.log(`✅ ${codes.length} códigos`);
+  } catch (error) {
+    console.error('⚠️ Error códigos:', error);
+  }
+
+  // 4️⃣ CONFIGURACIONES ADICIONALES
+  try {
+    console.log('📥 4/4 - Config adicional...');
+    const configSnapshot = await window.firebase.getDocs(
+      window.firebase.collection(window.firebase.db, `clubs/${clubId}/config`)
+    );
+
+    configSnapshot.forEach(doc => {
+      localStorage.setItem(`config_${doc.id}`, JSON.stringify(doc.data()));
+      stats.config++;
+    });
+    syncedCollections++;
+
+    console.log(`✅ ${stats.config} configuraciones`);
+  } catch (error) {
+    console.error('⚠️ Error config:', error);
+  }
+
+  if (typeof renderAccounting === 'function') renderAccounting();
+  if (typeof renderSchoolUsers === 'function') renderSchoolUsers();
+  if (typeof updateDashboard === 'function') updateDashboard();
+
+  console.log('📥 ========================================');
+  console.log('📥 DESCARGA AUXILIAR COMPLETADA');
+  console.log('📊 RESUMEN AUX:', stats);
+  return syncedCollections > 0;
 }
 
 // ========================================
@@ -740,6 +866,11 @@ function startSettingsListener(clubId) {
   setTimeout(() => {
     window.realtimeSyncState.initialLoadComplete = true;
     console.log('✅ Carga inicial completa, monitoreando cambios...');
+    updateHeaderInfo();
+    refreshPlayersUI();
+    refreshPaymentsUI();
+    refreshCalendarUI();
+    if (typeof renderAccounting === 'function') renderAccounting();
   }, 2000);
 }
 
@@ -783,11 +914,38 @@ function startLogoListener(clubId) {
 }
 
 // ========================================
-// 📋 LISTENER DE LOG DE MOVIMIENTOS DE PAGOS (DESACTIVADO PARA AHORRAR)
+// 📋 LOG DE MOVIMIENTOS BAJO DEMANDA (sin listener permanente)
 // ========================================
-function startPaymentLogListener(clubId) {
-  console.log('📋 Listener de log de movimientos temporalmente desactivado para ahorrar lecturas.');
-  // El listener de movimientos se omite; la carga inicial proveerá la lista si hace falta.
+async function refreshPaymentMovementLogOnDemand(options = {}) {
+  const force = options.force === true;
+  const clubId = window.realtimeSyncState.clubId || localStorage.getItem('clubId');
+  if (!clubId || !window.firebase?.db) return false;
+
+  const cacheKey = `paymentLogLastFetch_${clubId}`;
+  const lastFetch = Number(localStorage.getItem(cacheKey) || '0');
+  if (!force && lastFetch && (Date.now() - lastFetch) < PAYMENT_LOG_FETCH_TTL_MS) {
+    return false;
+  }
+
+  try {
+    const logSnapshot = await window.firebase.getDocs(
+      window.firebase.query(
+        window.firebase.collection(window.firebase.db, `clubs/${clubId}/paymentMovementLog`),
+        window.firebase.orderBy('timestamp', 'desc'),
+        window.firebase.limit(120)
+      )
+    );
+
+    const entries = [];
+    logSnapshot.forEach(doc => entries.push(doc.data()));
+    localStorage.setItem('paymentMovementLog', JSON.stringify(entries));
+    localStorage.setItem(cacheKey, String(Date.now()));
+    console.log(`📋 Log de movimientos actualizado bajo demanda: ${entries.length} entradas`);
+    return true;
+  } catch (error) {
+    console.warn('⚠️ Error actualizando log de movimientos bajo demanda:', error);
+    return false;
+  }
 }
 
 // ========================================
@@ -1036,5 +1194,6 @@ window.addEventListener('beforeunload', function() {
 // Exponer funciones globalmente
 window.startRealtimeSync = startRealtimeSync;
 window.stopRealtimeSync = stopRealtimeSync;
+window.refreshPaymentMovementLogOnDemand = refreshPaymentMovementLogOnDemand;
 
 console.log('✅ Módulo de sincronización en tiempo real listo');

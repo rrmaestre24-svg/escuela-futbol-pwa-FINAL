@@ -323,8 +323,14 @@ async function goToAttendanceAdminPanel() {
         if (window.firebase?.db) {
             const { db, doc, getDoc } = window.firebase;
             const settingsDoc = await getDoc(doc(db, `clubs/${clubId}/settings`, 'attendance'));
-            if (settingsDoc.exists() && settingsDoc.data().adminCode) {
-                autoLoginQuery = `&autoLogin=${settingsDoc.data().adminCode}`;
+            if (settingsDoc.exists()) {
+                const attendanceData = settingsDoc.data() || {};
+                const accessCode = attendanceData.adminCode || attendanceData.coachCode;
+                if (accessCode) {
+                    autoLoginQuery = `&autoLogin=${accessCode}`;
+                } else {
+                    autoLoginQuery = `&autoLogin=admin123`;
+                }
             } else {
                 autoLoginQuery = `&autoLogin=admin123`;
             }

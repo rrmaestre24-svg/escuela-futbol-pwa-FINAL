@@ -74,16 +74,30 @@ async function loadClubDataFromFirebase(clubId, accessCode) {
     }
     
     const codesRef = window.firebase.collection(window.firebase.db, `clubs/${clubId}/parentCodes`);
-    const codesSnapshot = await window.firebase.getDocs(codesRef);
-    
     let playerId = null;
-    
-    codesSnapshot.forEach(doc => {
-      const data = doc.data();
-      if (data.code === accessCode) {
-        playerId = data.playerId;
+
+    // ✅ Optimización de costo: consultar solo el código solicitado
+    if (window.firebase.query && window.firebase.where && window.firebase.limit) {
+      const codeQuery = window.firebase.query(
+        codesRef,
+        window.firebase.where('code', '==', accessCode),
+        window.firebase.limit(1)
+      );
+      const codeSnap = await window.firebase.getDocs(codeQuery);
+      if (!codeSnap.empty) {
+        const match = codeSnap.docs[0].data();
+        playerId = match.playerId || null;
       }
-    });
+    } else {
+      // Fallback de compatibilidad (entornos antiguos)
+      const codesSnapshot = await window.firebase.getDocs(codesRef);
+      codesSnapshot.forEach(doc => {
+        const data = doc.data();
+        if (data.code === accessCode) {
+          playerId = data.playerId;
+        }
+      });
+    }
     
     if (!playerId) {
       console.log('Código no encontrado');
@@ -179,12 +193,12 @@ async function initFirebaseForParent() {
     };
     
     const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js');
-    const { getFirestore, collection, doc, getDoc, getDocs } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
+    const { getFirestore, collection, doc, getDoc, getDocs, query, where, limit } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
     
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
     
-    window.firebase = { db, collection, doc, getDoc, getDocs };
+    window.firebase = { db, collection, doc, getDoc, getDocs, query, where, limit };
     
     console.log('✅ Firebase inicializado para portal de padres');
     return true;

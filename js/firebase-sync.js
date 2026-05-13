@@ -426,14 +426,10 @@ async function downloadFromFirebase() {
     localStorage.setItem('paymentMovementLog', JSON.stringify(logEntries.slice(0, 500)));
     console.log(`✅ ${logEntries.length} entradas del log de movimientos descargadas`);
 
-    // ✅ 9️⃣ IMPORTANTE: Limpiar marca de sincronización y re-sincronizar contador
-    const syncKey = `counterSynced_${clubId}`;
-    localStorage.removeItem(syncKey);
-    console.log('🔄 Forzando re-sincronización del contador de facturas...');
-    
-    // Re-sincronizar el contador con la cantidad real de facturas de pagos
+    // ✅ 9️⃣ Tras descarga completa, forzar una reconciliación del contador
+    // para evitar desfases entre dispositivos sin perder la optimización diaria
     if (typeof syncInvoiceCounter === 'function') {
-      await syncInvoiceCounter();
+      await syncInvoiceCounter({ force: true });
     }
 
     showToast(`✅ Datos descargados: ${players.length} jugadores, ${payments.length} pagos, ${events.length} eventos, ${users.length} usuarios, ${expenses.length} egresos`);
@@ -538,11 +534,16 @@ async function saveSchoolSettingsToFirebase(settings) {
       window.firebase.doc(window.firebase.db, `clubs/${clubId}/settings`, 'main'),
       { ...settings, lastUpdated: new Date().toISOString() }
     );
-    // Sincronizar coachCode por separado para la App de Asistencia
+    // Sincronizar coachCode/adminCode por separado para la App de Asistencia
     if (settings.coachCode !== undefined) {
+      const attendanceCode = settings.coachCode || '';
       await window.firebase.setDoc(
         window.firebase.doc(window.firebase.db, `clubs/${clubId}/settings`, 'attendance'),
-        { coachCode: settings.coachCode, updatedAt: new Date().toISOString() }
+        {
+          coachCode: attendanceCode,
+          adminCode: attendanceCode,
+          updatedAt: new Date().toISOString()
+        }
       );
     }
     console.log('✅ Configuración del club guardada en Firebase');
@@ -1042,6 +1043,19 @@ async function getMaxInvoiceSequenceFromFirebase(clubId) {
   }
 }
 
+function shouldRunCounterSync(clubId, { force = false } = {}) {
+  if (force) return true;
+  const key = `counterLastHeavySync_${clubId}`;
+  const ttlMs = 24 * 60 * 60 * 1000; // 24 horas
+  const last = Number(localStorage.getItem(key) || '0');
+  if (!last) return true;
+  return (Date.now() - last) > ttlMs;
+}
+
+function markCounterSyncRun(clubId) {
+  localStorage.setItem(`counterLastHeavySync_${clubId}`, String(Date.now()));
+}
+
 /**
  * Obtener el siguiente número de factura desde Firebase (único para todos los dispositivos)
  */
@@ -1064,11 +1078,19 @@ async function getNextInvoiceNumberFromFirebase() {
         const counterRef = window.firebase.doc(window.firebase.db, `clubs/${clubId}/config`, 'invoiceCounter');
         let bootstrapBase = 0;
 
-        // Bootstrap defensivo: reconciliar con el mayor folio real.
+        // Bootstrap defensivo: reconciliar con el mayor folio real SOLO cuando hace falta.
         const counterSnap = await window.firebase.getDoc(counterRef);
         const counterValue = counterSnap.exists() ? (counterSnap.data().lastNumber || 0) : 0;
-        const maxRealSequence = await getMaxInvoiceSequenceFromFirebase(clubId);
-        bootstrapBase = Math.max(Number.isFinite(counterValue) ? counterValue : 0, maxRealSequence);
+        const bootstrapKey = `invoiceBootstrapDone_${clubId}`;
+        const hasBootstrap = localStorage.getItem(bootstrapKey) === 'true';
+        const needsBootstrap = !hasBootstrap || !counterSnap.exists() || !Number.isFinite(counterValue);
+
+        if (needsBootstrap) {
+          const maxRealSequence = await getMaxInvoiceSequenceFromFirebase(clubId);
+          bootstrapBase = Math.max(Number.isFinite(counterValue) ? counterValue : 0, maxRealSequence);
+        } else {
+          bootstrapBase = Number.isFinite(counterValue) ? counterValue : 0;
+        }
 
         // Transacción atómica para evitar duplicados entre dispositivos
         const newNumber = await window.firebase.runTransaction(window.firebase.db, async (transaction) => {
@@ -1079,6 +1101,10 @@ async function getNextInvoiceNumberFromFirebase() {
           transaction.set(counterRef, { lastNumber: nextNumber, lastUpdated: new Date().toISOString() });
           return nextNumber;
         });
+
+        if (needsBootstrap) {
+          localStorage.setItem(bootstrapKey, 'true');
+        }
 
         const year = new Date().getFullYear();
         return `INV-${year}-${String(newNumber).padStart(4, '0')}`;
@@ -1123,11 +1149,16 @@ function getNextInvoiceNumberLocal() {
 /**
  * ✅ Sincronizar contador con facturas reales en todos los módulos
  */
-async function syncInvoiceCounter() {
+async function syncInvoiceCounter(options = {}) {
   if (!checkFirebaseReady()) return;
 
   const clubId = getClubId();
   if (!clubId) return;
+
+  if (!shouldRunCounterSync(clubId, options)) {
+    console.log('ℹ️ Sincronización pesada del contador omitida (ya ejecutada recientemente)');
+    return;
+  }
 
   try {
     const counterRef = window.firebase.doc(window.firebase.db, `clubs/${clubId}/config`, 'invoiceCounter');
@@ -1186,6 +1217,8 @@ async function syncInvoiceCounter() {
       lastUpdated: new Date().toISOString(),
       syncedAt: new Date().toISOString()
     });
+
+    markCounterSyncRun(clubId);
 
     console.log(`✅ Contador sincronizado: ${safeNumber} (pagos: ${totalPayments}, egresos: ${totalExpenses}, otrosIngresos: ${totalThirdParty}, anuladas: ${totalVoided}, maxFolio: ${maxInvoiceSequence}, anterior: ${currentCounter})`);
     showToast(`✅ Contador sincronizado: ${safeNumber} facturas`);

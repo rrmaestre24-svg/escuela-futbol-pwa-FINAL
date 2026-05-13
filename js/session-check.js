@@ -36,9 +36,14 @@ window.addEventListener('DOMContentLoaded', async function () {
 
     console.log('[INDEX] No hay sesion local, esperando Firebase...');
 
-    // 2. Esperar a que Firebase Auth verifique (hasta 10 segundos)
+    // 2. Esperar a que Firebase Auth verifique
+    // ⚡ OPTIMIZADO: En dispositivos de gama baja, reducir polling (cada 1000ms en vez de 500ms)
     let attempts = 0;
-    const maxAttempts = 20;
+    const isLowEnd = document.body.dataset.qualityLevel === 'low';
+    const pollInterval = isLowEnd ? 1000 : 500; // Reducir CPU en gama baja
+    const maxAttempts = isLowEnd ? 15 : 20;      // Timeout más corto en gama baja (7.5s vs 10s)
+
+    console.log(`🔍 Polling de sesión cada ${pollInterval}ms (device:${isLowEnd ? 'low-end' : 'normal'})`);
 
     const checkFirebase = setInterval(async () => {
         attempts++;
@@ -67,9 +72,20 @@ window.addEventListener('DOMContentLoaded', async function () {
             // Buscar clubId en Firebase si no esta local
             if (!clubId && window.firebase.db) {
                 try {
-                    const mappingRef = window.firebase.doc(window.firebase.db, 'userClubMapping', user.email);
-                    const mappingSnap = await window.firebase.getDoc(mappingRef);
-                    if (mappingSnap.exists()) {
+                    const mappingEmail = typeof normalizeUserEmail === 'function'
+                        ? normalizeUserEmail(user.email)
+                        : (user.email || '').trim().toLowerCase();
+                    const candidateEmails = [...new Set([mappingEmail, (user.email || '').trim()].filter(Boolean))];
+                    let mappingSnap = null;
+                    for (const candidateEmail of candidateEmails) {
+                        const mappingRef = window.firebase.doc(window.firebase.db, 'userClubMapping', candidateEmail);
+                        const candidateSnap = await window.firebase.getDoc(mappingRef);
+                        if (candidateSnap.exists()) {
+                            mappingSnap = candidateSnap;
+                            break;
+                        }
+                    }
+                    if (mappingSnap && mappingSnap.exists()) {
                         clubId = mappingSnap.data().clubId;
                         localStorage.setItem('clubId', clubId);
                     }
@@ -143,7 +159,7 @@ window.addEventListener('DOMContentLoaded', async function () {
             hideLoader();
             window.location.href = 'login.html';
         }
-    }, 500);
+    }, pollInterval);
 });
 
 console.log('✅ session-check.js cargado');
