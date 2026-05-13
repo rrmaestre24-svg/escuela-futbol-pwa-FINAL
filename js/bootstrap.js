@@ -21,21 +21,31 @@ try {
 
 // Registrar Service Worker
 if ('serviceWorker' in navigator) {
+    let swReloading = false;
+
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (swReloading) return;
+        swReloading = true;
+        window.location.reload();
+    });
+
     navigator.serviceWorker.register('sw.js').then(registration => {
         // Detectar nueva versión disponible
         registration.addEventListener('updatefound', () => {
             const newWorker = registration.installing;
+            if (!newWorker) return;
+
             newWorker.addEventListener('statechange', () => {
                 if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
                     // Usar modal personalizado en lugar de confirm() nativo
-                    if (typeof showUpdateModal === 'function') {
-                        showUpdateModal(() => {
-                            newWorker.postMessage({ type: 'SKIP_WAITING' });
-                            window.location.reload();
-                        });
-                    } else {
+                    const requestUpdate = () => {
                         newWorker.postMessage({ type: 'SKIP_WAITING' });
-                        window.location.reload();
+                    };
+
+                    if (typeof showUpdateModal === 'function') {
+                        showUpdateModal(requestUpdate);
+                    } else {
+                        requestUpdate();
                     }
                 }
             });

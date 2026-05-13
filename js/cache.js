@@ -120,24 +120,24 @@ async function checkForUpdates() {
     if ('serviceWorker' in navigator) {
       const registration = await navigator.serviceWorker.getRegistration();
 
-      if (registration) {
-        // Forzar actualización del Service Worker
-        await registration.update();
-        console.log('✅ Actualización verificada');
+        if (registration) {
+          // Forzar actualización del Service Worker
+          await registration.update();
+          console.log('✅ Actualización verificada');
 
-        // Verificar si hay una versión en espera
-        if (registration.waiting) {
-          showUpdateModal(() => {
-            // Activar el nuevo Service Worker
-            registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-            // Recargar cuando el nuevo SW tome control
-            navigator.serviceWorker.addEventListener('controllerchange', () => {
-              window.location.reload();
+          // Verificar si hay una versión en espera
+          if (registration.waiting) {
+            showUpdateModal(() => {
+              // Activar el nuevo Service Worker
+              registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+              // Recargar solo cuando el nuevo SW tome control
+              navigator.serviceWorker.addEventListener('controllerchange', () => {
+                window.location.reload();
+              }, { once: true });
             });
-          });
-        } else if (registration.installing) {
-          showToast('⏳ Descargando actualización...');
-        } else {
+          } else if (registration.installing) {
+            showToast('⏳ Descargando actualización...');
+          } else {
           showToast('✅ Ya tienes la última versión');
         }
       } else {
