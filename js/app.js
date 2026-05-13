@@ -3,7 +3,7 @@ window.APP_STATE = {
   firebaseReady: false,
   currentUser: null,
   authRestored: false,
-  version: '1.1.34' // Fallback de versión si no se puede leer sw.js
+  version: '1.1.35' // Fallback de versión si no se puede leer sw.js
 };
 
 // ========================================
