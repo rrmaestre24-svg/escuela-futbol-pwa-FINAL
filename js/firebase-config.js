@@ -78,7 +78,8 @@ async function initFirebase() {
       onSnapshot,
       runTransaction,
       serverTimestamp,
-      deleteField
+      deleteField,
+      enableMultiTabIndexedDbPersistence
     } = firestoreModule;
 
     const {
@@ -107,6 +108,22 @@ async function initFirebase() {
 
     const app = initializeApp(firebaseConfig);
     db = getFirestore(app);
+
+    // CONFIGURAR PERSISTENCIA OFFLINE FIRESTORE (CACHÉ PARA LECTURAS)
+    try {
+      await enableMultiTabIndexedDbPersistence(db);
+      console.log('[OK] Persistencia Offline Firestore habilitada (IndexedDB)');
+    } catch (err) {
+      if (err.code == 'failed-precondition') {
+        console.warn('[WARN] Persistencia Firestore falló: Múltiples pestañas bloquean IndexedDB');
+      } else if (err.code == 'unimplemented') {
+        console.warn('[WARN] Persistencia Firestore no soportada por el navegador (ej. modo incógnito)');
+      } else {
+        console.error('[ERROR] Error habilitando persistencia Firestore:', err);
+      }
+      // La app sigue viva, usando LocalStorage + Lecturas Normales de Firebase.
+    }
+
     auth = getAuth(app);
     const storage = getStorage(app);
     const functions = getFunctions(app, 'us-central1');

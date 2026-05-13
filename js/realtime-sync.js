@@ -55,7 +55,7 @@ async function startRealtimeSync(clubId) {
     // Si auth.js ya descargó los datos hace menos de 3 minutos, saltamos
     // la descarga para no duplicar lecturas de Firestore.
     const _lastDL = JSON.parse(localStorage.getItem('_lastFullDownload') || 'null');
-    const _skipDownload = _lastDL?.clubId === clubId && (Date.now() - _lastDL.ts) < 10 * 60 * 1000;
+    const _skipDownload = _lastDL?.clubId === clubId && (Date.now() - _lastDL.ts) < 30 * 60 * 1000;
     if (_skipDownload) {
       const minAgo = Math.round((Date.now() - _lastDL.ts) / 60000);
       console.log(`⚡ Datos en localStorage de hace ${minAgo} min — omitiendo descarga, listeners activos`);
@@ -783,39 +783,11 @@ function startLogoListener(clubId) {
 }
 
 // ========================================
-// 📋 LISTENER DE LOG DE MOVIMIENTOS DE PAGOS
+// 📋 LISTENER DE LOG DE MOVIMIENTOS DE PAGOS (DESACTIVADO PARA AHORRAR)
 // ========================================
 function startPaymentLogListener(clubId) {
-  // Limitado a los últimos 200 registros para evitar lecturas masivas.
-  // El log completo se carga bajo demanda cuando el admin lo solicita.
-  const logRef = window.firebase.query(
-    window.firebase.collection(window.firebase.db, `clubs/${clubId}/paymentMovementLog`),
-    window.firebase.orderBy('timestamp', 'desc'),
-    window.firebase.limit(200)
-  );
-
-  window.realtimeListeners.paymentMovementLog = window.firebase.onSnapshot(
-    logRef,
-    (snapshot) => {
-      if (snapshot.empty) return;
-      const entries = [];
-      snapshot.forEach(doc => entries.push(doc.data()));
-      // Ya llegan ordenados desc por el query; guardar directo
-      localStorage.setItem('paymentMovementLog', JSON.stringify(entries));
-
-      if (window.realtimeSyncState.initialLoadComplete) {
-        if (typeof renderPaymentMovementLog === 'function') {
-          renderPaymentMovementLog();
-        }
-        console.log(`🔄 Log de movimientos actualizado: ${entries.length} entradas`);
-      }
-    },
-    (error) => {
-      console.warn('⚠️ Error en listener de log de movimientos:', error);
-    }
-  );
-
-  console.log('📋 Listener de log de movimientos iniciado');
+  console.log('📋 Listener de log de movimientos temporalmente desactivado para ahorrar lecturas.');
+  // El listener de movimientos se omite; la carga inicial proveerá la lista si hace falta.
 }
 
 // ========================================

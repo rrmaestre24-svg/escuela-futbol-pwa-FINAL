@@ -178,6 +178,21 @@ async function checkLicenseStatus() {
     return { status: 'error', daysRemaining: 0, message: 'Sin conexión' };
   }
 
+  // 🔴 OPTIMIZACIÓN: Si la licencia está activa y la comprobamos hace menos de 6 horas, usar cache
+  const cachedStatus = localStorage.getItem('licenseStatus');
+  const lastCheck = parseInt(localStorage.getItem('licenseLastCheckTime') || '0', 10);
+  const nowTs = Date.now();
+  if (cachedStatus === 'activo' && (nowTs - lastCheck) < 6 * 60 * 60 * 1000) {
+    const cachedEndDate = localStorage.getItem('licenseEndDate');
+    if (cachedEndDate) {
+      console.log('⚡ Licencia validada desde CACHE (evitando lectura extra)');
+      return calculateLicenseState(new Date(cachedEndDate));
+    }
+  }
+
+  // Marcar hora de comprobación
+  localStorage.setItem('licenseLastCheckTime', nowTs.toString());
+
   try {
     console.log('🔍 Consultando licencia en Firebase...');
     const licenseRef = window.firebase.doc(window.firebase.db, 'licenses', clubId);
@@ -421,6 +436,15 @@ async function updatePlayerCount() {
     const players = JSON.parse(localStorage.getItem('players') || '[]');
     const totalPlayers = players.length;
 
+    // 🔴 OPTIMIZACIÓN: Solo actualizar si cambió la cantidad que la última vez o pasó 1 día
+    const lastCount = parseInt(localStorage.getItem('lastReportedPlayerCount') || '-1', 10);
+    const lastUpdateTs = parseInt(localStorage.getItem('lastPlayerCountUpdateTs') || '0', 10);
+    const now = Date.now();
+
+    if (totalPlayers === lastCount && (now - lastUpdateTs) < 24 * 60 * 60 * 1000) {
+      return; // Omitir actualización, evita 1 escritura por login
+    }
+
     await window.firebase.updateDoc(
       window.firebase.doc(window.firebase.db, 'licenses', clubId),
       {
@@ -429,6 +453,8 @@ async function updatePlayerCount() {
       }
     );
 
+    localStorage.setItem('lastReportedPlayerCount', totalPlayers.toString());
+    localStorage.setItem('lastPlayerCountUpdateTs', now.toString());
     console.log('📊 Contador de jugadores actualizado:', totalPlayers);
   } catch (error) {
     console.warn('⚠️ No se pudo actualizar contador de jugadores:', error);
@@ -492,9 +518,10 @@ if ((currentStatus && currentStatus !== newStatus) || modulosChanged) {
           // Solo recargar si la licencia fue DESACTIVADA
           if (newStatus !== 'activo') {
             showToast(`🔴 Licencia desactivada. Contacta al administrador.`);
-            setTimeout(() => {
-              window.location.reload();
-            }, 2000);
+            if (typeof applyReadOnlyMode === 'function') applyReadOnlyMode();
+            const endDateObj = licenseData.endDate ? new Date(licenseData.endDate) : new Date();
+            const calc = calculateLicenseState(endDateObj);
+            showLicenseBanner(calc);
           } else {
             // Si se activó, solo mostrar mensaje sin recargar
             showToast(`✅ Licencia activada correctamente`);
