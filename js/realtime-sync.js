@@ -352,46 +352,70 @@ async function downloadAllDataInitially(clubId) {
     paymentMovementLog: 0
   };
   
-// 1️⃣ CONFIGURACIÓN
+// 1️⃣ CONFIGURACIÓN — ⚡ TTL 60 min
   try {
-    console.log('📥 1/9 - Configuración del club...');
-    const settingsDoc = await window.firebase.getDoc(
-      window.firebase.doc(window.firebase.db, `clubs/${clubId}/settings`, 'main')
-    );
-    if (settingsDoc.exists()) {
-      const settingsData = settingsDoc.data();
-      if (typeof saveSchoolSettings === 'function') {
-        saveSchoolSettings(settingsData);
-      } else {
-        localStorage.setItem('schoolSettings', JSON.stringify(settingsData));
-      }
+    const _settTTL = 60 * 60 * 1000;
+    const _settKey = `settingsLastFetch_${clubId}`;
+    const _settOk  = localStorage.getItem('schoolSettings') &&
+                     (Date.now() - Number(localStorage.getItem(_settKey) || 0)) < _settTTL;
+    if (_settOk) {
+      console.log('⚡ [LOCAL-FIRST] Configuración desde caché — sin lecturas Firestore');
       stats.settings = true;
-      console.log('✅ Configuración descargada');
+    } else {
+      console.log('📥 1/9 - Configuración del club...');
+      const settingsDoc = await window.firebase.getDoc(
+        window.firebase.doc(window.firebase.db, `clubs/${clubId}/settings`, 'main')
+      );
+      if (settingsDoc.exists()) {
+        const settingsData = settingsDoc.data();
+        if (typeof saveSchoolSettings === 'function') {
+          saveSchoolSettings(settingsData);
+        } else {
+          localStorage.setItem('schoolSettings', JSON.stringify(settingsData));
+        }
+        localStorage.setItem(_settKey, String(Date.now()));
+        stats.settings = true;
+        console.log('✅ Configuración descargada');
+      }
     }
   } catch (error) {
     console.error('⚠️ Error configuración:', error);
   }
 
-  // 1️⃣B - LOGO DEL CLUB (documento separado)
+  // 1️⃣B - LOGO DEL CLUB — ⚡ TTL 60 min (solo descarga si settings recién se refrescó)
   try {
-    const logoDoc = await window.firebase.getDoc(
-      window.firebase.doc(window.firebase.db, `clubs/${clubId}/assets`, 'logo')
-    );
-    if (logoDoc.exists()) {
-      const logoData = logoDoc.data();
-      if (logoData.logo) {
-        const currentSettings = JSON.parse(localStorage.getItem('schoolSettings') || '{}');
-        currentSettings.logo = logoData.logo;
-        localStorage.setItem('schoolSettings', JSON.stringify(currentSettings));
-        console.log('✅ Logo cargado desde documento separado');
+    const _logoKey = `logoLastFetch_${clubId}`;
+    const _logoOk  = (Date.now() - Number(localStorage.getItem(_logoKey) || 0)) < 60 * 60 * 1000;
+    if (!_logoOk) {
+      const logoDoc = await window.firebase.getDoc(
+        window.firebase.doc(window.firebase.db, `clubs/${clubId}/assets`, 'logo')
+      );
+      if (logoDoc.exists()) {
+        const logoData = logoDoc.data();
+        if (logoData.logo) {
+          const currentSettings = JSON.parse(localStorage.getItem('schoolSettings') || '{}');
+          currentSettings.logo = logoData.logo;
+          localStorage.setItem('schoolSettings', JSON.stringify(currentSettings));
+          localStorage.setItem(_logoKey, String(Date.now()));
+          console.log('✅ Logo cargado desde documento separado');
+        }
       }
     }
   } catch (error) {
     console.error('⚠️ Error cargando logo:', error);
   }
   
-  // 2️⃣ JUGADORES - CON FALLBACK SEGURO Y NORMALIZACIÓN DE STATUS
+  // 2️⃣ JUGADORES — ⚡ TTL 15 min (más corto porque cambia frecuente)
   try {
+    const _playTTL = 15 * 60 * 1000;
+    const _playKey = `playersLastFetch_${clubId}`;
+    const _existingPlayers = JSON.parse(localStorage.getItem('players') || '[]');
+    const _playOk = _existingPlayers.length > 0 &&
+                    (Date.now() - Number(localStorage.getItem(_playKey) || 0)) < _playTTL;
+    if (_playOk) {
+      console.log(`⚡ [LOCAL-FIRST] Jugadores desde caché (${_existingPlayers.length}) — sin lecturas Firestore`);
+      stats.players = _existingPlayers.length;
+    } else {
     console.log('📥 2/9 - Jugadores...');
 
     // ✅ PASO 1: Siempre intentar la fuente principal primero
@@ -466,9 +490,10 @@ async function downloadAllDataInitially(clubId) {
     } else {
       localStorage.setItem('players', JSON.stringify(finalPlayers));
     }
-
+    localStorage.setItem(_playKey, String(Date.now()));
     stats.players = finalPlayers.length;
     console.log(`✅ ${finalPlayers.length} jugadores cargados desde: ${usedSource}`);
+    } // fin else cache jugadores
   } catch (error) {
     console.error('⚠️ Error jugadores:', error);
   }
@@ -535,115 +560,146 @@ async function downloadAllDataInitially(clubId) {
   
   // 4️⃣ EVENTOS
   try {
-    console.log('📥 4/9 - Eventos...');
-    const eventsSnapshot = await window.firebase.getDocs(
-      window.firebase.collection(window.firebase.db, `clubs/${clubId}/events`)
-    );
-    
-    const events = [];
-    eventsSnapshot.forEach(doc => {
-      events.push({ id: doc.id, ...doc.data() });
-    });
-    
-    localStorage.setItem('calendarEvents', JSON.stringify(events));
-    stats.events = events.length;
-    console.log(`✅ ${events.length} eventos`);
+    const _evTTL = 30 * 60 * 1000;
+    const _evKey = `eventsLastFetch_${clubId}`;
+    const _evLastFetch = Number(localStorage.getItem(_evKey) || 0);
+    if (_evLastFetch > 0 && (Date.now() - _evLastFetch) < _evTTL) {
+      const _evCache = JSON.parse(localStorage.getItem('calendarEvents') || '[]');
+      console.log(`⚡ [LOCAL-FIRST] Eventos desde caché (${_evCache.length}) — sin lecturas Firestore`);
+      stats.events = _evCache.length;
+    } else {
+      console.log('📥 4/9 - Eventos...');
+      const eventsSnapshot = await window.firebase.getDocs(
+        window.firebase.collection(window.firebase.db, `clubs/${clubId}/events`)
+      );
+      const events = [];
+      eventsSnapshot.forEach(doc => { events.push({ id: doc.id, ...doc.data() }); });
+      localStorage.setItem('calendarEvents', JSON.stringify(events));
+      localStorage.setItem(_evKey, String(Date.now()));
+      stats.events = events.length;
+      console.log(`✅ ${events.length} eventos`);
+    }
   } catch (error) {
     console.error('⚠️ Error eventos:', error);
   }
   
-  // 5️⃣ EGRESOS
+  // 5️⃣ EGRESOS — ⚡ TTL 30 min
   try {
-    console.log('📥 5/9 - Egresos...');
-    const expensesSnapshot = await window.firebase.getDocs(
-      window.firebase.collection(window.firebase.db, `clubs/${clubId}/expenses`)
-    );
-    
-    const expenses = [];
-    expensesSnapshot.forEach(doc => {
-      expenses.push({ id: doc.id, ...doc.data() });
-    });
-    
-    localStorage.setItem('expenses', JSON.stringify(expenses));
-    stats.expenses = expenses.length;
-    console.log(`✅ ${expenses.length} egresos`);
+    const _expKey = `expensesLastFetch_${clubId}`;
+    const _expLastFetch = Number(localStorage.getItem(_expKey) || 0);
+    if (_expLastFetch > 0 && (Date.now() - _expLastFetch) < 30 * 60 * 1000) {
+      const _expCache = JSON.parse(localStorage.getItem('expenses') || '[]');
+      console.log(`⚡ [LOCAL-FIRST] Egresos desde caché (${_expCache.length}) — sin lecturas Firestore`);
+      stats.expenses = _expCache.length;
+    } else {
+      console.log('📥 5/9 - Egresos...');
+      const expensesSnapshot = await window.firebase.getDocs(
+        window.firebase.collection(window.firebase.db, `clubs/${clubId}/expenses`)
+      );
+      const expenses = [];
+      expensesSnapshot.forEach(doc => { expenses.push({ id: doc.id, ...doc.data() }); });
+      localStorage.setItem('expenses', JSON.stringify(expenses));
+      localStorage.setItem(_expKey, String(Date.now()));
+      stats.expenses = expenses.length;
+      console.log(`✅ ${expenses.length} egresos`);
+    }
   } catch (error) {
     console.error('⚠️ Error egresos:', error);
   }
   
-  // 6️⃣ USUARIOS
+  // 6️⃣ USUARIOS — ⚡ TTL 60 min (rara vez cambia)
   try {
-    console.log('📥 6/9 - Usuarios...');
-    const usersSnapshot = await window.firebase.getDocs(
-      window.firebase.collection(window.firebase.db, `clubs/${clubId}/users`)
-    );
-    
-    const users = [];
-    usersSnapshot.forEach(doc => {
-      const userData = doc.data();
-      if (!userData.deleted) {
-        users.push({ id: doc.id, ...userData, schoolId: clubId });
-      }
-    });
-    
-    localStorage.setItem('users', JSON.stringify(users));
-    stats.users = users.length;
-    console.log(`✅ ${users.length} usuarios`);
+    const _usrKey = `usersLastFetch_${clubId}`;
+    const _usrLastFetch = Number(localStorage.getItem(_usrKey) || 0);
+    if (_usrLastFetch > 0 && (Date.now() - _usrLastFetch) < 60 * 60 * 1000) {
+      const _usrCache = JSON.parse(localStorage.getItem('users') || '[]');
+      console.log(`⚡ [LOCAL-FIRST] Usuarios desde caché (${_usrCache.length}) — sin lecturas Firestore`);
+      stats.users = _usrCache.length;
+    } else {
+      console.log('📥 6/9 - Usuarios...');
+      const usersSnapshot = await window.firebase.getDocs(
+        window.firebase.collection(window.firebase.db, `clubs/${clubId}/users`)
+      );
+      const users = [];
+      usersSnapshot.forEach(doc => {
+        const userData = doc.data();
+        if (!userData.deleted) users.push({ id: doc.id, ...userData, schoolId: clubId });
+      });
+      localStorage.setItem('users', JSON.stringify(users));
+      localStorage.setItem(_usrKey, String(Date.now()));
+      stats.users = users.length;
+      console.log(`✅ ${users.length} usuarios`);
+    }
   } catch (error) {
     console.error('⚠️ Error usuarios:', error);
   }
   
-  // 7️⃣ INGRESOS DE TERCEROS
+  // 7️⃣ INGRESOS DE TERCEROS — ⚡ TTL 30 min
   try {
-    console.log('📥 7/9 - Ingresos de terceros...');
-    const incomesSnapshot = await window.firebase.getDocs(
-      window.firebase.collection(window.firebase.db, `clubs/${clubId}/thirdPartyIncomes`)
-    );
-    
-    const incomes = [];
-    incomesSnapshot.forEach(doc => {
-      incomes.push({ id: doc.id, ...doc.data() });
-    });
-    
-    localStorage.setItem('thirdPartyIncomes', JSON.stringify(incomes));
-    stats.thirdPartyIncomes = incomes.length;
-    console.log(`✅ ${incomes.length} ingresos externos`);
+    const _incKey = `incomesLastFetch_${clubId}`;
+    const _incLastFetch = Number(localStorage.getItem(_incKey) || 0);
+    if (_incLastFetch > 0 && (Date.now() - _incLastFetch) < 30 * 60 * 1000) {
+      const _incCache = JSON.parse(localStorage.getItem('thirdPartyIncomes') || '[]');
+      console.log(`⚡ [LOCAL-FIRST] Ingresos externos desde caché (${_incCache.length}) — sin lecturas Firestore`);
+      stats.thirdPartyIncomes = _incCache.length;
+    } else {
+      console.log('📥 7/9 - Ingresos de terceros...');
+      const incomesSnapshot = await window.firebase.getDocs(
+        window.firebase.collection(window.firebase.db, `clubs/${clubId}/thirdPartyIncomes`)
+      );
+      const incomes = [];
+      incomesSnapshot.forEach(doc => { incomes.push({ id: doc.id, ...doc.data() }); });
+      localStorage.setItem('thirdPartyIncomes', JSON.stringify(incomes));
+      localStorage.setItem(_incKey, String(Date.now()));
+      stats.thirdPartyIncomes = incomes.length;
+      console.log(`✅ ${incomes.length} ingresos externos`);
+    }
   } catch (error) {
     console.error('⚠️ Error ingresos:', error);
   }
   
-  // 8️⃣ CÓDIGOS DE PADRES
+  // 8️⃣ CÓDIGOS DE PADRES — ⚡ TTL 60 min (casi no cambian)
   try {
-    console.log('📥 8/9 - Códigos de padres...');
-    const codesSnapshot = await window.firebase.getDocs(
-      window.firebase.collection(window.firebase.db, `clubs/${clubId}/parentCodes`)
-    );
-    
-    const codes = [];
-    codesSnapshot.forEach(doc => {
-      codes.push({ id: doc.id, ...doc.data() });
-    });
-    
-    localStorage.setItem('parentCodes', JSON.stringify(codes));
-    stats.parentCodes = codes.length;
-    console.log(`✅ ${codes.length} códigos`);
+    const _codeKey = `parentCodesLastFetch_${clubId}`;
+    const _codeLastFetch = Number(localStorage.getItem(_codeKey) || 0);
+    if (_codeLastFetch > 0 && (Date.now() - _codeLastFetch) < 60 * 60 * 1000) {
+      const _codeCache = JSON.parse(localStorage.getItem('parentCodes') || '[]');
+      console.log(`⚡ [LOCAL-FIRST] Códigos padres desde caché (${_codeCache.length}) — sin lecturas Firestore`);
+      stats.parentCodes = _codeCache.length;
+    } else {
+      console.log('📥 8/9 - Códigos de padres...');
+      const codesSnapshot = await window.firebase.getDocs(
+        window.firebase.collection(window.firebase.db, `clubs/${clubId}/parentCodes`)
+      );
+      const codes = [];
+      codesSnapshot.forEach(doc => { codes.push({ id: doc.id, ...doc.data() }); });
+      localStorage.setItem('parentCodes', JSON.stringify(codes));
+      localStorage.setItem(_codeKey, String(Date.now()));
+      stats.parentCodes = codes.length;
+      console.log(`✅ ${codes.length} códigos`);
+    }
   } catch (error) {
     console.error('⚠️ Error códigos:', error);
   }
-  
-  // 9️⃣ CONFIGURACIONES ADICIONALES
+
+  // 9️⃣ CONFIGURACIONES ADICIONALES — ⚡ TTL 60 min
   try {
-    console.log('📥 9/9 - Config adicional...');
-    const configSnapshot = await window.firebase.getDocs(
-      window.firebase.collection(window.firebase.db, `clubs/${clubId}/config`)
-    );
-    
-    configSnapshot.forEach(doc => {
-      localStorage.setItem(`config_${doc.id}`, JSON.stringify(doc.data()));
-      stats.config++;
-    });
-    
-    console.log(`✅ ${stats.config} configuraciones`);
+    const _cfgKey = `configLastFetch_${clubId}`;
+    if ((Date.now() - Number(localStorage.getItem(_cfgKey) || 0)) < 60 * 60 * 1000 &&
+        localStorage.getItem('config_main') !== null) {
+      console.log('⚡ [LOCAL-FIRST] Config adicional desde caché — sin lecturas Firestore');
+    } else {
+      console.log('📥 9/9 - Config adicional...');
+      const configSnapshot = await window.firebase.getDocs(
+        window.firebase.collection(window.firebase.db, `clubs/${clubId}/config`)
+      );
+      configSnapshot.forEach(doc => {
+        localStorage.setItem(`config_${doc.id}`, JSON.stringify(doc.data()));
+        stats.config++;
+      });
+      localStorage.setItem(_cfgKey, String(Date.now()));
+      console.log(`✅ ${stats.config} configuraciones`);
+    }
   } catch (error) {
     console.error('⚠️ Error config:', error);
   }
