@@ -43,9 +43,12 @@ exports.deleteAuthUser = onCall(async (request) => {
     throw new HttpsError('permission-denied', 'Solo el administrador principal puede eliminar usuarios.');
   }
 
-  // 5. Verificar que el usuario a eliminar NO es Admin Principal
+  // 5. Verificar que el usuario a eliminar pertenece a este club
   const targetDoc = await db.doc(`clubs/${clubId}/users/${uidToDelete}`).get();
-  if (targetDoc.exists && targetDoc.data().isMainAdmin) {
+  if (!targetDoc.exists) {
+    throw new HttpsError('permission-denied', 'El usuario no pertenece a este club.');
+  }
+  if (targetDoc.data().isMainAdmin) {
     throw new HttpsError('failed-precondition', 'No se puede eliminar al administrador principal.');
   }
 
