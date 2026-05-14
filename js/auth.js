@@ -375,7 +375,11 @@ async function getClubIdForUser(email) {
 }
 
 // 🔥 FUNCIÓN: Descargar datos desde Firebase
-async function downloadAllClubData(clubId) {
+// Local-first: si los datos del club ya están en localStorage y son recientes,
+// los reutiliza sin hacer lecturas a Firestore.
+const _FULL_DOWNLOAD_TTL_MS = 15 * 60 * 1000; // 15 minutos
+
+async function downloadAllClubData(clubId, { force = false } = {}) {
   if (!window.APP_STATE?.firebaseReady || !window.firebase?.auth?.currentUser) {
     console.warn('⚠️ Firebase no está listo o no hay usuario autenticado');
     return false;
@@ -385,6 +389,21 @@ async function downloadAllClubData(clubId) {
     console.error('❌ clubId es requerido para descargar datos');
     showToast('❌ Error: No se encontró el ID del club');
     return false;
+  }
+
+  // ⚡ LOCAL-FIRST GUARD: si los datos clave ya están frescos, no re-descargar
+  if (!force) {
+    const canReuseLocal = typeof shouldReuseLocalSnapshot === 'function'
+      ? shouldReuseLocalSnapshot(clubId, 'players', { ttlMs: _FULL_DOWNLOAD_TTL_MS }) &&
+        shouldReuseLocalSnapshot(clubId, 'payments', { ttlMs: _FULL_DOWNLOAD_TTL_MS }) &&
+        shouldReuseLocalSnapshot(clubId, 'settings', { ttlMs: _FULL_DOWNLOAD_TTL_MS })
+      : false;
+
+    if (canReuseLocal) {
+      console.log('⚡ [LOCAL-FIRST] Datos del club frescos en localStorage — omitiendo descarga de Firebase');
+      showToast('⚡ Datos cargados desde caché local');
+      return true;
+    }
   }
 
   try {
@@ -512,6 +531,13 @@ async function downloadAllClubData(clubId) {
 
     // Marca el momento de la descarga para que realtime-sync no vuelva a bajar los mismos datos
     localStorage.setItem('_lastFullDownload', JSON.stringify({ clubId, ts: Date.now() }));
+
+    // ⚡ LOCAL-FIRST: marcar cada colección como sincronizada para el próximo acceso
+    if (typeof markLocalSnapshotSynced === 'function') {
+      const syncedScopes = ['settings', 'players', 'payments', 'events', 'expenses', 'users', 'thirdPartyIncomes'];
+      syncedScopes.forEach(scope => markLocalSnapshotSynced(clubId, scope, { source: 'firebase' }));
+      console.log('⚡ [LOCAL-FIRST] Marcas de caché actualizadas para:', syncedScopes.length, 'colecciones');
+    }
 
     showToast('✅ Datos sincronizados correctamente');
     return true;

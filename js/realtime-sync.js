@@ -37,6 +37,65 @@ function markAuxSyncRun(clubId) {
   localStorage.setItem(`auxLastSync_${clubId}`, String(Date.now()));
 }
 
+function getLocalFirstCollectionCount(scope) {
+  try {
+    switch (scope) {
+      case 'settings':
+        return localStorage.getItem('schoolSettings') ? 1 : 0;
+      case 'players':
+        return typeof getAllPlayers === 'function'
+          ? getAllPlayers().length
+          : JSON.parse(localStorage.getItem('players') || '[]').length;
+      case 'payments':
+        return typeof getPayments === 'function'
+          ? getPayments().length
+          : JSON.parse(localStorage.getItem('payments') || '[]').length;
+      case 'events':
+        return typeof getCalendarEvents === 'function'
+          ? getCalendarEvents().length
+          : JSON.parse(localStorage.getItem('calendarEvents') || '[]').length;
+      case 'expenses':
+        return typeof getExpenses === 'function'
+          ? getExpenses().length
+          : JSON.parse(localStorage.getItem('expenses') || '[]').length;
+      case 'users':
+        return typeof getUsers === 'function'
+          ? getUsers().length
+          : JSON.parse(localStorage.getItem('users') || '[]').length;
+      case 'thirdPartyIncomes':
+        return typeof getThirdPartyIncomes === 'function'
+          ? getThirdPartyIncomes().length
+          : JSON.parse(localStorage.getItem('thirdPartyIncomes') || '[]').length;
+      case 'parentCodes':
+        return typeof getParentCodes === 'function'
+          ? getParentCodes().length
+          : JSON.parse(localStorage.getItem('parentCodes') || '[]').length;
+      case 'config':
+        return Object.keys(localStorage).some(key => key.startsWith('config_')) ? 1 : 0;
+      case 'paymentMovementLog':
+        return typeof getPaymentLog === 'function'
+          ? getPaymentLog().length
+          : JSON.parse(localStorage.getItem('paymentMovementLog') || '[]').length;
+      default:
+        return 0;
+    }
+  } catch (error) {
+    return 0;
+  }
+}
+
+function shouldUseLocalFirstCollection(clubId, scope, ttlMs) {
+  return typeof shouldReuseLocalSnapshot === 'function'
+    ? shouldReuseLocalSnapshot(clubId, scope, { ttlMs })
+    : false;
+}
+
+function markLocalFirstCollection(clubId, scope) {
+  if (typeof markLocalSnapshotSynced === 'function') {
+    markLocalSnapshotSynced(clubId, scope, { source: 'firebase' });
+  }
+}
+
 // ========================================
 // 🎯 INICIAR SINCRONIZACIÓN EN TIEMPO REAL
 // ========================================
@@ -142,22 +201,28 @@ async function downloadAuxiliaryDataInitially(clubId) {
   // 1️⃣ USUARIOS
   try {
     console.log('📥 1/4 - Usuarios...');
-    const usersSnapshot = await window.firebase.getDocs(
-      window.firebase.collection(window.firebase.db, `clubs/${clubId}/users`)
-    );
+    if (shouldUseLocalFirstCollection(clubId, 'users', AUX_SYNC_TTL_MS)) {
+      stats.users = getLocalFirstCollectionCount('users');
+      console.log(`⚡ Usuarios reutilizados desde local (${stats.users})`);
+    } else {
+      const usersSnapshot = await window.firebase.getDocs(
+        window.firebase.collection(window.firebase.db, `clubs/${clubId}/users`)
+      );
 
-    const users = [];
-    usersSnapshot.forEach(doc => {
-      const userData = doc.data();
-      if (!userData.deleted) {
-        users.push({ id: doc.id, ...userData, schoolId: clubId });
-      }
-    });
+      const users = [];
+      usersSnapshot.forEach(doc => {
+        const userData = doc.data();
+        if (!userData.deleted) {
+          users.push({ id: doc.id, ...userData, schoolId: clubId });
+        }
+      });
 
-    localStorage.setItem('users', JSON.stringify(users));
-    stats.users = users.length;
-    syncedCollections++;
-    console.log(`✅ ${users.length} usuarios`);
+      localStorage.setItem('users', JSON.stringify(users));
+      markLocalFirstCollection(clubId, 'users');
+      stats.users = users.length;
+      syncedCollections++;
+      console.log(`✅ ${users.length} usuarios`);
+    }
   } catch (error) {
     console.error('⚠️ Error usuarios:', error);
   }
@@ -165,19 +230,25 @@ async function downloadAuxiliaryDataInitially(clubId) {
   // 2️⃣ INGRESOS DE TERCEROS
   try {
     console.log('📥 2/4 - Ingresos de terceros...');
-    const incomesSnapshot = await window.firebase.getDocs(
-      window.firebase.collection(window.firebase.db, `clubs/${clubId}/thirdPartyIncomes`)
-    );
+    if (shouldUseLocalFirstCollection(clubId, 'thirdPartyIncomes', AUX_SYNC_TTL_MS)) {
+      stats.thirdPartyIncomes = getLocalFirstCollectionCount('thirdPartyIncomes');
+      console.log(`⚡ Ingresos externos reutilizados desde local (${stats.thirdPartyIncomes})`);
+    } else {
+      const incomesSnapshot = await window.firebase.getDocs(
+        window.firebase.collection(window.firebase.db, `clubs/${clubId}/thirdPartyIncomes`)
+      );
 
-    const incomes = [];
-    incomesSnapshot.forEach(doc => {
-      incomes.push({ id: doc.id, ...doc.data() });
-    });
+      const incomes = [];
+      incomesSnapshot.forEach(doc => {
+        incomes.push({ id: doc.id, ...doc.data() });
+      });
 
-    localStorage.setItem('thirdPartyIncomes', JSON.stringify(incomes));
-    stats.thirdPartyIncomes = incomes.length;
-    syncedCollections++;
-    console.log(`✅ ${incomes.length} ingresos externos`);
+      localStorage.setItem('thirdPartyIncomes', JSON.stringify(incomes));
+      markLocalFirstCollection(clubId, 'thirdPartyIncomes');
+      stats.thirdPartyIncomes = incomes.length;
+      syncedCollections++;
+      console.log(`✅ ${incomes.length} ingresos externos`);
+    }
   } catch (error) {
     console.error('⚠️ Error ingresos:', error);
   }
@@ -185,19 +256,25 @@ async function downloadAuxiliaryDataInitially(clubId) {
   // 3️⃣ CÓDIGOS DE PADRES
   try {
     console.log('📥 3/4 - Códigos de padres...');
-    const codesSnapshot = await window.firebase.getDocs(
-      window.firebase.collection(window.firebase.db, `clubs/${clubId}/parentCodes`)
-    );
+    if (shouldUseLocalFirstCollection(clubId, 'parentCodes', AUX_SYNC_TTL_MS)) {
+      stats.parentCodes = getLocalFirstCollectionCount('parentCodes');
+      console.log(`⚡ Códigos de padres reutilizados desde local (${stats.parentCodes})`);
+    } else {
+      const codesSnapshot = await window.firebase.getDocs(
+        window.firebase.collection(window.firebase.db, `clubs/${clubId}/parentCodes`)
+      );
 
-    const codes = [];
-    codesSnapshot.forEach(doc => {
-      codes.push({ id: doc.id, ...doc.data() });
-    });
+      const codes = [];
+      codesSnapshot.forEach(doc => {
+        codes.push({ id: doc.id, ...doc.data() });
+      });
 
-    localStorage.setItem('parentCodes', JSON.stringify(codes));
-    stats.parentCodes = codes.length;
-    syncedCollections++;
-    console.log(`✅ ${codes.length} códigos`);
+      localStorage.setItem('parentCodes', JSON.stringify(codes));
+      markLocalFirstCollection(clubId, 'parentCodes');
+      stats.parentCodes = codes.length;
+      syncedCollections++;
+      console.log(`✅ ${codes.length} códigos`);
+    }
   } catch (error) {
     console.error('⚠️ Error códigos:', error);
   }
@@ -205,17 +282,23 @@ async function downloadAuxiliaryDataInitially(clubId) {
   // 4️⃣ CONFIGURACIONES ADICIONALES
   try {
     console.log('📥 4/4 - Config adicional...');
-    const configSnapshot = await window.firebase.getDocs(
-      window.firebase.collection(window.firebase.db, `clubs/${clubId}/config`)
-    );
+    if (shouldUseLocalFirstCollection(clubId, 'config', AUX_SYNC_TTL_MS)) {
+      stats.config = getLocalFirstCollectionCount('config');
+      console.log(`⚡ Configuración adicional reutilizada desde local (${stats.config})`);
+    } else {
+      const configSnapshot = await window.firebase.getDocs(
+        window.firebase.collection(window.firebase.db, `clubs/${clubId}/config`)
+      );
 
-    configSnapshot.forEach(doc => {
-      localStorage.setItem(`config_${doc.id}`, JSON.stringify(doc.data()));
-      stats.config++;
-    });
-    syncedCollections++;
+      configSnapshot.forEach(doc => {
+        localStorage.setItem(`config_${doc.id}`, JSON.stringify(doc.data()));
+        stats.config++;
+      });
+      markLocalFirstCollection(clubId, 'config');
+      syncedCollections++;
 
-    console.log(`✅ ${stats.config} configuraciones`);
+      console.log(`✅ ${stats.config} configuraciones`);
+    }
   } catch (error) {
     console.error('⚠️ Error config:', error);
   }
@@ -238,7 +321,24 @@ async function downloadAllDataInitially(clubId) {
   console.log('📥 ========================================');
   console.log('📥 DESCARGA INICIAL DE TODOS LOS DATOS');
   console.log('📥 ========================================');
-  
+
+  // ⚡ LOCAL-FIRST GUARD: omitir descarga si los datos clave ya están frescos
+  if (typeof shouldReuseLocalSnapshot === 'function') {
+    const criticos = ['settings', 'players', 'payments'];
+    const todosFrescos = criticos.every(scope =>
+      shouldReuseLocalSnapshot(clubId, scope, { ttlMs: 15 * 60 * 1000 })
+    );
+    if (todosFrescos) {
+      console.log('⚡ [LOCAL-FIRST] Datos críticos frescos — omitiendo descarga inicial de Firebase');
+      // Igual actualizar vistas con datos locales
+      if (typeof updateDashboard === 'function') updateDashboard();
+      if (typeof renderPlayersList === 'function') renderPlayersList();
+      if (typeof renderCalendar === 'function') renderCalendar();
+      if (typeof renderAccounting === 'function') renderAccounting();
+      return;
+    }
+  }
+
   let stats = {
     settings: false,
     players: 0,
@@ -562,6 +662,14 @@ async function downloadAllDataInitially(clubId) {
   
   const total = stats.players + stats.payments + stats.events + stats.expenses;
   showToast(`✅ Datos sincronizados: ${total} registros descargados`);
+
+  // ⚡ LOCAL-FIRST: marcar colecciones como sincronizadas para el próximo arranque
+  if (typeof markLocalSnapshotSynced === 'function') {
+    ['settings', 'players', 'payments', 'events', 'expenses', 'users', 'thirdPartyIncomes', 'parentCodes', 'config'].forEach(
+      scope => markLocalSnapshotSynced(clubId, scope, { source: 'firebase' })
+    );
+    console.log('⚡ [LOCAL-FIRST] Caché de colecciones actualizado tras descarga completa');
+  }
 }
 
 // ========================================

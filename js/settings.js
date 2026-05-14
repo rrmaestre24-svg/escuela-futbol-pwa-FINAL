@@ -1694,12 +1694,24 @@ async function manualSync() {
     
     console.log('🔄 Iniciando sincronización manual...');
     
-    // DESCARGAR DATOS DE FIREBASE
-    if (typeof downloadFromFirebase === 'function') {
-      await downloadFromFirebase();
+    // DESCARGAR DATOS DE FIREBASE — forzando descarga completa, ignorando caché local
+    const clubId = localStorage.getItem('clubId');
+    if (!clubId) throw new Error('No se encontró el ID del club en la sesión');
+
+    // Invalidar caché local para que la descarga sea completamente fresca
+    if (typeof clearLocalFirstSyncState === 'function') {
+      clearLocalFirstSyncState(clubId);
+      console.log('⚡ [LOCAL-FIRST] Caché invalidado para sync manual');
+    }
+
+    if (typeof downloadAllClubData === 'function') {
+      await downloadAllClubData(clubId, { force: true });
+      console.log('✅ Datos descargados correctamente');
+    } else if (typeof downloadAllDataInitially === 'function') {
+      await downloadAllDataInitially(clubId);
       console.log('✅ Datos descargados correctamente');
     } else {
-      throw new Error('Función downloadFromFirebase no disponible');
+      throw new Error('No hay función de descarga disponible');
     }
     
     // ✅ ESTADO: COMPLETADO (VERDE)
