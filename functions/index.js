@@ -67,3 +67,70 @@ exports.deleteAuthUser = onCall(async (request) => {
     throw new HttpsError('internal', 'No se pudo eliminar la cuenta. Intenta nuevamente.');
   }
 });
+
+/**
+ * createParentSession — valida un código de acceso de padres y registra la sesión.
+ *
+ * El cliente envía: { clubId, accessCode, uid }
+ * La Function valida en servidor que el código es válido para ese club,
+ * obtiene el playerId asociado, y escribe authorized_sessions via Admin SDK.
+ * De esta forma, el cliente nunca puede auto-asignarse un playerId arbitrario.
+ */
+exports.createParentSession = onCall(async (request) => {
+  // 1. Debe estar autenticado (anónimamente al menos)
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Debes estar autenticado para continuar.');
+  }
+
+  const uid = request.auth.uid;
+  const { clubId, accessCode } = request.data;
+
+  // 2. Validar parámetros
+  if (!clubId || !accessCode) {
+    throw new HttpsError('invalid-argument', 'clubId y accessCode son requeridos.');
+  }
+
+  const db = getFirestore();
+
+  // 3. Buscar el código en parentCodes (misma query que hacía el cliente)
+  const codesSnap = await db
+    .collection(`clubs/${clubId}/parentCodes`)
+    .where('code', '==', accessCode)
+    .limit(1)
+    .get();
+
+  if (codesSnap.empty) {
+    throw new HttpsError('not-found', 'Código de acceso no válido.');
+  }
+
+  const codeData = codesSnap.docs[0].data();
+  const playerId = codeData.playerId;
+
+  if (!playerId) {
+    throw new HttpsError('failed-precondition', 'El código no tiene un jugador asociado.');
+  }
+
+  // 4. Verificar que el jugador existe y está activo
+  const playerSnap = await db.doc(`clubs/${clubId}/players/${playerId}`).get();
+  if (!playerSnap.exists) {
+    throw new HttpsError('not-found', 'Jugador no encontrado.');
+  }
+
+  const playerData = playerSnap.data();
+  const status = (playerData.status || 'activo').toLowerCase();
+  if (status === 'inactivo' || status === 'inactive') {
+    throw new HttpsError('permission-denied', 'El acceso de este jugador ha sido desactivado por el club.');
+  }
+
+  // 5. Escribir sesión via Admin SDK (bypassa reglas Firestore — confianza total en servidor)
+  await db.doc(`clubs/${clubId}/authorized_sessions/${uid}`).set({
+    role: 'parent',
+    playerId,
+    createdAt: new Date().toISOString(),
+    createdBy: 'server'
+  });
+
+  console.log(`[createParentSession] Sesión registrada: uid=${uid} playerId=${playerId} club=${clubId}`);
+  return { success: true, playerId };
+});
+

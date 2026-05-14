@@ -55,14 +55,16 @@ service cloud.firestore {
 
     // ── Sesiones autorizadas (entrenadores y padres) ────────
     // Cada usuario anónimo puede crear y actualizar su propia sesión.
-    // El update es necesario cuando el mismo usuario vuelve a hacer login
-    // (el doc ya existe, entonces .set() es un update, no un create).
+    // NOTA: El portal de padres ya pasa por la Callable Function createParentSession
+    // que valida el código en servidor antes de que el cliente acceda a cualquier dato.
+    // El update es necesario cuando el mismo usuario vuelve a hacer login.
     // El admin puede borrarlas para revocar acceso manualmente.
     match /clubs/{clubId}/authorized_sessions/{uid} {
       allow create, update: if request.auth != null && request.auth.uid == uid;
       allow read:           if request.auth != null && request.auth.uid == uid;
       allow delete:         if isMemberOfClub(clubId) || isSuperAdmin();
     }
+
 
     // ── Entrenadores ────────────────────────────────────────
     // Lectura abierta a cualquier autenticado: necesaria para verificar el código
