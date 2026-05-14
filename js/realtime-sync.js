@@ -473,33 +473,53 @@ async function downloadAllDataInitially(clubId) {
     console.error('⚠️ Error jugadores:', error);
   }
   
-  // 3️⃣ PAGOS — solo últimos 12 meses para no descargar todo el historial
+  // 3️⃣ PAGOS — merge de dos queries para no perder morosos que pagaron tarde:
+  //   A) dueDate >= hace 24 meses  → cubre mensualidades vencidas recientes
+  //   B) paidDate >= hace 12 meses → cubre pagos cobrados este año aunque el dueDate sea antiguo
   try {
-    console.log('📥 3/9 - Pagos (últimos 12 meses)...');
+    console.log('📥 3/9 - Pagos (dueDate últimos 24m + paidDate últimos 12m)...');
 
-    // Calcular fecha de corte: hoy menos 12 meses en formato YYYY-MM-DD
-    const cutoff = new Date();
-    cutoff.setFullYear(cutoff.getFullYear() - 1);
-    const cutoffStr = cutoff.toISOString().split('T')[0];
+    const now = new Date();
 
-    const paymentsQuery = window.firebase.query(
-      window.firebase.collection(window.firebase.db, `clubs/${clubId}/payments`),
-      window.firebase.where('dueDate', '>=', cutoffStr)
-    );
-    const paymentsSnapshot = await window.firebase.getDocs(paymentsQuery);
+    // Corte A: dueDate de los últimos 24 meses
+    const cutoffDue = new Date(now);
+    cutoffDue.setFullYear(cutoffDue.getFullYear() - 2);
+    const cutoffDueStr = cutoffDue.toISOString().split('T')[0];
 
-    const payments = [];
-    paymentsSnapshot.forEach(doc => {
-      payments.push({ id: doc.id, ...doc.data() });
-    });
+    // Corte B: paidDate de los últimos 12 meses
+    const cutoffPaid = new Date(now);
+    cutoffPaid.setFullYear(cutoffPaid.getFullYear() - 1);
+    const cutoffPaidStr = cutoffPaid.toISOString().split('T')[0];
+
+    const [snapDue, snapPaid] = await Promise.all([
+      window.firebase.getDocs(
+        window.firebase.query(
+          window.firebase.collection(window.firebase.db, `clubs/${clubId}/payments`),
+          window.firebase.where('dueDate', '>=', cutoffDueStr)
+        )
+      ),
+      window.firebase.getDocs(
+        window.firebase.query(
+          window.firebase.collection(window.firebase.db, `clubs/${clubId}/payments`),
+          window.firebase.where('paidDate', '>=', cutoffPaidStr)
+        )
+      )
+    ]);
+
+    // Merge sin duplicados (usa id como clave)
+    const paymentsMap = {};
+    snapDue.forEach(doc  => { paymentsMap[doc.id] = { id: doc.id, ...doc.data() }; });
+    snapPaid.forEach(doc => { paymentsMap[doc.id] = { id: doc.id, ...doc.data() }; });
+    const payments = Object.values(paymentsMap);
 
     localStorage.setItem('payments', JSON.stringify(payments));
-    localStorage.removeItem('paymentsFullHistory'); // marcar que no está el historial completo
+    localStorage.removeItem('paymentsFullHistory');
     stats.payments = payments.length;
-    console.log(`✅ ${payments.length} pagos (desde ${cutoffStr})`);
+    console.log(`✅ ${payments.length} pagos (dueDate desde ${cutoffDueStr}, paidDate desde ${cutoffPaidStr})`);
   } catch (error) {
     console.error('⚠️ Error pagos:', error);
   }
+
   
   // 4️⃣ EVENTOS
   try {
