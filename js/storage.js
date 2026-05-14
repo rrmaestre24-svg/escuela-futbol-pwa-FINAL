@@ -543,6 +543,99 @@ function updateSchoolSettings(settings) {
   }
 }
 
+const LOCAL_FIRST_SYNC_TTL_MS = 15 * 60 * 1000;
+const LOCAL_FIRST_SYNC_KEY_PREFIX = 'localFirstSync_';
+
+function getLocalFirstSyncState(clubId) {
+  if (!clubId) return {};
+
+  try {
+    return JSON.parse(localStorage.getItem(`${LOCAL_FIRST_SYNC_KEY_PREFIX}${clubId}`) || '{}');
+  } catch (error) {
+    console.warn('⚠️ localFirstSync corrupto en localStorage, limpiando...');
+    localStorage.removeItem(`${LOCAL_FIRST_SYNC_KEY_PREFIX}${clubId}`);
+    return {};
+  }
+}
+
+function setLocalFirstSyncState(clubId, state) {
+  if (!clubId) return;
+
+  const current = getLocalFirstSyncState(clubId);
+  const updated = { ...current, ...(state || {}) };
+  localStorage.setItem(`${LOCAL_FIRST_SYNC_KEY_PREFIX}${clubId}`, JSON.stringify(updated));
+}
+
+function getLocalSnapshotSize(scope) {
+  try {
+    switch (scope) {
+      case 'settings': {
+        const settings = localStorage.getItem('schoolSettings');
+        return settings ? 1 : 0;
+      }
+      case 'players':
+        return getAllPlayers().length;
+      case 'payments':
+        return getPayments().length;
+      case 'events':
+        return getCalendarEvents().length;
+      case 'expenses':
+        return getExpenses().length;
+      case 'users':
+        return getUsers().length;
+      case 'thirdPartyIncomes':
+        return getThirdPartyIncomes().length;
+      case 'parentCodes':
+        return getParentCodes().length;
+      case 'config':
+        return Object.keys(localStorage).some(key => key.startsWith('config_')) ? 1 : 0;
+      case 'paymentMovementLog':
+        return getPaymentLog().length;
+      default:
+        return 0;
+    }
+  } catch (error) {
+    return 0;
+  }
+}
+
+function shouldReuseLocalSnapshot(clubId, scope, { ttlMs = LOCAL_FIRST_SYNC_TTL_MS, force = false } = {}) {
+  if (!clubId || force) return false;
+
+  const state = getLocalFirstSyncState(clubId);
+  const lastSync = Number(state?.[scope] || 0);
+  if (!lastSync) return false;
+
+  const hasLocalData = getLocalSnapshotSize(scope) > 0;
+  if (!hasLocalData) return false;
+
+  return (Date.now() - lastSync) < ttlMs;
+}
+
+function markLocalSnapshotSynced(clubId, scope, meta = {}) {
+  if (!clubId || !scope) return;
+
+  const current = getLocalFirstSyncState(clubId);
+  setLocalFirstSyncState(clubId, {
+    ...current,
+    [scope]: Date.now(),
+    lastScope: scope,
+    lastSource: meta.source || 'firebase',
+    lastUpdated: new Date().toISOString()
+  });
+}
+
+function clearLocalFirstSyncState(clubId) {
+  if (!clubId) return;
+  localStorage.removeItem(`${LOCAL_FIRST_SYNC_KEY_PREFIX}${clubId}`);
+}
+
+window.getLocalFirstSyncState = getLocalFirstSyncState;
+window.setLocalFirstSyncState = setLocalFirstSyncState;
+window.shouldReuseLocalSnapshot = shouldReuseLocalSnapshot;
+window.markLocalSnapshotSynced = markLocalSnapshotSynced;
+window.clearLocalFirstSyncState = clearLocalFirstSyncState;
+
 // MODO OSCURO
 function getDarkMode() {
   return localStorage.getItem('darkMode') === 'true';
