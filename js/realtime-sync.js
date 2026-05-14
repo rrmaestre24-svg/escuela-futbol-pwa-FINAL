@@ -473,49 +473,61 @@ async function downloadAllDataInitially(clubId) {
     console.error('⚠️ Error jugadores:', error);
   }
   
-  // 3️⃣ PAGOS — merge de dos queries para no perder morosos que pagaron tarde:
-  //   A) dueDate >= hace 24 meses  → cubre mensualidades vencidas recientes
-  //   B) paidDate >= hace 12 meses → cubre pagos cobrados este año aunque el dueDate sea antiguo
+  // 3️⃣ PAGOS — ⚡ LOCAL-FIRST con TTL de 30 minutos
+  //   Si los pagos están en caché y tienen menos de 30 min → 0 lecturas a Firestore.
+  //   El onSnapshot que se inicia después actualiza en tiempo real durante la sesión.
+  //   Si el caché expiró → merge de dos queries para no perder morosos que pagaron tarde:
+  //     A) dueDate >= hace 24 meses  → cubre mensualidades vencidas recientes
+  //     B) paidDate >= hace 12 meses → cubre pagos cobrados este año aunque dueDate sea antiguo
   try {
-    console.log('📥 3/9 - Pagos (dueDate últimos 24m + paidDate últimos 12m)...');
+    const PAYMENTS_TTL_MS = 30 * 60 * 1000; // 30 minutos
+    const cacheKey    = `paymentsLastFetch_${clubId}`;
+    const lastFetch   = Number(localStorage.getItem(cacheKey) || '0');
+    const cachedPayments = JSON.parse(localStorage.getItem('payments') || '[]');
+    const cacheValid  = cachedPayments.length > 0 && (Date.now() - lastFetch) < PAYMENTS_TTL_MS;
 
-    const now = new Date();
+    if (cacheValid) {
+      console.log(`⚡ [LOCAL-FIRST] Pagos desde caché (${cachedPayments.length} docs, hace ${Math.round((Date.now() - lastFetch) / 60000)} min) — sin lecturas a Firestore`);
+      stats.payments = cachedPayments.length;
+    } else {
+      console.log('📥 3/9 - Pagos (dueDate últimos 24m + paidDate últimos 12m)...');
 
-    // Corte A: dueDate de los últimos 24 meses
-    const cutoffDue = new Date(now);
-    cutoffDue.setFullYear(cutoffDue.getFullYear() - 2);
-    const cutoffDueStr = cutoffDue.toISOString().split('T')[0];
+      const now = new Date();
 
-    // Corte B: paidDate de los últimos 12 meses
-    const cutoffPaid = new Date(now);
-    cutoffPaid.setFullYear(cutoffPaid.getFullYear() - 1);
-    const cutoffPaidStr = cutoffPaid.toISOString().split('T')[0];
+      const cutoffDue = new Date(now);
+      cutoffDue.setFullYear(cutoffDue.getFullYear() - 2);
+      const cutoffDueStr = cutoffDue.toISOString().split('T')[0];
 
-    const [snapDue, snapPaid] = await Promise.all([
-      window.firebase.getDocs(
-        window.firebase.query(
-          window.firebase.collection(window.firebase.db, `clubs/${clubId}/payments`),
-          window.firebase.where('dueDate', '>=', cutoffDueStr)
+      const cutoffPaid = new Date(now);
+      cutoffPaid.setFullYear(cutoffPaid.getFullYear() - 1);
+      const cutoffPaidStr = cutoffPaid.toISOString().split('T')[0];
+
+      const [snapDue, snapPaid] = await Promise.all([
+        window.firebase.getDocs(
+          window.firebase.query(
+            window.firebase.collection(window.firebase.db, `clubs/${clubId}/payments`),
+            window.firebase.where('dueDate', '>=', cutoffDueStr)
+          )
+        ),
+        window.firebase.getDocs(
+          window.firebase.query(
+            window.firebase.collection(window.firebase.db, `clubs/${clubId}/payments`),
+            window.firebase.where('paidDate', '>=', cutoffPaidStr)
+          )
         )
-      ),
-      window.firebase.getDocs(
-        window.firebase.query(
-          window.firebase.collection(window.firebase.db, `clubs/${clubId}/payments`),
-          window.firebase.where('paidDate', '>=', cutoffPaidStr)
-        )
-      )
-    ]);
+      ]);
 
-    // Merge sin duplicados (usa id como clave)
-    const paymentsMap = {};
-    snapDue.forEach(doc  => { paymentsMap[doc.id] = { id: doc.id, ...doc.data() }; });
-    snapPaid.forEach(doc => { paymentsMap[doc.id] = { id: doc.id, ...doc.data() }; });
-    const payments = Object.values(paymentsMap);
+      const paymentsMap = {};
+      snapDue.forEach(doc  => { paymentsMap[doc.id] = { id: doc.id, ...doc.data() }; });
+      snapPaid.forEach(doc => { paymentsMap[doc.id] = { id: doc.id, ...doc.data() }; });
+      const payments = Object.values(paymentsMap);
 
-    localStorage.setItem('payments', JSON.stringify(payments));
-    localStorage.removeItem('paymentsFullHistory');
-    stats.payments = payments.length;
-    console.log(`✅ ${payments.length} pagos (dueDate desde ${cutoffDueStr}, paidDate desde ${cutoffPaidStr})`);
+      localStorage.setItem('payments', JSON.stringify(payments));
+      localStorage.setItem(cacheKey, String(Date.now()));
+      localStorage.removeItem('paymentsFullHistory');
+      stats.payments = payments.length;
+      console.log(`✅ ${payments.length} pagos (dueDate desde ${cutoffDueStr}, paidDate desde ${cutoffPaidStr})`);
+    }
   } catch (error) {
     console.error('⚠️ Error pagos:', error);
   }
