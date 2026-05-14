@@ -445,6 +445,28 @@ async function openWhatsAppForParent(player, access) {
         return;
     }
 
+    // ✅ FIX: Si el código es undefined (doc en Firestore sin campo code),
+    //    generar uno nuevo y guardarlo antes de enviar el mensaje.
+    if (!access?.code) {
+        console.warn(`⚠️ access.code undefined para ${player.name} — regenerando...`);
+        const newCode = window.generateParentAccessCode
+            ? window.generateParentAccessCode()
+            : Math.random().toString(36).substring(2, 8).toUpperCase();
+        if (window.saveParentCode) window.saveParentCode(player.id, newCode);
+        // Esperar explícitamente que el código llegue a Firestore
+        try {
+            await window.firebase.setDoc(
+                window.firebase.doc(window.firebase.db, `clubs/${clubId}/parentCodes`, player.id),
+                { playerId: player.id, code: newCode, createdAt: new Date().toISOString() },
+                { merge: true }
+            );
+        } catch (e) {
+            console.warn('No se pudo guardar código regenerado:', e);
+        }
+        access = { ...(access || {}), code: newCode };
+        parentAccessData.codes[player.id] = access;
+    }
+
     const message =
         `⚽ *Acceso al Portal de Padres - ${clubName}* ⚽\n\n` +
         `Hola! Te compartimos el acceso oficial para consultar el progreso de *${player.name}*, ver su carnet digital y reportar pagos.\n\n` +
@@ -455,15 +477,18 @@ async function openWhatsAppForParent(player, access) {
     
     const waUrl = `https://wa.me/${phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(message)}`;
     
-    // Marcar como enviado en Firebase
-    // Usamos setDoc con merge:true para que funcione aunque el documento aún no exista
-    // (puede pasar cuando el código se acaba de crear y la sync de Firebase aún no terminó)
+    // Marcar como enviado en Firebase — ✅ incluir code para que nunca quede undefined
     try {
         const updateRef = window.firebase.doc(window.firebase.db, `clubs/${clubId}/parentCodes`, player.id);
         const sentAt = new Date().toISOString();
-        await window.firebase.setDoc(updateRef, { playerId: player.id, sentAt }, { merge: true });
+        await window.firebase.setDoc(updateRef, {
+            playerId: player.id,
+            code: access.code,   // ← FIX: siempre persistir el código
+            sentAt
+        }, { merge: true });
         if (parentAccessData.codes[player.id]) {
             parentAccessData.codes[player.id].sentAt = sentAt;
+            parentAccessData.codes[player.id].code   = access.code;
         }
     } catch (e) {
         console.warn('No se pudo marcar como enviado en Firebase:', e);
