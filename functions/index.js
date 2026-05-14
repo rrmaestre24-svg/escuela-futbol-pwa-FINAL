@@ -5,6 +5,19 @@ const { getFirestore } = require('firebase-admin/firestore');
 
 initializeApp();
 
+// ⚡ Opciones de costo mínimo para todas las funciones:
+//   - minInstances: 0  → escala a CERO cuando no hay tráfico (sin costo en reposo)
+//   - memory: 256MiB   → memoria mínima suficiente para estas operaciones
+//   - timeoutSeconds: 30 → corta rápido si algo falla
+//   - maxInstances: 5   → evita bursts de costo inesperados
+const COST_MIN_OPTIONS = {
+  minInstances: 0,
+  memory: '256MiB',
+  timeoutSeconds: 30,
+  maxInstances: 5,
+  region: 'us-central1',
+};
+
 /**
  * deleteAuthUser — elimina una cuenta de Firebase Authentication.
  *
@@ -16,7 +29,7 @@ initializeApp();
  *   2. El llamador debe ser isMainAdmin del club indicado.
  *   3. No se puede eliminar al propio Admin Principal.
  */
-exports.deleteAuthUser = onCall(async (request) => {
+exports.deleteAuthUser = onCall(COST_MIN_OPTIONS, async (request) => {
   // 1. Verificar que el llamador está autenticado
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Debes estar autenticado para realizar esta acción.');
@@ -76,7 +89,7 @@ exports.deleteAuthUser = onCall(async (request) => {
  * obtiene el playerId asociado, y escribe authorized_sessions via Admin SDK.
  * De esta forma, el cliente nunca puede auto-asignarse un playerId arbitrario.
  */
-exports.createParentSession = onCall(async (request) => {
+exports.createParentSession = onCall(COST_MIN_OPTIONS, async (request) => {
   // 1. Debe estar autenticado (anónimamente al menos)
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Debes estar autenticado para continuar.');
