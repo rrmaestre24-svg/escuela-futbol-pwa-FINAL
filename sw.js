@@ -1,4 +1,4 @@
-const CACHE_NAME = 'my-club-v1.1.39';
+const CACHE_NAME = 'my-club-v1.1.40';
 
 const urlsToCache = [
   '/',
@@ -20,6 +20,9 @@ const urlsToCache = [
   // CSS
   '/css/styles.css',
   '/css/tailwind.out.css',
+
+  // LIBRERÍAS LOCALES
+  '/js/lucide.min.js',
 
   // JS CORE
   '/js/app.js',
@@ -66,7 +69,10 @@ const urlsToCache = [
   '/js/bootstrap.js',
 
   // PORTAL PADRES
-  '/js/parent-portal.js'
+  '/js/parent-portal.js',
+
+  // CDN — cacheados para disponibilidad offline
+  'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js'
 ];
 /* ==============================
    INSTALL

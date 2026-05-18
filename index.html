@@ -18,8 +18,6 @@
 
     <!-- Tailwind estático (Compilado para Producción) -->
     <link rel="stylesheet" href="css/tailwind.out.css">
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
 
     <!-- Chart.js — defer: se descarga en paralelo, no bloquea el renderizado inicial -->
     <!-- Solo se usa en la vista de Contabilidad, nunca en la carga inicial -->
@@ -2795,6 +2793,9 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
     <!-- ========================================== -->
     <!-- SCRIPTS EN ORDEN CORRECTO                 -->
     <!-- ========================================== -->
+
+    <!-- 0️⃣ LUCIDE ICONS (local, antes de cualquier createIcons()) -->
+    <script src="js/lucide.min.js"></script>
 
     <!-- 0️⃣ DETECCIÓN DE DISPOSITIVO GAMA BAJA (PRIMERO - antes de performance.js) -->
     <script src="js/low-end-detector.js"></script>
