@@ -484,7 +484,10 @@ async function downloadAllDataInitially(clubId) {
     const primarySnapshot = await window.firebase.getDocs(
       window.firebase.collection(window.firebase.db, `clubs/${clubId}/players`)
     );
-    primarySnapshot.forEach(doc => finalPlayers.push({ id: doc.id, ...doc.data() }));
+    primarySnapshot.forEach(doc => {
+      const d = doc.data();
+      if (!d.deleted) finalPlayers.push({ id: doc.id, ...d });
+    });
     console.log(`   📊 Fuente principal (${clubId}): ${finalPlayers.length} jugadores`);
 
     // ✅ PASO 2: Solo si la fuente principal devuelve 0 jugadores, buscar en fuentes alternativas
@@ -515,7 +518,7 @@ async function downloadAllDataInitially(clubId) {
             window.firebase.collection(window.firebase.db, `clubs/${fallbackId}/players`)
           );
           const players = [];
-          snap.forEach(doc => players.push({ id: doc.id, ...doc.data() }));
+          snap.forEach(doc => { const d = doc.data(); if (!d.deleted) players.push({ id: doc.id, ...d }); });
           console.log(`   📊 Alternativa (${fallbackId}): ${players.length} jugadores`);
 
           if (players.length > 0) {
