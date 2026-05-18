@@ -105,8 +105,8 @@ async function startRealtimeSync(clubId) {
     return false;
   }
   
-  if (!window.firebase?.db || !window.firebase?.onSnapshot) {
-    console.error('❌ Firebase no está inicializado o falta onSnapshot');
+  if (!window.firebase?.db || !window.firebase?.getDocs) {
+    console.error('❌ Firebase no está inicializado');
     return false;
   }
   
@@ -790,120 +790,133 @@ function stopRealtimeSync() {
 }
 
 // ========================================
-// 👥 LISTENER DE JUGADORES
+// 👥 POLLING DE JUGADORES (cada 30 min)
 // ========================================
-function startPlayersListener(clubId) {
-  const playersRef = window.firebase.collection(
-    window.firebase.db,
-    `clubs/${clubId}/players`
-  );
-  
-  window.realtimeListeners.players = window.firebase.onSnapshot(
-    playersRef,
-    (snapshot) => {
-      const players = [];
-      snapshot.forEach(doc => {
-        const data = doc.data();
-        // ✅ Normalizar status al recibir desde Firebase (compatibilidad datos antiguos)
-        const status = data.status;
-        let normalizedStatus;
-        if (!status) normalizedStatus = 'Activo';
-        else {
-          const s = status.toLowerCase().trim();
-          if (s === 'activo' || s === 'active') normalizedStatus = 'Activo';
-          else if (s === 'inactivo' || s === 'inactive') normalizedStatus = 'Inactivo';
-          else normalizedStatus = status;
-        }
-        players.push({ id: doc.id, ...data, status: normalizedStatus });
-      });
-      
-      if (typeof saveAllPlayers === 'function') {
-        saveAllPlayers(players);
-      } else {
-        localStorage.setItem('players', JSON.stringify(players));
+const POLL_PLAYERS_TTL_MS = 30 * 60 * 1000;
+
+async function _fetchPlayers(clubId) {
+  try {
+    const snap = await window.firebase.getDocs(
+      window.firebase.collection(window.firebase.db, `clubs/${clubId}/players`)
+    );
+    const players = [];
+    snap.forEach(doc => {
+      const data = doc.data();
+      // ✅ Normalizar status (compatibilidad datos antiguos)
+      const status = data.status;
+      let normalizedStatus;
+      if (!status) normalizedStatus = 'Activo';
+      else {
+        const s = status.toLowerCase().trim();
+        if (s === 'activo' || s === 'active') normalizedStatus = 'Activo';
+        else if (s === 'inactivo' || s === 'inactive') normalizedStatus = 'Inactivo';
+        else normalizedStatus = status;
       }
-      
-      if (window.realtimeSyncState.initialLoadComplete) {
-        snapshot.docChanges().forEach(change => {
-          const player = { id: change.doc.id, ...change.doc.data() };
-          
-          if (change.type === 'modified') {
-            console.log('🔄 Jugador actualizado:', player.name);
-            showSyncNotification(`🔄 ${player.name} actualizado`);
-          }
-        });
-        
-        refreshPlayersUI();
-      }
-      
-      window.realtimeSyncState.lastSync = new Date().toISOString();
-    },
-    (error) => {
-      console.error('❌ Error en listener de jugadores:', error);
+      players.push({ id: doc.id, ...data, status: normalizedStatus });
+    });
+    if (typeof saveAllPlayers === 'function') {
+      saveAllPlayers(players);
+    } else {
+      localStorage.setItem('players', JSON.stringify(players));
     }
-  );
-  
-  console.log('👥 Listener de jugadores iniciado');
+    localStorage.setItem(`playersLastFetch_${clubId}`, String(Date.now()));
+    window.realtimeSyncState.lastSync = new Date().toISOString();
+    console.log(`👥 Jugadores actualizados: ${players.length}`);
+    return players;
+  } catch (error) {
+    console.error('❌ Error al obtener jugadores:', error);
+  }
+}
+
+function startPlayersListener(clubId) {
+  // Carga inmediata si el caché venció o no existe
+  const lastFetch = Number(localStorage.getItem(`playersLastFetch_${clubId}`) || '0');
+  if (!lastFetch || (Date.now() - lastFetch) >= POLL_PLAYERS_TTL_MS) {
+    _fetchPlayers(clubId);
+  } else {
+    console.log('⚡ Jugadores en caché local, omitiendo descarga');
+  }
+
+  // Polling cada 30 min
+  const intervalId = setInterval(async () => {
+    if (window.realtimeSyncState.clubId !== clubId) return;
+    await _fetchPlayers(clubId);
+    if (window.realtimeSyncState.initialLoadComplete) {
+      refreshPlayersUI();
+    }
+  }, POLL_PLAYERS_TTL_MS);
+
+  window.realtimeListeners.players = () => clearInterval(intervalId);
+  console.log('👥 Polling de jugadores iniciado (30 min)');
 }
 
 // ========================================
-// 💰 LISTENER DE PAGOS
+// 💰 POLLING DE PAGOS (cada 30 min)
 // ========================================
-function startPaymentsListener(clubId) {
-  // El listener respeta el mismo filtro de 12 meses que la descarga inicial.
-  // Si el usuario cargó el historial completo (paymentsFullHistory=true),
-  // el listener escucha todo para no perder nuevos pagos.
-  const paymentsFullHistory = localStorage.getItem('paymentsFullHistory') === 'true';
+const POLL_PAYMENTS_TTL_MS = 30 * 60 * 1000;
 
-  let paymentsRef;
-  if (paymentsFullHistory) {
-    paymentsRef = window.firebase.collection(window.firebase.db, `clubs/${clubId}/payments`);
+async function _fetchPayments(clubId) {
+  try {
+    // Respetar el mismo filtro de 12 meses que la descarga inicial.
+    // Si el historial completo ya está cargado, leer todo para no perder pagos viejos.
+    const paymentsFullHistory = localStorage.getItem('paymentsFullHistory') === 'true';
+
+    let queryRef;
+    if (paymentsFullHistory) {
+      queryRef = window.firebase.collection(window.firebase.db, `clubs/${clubId}/payments`);
+    } else {
+      const cutoff = new Date();
+      cutoff.setFullYear(cutoff.getFullYear() - 1);
+      const cutoffStr = cutoff.toISOString().split('T')[0];
+      queryRef = window.firebase.query(
+        window.firebase.collection(window.firebase.db, `clubs/${clubId}/payments`),
+        window.firebase.where('dueDate', '>=', cutoffStr)
+      );
+    }
+
+    const snap = await window.firebase.getDocs(queryRef);
+    const incomingPayments = [];
+    snap.forEach(doc => incomingPayments.push({ id: doc.id, ...doc.data() }));
+
+    // Merge si el historial completo ya estaba cargado (no pisar pagos viejos)
+    if (localStorage.getItem('paymentsFullHistory') === 'true') {
+      const existing = JSON.parse(localStorage.getItem('payments') || '[]');
+      const incomingMap = {};
+      incomingPayments.forEach(p => { incomingMap[p.id] = p; });
+      const merged = existing.map(p => incomingMap[p.id] ? incomingMap[p.id] : p);
+      const existingIds = new Set(existing.map(p => p.id));
+      incomingPayments.forEach(p => { if (!existingIds.has(p.id)) merged.push(p); });
+      localStorage.setItem('payments', JSON.stringify(merged));
+    } else {
+      localStorage.setItem('payments', JSON.stringify(incomingPayments));
+    }
+
+    localStorage.setItem(`paymentsLastFetch_${clubId}`, String(Date.now()));
+    window.realtimeSyncState.lastSync = new Date().toISOString();
+    console.log(`💰 Pagos actualizados: ${incomingPayments.length}`);
+  } catch (error) {
+    console.error('❌ Error al obtener pagos:', error);
+  }
+}
+
+function startPaymentsListener(clubId) {
+  const lastFetch = Number(localStorage.getItem(`paymentsLastFetch_${clubId}`) || '0');
+  if (!lastFetch || (Date.now() - lastFetch) >= POLL_PAYMENTS_TTL_MS) {
+    _fetchPayments(clubId);
   } else {
-    const cutoff = new Date();
-    cutoff.setFullYear(cutoff.getFullYear() - 1);
-    const cutoffStr = cutoff.toISOString().split('T')[0];
-    paymentsRef = window.firebase.query(
-      window.firebase.collection(window.firebase.db, `clubs/${clubId}/payments`),
-      window.firebase.where('dueDate', '>=', cutoffStr)
-    );
+    console.log('⚡ Pagos en caché local, omitiendo descarga');
   }
 
-  window.realtimeListeners.payments = window.firebase.onSnapshot(
-    paymentsRef,
-    (snapshot) => {
-      const incomingPayments = [];
-      snapshot.forEach(doc => {
-        incomingPayments.push({ id: doc.id, ...doc.data() });
-      });
-
-      // Si el historial completo ya está cargado, hacemos merge en lugar de reemplazar.
-      // Así no perdemos los pagos viejos (> 12 meses) que ya están en localStorage.
-      if (localStorage.getItem('paymentsFullHistory') === 'true') {
-        const existing = JSON.parse(localStorage.getItem('payments') || '[]');
-        const incomingMap = {};
-        incomingPayments.forEach(p => { incomingMap[p.id] = p; });
-
-        // Actualizar o conservar cada pago existente
-        const merged = existing.map(p => incomingMap[p.id] ? incomingMap[p.id] : p);
-        // Agregar pagos nuevos que no estaban en el historial local
-        const existingIds = new Set(existing.map(p => p.id));
-        incomingPayments.forEach(p => { if (!existingIds.has(p.id)) merged.push(p); });
-
-        localStorage.setItem('payments', JSON.stringify(merged));
-      } else {
-        localStorage.setItem('payments', JSON.stringify(incomingPayments));
-      }
-
-      if (window.realtimeSyncState.initialLoadComplete) {
-        refreshPaymentsUI();
-      }
-    },
-    (error) => {
-      console.error('❌ Error en listener de pagos:', error);
+  const intervalId = setInterval(async () => {
+    if (window.realtimeSyncState.clubId !== clubId) return;
+    await _fetchPayments(clubId);
+    if (window.realtimeSyncState.initialLoadComplete) {
+      refreshPaymentsUI();
     }
-  );
+  }, POLL_PAYMENTS_TTL_MS);
 
-  console.log('💰 Listener de pagos iniciado');
+  window.realtimeListeners.payments = () => clearInterval(intervalId);
+  console.log('💰 Polling de pagos iniciado (30 min)');
 }
 
 // ========================================
@@ -956,109 +969,136 @@ async function loadAllPaymentsHistory() {
 }
 
 // ========================================
-// 📅 LISTENER DE EVENTOS
+// 📅 POLLING DE EVENTOS (cada 30 min)
 // ========================================
+const POLL_EVENTS_TTL_MS = 30 * 60 * 1000;
+
+async function _fetchEvents(clubId) {
+  try {
+    const snap = await window.firebase.getDocs(
+      window.firebase.collection(window.firebase.db, `clubs/${clubId}/events`)
+    );
+    const events = [];
+    snap.forEach(doc => events.push({ id: doc.id, ...doc.data() }));
+    localStorage.setItem('calendarEvents', JSON.stringify(events));
+    localStorage.setItem(`eventsLastFetch_${clubId}`, String(Date.now()));
+    window.realtimeSyncState.lastSync = new Date().toISOString();
+    console.log(`📅 Eventos actualizados: ${events.length}`);
+  } catch (error) {
+    console.error('❌ Error al obtener eventos:', error);
+  }
+}
+
 function startEventsListener(clubId) {
-  const eventsRef = window.firebase.collection(
-    window.firebase.db,
-    `clubs/${clubId}/events`
-  );
-  
-  window.realtimeListeners.events = window.firebase.onSnapshot(
-    eventsRef,
-    (snapshot) => {
-      const events = [];
-      snapshot.forEach(doc => {
-        events.push({ id: doc.id, ...doc.data() });
-      });
-      
-      localStorage.setItem('calendarEvents', JSON.stringify(events));
-      
-      if (window.realtimeSyncState.initialLoadComplete) {
-        refreshCalendarUI();
-      }
-    },
-    (error) => {
-      console.error('❌ Error en listener de eventos:', error);
+  const lastFetch = Number(localStorage.getItem(`eventsLastFetch_${clubId}`) || '0');
+  if (!lastFetch || (Date.now() - lastFetch) >= POLL_EVENTS_TTL_MS) {
+    _fetchEvents(clubId);
+  } else {
+    console.log('⚡ Eventos en caché local, omitiendo descarga');
+  }
+
+  const intervalId = setInterval(async () => {
+    if (window.realtimeSyncState.clubId !== clubId) return;
+    await _fetchEvents(clubId);
+    if (window.realtimeSyncState.initialLoadComplete) {
+      refreshCalendarUI();
     }
-  );
-  
-  console.log('📅 Listener de eventos iniciado');
+  }, POLL_EVENTS_TTL_MS);
+
+  window.realtimeListeners.events = () => clearInterval(intervalId);
+  console.log('📅 Polling de eventos iniciado (30 min)');
 }
 
 // ========================================
-// 💸 LISTENER DE EGRESOS
+// 💸 POLLING DE EGRESOS (cada 30 min)
 // ========================================
+const POLL_EXPENSES_TTL_MS = 30 * 60 * 1000;
+
+async function _fetchExpenses(clubId) {
+  try {
+    const snap = await window.firebase.getDocs(
+      window.firebase.collection(window.firebase.db, `clubs/${clubId}/expenses`)
+    );
+    const expenses = [];
+    snap.forEach(doc => expenses.push({ id: doc.id, ...doc.data() }));
+    localStorage.setItem('expenses', JSON.stringify(expenses));
+    localStorage.setItem(`expensesLastFetch_${clubId}`, String(Date.now()));
+    window.realtimeSyncState.lastSync = new Date().toISOString();
+    console.log(`💸 Egresos actualizados: ${expenses.length}`);
+  } catch (error) {
+    console.error('❌ Error al obtener egresos:', error);
+  }
+}
+
 function startExpensesListener(clubId) {
-  const expensesRef = window.firebase.collection(
-    window.firebase.db,
-    `clubs/${clubId}/expenses`
-  );
-  
-  window.realtimeListeners.expenses = window.firebase.onSnapshot(
-    expensesRef,
-    (snapshot) => {
-      const expenses = [];
-      snapshot.forEach(doc => {
-        expenses.push({ id: doc.id, ...doc.data() });
-      });
-      
-      localStorage.setItem('expenses', JSON.stringify(expenses));
-      
-      if (window.realtimeSyncState.initialLoadComplete) {
-        if (typeof renderAccounting === 'function') {
-          renderAccounting();
-        }
-      }
-    },
-    (error) => {
-      console.error('❌ Error en listener de egresos:', error);
+  const lastFetch = Number(localStorage.getItem(`expensesLastFetch_${clubId}`) || '0');
+  if (!lastFetch || (Date.now() - lastFetch) >= POLL_EXPENSES_TTL_MS) {
+    _fetchExpenses(clubId);
+  } else {
+    console.log('⚡ Egresos en caché local, omitiendo descarga');
+  }
+
+  const intervalId = setInterval(async () => {
+    if (window.realtimeSyncState.clubId !== clubId) return;
+    await _fetchExpenses(clubId);
+    if (window.realtimeSyncState.initialLoadComplete) {
+      if (typeof renderAccounting === 'function') renderAccounting();
     }
-  );
-  
-  console.log('💸 Listener de egresos iniciado');
+  }, POLL_EXPENSES_TTL_MS);
+
+  window.realtimeListeners.expenses = () => clearInterval(intervalId);
+  console.log('💸 Polling de egresos iniciado (30 min)');
 }
 
 // ========================================
-// ⚙️ LISTENER DE CONFIGURACIÓN
+// ⚙️ POLLING DE CONFIGURACIÓN (cada 60 min)
 // ========================================
-function startSettingsListener(clubId) {
-  const settingsRef = window.firebase.doc(
-    window.firebase.db,
-    `clubs/${clubId}/settings`,
-    'main'
-  );
-  
-  window.realtimeListeners.settings = window.firebase.onSnapshot(
-    settingsRef,
-    (doc) => {
-      if (doc.exists()) {
-        const settings = doc.data();
+const POLL_SETTINGS_TTL_MS = 60 * 60 * 1000;
 
-        // ✅ FIX: El logo lo maneja startLogoListener() en tiempo real.
-        // Aquí solo lo recuperamos de localStorage para no duplicar lecturas.
-        const local = JSON.parse(localStorage.getItem('schoolSettings') || '{}');
-        if (!settings.logo && local.logo) settings.logo = local.logo;
-
-        if (typeof saveSchoolSettings === 'function') {
-          saveSchoolSettings(settings);
-        } else {
-          localStorage.setItem('schoolSettings', JSON.stringify(settings));
-        }
-        
-        if (window.realtimeSyncState.initialLoadComplete) {
-          updateHeaderInfo();
-        }
+async function _fetchSettings(clubId) {
+  try {
+    const docSnap = await window.firebase.getDoc(
+      window.firebase.doc(window.firebase.db, `clubs/${clubId}/settings`, 'main')
+    );
+    if (docSnap.exists()) {
+      const settings = docSnap.data();
+      // El logo lo maneja _fetchLogo() por separado; preservar el logo local
+      const local = JSON.parse(localStorage.getItem('schoolSettings') || '{}');
+      if (!settings.logo && local.logo) settings.logo = local.logo;
+      if (typeof saveSchoolSettings === 'function') {
+        saveSchoolSettings(settings);
+      } else {
+        localStorage.setItem('schoolSettings', JSON.stringify(settings));
       }
-    },
-    (error) => {
-      console.error('❌ Error en listener de configuración:', error);
+      localStorage.setItem(`settingsLastFetch_${clubId}`, String(Date.now()));
+      window.realtimeSyncState.lastSync = new Date().toISOString();
+      console.log('⚙️ Configuración actualizada');
     }
-  );
-  
-  console.log('⚙️ Listener de configuración iniciado');
-  
-  // Marcar carga inicial como completa
+  } catch (error) {
+    console.error('❌ Error al obtener configuración:', error);
+  }
+}
+
+function startSettingsListener(clubId) {
+  const lastFetch = Number(localStorage.getItem(`settingsLastFetch_${clubId}`) || '0');
+  if (!lastFetch || (Date.now() - lastFetch) >= POLL_SETTINGS_TTL_MS) {
+    _fetchSettings(clubId);
+  } else {
+    console.log('⚡ Configuración en caché local, omitiendo descarga');
+  }
+
+  const intervalId = setInterval(async () => {
+    if (window.realtimeSyncState.clubId !== clubId) return;
+    await _fetchSettings(clubId);
+    if (window.realtimeSyncState.initialLoadComplete) {
+      updateHeaderInfo();
+    }
+  }, POLL_SETTINGS_TTL_MS);
+
+  window.realtimeListeners.settings = () => clearInterval(intervalId);
+  console.log('⚙️ Polling de configuración iniciado (60 min)');
+
+  // Marcar carga inicial como completa — CRÍTICO: la UI espera este flag
   setTimeout(() => {
     window.realtimeSyncState.initialLoadComplete = true;
     console.log('✅ Carga inicial completa, monitoreando cambios...');
@@ -1071,42 +1111,48 @@ function startSettingsListener(clubId) {
 }
 
 // ========================================
-// 🖼️ LISTENER DE LOGO DEL CLUB
+// 🖼️ POLLING DE LOGO DEL CLUB (cada 60 min)
 // ========================================
+const POLL_LOGO_TTL_MS = 60 * 60 * 1000;
+
+async function _fetchLogo(clubId) {
+  try {
+    const docSnap = await window.firebase.getDoc(
+      window.firebase.doc(window.firebase.db, `clubs/${clubId}/assets`, 'logo')
+    );
+    if (!docSnap.exists()) return;
+    const logo = docSnap.data()?.logo;
+    if (!logo) return;
+    const currentSettings = typeof getSchoolSettings === 'function'
+      ? (getSchoolSettings() || {})
+      : JSON.parse(localStorage.getItem('schoolSettings') || '{}');
+    localStorage.setItem('schoolSettings', JSON.stringify({ ...currentSettings, logo }));
+    localStorage.setItem(`logoLastFetch_${clubId}`, String(Date.now()));
+    window.realtimeSyncState.lastSync = new Date().toISOString();
+    console.log('🖼️ Logo actualizado');
+  } catch (error) {
+    console.error('❌ Error al obtener logo:', error);
+  }
+}
+
 function startLogoListener(clubId) {
-  const logoRef = window.firebase.doc(
-    window.firebase.db,
-    `clubs/${clubId}/assets`,
-    'logo'
-  );
+  const lastFetch = Number(localStorage.getItem(`logoLastFetch_${clubId}`) || '0');
+  if (!lastFetch || (Date.now() - lastFetch) >= POLL_LOGO_TTL_MS) {
+    _fetchLogo(clubId);
+  } else {
+    console.log('⚡ Logo en caché local, omitiendo descarga');
+  }
 
-  window.realtimeListeners.logo = window.firebase.onSnapshot(
-    logoRef,
-    (doc) => {
-      if (!doc.exists()) return;
-
-      const logo = doc.data()?.logo;
-      if (!logo) return;
-
-      const currentSettings = typeof getSchoolSettings === 'function'
-        ? (getSchoolSettings() || {})
-        : JSON.parse(localStorage.getItem('schoolSettings') || '{}');
-
-      localStorage.setItem('schoolSettings', JSON.stringify({
-        ...currentSettings,
-        logo
-      }));
-
-      if (window.realtimeSyncState.initialLoadComplete) {
-        updateHeaderInfo();
-      }
-    },
-    (error) => {
-      console.error('❌ Error en listener de logo:', error);
+  const intervalId = setInterval(async () => {
+    if (window.realtimeSyncState.clubId !== clubId) return;
+    await _fetchLogo(clubId);
+    if (window.realtimeSyncState.initialLoadComplete) {
+      updateHeaderInfo();
     }
-  );
+  }, POLL_LOGO_TTL_MS);
 
-  console.log('🖼️ Listener de logo iniciado');
+  window.realtimeListeners.logo = () => clearInterval(intervalId);
+  console.log('🖼️ Polling de logo iniciado (60 min)');
 }
 
 // ========================================
