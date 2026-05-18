@@ -128,6 +128,18 @@ async function checkForUpdates() {
         // Verificar si hay una versión en espera
         if (registration.waiting) {
           showUpdateModal(() => {
+            // Borrar caché de sync para que la próxima carga descargue datos frescos
+            Object.keys(localStorage)
+              .filter(k =>
+                k.includes('DeltaSync_') ||
+                k.includes('LastFetch_') ||
+                k.includes('updatedAtMigration_') ||
+                k.includes('auxLastSync_') ||
+                k.includes('_lastFullDownload')
+              )
+              .forEach(k => localStorage.removeItem(k));
+            console.log('🧹 Caché de sync borrado antes de actualizar');
+
             // Activar el nuevo Service Worker
             registration.waiting.postMessage({ type: 'SKIP_WAITING' });
             // Recargar cuando el nuevo SW tome control

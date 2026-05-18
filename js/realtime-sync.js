@@ -24,6 +24,7 @@ window.realtimeSyncState = {
 
 const AUX_SYNC_TTL_MS = 30 * 60 * 1000; // 30 minutos
 const PAYMENT_LOG_FETCH_TTL_MS = 5 * 60 * 1000; // 5 minutos
+const FULL_SYNC_TTL_MS = 24 * 60 * 60 * 1000; // 24 horas — red de seguridad
 
 function shouldRunAuxSync(clubId, { force = false } = {}) {
   if (force) return true;
@@ -97,6 +98,53 @@ function markLocalFirstCollection(clubId, scope) {
 }
 
 // ========================================
+// 🔧 MIGRACIÓN AUTOMÁTICA: agregar updatedAt a docs sin él
+// Corre una sola vez por club (controlado por localStorage)
+// ========================================
+async function runUpdatedAtMigration(clubId) {
+  const migKey = `updatedAtMigration_${clubId}`;
+  if (localStorage.getItem(migKey)) return; // ya migrado
+
+  const collections = ['players', 'payments', 'events', 'expenses'];
+  const now = new Date().toISOString();
+  let totalMigrated = 0;
+
+  try {
+    for (const col of collections) {
+      const snap = await window.firebase.getDocs(
+        window.firebase.collection(window.firebase.db, `clubs/${clubId}/${col}`)
+      );
+      const batch = [];
+      snap.forEach(doc => {
+        if (!doc.data().updatedAt) {
+          batch.push(
+            window.firebase.setDoc(
+              window.firebase.doc(window.firebase.db, `clubs/${clubId}/${col}`, doc.id),
+              { updatedAt: now },
+              { merge: true }
+            )
+          );
+        }
+      });
+      if (batch.length > 0) {
+        await Promise.all(batch);
+        totalMigrated += batch.length;
+        console.log(`🔧 Migración updatedAt: ${batch.length} docs en ${col}`);
+      }
+    }
+
+    localStorage.setItem(migKey, now);
+    if (totalMigrated > 0) {
+      console.log(`✅ Migración completada: ${totalMigrated} documentos actualizados`);
+    } else {
+      console.log('✅ Migración: todos los documentos ya tenían updatedAt');
+    }
+  } catch (err) {
+    console.warn('⚠️ Error en migración updatedAt (no crítico):', err);
+  }
+}
+
+// ========================================
 // 🎯 INICIAR SINCRONIZACIÓN EN TIEMPO REAL
 // ========================================
 async function startRealtimeSync(clubId) {
@@ -159,6 +207,9 @@ async function startRealtimeSync(clubId) {
     console.log('✅ Sincronización en tiempo real activada');
     console.log('========================================');
     showToast('🔄 Sincronización en tiempo real activa');
+
+    // 🔧 MIGRACIÓN updatedAt en segundo plano (una sola vez por club)
+    setTimeout(() => runUpdatedAtMigration(clubId), 5000);
 
     // 🎯 PASO 2: DESCARGA AUXILIAR (solo colecciones sin listener en tiempo real)
     if (_skipDownloadFromAuth) {
@@ -794,35 +845,64 @@ function stopRealtimeSync() {
 // ========================================
 const POLL_PLAYERS_TTL_MS = 30 * 60 * 1000;
 
+function _normalizePlayerStatus(data) {
+  const status = data.status;
+  if (!status) return 'Activo';
+  const s = status.toLowerCase().trim();
+  if (s === 'activo' || s === 'active') return 'Activo';
+  if (s === 'inactivo' || s === 'inactive') return 'Inactivo';
+  return status;
+}
+
 async function _fetchPlayers(clubId) {
   try {
-    const snap = await window.firebase.getDocs(
-      window.firebase.collection(window.firebase.db, `clubs/${clubId}/players`)
-    );
-    const players = [];
-    snap.forEach(doc => {
-      const data = doc.data();
-      // ✅ Normalizar status (compatibilidad datos antiguos)
-      const status = data.status;
-      let normalizedStatus;
-      if (!status) normalizedStatus = 'Activo';
-      else {
-        const s = status.toLowerCase().trim();
-        if (s === 'activo' || s === 'active') normalizedStatus = 'Activo';
-        else if (s === 'inactivo' || s === 'inactive') normalizedStatus = 'Inactivo';
-        else normalizedStatus = status;
+    const lastSync = localStorage.getItem(`playersDeltaSync_${clubId}`);
+    const lastSyncAge = lastSync ? (Date.now() - new Date(lastSync).getTime()) : Infinity;
+    const needFullSync = !lastSync || lastSyncAge >= FULL_SYNC_TTL_MS;
+
+    if (!needFullSync) {
+      // Delta: solo los modificados desde la última sincronización
+      const snap = await window.firebase.getDocs(
+        window.firebase.query(
+          window.firebase.collection(window.firebase.db, `clubs/${clubId}/players`),
+          window.firebase.where('updatedAt', '>', lastSync)
+        )
+      );
+
+      if (snap.size > 0) {
+        const existing = JSON.parse(localStorage.getItem('players') || '[]');
+        const existingMap = {};
+        existing.forEach(p => { existingMap[p.id] = p; });
+        snap.forEach(doc => {
+          const data = doc.data();
+          if (data.deleted) delete existingMap[doc.id];
+          else existingMap[doc.id] = { id: doc.id, ...data, status: _normalizePlayerStatus(data) };
+        });
+        const merged = Object.values(existingMap);
+        if (typeof saveAllPlayers === 'function') saveAllPlayers(merged);
+        else localStorage.setItem('players', JSON.stringify(merged));
+        console.log(`👥 Delta jugadores: ${snap.size} cambios aplicados`);
+      } else {
+        console.log('👥 Delta jugadores: sin cambios');
       }
-      players.push({ id: doc.id, ...data, status: normalizedStatus });
-    });
-    if (typeof saveAllPlayers === 'function') {
-      saveAllPlayers(players);
     } else {
-      localStorage.setItem('players', JSON.stringify(players));
+      // Full sync: primera bajada o pasaron 24h
+      const snap = await window.firebase.getDocs(
+        window.firebase.collection(window.firebase.db, `clubs/${clubId}/players`)
+      );
+      const players = [];
+      snap.forEach(doc => {
+        const data = doc.data();
+        if (!data.deleted) players.push({ id: doc.id, ...data, status: _normalizePlayerStatus(data) });
+      });
+      if (typeof saveAllPlayers === 'function') saveAllPlayers(players);
+      else localStorage.setItem('players', JSON.stringify(players));
+      console.log(`👥 Full sync jugadores: ${players.length}`);
     }
+
+    localStorage.setItem(`playersDeltaSync_${clubId}`, new Date().toISOString());
     localStorage.setItem(`playersLastFetch_${clubId}`, String(Date.now()));
     window.realtimeSyncState.lastSync = new Date().toISOString();
-    console.log(`👥 Jugadores actualizados: ${players.length}`);
-    return players;
   } catch (error) {
     console.error('❌ Error al obtener jugadores:', error);
   }
@@ -857,43 +937,73 @@ const POLL_PAYMENTS_TTL_MS = 30 * 60 * 1000;
 
 async function _fetchPayments(clubId) {
   try {
-    // Respetar el mismo filtro de 12 meses que la descarga inicial.
-    // Si el historial completo ya está cargado, leer todo para no perder pagos viejos.
+    const lastSync = localStorage.getItem(`paymentsDeltaSync_${clubId}`);
+    const lastSyncAge = lastSync ? (Date.now() - new Date(lastSync).getTime()) : Infinity;
+    const needFullSync = !lastSync || lastSyncAge >= FULL_SYNC_TTL_MS;
     const paymentsFullHistory = localStorage.getItem('paymentsFullHistory') === 'true';
 
-    let queryRef;
-    if (paymentsFullHistory) {
-      queryRef = window.firebase.collection(window.firebase.db, `clubs/${clubId}/payments`);
-    } else {
-      const cutoff = new Date();
-      cutoff.setFullYear(cutoff.getFullYear() - 1);
-      const cutoffStr = cutoff.toISOString().split('T')[0];
-      queryRef = window.firebase.query(
-        window.firebase.collection(window.firebase.db, `clubs/${clubId}/payments`),
-        window.firebase.where('dueDate', '>=', cutoffStr)
+    if (!needFullSync) {
+      // Delta: solo los modificados desde la última sincronización
+      const snap = await window.firebase.getDocs(
+        window.firebase.query(
+          window.firebase.collection(window.firebase.db, `clubs/${clubId}/payments`),
+          window.firebase.where('updatedAt', '>', lastSync)
+        )
       );
-    }
 
-    const snap = await window.firebase.getDocs(queryRef);
-    const incomingPayments = [];
-    snap.forEach(doc => incomingPayments.push({ id: doc.id, ...doc.data() }));
-
-    // Merge si el historial completo ya estaba cargado (no pisar pagos viejos)
-    if (localStorage.getItem('paymentsFullHistory') === 'true') {
-      const existing = JSON.parse(localStorage.getItem('payments') || '[]');
-      const incomingMap = {};
-      incomingPayments.forEach(p => { incomingMap[p.id] = p; });
-      const merged = existing.map(p => incomingMap[p.id] ? incomingMap[p.id] : p);
-      const existingIds = new Set(existing.map(p => p.id));
-      incomingPayments.forEach(p => { if (!existingIds.has(p.id)) merged.push(p); });
-      localStorage.setItem('payments', JSON.stringify(merged));
+      if (snap.size > 0) {
+        const existing = JSON.parse(localStorage.getItem('payments') || '[]');
+        const existingMap = {};
+        existing.forEach(p => { existingMap[p.id] = p; });
+        snap.forEach(doc => {
+          const data = doc.data();
+          if (data.deleted) delete existingMap[doc.id];
+          else existingMap[doc.id] = { id: doc.id, ...data };
+        });
+        localStorage.setItem('payments', JSON.stringify(Object.values(existingMap)));
+        console.log(`💰 Delta pagos: ${snap.size} cambios aplicados`);
+      } else {
+        console.log('💰 Delta pagos: sin cambios');
+      }
     } else {
-      localStorage.setItem('payments', JSON.stringify(incomingPayments));
+      // Full sync: primera bajada o pasaron 24h — respeta filtro 12 meses
+      let queryRef;
+      if (paymentsFullHistory) {
+        queryRef = window.firebase.collection(window.firebase.db, `clubs/${clubId}/payments`);
+      } else {
+        const cutoff = new Date();
+        cutoff.setFullYear(cutoff.getFullYear() - 1);
+        const cutoffStr = cutoff.toISOString().split('T')[0];
+        queryRef = window.firebase.query(
+          window.firebase.collection(window.firebase.db, `clubs/${clubId}/payments`),
+          window.firebase.where('dueDate', '>=', cutoffStr)
+        );
+      }
+
+      const snap = await window.firebase.getDocs(queryRef);
+      const payments = [];
+      snap.forEach(doc => {
+        const data = doc.data();
+        if (!data.deleted) payments.push({ id: doc.id, ...data });
+      });
+
+      if (paymentsFullHistory) {
+        const existing = JSON.parse(localStorage.getItem('payments') || '[]');
+        const incomingMap = {};
+        payments.forEach(p => { incomingMap[p.id] = p; });
+        const merged = existing.map(p => incomingMap[p.id] ? incomingMap[p.id] : p);
+        const existingIds = new Set(existing.map(p => p.id));
+        payments.forEach(p => { if (!existingIds.has(p.id)) merged.push(p); });
+        localStorage.setItem('payments', JSON.stringify(merged));
+      } else {
+        localStorage.setItem('payments', JSON.stringify(payments));
+      }
+      console.log(`💰 Full sync pagos: ${payments.length}`);
     }
 
+    localStorage.setItem(`paymentsDeltaSync_${clubId}`, new Date().toISOString());
     localStorage.setItem(`paymentsLastFetch_${clubId}`, String(Date.now()));
     window.realtimeSyncState.lastSync = new Date().toISOString();
-    console.log(`💰 Pagos actualizados: ${incomingPayments.length}`);
   } catch (error) {
     console.error('❌ Error al obtener pagos:', error);
   }
@@ -975,15 +1085,48 @@ const POLL_EVENTS_TTL_MS = 30 * 60 * 1000;
 
 async function _fetchEvents(clubId) {
   try {
-    const snap = await window.firebase.getDocs(
-      window.firebase.collection(window.firebase.db, `clubs/${clubId}/events`)
-    );
-    const events = [];
-    snap.forEach(doc => events.push({ id: doc.id, ...doc.data() }));
-    localStorage.setItem('calendarEvents', JSON.stringify(events));
+    const lastSync = localStorage.getItem(`eventsDeltaSync_${clubId}`);
+    const lastSyncAge = lastSync ? (Date.now() - new Date(lastSync).getTime()) : Infinity;
+    const needFullSync = !lastSync || lastSyncAge >= FULL_SYNC_TTL_MS;
+
+    if (!needFullSync) {
+      const snap = await window.firebase.getDocs(
+        window.firebase.query(
+          window.firebase.collection(window.firebase.db, `clubs/${clubId}/events`),
+          window.firebase.where('updatedAt', '>', lastSync)
+        )
+      );
+
+      if (snap.size > 0) {
+        const existing = JSON.parse(localStorage.getItem('calendarEvents') || '[]');
+        const existingMap = {};
+        existing.forEach(e => { existingMap[e.id] = e; });
+        snap.forEach(doc => {
+          const data = doc.data();
+          if (data.deleted) delete existingMap[doc.id];
+          else existingMap[doc.id] = { id: doc.id, ...data };
+        });
+        localStorage.setItem('calendarEvents', JSON.stringify(Object.values(existingMap)));
+        console.log(`📅 Delta eventos: ${snap.size} cambios aplicados`);
+      } else {
+        console.log('📅 Delta eventos: sin cambios');
+      }
+    } else {
+      const snap = await window.firebase.getDocs(
+        window.firebase.collection(window.firebase.db, `clubs/${clubId}/events`)
+      );
+      const events = [];
+      snap.forEach(doc => {
+        const data = doc.data();
+        if (!data.deleted) events.push({ id: doc.id, ...data });
+      });
+      localStorage.setItem('calendarEvents', JSON.stringify(events));
+      console.log(`📅 Full sync eventos: ${events.length}`);
+    }
+
+    localStorage.setItem(`eventsDeltaSync_${clubId}`, new Date().toISOString());
     localStorage.setItem(`eventsLastFetch_${clubId}`, String(Date.now()));
     window.realtimeSyncState.lastSync = new Date().toISOString();
-    console.log(`📅 Eventos actualizados: ${events.length}`);
   } catch (error) {
     console.error('❌ Error al obtener eventos:', error);
   }
@@ -1016,15 +1159,48 @@ const POLL_EXPENSES_TTL_MS = 30 * 60 * 1000;
 
 async function _fetchExpenses(clubId) {
   try {
-    const snap = await window.firebase.getDocs(
-      window.firebase.collection(window.firebase.db, `clubs/${clubId}/expenses`)
-    );
-    const expenses = [];
-    snap.forEach(doc => expenses.push({ id: doc.id, ...doc.data() }));
-    localStorage.setItem('expenses', JSON.stringify(expenses));
+    const lastSync = localStorage.getItem(`expensesDeltaSync_${clubId}`);
+    const lastSyncAge = lastSync ? (Date.now() - new Date(lastSync).getTime()) : Infinity;
+    const needFullSync = !lastSync || lastSyncAge >= FULL_SYNC_TTL_MS;
+
+    if (!needFullSync) {
+      const snap = await window.firebase.getDocs(
+        window.firebase.query(
+          window.firebase.collection(window.firebase.db, `clubs/${clubId}/expenses`),
+          window.firebase.where('updatedAt', '>', lastSync)
+        )
+      );
+
+      if (snap.size > 0) {
+        const existing = JSON.parse(localStorage.getItem('expenses') || '[]');
+        const existingMap = {};
+        existing.forEach(e => { existingMap[e.id] = e; });
+        snap.forEach(doc => {
+          const data = doc.data();
+          if (data.deleted) delete existingMap[doc.id];
+          else existingMap[doc.id] = { id: doc.id, ...data };
+        });
+        localStorage.setItem('expenses', JSON.stringify(Object.values(existingMap)));
+        console.log(`💸 Delta egresos: ${snap.size} cambios aplicados`);
+      } else {
+        console.log('💸 Delta egresos: sin cambios');
+      }
+    } else {
+      const snap = await window.firebase.getDocs(
+        window.firebase.collection(window.firebase.db, `clubs/${clubId}/expenses`)
+      );
+      const expenses = [];
+      snap.forEach(doc => {
+        const data = doc.data();
+        if (!data.deleted) expenses.push({ id: doc.id, ...data });
+      });
+      localStorage.setItem('expenses', JSON.stringify(expenses));
+      console.log(`💸 Full sync egresos: ${expenses.length}`);
+    }
+
+    localStorage.setItem(`expensesDeltaSync_${clubId}`, new Date().toISOString());
     localStorage.setItem(`expensesLastFetch_${clubId}`, String(Date.now()));
     window.realtimeSyncState.lastSync = new Date().toISOString();
-    console.log(`💸 Egresos actualizados: ${expenses.length}`);
   } catch (error) {
     console.error('❌ Error al obtener egresos:', error);
   }

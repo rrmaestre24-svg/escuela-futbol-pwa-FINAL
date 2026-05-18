@@ -510,7 +510,7 @@ async function savePlayerToFirebase(player) {
     // ✅ RUTA CORREGIDA
     await window.firebase.setDoc(
       window.firebase.doc(window.firebase.db, `clubs/${clubId}/players`, preparedPlayer.id),
-      preparedPlayer
+      { ...preparedPlayer, updatedAt: new Date().toISOString() }
     );
     console.log('✅ Jugador guardado en Firebase:', preparedPlayer.id);
     return true;
@@ -568,7 +568,7 @@ async function savePaymentToFirebase(payment) {
     // ✅ RUTA CORREGIDA
     await window.firebase.setDoc(
       window.firebase.doc(window.firebase.db, `clubs/${clubId}/payments`, payment.id),
-      payment
+      { ...payment, updatedAt: new Date().toISOString() }
     );
     console.log('✅ Pago guardado en Firebase:', payment.id);
     return true;
@@ -594,7 +594,7 @@ async function saveEventToFirebase(event) {
     // ✅ RUTA CORREGIDA
     await window.firebase.setDoc(
       window.firebase.doc(window.firebase.db, `clubs/${clubId}/events`, event.id),
-      event
+      { ...event, updatedAt: new Date().toISOString() }
     );
     console.log('✅ Evento guardado en Firebase:', event.id);
     return true;
@@ -697,11 +697,12 @@ async function deletePlayerFromFirebase(playerId) {
   }
 
   try {
-    // ✅ RUTA CORREGIDA
-    await window.firebase.deleteDoc(
-      window.firebase.doc(window.firebase.db, `clubs/${clubId}/players`, playerId)
+    await window.firebase.setDoc(
+      window.firebase.doc(window.firebase.db, `clubs/${clubId}/players`, playerId),
+      { deleted: true, updatedAt: new Date().toISOString() },
+      { merge: true }
     );
-    console.log('✅ Jugador eliminado de Firebase:', playerId);
+    console.log('✅ Jugador eliminado (soft) de Firebase:', playerId);
     return true;
   } catch (error) {
     console.error('❌ Error al eliminar jugador:', error);
@@ -722,11 +723,12 @@ async function deletePaymentFromFirebase(paymentId) {
   }
 
   try {
-    // ✅ RUTA CORREGIDA
-    await window.firebase.deleteDoc(
-      window.firebase.doc(window.firebase.db, `clubs/${clubId}/payments`, paymentId)
+    await window.firebase.setDoc(
+      window.firebase.doc(window.firebase.db, `clubs/${clubId}/payments`, paymentId),
+      { deleted: true, updatedAt: new Date().toISOString() },
+      { merge: true }
     );
-    console.log('✅ Pago eliminado de Firebase:', paymentId);
+    console.log('✅ Pago eliminado (soft) de Firebase:', paymentId);
     return true;
   } catch (error) {
     console.error('❌ Error al eliminar pago:', error);
@@ -747,11 +749,12 @@ async function deleteEventFromFirebase(eventId) {
   }
 
   try {
-    // ✅ RUTA CORREGIDA
-    await window.firebase.deleteDoc(
-      window.firebase.doc(window.firebase.db, `clubs/${clubId}/events`, eventId)
+    await window.firebase.setDoc(
+      window.firebase.doc(window.firebase.db, `clubs/${clubId}/events`, eventId),
+      { deleted: true, updatedAt: new Date().toISOString() },
+      { merge: true }
     );
-    console.log('✅ Evento eliminado de Firebase:', eventId);
+    console.log('✅ Evento eliminado (soft) de Firebase:', eventId);
     return true;
   } catch (error) {
     console.error('❌ Error al eliminar evento:', error);
@@ -775,7 +778,7 @@ async function saveExpenseToFirebase(expense) {
     // ✅ RUTA: clubs/{clubId}/expenses/{expenseId}
     await window.firebase.setDoc(
       window.firebase.doc(window.firebase.db, `clubs/${clubId}/expenses`, expense.id),
-      expense
+      { ...expense, updatedAt: new Date().toISOString() }
     );
     console.log('✅ Egreso guardado en Firebase:', expense.id);
     return true;
@@ -798,11 +801,12 @@ async function deleteExpenseFromFirebase(expenseId) {
   }
 
   try {
-    // ✅ RUTA: clubs/{clubId}/expenses/{expenseId}
-    await window.firebase.deleteDoc(
-      window.firebase.doc(window.firebase.db, `clubs/${clubId}/expenses`, expenseId)
+    await window.firebase.setDoc(
+      window.firebase.doc(window.firebase.db, `clubs/${clubId}/expenses`, expenseId),
+      { deleted: true, updatedAt: new Date().toISOString() },
+      { merge: true }
     );
-    console.log('✅ Egreso eliminado de Firebase:', expenseId);
+    console.log('✅ Egreso eliminado (soft) de Firebase:', expenseId);
     return true;
   } catch (error) {
     console.error('❌ Error al eliminar egreso:', error);
