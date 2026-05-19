@@ -24,7 +24,7 @@ function updateDashboardStats() {
   const thisMonthPayments = payments.filter(p => 
     p.status === 'Pagado' && p.paidDate && isThisMonth(p.paidDate)
   );
-  const monthPaymentsIncome = thisMonthPayments.reduce((sum, p) => sum + p.amount, 0);
+  const monthPaymentsIncome = thisMonthPayments.reduce((sum, p) => sum + ((p.finalAmount != null) ? p.finalAmount : (p.amount || 0)), 0);
   
   // 🆕 Calcular otros ingresos del mes
   const thisMonthThirdParty = thirdPartyIncomes.filter(i => isThisMonth(i.date));

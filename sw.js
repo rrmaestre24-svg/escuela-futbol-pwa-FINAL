@@ -1,4 +1,4 @@
-const CACHE_NAME = 'my-club-v1.1.41';
+const CACHE_NAME = 'my-club-v1.1.42';
 
 const urlsToCache = [
   '/',
