@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "com.appmyclub.app.twa",
+        "sha256_cert_fingerprints": ["D7:A7:14:53:EE:FB:5A:70:DC:E3:C6:78:AA:17:44:BE:9C:06:F7:24:77:6E:F1:3A:C4:01:83:56:52:24:37:27"]
+      }
+    }]
