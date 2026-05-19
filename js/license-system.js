@@ -551,19 +551,19 @@ window.listenToLicenseChanges = listenToLicenseChanges;
 
 function abrirInventario() {
   const clubId = localStorage.getItem('clubId');
-  window.open('https://myclub-inventario.vercel.app?clubId=' + clubId, '_blank');
+  window.open('https://inventario.appmyclub.com?clubId=' + clubId, '_blank');
 }
 window.abrirInventario = abrirInventario;
 
 function abrirAsistencias() {
   const clubId = localStorage.getItem('clubId');
-  window.open('https://myclub-asistencia.vercel.app/admin.html?clubId=' + clubId, '_blank');
+  window.open('https://asistencia.appmyclub.com/admin.html?clubId=' + clubId, '_blank');
 }
 window.abrirAsistencias = abrirAsistencias;
 
 function abrirConvocatoria() {
   const clubId = localStorage.getItem('clubId');
-  window.open('https://myclub-convocatoria.vercel.app?clubId=' + clubId, '_blank');
+  window.open('https://convocatoria.appmyclub.com?clubId=' + clubId, '_blank');
 }
 window.abrirConvocatoria = abrirConvocatoria;
 

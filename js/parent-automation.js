@@ -470,7 +470,7 @@ async function openWhatsAppForParent(player, access) {
     const message =
         `⚽ *Acceso al Portal de Padres - ${clubName}* ⚽\n\n` +
         `Hola! Te compartimos el acceso oficial para consultar el progreso de *${player.name}*, ver su carnet digital y reportar pagos.\n\n` +
-        `🔗 *Ingresa aquí:* https://myclub-portal-padres.vercel.app/\n\n` +
+        `🔗 *Ingresa aquí:* https://padres.appmyclub.com/\n\n` +
         `📍 *Club ID:* ${clubId}\n` +
         `🔑 *Código de Acceso:* ${access.code}\n\n` +
         `¡Te esperamos en la plataforma!`;

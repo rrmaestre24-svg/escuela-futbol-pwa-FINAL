@@ -279,7 +279,7 @@ function getCoachMessage(coachId) {
 
     return `📋 *Acceso a Asistencias - ${clubName}* 📋\n\n` +
            `Hola *${coach.name}*! Te compartimos tu acceso oficial para tomar la asistencia de tus grupos asignados: ${assignedCats}.\n\n` +
-           `🔗 *Ingresa aquí:* https://myclub-asistencia.vercel.app/\n\n` +
+           `🔗 *Ingresa aquí:* https://asistencia.appmyclub.com/\n\n` +
            `🏟 *Club ID:* ${clubId}\n` +
            `🔑 *Código de Entrenador:* ${coach.code}\n\n` +
            `¡Gracias por tu labor formativa! ⚽`;
@@ -339,7 +339,7 @@ async function goToAttendanceAdminPanel() {
         console.error('Error fetching admin code config:', e);
     }
 
-    const targetUrl = `https://myclub-asistencia.vercel.app/admin.html?clubId=${clubId}${autoLoginQuery}`;
+    const targetUrl = `https://asistencia.appmyclub.com/admin.html?clubId=${clubId}${autoLoginQuery}`;
     window.open(targetUrl, '_blank');
 }
 

@@ -276,7 +276,7 @@ function abrirModuloPWA(url) {
 // Si no → abre la URL web normal
 // ========================================
 function abrirInventario() {
-  const INVENTARIO_URL = 'https://myclub-inventario.vercel.app';
+  const INVENTARIO_URL = 'https://inventario.appmyclub.com';
   const clubId = localStorage.getItem('clubId') || '';
   const urlConClub = clubId
     ? `${INVENTARIO_URL}/login.html?clubId=${clubId}`
@@ -295,7 +295,7 @@ window.abrirInventario = abrirInventario;
 // Si no → abre la URL web normal
 // ========================================
 function abrirAsistencias() {
-  const ASISTENCIAS_URL = 'https://myclub-asistencia.vercel.app';
+  const ASISTENCIAS_URL = 'https://asistencia.appmyclub.com';
   const clubId = localStorage.getItem('clubId') || '';
   const urlConClub = clubId
     ? `${ASISTENCIAS_URL}/admin.html?clubId=${clubId}`

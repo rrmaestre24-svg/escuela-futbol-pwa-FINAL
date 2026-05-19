@@ -1008,8 +1008,8 @@ function showParentCodeModal(player, code, isExisting) {
   const clubId = localStorage.getItem('clubId') || settings.clubId || 'mi-club';
   
   // URL del portal de padres - PRODUCCIÓN
-  const portalURL = 'https://myclub-portal-padres.vercel.app';
-  
+  const portalURL = 'https://padres.appmyclub.com';
+
   const modal = document.createElement('div');
   modal.id = 'parentCodeModal';
   modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
@@ -1131,7 +1131,7 @@ function copyParentCode(code) {
 function shareParentCodeWhatsApp(playerName, clubId, code, phone) {
   const settings = getSchoolSettings();
   // URL del portal de padres - PRODUCCIÓN
-  const portalURL = 'https://myclub-portal-padres.vercel.app';
+  const portalURL = 'https://padres.appmyclub.com';
   
   const message = `\u{1F389} *Acceso al Portal de Padres*
 
