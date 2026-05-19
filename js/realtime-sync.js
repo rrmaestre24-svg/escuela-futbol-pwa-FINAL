@@ -24,7 +24,7 @@ window.realtimeSyncState = {
 
 const AUX_SYNC_TTL_MS = 30 * 60 * 1000; // 30 minutos
 const PAYMENT_LOG_FETCH_TTL_MS = 5 * 60 * 1000; // 5 minutos
-const FULL_SYNC_TTL_MS = 24 * 60 * 60 * 1000; // 24 horas — red de seguridad
+const FULL_SYNC_TTL_MS = Infinity; // full sync solo en primera apertura o "Actualizar" manual
 
 function shouldRunAuxSync(clubId, { force = false } = {}) {
   if (force) return true;
