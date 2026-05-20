@@ -175,15 +175,39 @@ function showWhatsAppBatchStartModal(totalToSend) {
                     </div>
                 </div>
 
-                <div class="p-5 space-y-4">
+                <div class="p-5 space-y-3">
                     <div class="rounded-2xl border border-emerald-100 dark:border-emerald-900/40 bg-emerald-50 dark:bg-emerald-900/20 p-4">
                         <p class="text-sm text-emerald-900 dark:text-emerald-200 font-semibold">Se prepararán <span class="font-black text-lg">${totalToSend}</span> envíos.</p>
                         <p class="text-xs mt-1 text-emerald-700 dark:text-emerald-300">Por seguridad del navegador, debes pulsar el botón para cada alumno.</p>
                     </div>
 
+                    <div class="rounded-2xl border border-amber-200 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-900/20 p-4 space-y-2">
+                        <p class="text-xs font-black text-amber-800 dark:text-amber-300 uppercase tracking-wide flex items-center gap-1.5">
+                            ⚠️ Recomendaciones para evitar restricciones de WhatsApp
+                        </p>
+                        <ul class="space-y-1.5">
+                            <li class="flex items-start gap-2 text-xs text-amber-800 dark:text-amber-200">
+                                <span class="mt-0.5 shrink-0">📵</span>
+                                <span>WhatsApp puede <strong>bloquear tu número temporalmente</strong> si detecta muchos mensajes nuevos seguidos.</span>
+                            </li>
+                            <li class="flex items-start gap-2 text-xs text-amber-800 dark:text-amber-200">
+                                <span class="mt-0.5 shrink-0">📦</span>
+                                <span>Envía <strong>máximo 20 por sesión</strong>. Si tienes más, cierra la app y continúa al día siguiente — el progreso se guarda automáticamente.</span>
+                            </li>
+                            <li class="flex items-start gap-2 text-xs text-amber-800 dark:text-amber-200">
+                                <span class="mt-0.5 shrink-0">⏱️</span>
+                                <span>Espera <strong>al menos 30 segundos</strong> entre cada envío antes de pasar al siguiente.</span>
+                            </li>
+                            <li class="flex items-start gap-2 text-xs text-amber-800 dark:text-amber-200">
+                                <span class="mt-0.5 shrink-0">✅</span>
+                                <span>Si ya enviaste hoy y WhatsApp te restringió, espera <strong>24–48 horas</strong> para continuar.</span>
+                            </li>
+                        </ul>
+                    </div>
+
                     <div class="grid grid-cols-2 gap-3">
                         <button id="waBatchCancelBtn" class="py-2.5 px-4 rounded-xl font-bold text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">Cancelar</button>
-                        <button id="waBatchAcceptBtn" class="py-2.5 px-4 rounded-xl font-bold text-white bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 shadow-md transition-all">Empezar</button>
+                        <button id="waBatchAcceptBtn" class="py-2.5 px-4 rounded-xl font-bold text-white bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 shadow-md transition-all">Entendido, empezar</button>
                     </div>
                 </div>
             </div>
