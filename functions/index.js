@@ -132,7 +132,25 @@ exports.createParentSession = onCall(COST_MIN_OPTIONS, async (request) => {
   const playerData = playerSnap.data();
   const status = (playerData.status || 'activo').toLowerCase();
   if (status === 'inactivo' || status === 'inactive') {
-    throw new HttpsError('permission-denied', 'El acceso de este jugador ha sido desactivado por el club.');
+    // Respetar la ventana de gracia de 30 min idéntica a la lógica del portal
+    const now = Date.now();
+    const revokeAt = playerData.portalAccessRevokesAt
+      ? new Date(playerData.portalAccessRevokesAt).getTime()
+      : NaN;
+    const inactivatedAt = playerData.lastInactivatedAt
+      ? new Date(playerData.lastInactivatedAt).getTime()
+      : NaN;
+
+    let mustBlock = true;
+    if (!isNaN(revokeAt)) {
+      mustBlock = now >= revokeAt;
+    } else if (!isNaN(inactivatedAt)) {
+      mustBlock = (now - inactivatedAt) >= (30 * 60 * 1000);
+    }
+
+    if (mustBlock) {
+      throw new HttpsError('permission-denied', 'El acceso de este jugador ha sido desactivado por el club.');
+    }
   }
 
   // 5. Escribir sesión via Admin SDK (bypassa reglas Firestore — confianza total en servidor)

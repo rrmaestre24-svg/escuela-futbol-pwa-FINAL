@@ -1150,7 +1150,10 @@ Hola! Te comparto el acceso para ver la información de *${playerName}* en ${set
   
   // Si tiene teléfono, enviar directo
   if (phone) {
-    const cleanPhone = phone.replace(/[^0-9+]/g, '');
+    const normalized = typeof normalizePhone === 'function'
+      ? normalizePhone(String(phone))
+      : String(phone).replace(/[^0-9+]/g, '');
+    const cleanPhone = normalized.replace(/[^0-9]/g, '');
     window.open(`https://wa.me/${cleanPhone}?text=${encodedMessage}`, '_blank');
   } else {
     // Abrir WhatsApp sin número

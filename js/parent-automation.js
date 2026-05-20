@@ -227,6 +227,50 @@ async function loadParentAccessStatus() {
         }
     });
 
+    // === RECONCILIACIÓN LOCAL → FIRESTORE ===
+    // Garantiza que ningún padre quede bloqueado por inconsistencias de sync:
+    //   1. Docs en Firestore sin campo 'code' (escritura parcial anterior) → se reparan
+    //   2. Códigos solo en localStorage (Firebase no estaba lista al guardar) → se sincronizan
+    const localCodes = JSON.parse(localStorage.getItem('parentCodes') || '[]');
+    const localByPlayer = {};
+    localCodes.forEach(lc => { if (lc.playerId && lc.code) localByPlayer[lc.playerId] = lc; });
+
+    const repairBatch = [];
+
+    // 1. Reparar docs de Firestore que no tienen campo 'code'
+    codesSnapshot.forEach(snap => {
+        const data = snap.data();
+        if (data.playerId && !data.code && localByPlayer[data.playerId]) {
+            const code = localByPlayer[data.playerId].code;
+            codesByPlayer[data.playerId] = { ...codesByPlayer[data.playerId], code };
+            repairBatch.push(
+                window.firebase.setDoc(
+                    window.firebase.doc(window.firebase.db, `clubs/${clubId}/parentCodes`, snap.id),
+                    { code },
+                    { merge: true }
+                )
+            );
+        }
+    });
+
+    // 2. Sincronizar al Firestore los códigos locales que no tienen doc en Firestore
+    Object.values(localByPlayer).forEach(lc => {
+        if (!codesByPlayer[lc.playerId]) {
+            codesByPlayer[lc.playerId] = { playerId: lc.playerId, code: lc.code, createdAt: lc.createdAt };
+            repairBatch.push(
+                window.firebase.setDoc(
+                    window.firebase.doc(window.firebase.db, `clubs/${clubId}/parentCodes`, lc.playerId),
+                    { playerId: lc.playerId, code: lc.code, createdAt: lc.createdAt || new Date().toISOString() }
+                )
+            );
+        }
+    });
+
+    if (repairBatch.length > 0) {
+        Promise.all(repairBatch).catch(e => console.warn('[parentCodes] Error en reconciliación:', e));
+        console.log(`[parentCodes] Reconciliación: ${repairBatch.length} doc(s) reparado(s)/sincronizado(s)`);
+    }
+
     // Auto-revocar códigos vencidos (inactivos con más de 30 min)
     players.forEach(player => {
         if (isInactivePlayer(player) && isNoAccessPlayer(player) && codesByPlayer[player.id]?.code) {
@@ -318,8 +362,6 @@ function renderParentAccessList() {
         const hasCode = !!access;
         const isSent  = hasSentNotification(access);
         const isNoAccess = filter === 'noaccess';
-        // FIX 2: Escapar comillas en el nombre para evitar romper el onclick
-        const safeName = (player.name || '').replace(/'/g, "\\'");
         const contactPhone = player.phone || player.emergencyContact || '';
         const phone = contactPhone || 'Sin teléfono';
         
@@ -439,7 +481,9 @@ async function openWhatsAppForParent(player, access) {
     const clubName = settings.name || 'Mi Escuela de Fútbol';
     
     const rawPhone = player.phone || player.emergencyContact || '';
-    const phone = String(rawPhone).replace(/[^0-9+]/g, '');
+    const phone = typeof normalizePhone === 'function'
+        ? normalizePhone(String(rawPhone))
+        : String(rawPhone).replace(/[^0-9+]/g, '');
     if (!phone || phone.replace(/[^0-9]/g, '').length < 7) {
         showToast(`❌ Teléfono inválido para ${player.name}`);
         return;
