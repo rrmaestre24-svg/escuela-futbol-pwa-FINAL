@@ -192,7 +192,7 @@ function showWhatsAppBatchStartModal(totalToSend) {
                             </li>
                             <li class="flex items-start gap-2 text-xs text-amber-800 dark:text-amber-200">
                                 <span class="mt-0.5 shrink-0">📦</span>
-                                <span>Envía <strong>máximo 30 por sesión</strong>. Si tienes más, cierra la app y continúa al día siguiente — el progreso se guarda automáticamente.</span>
+                                <span>Envía <strong>máximo 25 por día</strong>. Si tienes más, cierra la app y continúa al día siguiente — el progreso se guarda automáticamente.</span>
                             </li>
                             <li class="flex items-start gap-2 text-xs text-amber-800 dark:text-amber-200">
                                 <span class="mt-0.5 shrink-0">⏱️</span>
