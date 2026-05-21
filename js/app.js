@@ -485,49 +485,38 @@ function setupUserDeletionListener() {
     return;
   }
   
-  console.log('👁️ Activando listener de eliminación para:', currentUser.email);
-  
-  // ✅ RUTA CORRECTA
+  console.log('👁️ Activando polling de eliminación para:', currentUser.email);
+
   const userDocRef = window.firebase.doc(
     window.firebase.db,
-    `clubs/${clubId}/users/${currentUser.id}`  // ✅ Ruta completa
+    `clubs/${clubId}/users/${currentUser.id}`
   );
-  
-  // Escuchar cambios con manejo de errores
-  const unsubscribe = window.firebase.onSnapshot(
-    userDocRef,
-    (docSnapshot) => {
-      // Verificar si el documento fue eliminado
+
+  async function checkUserExists() {
+    try {
+      const docSnapshot = await window.firebase.getDoc(userDocRef);
       if (!docSnapshot.exists()) {
         console.log('🚨 Usuario ELIMINADO de Firebase - Cerrando sesión...');
         handleUserDeleted();
         return;
       }
-      
-      // Verificar si fue marcado como eliminado
       const userData = docSnapshot.data();
       if (userData?.deleted === true) {
         console.log('🚨 Usuario MARCADO como eliminado - Cerrando sesión...');
         handleUserDeleted();
-        return;
       }
-      
-      console.log('✅ Usuario activo - Listener funcionando');
-    },
-    (error) => {
-      // Manejo de errores de permisos
+    } catch (error) {
       if (error.code === 'permission-denied') {
-        console.warn('⚠️ Sin permisos para escuchar usuario (puede haber sido eliminado)');
-        // Si hay error de permisos, probablemente el usuario fue eliminado
+        console.warn('⚠️ Sin permisos para verificar usuario (puede haber sido eliminado)');
         handleUserDeleted();
       } else {
-        console.error('❌ Error en listener de usuario:', error);
+        console.error('❌ Error verificando usuario:', error);
       }
     }
-  );
-  
-  // Guardar unsubscribe para poder limpiarlo después
-  window.userDeletionUnsubscribe = unsubscribe;
+  }
+
+  const intervalId = setInterval(checkUserExists, 10 * 60 * 1000);
+  window.userDeletionUnsubscribe = () => clearInterval(intervalId);
 }
 
 // Función para manejar usuario eliminado

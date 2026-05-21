@@ -468,14 +468,15 @@ function listenToLicenseChanges() {
     
     const licenseRef = window.firebase.doc(window.firebase.db, 'licenses', clubId);
     
-    // Cancelar listener anterior si existe (evita duplicados al reiniciar sesión)
+    // Cancelar polling anterior si existe (evita duplicados al reiniciar sesión)
     if (typeof window.licenseUnsubscribe === 'function') {
       window.licenseUnsubscribe();
       window.licenseUnsubscribe = null;
     }
 
-    window.licenseUnsubscribe = window.firebase.onSnapshot(licenseRef,
-      (doc) => {
+    async function checkLicenseStatus() {
+      try {
+        const doc = await window.firebase.getDoc(licenseRef);
         if (!doc.exists()) {
           console.log('⚠️ Licencia no encontrada');
           return;
@@ -485,45 +486,38 @@ function listenToLicenseChanges() {
         const currentStatus = localStorage.getItem('licenseStatus');
         const newStatus = licenseData.status;
 
-        console.log('📡 Estado actual:', currentStatus, '→ Nuevo estado:', newStatus);
-
         const modulosChanged = JSON.stringify(licenseData.modulos) !== localStorage.getItem('licenseModulos');
         localStorage.setItem('licenseModulos', JSON.stringify(licenseData.modulos || {}));
 
         if ((currentStatus && currentStatus !== newStatus) || modulosChanged) {
           console.log('🔄 Estado de licencia cambió...');
-          
           localStorage.setItem('licenseStatus', newStatus);
 
-          // ✅ Anti-rebote: evitar recargas en cascada
           if (window._licenseReloadInProgress) return;
 
-          // Solo recargar si la licencia fue DESACTIVADA
           if (newStatus !== 'activo') {
             showToast(`🔴 Licencia desactivada. Contacta al administrador.`);
             window._licenseReloadInProgress = true;
-            setTimeout(() => {
-              window.location.reload();
-            }, 2000);
+            setTimeout(() => { window.location.reload(); }, 2000);
           } else {
-            // Si se activó, solo mostrar mensaje sin recargar
             showToast(`✅ Licencia activada correctamente`);
           }
         } else {
           localStorage.setItem('licenseStatus', newStatus);
         }
-      }, 
-      (error) => {
-        // ✅ MANEJO DE ERRORES DE PERMISOS
+      } catch (error) {
         if (error.code === 'permission-denied') {
-          console.warn('⚠️ Sin permisos para escuchar licencia (puede ser normal en algunos casos)');
+          console.warn('⚠️ Sin permisos para verificar licencia');
         } else {
-          console.error('❌ Error en listener de licencia:', error);
+          console.error('❌ Error verificando licencia:', error);
         }
       }
-    );
+    }
 
-    console.log('✅ Listener de licencia activado');
+    const intervalId = setInterval(checkLicenseStatus, 10 * 60 * 1000);
+    window.licenseUnsubscribe = () => clearInterval(intervalId);
+
+    console.log('✅ Polling de licencia activado (10 min)');
     
   } catch (error) {
     console.error('❌ Error al configurar listener:', error);
