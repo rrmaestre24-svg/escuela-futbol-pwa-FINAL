@@ -539,21 +539,23 @@ function listenToLicenseChanges() {
         const modulosChanged = JSON.stringify(newModulos) !== localStorage.getItem('licenseModulos');
         localStorage.setItem('licenseModulos', JSON.stringify(newModulos || {}));
 
-        if ((currentStatus && currentStatus !== newStatus) || modulosChanged) {
-          console.log('🔄 Estado de licencia cambió:', currentStatus, '→', newStatus);
-          localStorage.setItem('licenseStatus', newStatus);
+        localStorage.setItem('licenseStatus', newStatus);
 
-          if (window._licenseReloadInProgress) return;
+        if (newStatus !== 'activo') {
+          // Siempre mostrar banner si está inactivo — cubre cambio Y primer arranque
+          showLicenseBanner({ status: 'inactivo', message: '🔴 Licencia desactivada - Contacta al administrador' });
 
-          if (newStatus !== 'activo') {
+          if (!window._licenseReloadInProgress && (currentStatus !== newStatus)) {
+            // Toast + reload solo si el estado cambió (evita loop en recargas)
             showToast(`🔴 Licencia desactivada. Contacta al administrador.`);
             window._licenseReloadInProgress = true;
             setTimeout(() => { window.location.reload(); }, 2000);
-          } else {
-            showToast(`✅ Licencia activada correctamente`);
           }
-        } else {
-          localStorage.setItem('licenseStatus', newStatus);
+        } else if (modulosChanged) {
+          // Módulos cambiaron — recargar para aplicar permisos nuevos
+          window.location.reload();
+        } else if (currentStatus && currentStatus !== newStatus) {
+          showToast(`✅ Licencia activada correctamente`);
         }
       } catch (error) {
         if (error.code === 'permission-denied') {
@@ -566,6 +568,7 @@ function listenToLicenseChanges() {
 
     // ⚠️ CUTOVER: intervalo reducido a 30 seg para detectar desactivación rápido.
     // Restaurar a 10 * 60 * 1000 después del cutover.
+    checkLicenseStatus(); // primera verificación inmediata al arrancar
     const intervalId = setInterval(checkLicenseStatus, 30 * 1000);
     window.licenseUnsubscribe = () => clearInterval(intervalId);
 
