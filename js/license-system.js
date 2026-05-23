@@ -19,11 +19,51 @@ if (typeof LICENSE_CONFIG === 'undefined') {
 }
 
 // ========================================
+// SUPABASE — validación de códigos nuevos
+// ========================================
+const _SUPA_URL  = 'https://lcyebvfvolepcqzsqxfk.supabase.co';
+const _SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxjeWVidmZ2b2xlcGNxenNxeGZrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk0MTA1OTUsImV4cCI6MjA5NDk4NjU5NX0.ZVd4uIYqv8TPIbezOqe8PmA6ZK9yLJ2tybLYz9NYriM';
+
+async function _validateCodeSupabase(cleanCode) {
+  try {
+    const res = await fetch(
+      `${_SUPA_URL}/rest/v1/activation_codes?code=eq.${encodeURIComponent(cleanCode)}&select=code,plan,used,used_by,created_at`,
+      { headers: { apikey: _SUPA_ANON, Authorization: `Bearer ${_SUPA_ANON}` } }
+    );
+    if (!res.ok) return null;
+    const rows = await res.json();
+    return rows?.[0] || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+async function _markCodeUsedSupabase(cleanCode, clubId) {
+  try {
+    await fetch(
+      `${_SUPA_URL}/rest/v1/activation_codes?code=eq.${encodeURIComponent(cleanCode)}`,
+      {
+        method: 'PATCH',
+        headers: {
+          apikey: _SUPA_ANON,
+          Authorization: `Bearer ${_SUPA_ANON}`,
+          'Content-Type': 'application/json',
+          Prefer: 'return=minimal'
+        },
+        body: JSON.stringify({ used: true, used_by: clubId, used_at: new Date().toISOString() })
+      }
+    );
+  } catch (e) {
+    console.warn('No se pudo marcar código en Supabase:', e);
+  }
+}
+
+// ========================================
 // FUNCIONES DE VALIDACIÓN DE CÓDIGOS
 // ========================================
 
 /**
- * Validar código de activación
+ * Validar código de activación (Firebase primero, luego Supabase)
  */
 async function validateActivationCode(code) {
   if (!code || code.trim() === '') {
@@ -31,65 +71,49 @@ async function validateActivationCode(code) {
   }
 
   const cleanCode = code.trim().toUpperCase();
-  
-  if (!window.firebase?.db) {
-    console.error('❌ Firebase no disponible');
-    return { valid: false, error: 'Error de conexión. Recarga la página.' };
+
+  // --- Intentar Firebase primero ---
+  if (window.firebase?.db) {
+    try {
+      console.log('🔍 Validando código en Firebase:', cleanCode);
+      const codeRef = window.firebase.doc(window.firebase.db, 'activation_codes', cleanCode);
+      const codeSnap = await window.firebase.getDoc(codeRef);
+
+      if (codeSnap.exists()) {
+        const codeData = codeSnap.data();
+        if (codeData.used === true) return { valid: false, error: 'Este código ya fue utilizado' };
+        const createdAt = codeData.createdAt?.toDate ? codeData.createdAt.toDate() : new Date(codeData.createdAt);
+        const expiresAt = new Date(createdAt);
+        expiresAt.setDate(expiresAt.getDate() + LICENSE_CONFIG.CODE_EXPIRY_DAYS);
+        if (new Date() > expiresAt) return { valid: false, error: 'Este código ha expirado. Solicita uno nuevo.' };
+        console.log('✅ Código válido (Firebase)');
+        return { valid: true, source: 'firebase', data: { code: cleanCode, plan: codeData.plan, createdAt, expiresAt } };
+      }
+    } catch (e) {
+      console.warn('Error Firebase al validar código:', e);
+    }
   }
 
-  try {
-    console.log('🔍 Validando código:', cleanCode);
-    
-    const codeRef = window.firebase.doc(
-      window.firebase.db,
-      'activation_codes',
-      cleanCode
-    );
-    
-    const codeSnap = await window.firebase.getDoc(codeRef);
-    
-    if (!codeSnap.exists()) {
-      console.log('❌ Código no encontrado');
-      return { valid: false, error: 'Código inválido o no existe' };
-    }
-    
-    const codeData = codeSnap.data();
-    
-    if (codeData.used === true) {
-      console.log('❌ Código ya fue usado');
-      return { valid: false, error: 'Este código ya fue utilizado' };
-    }
-    
-    const createdAt = codeData.createdAt?.toDate ? codeData.createdAt.toDate() : new Date(codeData.createdAt);
-    const expiresAt = new Date(createdAt);
-    expiresAt.setDate(expiresAt.getDate() + LICENSE_CONFIG.CODE_EXPIRY_DAYS);
-    
-    if (new Date() > expiresAt) {
-      console.log('❌ Código expirado');
-      return { valid: false, error: 'Este código ha expirado. Solicita uno nuevo.' };
-    }
-    
-    console.log('✅ Código válido:', codeData);
-    return { 
-      valid: true, 
-      data: {
-        code: cleanCode,
-        plan: codeData.plan,
-        createdAt: createdAt,
-        expiresAt: expiresAt
-      }
-    };
-    
-  } catch (error) {
-    console.error('❌ Error al validar código:', error);
-    return { valid: false, error: 'Error al verificar el código' };
-  }
+  // --- Intentar Supabase (códigos nuevos) ---
+  console.log('🔍 Código no encontrado en Firebase, revisando Supabase...');
+  const row = await _validateCodeSupabase(cleanCode);
+
+  if (!row) return { valid: false, error: 'Código inválido o no existe' };
+  if (row.used === true) return { valid: false, error: 'Este código ya fue utilizado' };
+
+  const createdAt = new Date(row.created_at);
+  const expiresAt = new Date(createdAt);
+  expiresAt.setDate(expiresAt.getDate() + LICENSE_CONFIG.CODE_EXPIRY_DAYS);
+  if (new Date() > expiresAt) return { valid: false, error: 'Este código ha expirado. Solicita uno nuevo.' };
+
+  console.log('✅ Código válido (Supabase)');
+  return { valid: true, source: 'supabase', data: { code: cleanCode, plan: row.plan, createdAt, expiresAt } };
 }
 
 /**
  * Marcar código como usado y crear licencia
  */
-async function activateLicense(code, clubId, clubName, clubPhone, plan) {
+async function activateLicense(code, clubId, clubName, clubPhone, plan, codeSource) {
   if (!window.firebase?.db) {
     console.error('❌ Firebase no disponible');
     return false;
@@ -98,7 +122,7 @@ async function activateLicense(code, clubId, clubName, clubPhone, plan) {
   try {
     const cleanCode = code.trim().toUpperCase();
     const now = new Date();
-    
+
     const endDate = new Date(now);
     if (plan === 'anual') {
       endDate.setFullYear(endDate.getFullYear() + 1);
@@ -107,14 +131,14 @@ async function activateLicense(code, clubId, clubName, clubPhone, plan) {
     }
 
     console.log('📝 Marcando código como usado...');
-    await window.firebase.updateDoc(
-      window.firebase.doc(window.firebase.db, 'activation_codes', cleanCode),
-      {
-        used: true,
-        usedBy: clubId,
-        usedAt: now.toISOString()
-      }
-    );
+    if (codeSource === 'supabase') {
+      await _markCodeUsedSupabase(cleanCode, clubId);
+    } else {
+      await window.firebase.updateDoc(
+        window.firebase.doc(window.firebase.db, 'activation_codes', cleanCode),
+        { used: true, usedBy: clubId, usedAt: now.toISOString() }
+      );
+    }
 
     console.log('📝 Creando licencia...');
     await window.firebase.setDoc(
@@ -159,27 +183,62 @@ async function activateLicense(code, clubId, clubName, clubPhone, plan) {
 /**
  * Verificar estado de licencia del club actual
  */
+// Helper: activa botones de módulos en el DOM según el objeto modulos
+function _applyModuloButtons(modulos) {
+  if (modulos?.inventario === true)   document.getElementById('btnInventarioWrapper')?.classList.remove('hidden');
+  if (modulos?.portal_padres === true) document.getElementById('btnPortalPadresWrapper')?.classList.remove('hidden');
+  if (modulos?.asistencias === true)  document.getElementById('btnAsistenciasWrapper')?.classList.remove('hidden');
+  if (modulos?.convocatoria === true) document.getElementById('btnConvocatoriaWrapper')?.classList.remove('hidden');
+}
+
 async function checkLicenseStatus() {
   const clubId = localStorage.getItem('clubId');
-  
+
   if (!clubId) {
     return { status: 'sin_licencia', daysRemaining: 0, message: 'No hay club registrado' };
   }
 
+  // ── Intento 1: Supabase ─────────────────────────────────────────────────────
+  // No depende de Firebase init — responde más rápido y capta cambios del super-admin
+  try {
+    const res = await fetch(
+      `${_SUPA_URL}/rest/v1/licenses?club_id=eq.${encodeURIComponent(clubId)}&select=status,end_date,modulos,plan&limit=1`,
+      { headers: { apikey: _SUPA_ANON, Authorization: `Bearer ${_SUPA_ANON}` } }
+    );
+    if (res.ok) {
+      const rows = await res.json();
+      const lic = rows?.[0];
+      if (lic) {
+        if (lic.status === 'inactivo') {
+          console.log('🔴 [Supabase] Licencia desactivada por administrador');
+          localStorage.setItem('licenseStatus', 'inactivo');
+          return { status: 'inactivo', daysRemaining: 0, endDate: new Date(lic.end_date), message: '🔴 Licencia desactivada - Contacta al administrador' };
+        }
+        const endDate = new Date(lic.end_date);
+        const result = calculateLicenseState(endDate);
+        _applyModuloButtons(lic.modulos);
+        localStorage.setItem('licenseStatus', result.status);
+        localStorage.setItem('licenseEndDate', lic.end_date);
+        if (lic.plan) localStorage.setItem('licensePlan', lic.plan);
+        console.log('📋 [Supabase] Estado de licencia:', result);
+        return result;
+      }
+    }
+  } catch (_) { /* continúa a Firebase */ }
+
+  // ── Intento 2: Firebase (fallback) ──────────────────────────────────────────
   if (!window.firebase?.db) {
     await new Promise(resolve => setTimeout(resolve, 1500));
   }
 
   if (!window.firebase?.db) {
     const cachedEndDate = localStorage.getItem('licenseEndDate');
-    if (cachedEndDate) {
-      return calculateLicenseState(new Date(cachedEndDate));
-    }
+    if (cachedEndDate) return calculateLicenseState(new Date(cachedEndDate));
     return { status: 'error', daysRemaining: 0, message: 'Sin conexión' };
   }
 
   try {
-    console.log('🔍 Consultando licencia en Firebase...');
+    console.log('🔍 [Firebase] Consultando licencia...');
     const licenseRef = window.firebase.doc(window.firebase.db, 'licenses', clubId);
     const licenseSnap = await window.firebase.getDoc(licenseRef);
 
@@ -188,49 +247,26 @@ async function checkLicenseStatus() {
     }
 
     const licenseData = licenseSnap.data();
-    
+
     if (licenseData.status === 'inactivo') {
-      console.log('🔴 Licencia desactivada por administrador');
+      console.log('🔴 [Firebase] Licencia desactivada por administrador');
       localStorage.setItem('licenseStatus', 'inactivo');
-      return {
-        status: 'inactivo',
-        daysRemaining: 0,
-        endDate: new Date(licenseData.endDate),
-        message: '🔴 Licencia desactivada - Contacta al administrador'
-      };
+      return { status: 'inactivo', daysRemaining: 0, endDate: new Date(licenseData.endDate), message: '🔴 Licencia desactivada - Contacta al administrador' };
     }
 
     const endDate = new Date(licenseData.endDate);
     const result = calculateLicenseState(endDate);
-
-    // Mostrar botones de módulos si están activos
-    if (licenseData.modulos?.inventario === true) {
-      document.getElementById('btnInventarioWrapper')?.classList.remove('hidden');
-    }
-    if (licenseData.modulos?.portal_padres === true) {
-      document.getElementById('btnPortalPadresWrapper')?.classList.remove('hidden');
-    }
-    if (licenseData.modulos?.asistencias === true) {
-      document.getElementById('btnAsistenciasWrapper')?.classList.remove('hidden');
-    }
-    if (licenseData.modulos?.convocatoria === true) {
-      document.getElementById('btnConvocatoriaWrapper')?.classList.remove('hidden');
-    }
+    _applyModuloButtons(licenseData.modulos);
     localStorage.setItem('licenseStatus', result.status);
     localStorage.setItem('licenseEndDate', licenseData.endDate);
     localStorage.setItem('licensePlan', licenseData.plan);
-
-    console.log('📋 Estado de licencia:', result);
+    console.log('📋 [Firebase] Estado de licencia:', result);
     return result;
 
   } catch (error) {
     console.error('❌ Error al verificar licencia:', error);
-    
     const cachedEndDate = localStorage.getItem('licenseEndDate');
-    if (cachedEndDate) {
-      return calculateLicenseState(new Date(cachedEndDate));
-    }
-    
+    if (cachedEndDate) return calculateLicenseState(new Date(cachedEndDate));
     return { status: 'error', daysRemaining: 0, message: 'Error de conexión' };
   }
 }

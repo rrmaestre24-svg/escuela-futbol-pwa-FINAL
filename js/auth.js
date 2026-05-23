@@ -1137,7 +1137,8 @@ console.log('✅ Mapeo guardado correctamente');
           clubId,
           clubName,
           clubPhone,
-          activationPlan
+          activationPlan,
+          codeValidation.source
         );
         
         if (licenseActivated) {
