@@ -512,21 +512,35 @@ function listenToLicenseChanges() {
 
     async function checkLicenseStatus() {
       try {
-        const doc = await window.firebase.getDoc(licenseRef);
-        if (!doc.exists()) {
-          console.log('⚠️ Licencia no encontrada');
-          return;
+        // Supabase primero — super-admin escribe aquí al desactivar
+        let newStatus = null;
+        let newModulos = null;
+        try {
+          const res = await fetch(
+            `${window.SUPA_URL}/rest/v1/licenses?club_id=eq.${encodeURIComponent(clubId)}&select=status,modulos&limit=1`,
+            { headers: { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}` } }
+          );
+          if (res.ok) {
+            const rows = await res.json();
+            if (rows?.[0]) { newStatus = rows[0].status; newModulos = rows[0].modulos; }
+          }
+        } catch (_) {}
+
+        // Firebase fallback
+        if (!newStatus) {
+          const doc = await window.firebase.getDoc(licenseRef);
+          if (!doc.exists()) { console.log('⚠️ Licencia no encontrada'); return; }
+          const d = doc.data();
+          newStatus = d.status;
+          newModulos = d.modulos;
         }
 
-        const licenseData = doc.data();
         const currentStatus = localStorage.getItem('licenseStatus');
-        const newStatus = licenseData.status;
-
-        const modulosChanged = JSON.stringify(licenseData.modulos) !== localStorage.getItem('licenseModulos');
-        localStorage.setItem('licenseModulos', JSON.stringify(licenseData.modulos || {}));
+        const modulosChanged = JSON.stringify(newModulos) !== localStorage.getItem('licenseModulos');
+        localStorage.setItem('licenseModulos', JSON.stringify(newModulos || {}));
 
         if ((currentStatus && currentStatus !== newStatus) || modulosChanged) {
-          console.log('🔄 Estado de licencia cambió...');
+          console.log('🔄 Estado de licencia cambió:', currentStatus, '→', newStatus);
           localStorage.setItem('licenseStatus', newStatus);
 
           if (window._licenseReloadInProgress) return;
@@ -550,10 +564,12 @@ function listenToLicenseChanges() {
       }
     }
 
-    const intervalId = setInterval(checkLicenseStatus, 10 * 60 * 1000);
+    // ⚠️ CUTOVER: intervalo reducido a 30 seg para detectar desactivación rápido.
+    // Restaurar a 10 * 60 * 1000 después del cutover.
+    const intervalId = setInterval(checkLicenseStatus, 30 * 1000);
     window.licenseUnsubscribe = () => clearInterval(intervalId);
 
-    console.log('✅ Polling de licencia activado (10 min)');
+    console.log('✅ Polling de licencia activado (30 seg — cutover)');
     
   } catch (error) {
     console.error('❌ Error al configurar listener:', error);
