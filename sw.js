@@ -1,4 +1,4 @@
-const CACHE_NAME = 'my-club-v1.1.47';
+const CACHE_NAME = 'my-club-v1.1.48';
 
 const urlsToCache = [
   '/',
@@ -146,7 +146,7 @@ self.addEventListener('fetch', event => {
   /* 🟢 NAVEGACIÓN (HTML) */
   if (event.request.mode === 'navigate') {
     event.respondWith(
-      fetch(event.request)
+      fetch(new Request(event.request, { cache: 'reload' }))
         .then(response => {
           // Cachear la respuesta
           if (response && response.status === 200) {
