@@ -380,6 +380,11 @@ async function getClubIdForUser(email) {
 const _FULL_DOWNLOAD_TTL_MS = 15 * 60 * 1000; // 15 minutos
 
 async function downloadAllClubData(clubId, { force = false } = {}) {
+  // Cuando MODO_SUPABASE está activo, delegar completamente a Supabase
+  if (window.MODO_SUPABASE && typeof downloadAllClubDataFromSupabase === 'function') {
+    return downloadAllClubDataFromSupabase(clubId, { force });
+  }
+
   if (!window.APP_STATE?.firebaseReady || !window.firebase?.auth?.currentUser) {
     console.warn('⚠️ Firebase no está listo o no hay usuario autenticado');
     return false;

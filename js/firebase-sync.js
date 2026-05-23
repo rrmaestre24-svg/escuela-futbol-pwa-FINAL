@@ -492,22 +492,32 @@ async function checkForUpdates() {
 }
 
 /**
- * ✅ Guardar jugador individual en Firebase
+ * ✅ Guardar jugador individual (Firebase o Supabase según MODO_SUPABASE)
  */
 async function savePlayerToFirebase(player) {
-  if (!checkFirebaseReady()) return false;
-
   const clubId = getClubId();
-  if (!clubId || !player?.id) {
-    console.error('❌ Club ID o player ID faltante');
-    return false;
+  if (!clubId || !player?.id) { console.error('❌ Club ID o player ID faltante'); return false; }
+
+  if (window.MODO_SUPABASE) {
+    return _supaUpsertOne('players', {
+      id: player.id, club_id: clubId,
+      name: player.name || '', status: player.status || 'Activo',
+      category: player.category || null, birth_date: player.birthDate || null,
+      jersey_number: player.jerseyNumber || null, document_type: player.documentType || null,
+      document_number: player.documentNumber || null, phone: player.phone || null,
+      email: player.email || null, address: player.address || null,
+      emergency_contact: player.emergencyContact || null, position: player.position || null,
+      enrollment_date: player.enrollmentDate || null, medical_info: player.medicalInfo || null,
+      documents: player.documents || null,
+      portal_access_revokes_at: player.portalAccessRevokesAt || null,
+      last_inactivated_at: player.lastInactivatedAt || null,
+      deleted: player.deleted || false, updated_at: new Date().toISOString(),
+    });
   }
 
+  if (!checkFirebaseReady()) return false;
   try {
-    // ✅ Comprimir avatar antes de guardar
     const preparedPlayer = await preparePlayerForFirebase(player);
-    
-    // ✅ RUTA CORREGIDA
     await window.firebase.setDoc(
       window.firebase.doc(window.firebase.db, `clubs/${clubId}/players`, preparedPlayer.id),
       { ...preparedPlayer, updatedAt: new Date().toISOString() }
@@ -556,16 +566,23 @@ async function saveSchoolSettingsToFirebase(settings) {
 window.saveSchoolSettingsToFirebase = saveSchoolSettingsToFirebase;
 
 async function savePaymentToFirebase(payment) {
-  if (!checkFirebaseReady()) return false;
-
   const clubId = getClubId();
-  if (!clubId || !payment?.id) {
-    console.error('❌ Club ID o payment ID faltante');
-    return false;
+  if (!clubId || !payment?.id) { console.error('❌ Club ID o payment ID faltante'); return false; }
+
+  if (window.MODO_SUPABASE) {
+    return _supaUpsertOne('payments', {
+      id: payment.id, club_id: clubId, player_id: payment.playerId || null,
+      concept: payment.concept || null, type: payment.type || null,
+      status: payment.status || 'Pendiente', amount: payment.amount || 0,
+      due_date: payment.dueDate || null, paid_date: payment.paidDate || null,
+      method: payment.method || null, invoice_number: payment.invoiceNumber || null,
+      notes: payment.notes || null, deleted: payment.deleted || false,
+      updated_at: new Date().toISOString(),
+    });
   }
 
+  if (!checkFirebaseReady()) return false;
   try {
-    // ✅ RUTA CORREGIDA
     await window.firebase.setDoc(
       window.firebase.doc(window.firebase.db, `clubs/${clubId}/payments`, payment.id),
       { ...payment, updatedAt: new Date().toISOString() }
@@ -579,19 +596,23 @@ async function savePaymentToFirebase(payment) {
 }
 
 /**
- * ✅ Guardar evento individual en Firebase
+ * ✅ Guardar evento individual (Firebase o Supabase según MODO_SUPABASE)
  */
 async function saveEventToFirebase(event) {
-  if (!checkFirebaseReady()) return false;
-
   const clubId = getClubId();
-  if (!clubId || !event?.id) {
-    console.error('❌ Club ID o event ID faltante');
-    return false;
+  if (!clubId || !event?.id) { console.error('❌ Club ID o event ID faltante'); return false; }
+
+  if (window.MODO_SUPABASE) {
+    return _supaUpsertOne('events', {
+      id: event.id, club_id: clubId, title: event.title || '',
+      date: event.date || null, time: event.time || null,
+      description: event.description || null, location: event.location || null,
+      deleted: event.deleted || false, updated_at: new Date().toISOString(),
+    });
   }
 
+  if (!checkFirebaseReady()) return false;
   try {
-    // ✅ RUTA CORREGIDA
     await window.firebase.setDoc(
       window.firebase.doc(window.firebase.db, `clubs/${clubId}/events`, event.id),
       { ...event, updatedAt: new Date().toISOString() }
@@ -605,37 +626,30 @@ async function saveEventToFirebase(event) {
 }
 
 /**
- * ✅ Guardar usuario en el club en Firebase
+ * ✅ Guardar usuario en el club (Firebase o Supabase según MODO_SUPABASE)
  */
 async function saveUserToClubInFirebase(user) {
-  if (!checkFirebaseReady()) return false;
-
   const clubId = getClubId();
-  if (!clubId || !user?.id) {
-    console.error('❌ Club ID o user ID faltante');
-    return false;
-  }
-  
-  try {
-    // ✅ RUTA CORREGIDA
-    const userRef = window.firebase.doc(
-      window.firebase.db,
-      `clubs/${clubId}/users`,
-      user.id
-    );
-    
-    await window.firebase.setDoc(userRef, {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      isMainAdmin: user.isMainAdmin || false,
-      role: user.role || 'admin',
-      avatar: user.avatar || '',
-      phone: user.phone || '',
-      birthDate: user.birthDate || '',
-      joinedAt: user.createdAt || new Date().toISOString()
+  if (!clubId || !user?.id) { console.error('❌ Club ID o user ID faltante'); return false; }
+
+  if (window.MODO_SUPABASE) {
+    return _supaUpsertOne('users', {
+      id: user.id, club_id: clubId, email: user.email || '', name: user.name || '',
+      is_main_admin: user.isMainAdmin || false, phone: user.phone || null,
+      birth_date: user.birthDate || null,
+      deleted: user.deleted || false, updated_at: new Date().toISOString(),
     });
-    
+  }
+
+  if (!checkFirebaseReady()) return false;
+  try {
+    const userRef = window.firebase.doc(window.firebase.db, `clubs/${clubId}/users`, user.id);
+    await window.firebase.setDoc(userRef, {
+      id: user.id, email: user.email, name: user.name,
+      isMainAdmin: user.isMainAdmin || false, role: user.role || 'admin',
+      avatar: user.avatar || '', phone: user.phone || '',
+      birthDate: user.birthDate || '', joinedAt: user.createdAt || new Date().toISOString()
+    });
     console.log('✅ Usuario guardado en Firebase:', user.id);
     return true;
   } catch (error) {
@@ -645,37 +659,30 @@ async function saveUserToClubInFirebase(user) {
 }
 
 /**
- * ✅ Guardar usuario en el club en Firebase (con clubId explícito)
+ * ✅ Guardar usuario en el club con clubId explícito (Firebase o Supabase según MODO_SUPABASE)
  */
 async function saveUserToClubInFirebaseWithClubId(user, explicitClubId) {
-  if (!checkFirebaseReady()) return false;
-  
   const clubId = explicitClubId || getClubId();
-  if (!clubId || !user?.id) {
-    console.error('❌ Club ID o user ID faltante');
-    return false;
-  }
-  
-  try {
-    // ✅ RUTA CORREGIDA
-    const userRef = window.firebase.doc(
-      window.firebase.db,
-      `clubs/${clubId}/users`,
-      user.id
-    );
-    
-    await window.firebase.setDoc(userRef, {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      isMainAdmin: user.isMainAdmin || false,
-      role: user.role || 'admin',
-      avatar: user.avatar || '',
-      phone: user.phone || '',
-      birthDate: user.birthDate || '',
-      joinedAt: new Date().toISOString()
+  if (!clubId || !user?.id) { console.error('❌ Club ID o user ID faltante'); return false; }
+
+  if (window.MODO_SUPABASE) {
+    return _supaUpsertOne('users', {
+      id: user.id, club_id: clubId, email: user.email || '', name: user.name || '',
+      is_main_admin: user.isMainAdmin || false, phone: user.phone || null,
+      birth_date: user.birthDate || null,
+      deleted: user.deleted || false, updated_at: new Date().toISOString(),
     });
-    
+  }
+
+  if (!checkFirebaseReady()) return false;
+  try {
+    const userRef = window.firebase.doc(window.firebase.db, `clubs/${clubId}/users`, user.id);
+    await window.firebase.setDoc(userRef, {
+      id: user.id, email: user.email, name: user.name,
+      isMainAdmin: user.isMainAdmin || false, role: user.role || 'admin',
+      avatar: user.avatar || '', phone: user.phone || '',
+      birthDate: user.birthDate || '', joinedAt: new Date().toISOString()
+    });
     console.log('✅ Usuario guardado en club:', clubId, user.id);
     return true;
   } catch (error) {
@@ -685,17 +692,17 @@ async function saveUserToClubInFirebaseWithClubId(user, explicitClubId) {
 }
 
 /**
- * ✅ Eliminar jugador de Firebase
+ * ✅ Eliminar jugador — soft delete (Firebase o Supabase según MODO_SUPABASE)
  */
 async function deletePlayerFromFirebase(playerId) {
-  if (!checkFirebaseReady()) return false;
-
   const clubId = getClubId();
-  if (!clubId || !playerId) {
-    console.error('❌ Club ID o player ID faltante');
-    return false;
+  if (!clubId || !playerId) { console.error('❌ Club ID o player ID faltante'); return false; }
+
+  if (window.MODO_SUPABASE) {
+    return _supaPatch('players', playerId, clubId, { deleted: true });
   }
 
+  if (!checkFirebaseReady()) return false;
   try {
     await window.firebase.setDoc(
       window.firebase.doc(window.firebase.db, `clubs/${clubId}/players`, playerId),
@@ -711,17 +718,17 @@ async function deletePlayerFromFirebase(playerId) {
 }
 
 /**
- * ✅ Eliminar pago de Firebase
+ * ✅ Eliminar pago — soft delete (Firebase o Supabase según MODO_SUPABASE)
  */
 async function deletePaymentFromFirebase(paymentId) {
-  if (!checkFirebaseReady()) return false;
-
   const clubId = getClubId();
-  if (!clubId || !paymentId) {
-    console.error('❌ Club ID o payment ID faltante');
-    return false;
+  if (!clubId || !paymentId) { console.error('❌ Club ID o payment ID faltante'); return false; }
+
+  if (window.MODO_SUPABASE) {
+    return _supaPatch('payments', paymentId, clubId, { deleted: true });
   }
 
+  if (!checkFirebaseReady()) return false;
   try {
     await window.firebase.setDoc(
       window.firebase.doc(window.firebase.db, `clubs/${clubId}/payments`, paymentId),
@@ -737,17 +744,17 @@ async function deletePaymentFromFirebase(paymentId) {
 }
 
 /**
- * ✅ Eliminar evento de Firebase
+ * ✅ Eliminar evento — soft delete (Firebase o Supabase según MODO_SUPABASE)
  */
 async function deleteEventFromFirebase(eventId) {
-  if (!checkFirebaseReady()) return false;
-
   const clubId = getClubId();
-  if (!clubId || !eventId) {
-    console.error('❌ Club ID o event ID faltante');
-    return false;
+  if (!clubId || !eventId) { console.error('❌ Club ID o event ID faltante'); return false; }
+
+  if (window.MODO_SUPABASE) {
+    return _supaPatch('events', eventId, clubId, { deleted: true });
   }
 
+  if (!checkFirebaseReady()) return false;
   try {
     await window.firebase.setDoc(
       window.firebase.doc(window.firebase.db, `clubs/${clubId}/events`, eventId),
@@ -763,19 +770,24 @@ async function deleteEventFromFirebase(eventId) {
 }
 
 /**
- * ✅ Guardar egreso individual en Firebase
+ * ✅ Guardar egreso individual (Firebase o Supabase según MODO_SUPABASE)
  */
 async function saveExpenseToFirebase(expense) {
-  if (!checkFirebaseReady()) return false;
-
   const clubId = getClubId();
-  if (!clubId || !expense?.id) {
-    console.error('❌ Club ID o expense ID faltante');
-    return false;
+  if (!clubId || !expense?.id) { console.error('❌ Club ID o expense ID faltante'); return false; }
+
+  if (window.MODO_SUPABASE) {
+    return _supaUpsertOne('expenses', {
+      id: expense.id, club_id: clubId, concept: expense.concept || '',
+      amount: expense.amount || 0, date: expense.date || null,
+      category: expense.category || null, description: expense.description || null,
+      invoice_number: expense.invoiceNumber || null,
+      deleted: expense.deleted || false, updated_at: new Date().toISOString(),
+    });
   }
 
+  if (!checkFirebaseReady()) return false;
   try {
-    // ✅ RUTA: clubs/{clubId}/expenses/{expenseId}
     await window.firebase.setDoc(
       window.firebase.doc(window.firebase.db, `clubs/${clubId}/expenses`, expense.id),
       { ...expense, updatedAt: new Date().toISOString() }
@@ -789,17 +801,17 @@ async function saveExpenseToFirebase(expense) {
 }
 
 /**
- * ✅ Eliminar egreso de Firebase
+ * ✅ Eliminar egreso — soft delete (Firebase o Supabase según MODO_SUPABASE)
  */
 async function deleteExpenseFromFirebase(expenseId) {
-  if (!checkFirebaseReady()) return false;
-
   const clubId = getClubId();
-  if (!clubId || !expenseId) {
-    console.error('❌ Club ID o expense ID faltante');
-    return false;
+  if (!clubId || !expenseId) { console.error('❌ Club ID o expense ID faltante'); return false; }
+
+  if (window.MODO_SUPABASE) {
+    return _supaPatch('expenses', expenseId, clubId, { deleted: true });
   }
 
+  if (!checkFirebaseReady()) return false;
   try {
     await window.firebase.setDoc(
       window.firebase.doc(window.firebase.db, `clubs/${clubId}/expenses`, expenseId),
@@ -1262,6 +1274,326 @@ window.saveVoidedPaymentToFirebase = saveVoidedPaymentToFirebase;
 // 🔄 SINCRONIZACIÓN AUTOMÁTICA DEL CONTADOR
 // (Solo se ejecuta la primera vez por dispositivo)
 // ========================================
+// ============================================================
+// ☁️ SUPABASE — HELPERS + SYNC COMPLETO
+// Todas estas funciones sólo se activan cuando window.MODO_SUPABASE = true.
+// Con MODO_SUPABASE = false el código de Firebase se ejecuta sin cambios.
+// ============================================================
+
+/** Headers comunes para llamadas Supabase REST */
+function _supaHeaders(extra = {}) {
+  return {
+    apikey: window.SUPA_ANON,
+    Authorization: `Bearer ${window.SUPA_ANON}`,
+    'Content-Type': 'application/json',
+    ...extra,
+  };
+}
+
+/**
+ * PATCH a un registro individual en Supabase.
+ * data = campos a actualizar (en snake_case).
+ * Siempre agrega updated_at.
+ */
+async function _supaPatch(table, id, clubId, data) {
+  try {
+    const res = await fetch(
+      `${window.SUPA_URL}/rest/v1/${table}?id=eq.${encodeURIComponent(id)}&club_id=eq.${encodeURIComponent(clubId)}`,
+      {
+        method: 'PATCH',
+        headers: _supaHeaders({ Prefer: 'return=minimal' }),
+        body: JSON.stringify({ ...data, updated_at: new Date().toISOString() }),
+      }
+    );
+    if (!res.ok) console.warn(`⚠️ Supabase PATCH ${table}/${id}:`, await res.text());
+    return res.ok;
+  } catch (e) {
+    console.warn(`⚠️ Supabase PATCH ${table}/${id}:`, e.message);
+    return false;
+  }
+}
+
+/**
+ * Upsert un solo registro en Supabase (insert or update por PK).
+ */
+async function _supaUpsertOne(table, row) {
+  try {
+    const res = await fetch(`${window.SUPA_URL}/rest/v1/${table}`, {
+      method: 'POST',
+      headers: _supaHeaders({ Prefer: 'resolution=merge-duplicates,return=minimal' }),
+      body: JSON.stringify(row),
+    });
+    if (!res.ok) console.warn(`⚠️ Supabase upsert ${table}:`, await res.text());
+    return res.ok;
+  } catch (e) {
+    console.warn(`⚠️ Supabase upsert ${table}:`, e.message);
+    return false;
+  }
+}
+
+/**
+ * Upsert en lotes de 50. Devuelve número de filas enviadas exitosamente.
+ */
+async function _supaUpsert(table, rows) {
+  if (!rows || rows.length === 0) return 0;
+  const BATCH = 50;
+  let ok = 0;
+  for (let i = 0; i < rows.length; i += BATCH) {
+    const batch = rows.slice(i, i + BATCH);
+    try {
+      const res = await fetch(`${window.SUPA_URL}/rest/v1/${table}`, {
+        method: 'POST',
+        headers: _supaHeaders({ Prefer: 'resolution=merge-duplicates,return=minimal' }),
+        body: JSON.stringify(batch),
+      });
+      if (res.ok) ok += batch.length;
+      else console.warn(`⚠️ Supabase upsert ${table}[${i}]:`, await res.text());
+    } catch (e) {
+      console.warn(`⚠️ Supabase upsert ${table} error:`, e.message);
+    }
+  }
+  return ok;
+}
+
+/**
+ * ✅ Sube todos los datos locales a Supabase (equivalente a syncAllToFirebase).
+ * Llamar en el día del cutover después de desactivar todos los clubs.
+ */
+async function syncAllToSupabase() {
+  const clubId = getClubId();
+  if (!clubId) { showToast('❌ No se puede sincronizar sin clubId'); return; }
+
+  const currentUser = getCurrentUser();
+  if (!currentUser) { showToast('❌ No hay usuario en sesión'); return; }
+
+  showToast('📤 Subiendo a Supabase...');
+  console.log('📤 syncAllToSupabase — club:', clubId);
+  const syncedItems = [];
+
+  // 1️⃣ Jugadores (avatar_url se gestiona aparte via Storage — aquí va null o URL existente)
+  const players = (getAllPlayers() || []).filter(p => p.id);
+  const playerRows = players.map(p => ({
+    id: p.id, club_id: clubId,
+    name: p.name || '', status: p.status || 'Activo',
+    category: p.category || null, birth_date: p.birthDate || null,
+    jersey_number: p.jerseyNumber || null, document_type: p.documentType || null,
+    document_number: p.documentNumber || null, phone: p.phone || null,
+    email: p.email || null, address: p.address || null,
+    emergency_contact: p.emergencyContact || null, position: p.position || null,
+    enrollment_date: p.enrollmentDate || null, medical_info: p.medicalInfo || null,
+    documents: p.documents || null, portal_access_revokes_at: p.portalAccessRevokesAt || null,
+    last_inactivated_at: p.lastInactivatedAt || null,
+    deleted: p.deleted || false, updated_at: new Date().toISOString(),
+  }));
+  syncedItems.push(`${await _supaUpsert('players', playerRows)} jugadores`);
+
+  // 2️⃣ Pagos
+  const payments = (getPayments() || []).filter(p => p.id);
+  const paymentRows = payments.map(p => ({
+    id: p.id, club_id: clubId, player_id: p.playerId || null,
+    concept: p.concept || null, type: p.type || null,
+    status: p.status || 'Pendiente', amount: p.amount || 0,
+    due_date: p.dueDate || null, paid_date: p.paidDate || null,
+    method: p.method || null, invoice_number: p.invoiceNumber || null,
+    notes: p.notes || null, deleted: p.deleted || false,
+    updated_at: new Date().toISOString(),
+  }));
+  syncedItems.push(`${await _supaUpsert('payments', paymentRows)} pagos`);
+
+  // 3️⃣ Egresos
+  const expenses = (getExpenses() || []).filter(e => e.id);
+  const expenseRows = expenses.map(e => ({
+    id: e.id, club_id: clubId, concept: e.concept || '',
+    amount: e.amount || 0, date: e.date || null,
+    category: e.category || null, description: e.description || null,
+    invoice_number: e.invoiceNumber || null,
+    deleted: e.deleted || false, updated_at: new Date().toISOString(),
+  }));
+  syncedItems.push(`${await _supaUpsert('expenses', expenseRows)} egresos`);
+
+  // 4️⃣ Eventos
+  const events = (getCalendarEvents() || []).filter(ev => ev.id);
+  const eventRows = events.map(ev => ({
+    id: ev.id, club_id: clubId, title: ev.title || '',
+    date: ev.date || null, time: ev.time || null,
+    description: ev.description || null, location: ev.location || null,
+    deleted: ev.deleted || false, updated_at: new Date().toISOString(),
+  }));
+  syncedItems.push(`${await _supaUpsert('events', eventRows)} eventos`);
+
+  // 5️⃣ Usuarios (solo admin principal)
+  if (currentUser.isMainAdmin) {
+    const users = (getUsers() || []).filter(u => u.id);
+    const userRows = users.map(u => ({
+      id: u.id, club_id: clubId, email: u.email || '', name: u.name || '',
+      is_main_admin: u.isMainAdmin || false, phone: u.phone || null,
+      birth_date: u.birthDate || null,
+      deleted: u.deleted || false, updated_at: new Date().toISOString(),
+    }));
+    syncedItems.push(`${await _supaUpsert('users', userRows)} usuarios`);
+  }
+
+  // 6️⃣ Códigos de padres
+  const parentCodes = (typeof getParentCodes === 'function' ? getParentCodes() : []).filter(pc => pc.playerId && pc.code);
+  const pcRows = parentCodes.map(pc => ({
+    id: pc.playerId, club_id: clubId, player_id: pc.playerId,
+    code: pc.code, active: true,
+    created_at: pc.createdAt || new Date().toISOString(),
+  }));
+  syncedItems.push(`${await _supaUpsert('parent_codes', pcRows)} códigos padres`);
+
+  showToast(`✅ Supabase: ${syncedItems.join(', ')}`);
+  console.log('✅ syncAllToSupabase completado:', syncedItems.join(', '));
+}
+
+/**
+ * ✅ Descarga todos los datos del club desde Supabase al localStorage.
+ * Equivalente a downloadAllClubData() pero usando Supabase REST.
+ * Llamada automáticamente cuando MODO_SUPABASE = true.
+ */
+async function downloadAllClubDataFromSupabase(clubId, { force = false } = {}) {
+  if (!clubId) {
+    console.error('❌ clubId es requerido');
+    showToast('❌ Error: No se encontró el ID del club');
+    return false;
+  }
+
+  // LOCAL-FIRST GUARD: reutilizar caché si está fresca (mismo comportamiento que Firebase)
+  // Nota: _FULL_DOWNLOAD_TTL_MS es const en auth.js (no global), usamos el mismo valor literal.
+  const _SUPA_TTL_MS = 15 * 60 * 1000; // 15 minutos
+  if (!force) {
+    const canReuseLocal = typeof shouldReuseLocalSnapshot === 'function'
+      ? shouldReuseLocalSnapshot(clubId, 'players',  { ttlMs: _SUPA_TTL_MS }) &&
+        shouldReuseLocalSnapshot(clubId, 'payments', { ttlMs: _SUPA_TTL_MS }) &&
+        shouldReuseLocalSnapshot(clubId, 'settings', { ttlMs: _SUPA_TTL_MS })
+      : false;
+    if (canReuseLocal) {
+      console.log('⚡ [LOCAL-FIRST] Datos frescos en caché — omitiendo descarga de Supabase');
+      showToast('⚡ Datos cargados desde caché local');
+      return true;
+    }
+  }
+
+  try {
+    console.log('☁️ Descargando datos desde Supabase — club:', clubId);
+    showToast('☁️ Sincronizando desde Supabase...');
+    const h = { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}` };
+    const base = `${window.SUPA_URL}/rest/v1`;
+    const enc = encodeURIComponent;
+
+    // 1️⃣ Jugadores
+    const pRes = await fetch(`${base}/players?club_id=eq.${enc(clubId)}&deleted=eq.false&select=*`, { headers: h });
+    if (!pRes.ok) throw new Error('Error al leer jugadores de Supabase: ' + await pRes.text());
+    const pRows = await pRes.json();
+    const players = pRows.map(p => ({
+      id: p.id, name: p.name, status: p.status, category: p.category,
+      birthDate: p.birth_date, jerseyNumber: p.jersey_number,
+      documentType: p.document_type, documentNumber: p.document_number,
+      phone: p.phone, email: p.email, address: p.address,
+      emergencyContact: p.emergency_contact, position: p.position,
+      enrollmentDate: p.enrollment_date, medicalInfo: p.medical_info,
+      documents: p.documents, avatar: p.avatar_url || '',
+      portalAccessRevokesAt: p.portal_access_revokes_at,
+      lastInactivatedAt: p.last_inactivated_at,
+      deleted: p.deleted, schoolId: clubId,
+    }));
+    localStorage.setItem('players', JSON.stringify(players));
+    console.log(`✅ ${players.length} jugadores descargados desde Supabase`);
+
+    // 2️⃣ Pagos (últimos 12 meses — mismo criterio que Firebase)
+    const cutoff = new Date();
+    cutoff.setFullYear(cutoff.getFullYear() - 1);
+    const cutoffStr = cutoff.toISOString().split('T')[0];
+    const pmRes = await fetch(
+      `${base}/payments?club_id=eq.${enc(clubId)}&deleted=eq.false&due_date=gte.${cutoffStr}&select=*`,
+      { headers: h }
+    );
+    if (!pmRes.ok) throw new Error('Error al leer pagos de Supabase: ' + await pmRes.text());
+    const pmRows = await pmRes.json();
+    const payments = pmRows.map(p => ({
+      id: p.id, playerId: p.player_id, concept: p.concept, type: p.type,
+      status: p.status, amount: p.amount, dueDate: p.due_date, paidDate: p.paid_date,
+      method: p.method, invoiceNumber: p.invoice_number, notes: p.notes,
+      deleted: p.deleted, clubId: clubId,
+    }));
+    localStorage.removeItem('paymentsFullHistory');
+    localStorage.setItem('payments', JSON.stringify(payments));
+    console.log(`✅ ${payments.length} pagos descargados desde Supabase`);
+
+    // 3️⃣ Eventos
+    const evRes = await fetch(`${base}/events?club_id=eq.${enc(clubId)}&deleted=eq.false&select=*`, { headers: h });
+    if (!evRes.ok) throw new Error('Error al leer eventos de Supabase: ' + await evRes.text());
+    const evRows = await evRes.json();
+    const events = evRows.map(ev => ({
+      id: ev.id, title: ev.title, date: ev.date, time: ev.time,
+      description: ev.description, location: ev.location,
+      deleted: ev.deleted, clubId: clubId,
+    }));
+    localStorage.setItem('calendarEvents', JSON.stringify(events));
+    console.log(`✅ ${events.length} eventos descargados desde Supabase`);
+
+    // 4️⃣ Usuarios
+    const uRes = await fetch(`${base}/users?club_id=eq.${enc(clubId)}&deleted=eq.false&select=*`, { headers: h });
+    if (!uRes.ok) throw new Error('Error al leer usuarios de Supabase: ' + await uRes.text());
+    const uRows = await uRes.json();
+    const clubUsers = uRows.map(u => ({
+      id: u.id, schoolId: clubId, email: u.email, name: u.name,
+      isMainAdmin: u.is_main_admin === true,
+      role: u.role || 'admin', avatar: '', phone: u.phone || '',
+      birthDate: u.birth_date || '', password: 'encrypted',
+      createdAt: u.created_at || new Date().toISOString(),
+    }));
+    localStorage.setItem('users', JSON.stringify(clubUsers));
+    console.log(`✅ ${clubUsers.length} usuarios descargados desde Supabase`);
+
+    // 5️⃣ Egresos
+    const exRes = await fetch(`${base}/expenses?club_id=eq.${enc(clubId)}&deleted=eq.false&select=*`, { headers: h });
+    if (!exRes.ok) throw new Error('Error al leer egresos de Supabase: ' + await exRes.text());
+    const exRows = await exRes.json();
+    const expenses = exRows.map(e => ({
+      id: e.id, concept: e.concept, amount: e.amount, date: e.date,
+      category: e.category, description: e.description,
+      invoiceNumber: e.invoice_number, deleted: e.deleted, clubId: clubId,
+    }));
+    localStorage.setItem('expenses', JSON.stringify(expenses));
+    console.log(`✅ ${expenses.length} egresos descargados desde Supabase`);
+
+    // 6️⃣ Códigos de padres
+    const pcRes = await fetch(`${base}/parent_codes?club_id=eq.${enc(clubId)}&active=eq.true&select=*`, { headers: h });
+    if (pcRes.ok) {
+      const pcRows = await pcRes.json();
+      const parentCodes = pcRows.map(pc => ({
+        playerId: pc.player_id, code: pc.code,
+        createdAt: pc.created_at, lastAccess: pc.last_access || null,
+      }));
+      localStorage.setItem('parentCodes', JSON.stringify(parentCodes));
+      console.log(`✅ ${parentCodes.length} códigos de padres descargados desde Supabase`);
+    }
+
+    // Marcas de caché LOCAL-FIRST (mismo patrón que Firebase)
+    localStorage.setItem('_lastFullDownload', JSON.stringify({ clubId, ts: Date.now() }));
+    if (typeof markLocalSnapshotSynced === 'function') {
+      ['players', 'payments', 'events', 'expenses', 'users'].forEach(scope =>
+        markLocalSnapshotSynced(clubId, scope, { source: 'supabase' })
+      );
+    }
+
+    showToast('✅ Datos sincronizados desde Supabase');
+    return true;
+  } catch (error) {
+    console.error('❌ Error al descargar desde Supabase:', error);
+    showToast('⚠️ Error al descargar desde Supabase: ' + error.message);
+    return false;
+  }
+}
+
+window.syncAllToSupabase           = syncAllToSupabase;
+window.downloadAllClubDataFromSupabase = downloadAllClubDataFromSupabase;
+
+// ============================================================
+// FIN SUPABASE BLOCK
+// ============================================================
+
 window.addEventListener('load', async () => {
   // Esperar 2 segundos para que Firebase esté completamente listo
   await new Promise(resolve => setTimeout(resolve, 2000));

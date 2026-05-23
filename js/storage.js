@@ -1081,44 +1081,80 @@ function deleteParentCode(playerId) {
 
 // Eliminar código de acceso en Firebase
 async function revokeParentCodeFromFirebase(playerId) {
-  if (!window.APP_STATE?.firebaseReady || !window.firebase?.db || !window.firebase?.deleteDoc) {
+  const clubId = localStorage.getItem('clubId');
+  if (!clubId || !playerId) return;
+
+  if (window.MODO_SUPABASE) {
+    try {
+      // En Supabase: PATCH active=false (el Edge Function valida active=true)
+      await fetch(
+        `${window.SUPA_URL}/rest/v1/parent_codes?player_id=eq.${encodeURIComponent(playerId)}&club_id=eq.${encodeURIComponent(clubId)}`,
+        {
+          method: 'PATCH',
+          headers: {
+            apikey: window.SUPA_ANON,
+            Authorization: `Bearer ${window.SUPA_ANON}`,
+            'Content-Type': 'application/json',
+            Prefer: 'return=minimal',
+          },
+          body: JSON.stringify({ active: false }),
+        }
+      );
+      console.log('✅ Código de padre revocado en Supabase');
+    } catch (error) {
+      console.warn('⚠️ No se pudo revocar código de padre en Supabase:', error);
+    }
     return;
   }
 
+  if (!window.APP_STATE?.firebaseReady || !window.firebase?.db || !window.firebase?.deleteDoc) return;
   try {
-    const clubId = localStorage.getItem('clubId');
-    if (!clubId || !playerId) return;
-
     await window.firebase.deleteDoc(
       window.firebase.doc(window.firebase.db, `clubs/${clubId}/parentCodes`, playerId)
     );
-
     console.log('✅ Código de padre revocado en Firebase');
   } catch (error) {
     console.warn('⚠️ No se pudo revocar código de padre en Firebase:', error);
   }
 }
 
-// Sincronizar código con Firebase
+// Sincronizar código de padre con Firebase o Supabase
 async function syncParentCodeToFirebase(playerId, code) {
+  const clubId = localStorage.getItem('clubId');
+  if (!clubId || !playerId || !code) return;
+
+  if (window.MODO_SUPABASE) {
+    try {
+      await fetch(`${window.SUPA_URL}/rest/v1/parent_codes`, {
+        method: 'POST',
+        headers: {
+          apikey: window.SUPA_ANON,
+          Authorization: `Bearer ${window.SUPA_ANON}`,
+          'Content-Type': 'application/json',
+          Prefer: 'resolution=merge-duplicates,return=minimal',
+        },
+        body: JSON.stringify({
+          id: playerId, club_id: clubId, player_id: playerId,
+          code: code, active: true,
+          created_at: new Date().toISOString(),
+        }),
+      });
+      console.log('✅ Código de padre sincronizado con Supabase');
+    } catch (error) {
+      console.warn('⚠️ No se pudo sincronizar código de padre con Supabase:', error);
+    }
+    return;
+  }
+
   if (!window.APP_STATE?.firebaseReady || !window.firebase?.db) {
     console.log('⚠️ Firebase no disponible para sincronizar código de padre');
     return;
   }
-  
   try {
-    const clubId = localStorage.getItem('clubId');
-    if (!clubId) return;
-    
     await window.firebase.setDoc(
       window.firebase.doc(window.firebase.db, `clubs/${clubId}/parentCodes`, playerId),
-      {
-        playerId: playerId,
-        code: code,
-        createdAt: new Date().toISOString()
-      }
+      { playerId: playerId, code: code, createdAt: new Date().toISOString() }
     );
-    
     console.log('✅ Código de padre sincronizado con Firebase');
   } catch (error) {
     console.warn('⚠️ No se pudo sincronizar código de padre:', error);

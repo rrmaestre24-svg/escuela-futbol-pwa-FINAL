@@ -244,12 +244,39 @@ async function togglePlayerStatus(playerId) {
   // Actualizar localmente
   updatePlayer(playerId, updateData);
   
-  // Sincronizar con Firebase si está disponible
-  if (window.APP_STATE?.firebaseReady && window.firebase?.db) {
+  // Sincronizar estado con Supabase o Firebase según el feature flag
+  if (window.MODO_SUPABASE) {
+    try {
+      const clubId = getSchoolSettings().clubId || localStorage.getItem('clubId');
+      if (clubId) {
+        const res = await fetch(
+          `${window.SUPA_URL}/rest/v1/players?id=eq.${encodeURIComponent(playerId)}&club_id=eq.${encodeURIComponent(clubId)}`,
+          {
+            method: 'PATCH',
+            headers: {
+              apikey: window.SUPA_ANON,
+              Authorization: `Bearer ${window.SUPA_ANON}`,
+              'Content-Type': 'application/json',
+              Prefer: 'return=minimal',
+            },
+            body: JSON.stringify({
+              status: updateData.status,
+              last_inactivated_at: updateData.lastInactivatedAt || null,
+              portal_access_revokes_at: updateData.portalAccessRevokesAt || null,
+              updated_at: new Date().toISOString(),
+            }),
+          }
+        );
+        if (res.ok) console.log('✅ Estado sincronizado con Supabase');
+        else console.warn('⚠️ Supabase toggleStatus error:', await res.text());
+      }
+    } catch (error) {
+      console.error('⚠️ Error al sincronizar estado con Supabase:', error);
+    }
+  } else if (window.APP_STATE?.firebaseReady && window.firebase?.db) {
     try {
       const settings = getSchoolSettings();
       const clubId = settings.clubId || localStorage.getItem('clubId');
-      
       if (clubId) {
         await window.firebase.setDoc(
           window.firebase.doc(window.firebase.db, `clubs/${clubId}/players`, playerId),
@@ -262,7 +289,7 @@ async function togglePlayerStatus(playerId) {
       console.error('⚠️ Error al sincronizar estado:', error);
     }
   }
-  
+
   // Mensaje y re-renderizar
   const statusIcon = newStatus === 'Activo' ? '✅' : '⚠️';
   showToast(`${statusIcon} ${player.name} marcado como ${newStatus}`);
