@@ -548,7 +548,7 @@ document.getElementById('playerSearch')?.addEventListener('input', function() {
 });
 
 // Mostrar detalles del jugador - MEJORADO CON DOCUMENTO
-function showPlayerDetails(playerId) {
+function showPlayerDetails(playerId, skipRefresh = false) {
   const player = getPlayerById(playerId);
   if (!player) {
     showToast('❌ Jugador no encontrado');
@@ -741,12 +741,32 @@ function showPlayerDetails(playerId) {
   document.getElementById('playerDetailsModal').classList.remove('hidden');
   lucide.createIcons();
 
-  // Traer documentos frescos desde Supabase (los que el padre pudo subir desde el portal)
-  refreshPlayerDocumentsFromSupabase(playerId);
+  // Traer datos frescos desde Supabase (foto y datos que el padre pudo cambiar en el portal)
+  if (!skipRefresh) {
+    refreshPlayerFromSupabase(playerId);
+    // Auto-refresco mientras el perfil está abierto: si el padre sube algo desde
+    // el portal en este momento, aparece solo (sin tener que cerrar y reabrir)
+    if (_playerDetailsRefreshTimer) clearInterval(_playerDetailsRefreshTimer);
+    if (window.MODO_SUPABASE) {
+      _playerDetailsRefreshTimer = setInterval(() => {
+        const m = document.getElementById('playerDetailsModal');
+        if (!m || m.classList.contains('hidden')) {
+          clearInterval(_playerDetailsRefreshTimer);
+          _playerDetailsRefreshTimer = null;
+          return;
+        }
+        refreshPlayerFromSupabase(playerId);
+      }, 12000);
+    }
+  }
 }
 
 // Cerrar modal detalles
 function closePlayerDetailsModal() {
+  if (_playerDetailsRefreshTimer) {
+    clearInterval(_playerDetailsRefreshTimer);
+    _playerDetailsRefreshTimer = null;
+  }
   document.getElementById('playerDetailsModal').classList.add('hidden');
 }
 
@@ -818,40 +838,62 @@ function renderDocumentsSection(player) {
   `;
 }
 
-// Refresca los documentos desde Supabase al abrir el perfil, para que el club
-// vea al instante los que el padre subió desde el portal (sin esperar el TTL del caché)
-async function refreshPlayerDocumentsFromSupabase(playerId) {
+// Timer de auto-refresco mientras el modal de detalles está abierto
+let _playerDetailsRefreshTimer = null;
+
+// Refresca desde Supabase al abrir el perfil lo que el padre puede editar en el
+// portal (foto, nombre, fecha, info médica, documentos), para que el club lo vea
+// al instante sin esperar el TTL del caché local.
+async function refreshPlayerFromSupabase(playerId) {
   if (!window.MODO_SUPABASE) return;
   const clubId = (typeof getClubId === 'function') ? getClubId() : null;
   if (!clubId) return;
   try {
     const res = await fetch(
-      `${window.SUPA_URL}/rest/v1/players?id=eq.${encodeURIComponent(playerId)}&club_id=eq.${encodeURIComponent(clubId)}&select=documents&limit=1`,
+      `${window.SUPA_URL}/rest/v1/players?id=eq.${encodeURIComponent(playerId)}&club_id=eq.${encodeURIComponent(clubId)}&select=name,birth_date,medical_info,avatar_url,documents&limit=1`,
       { headers: { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}` } }
     );
     if (!res.ok) return;
     const rows = await res.json();
-    const supaDocs = Array.isArray(rows?.[0]?.documents) ? rows[0].documents : [];
+    const row = rows?.[0];
+    if (!row) return;
 
-    // Comparar con el caché local; si no cambió, no hacer nada
+    const fresh = {
+      name:        row.name,
+      birthDate:   row.birth_date,
+      medicalInfo: row.medical_info,
+      avatar:      row.avatar_url || '',
+      documents:   Array.isArray(row.documents) ? row.documents : [],
+    };
+
     const players = getPlayers();
     const idx = players.findIndex(p => p.id === playerId);
     if (idx === -1) return;
-    const localDocs = Array.isArray(players[idx].documents) ? players[idx].documents : [];
-    const sameLength = localDocs.length === supaDocs.length;
-    const sameIds = sameLength && supaDocs.every(d => localDocs.some(l => l.id === d.id));
-    if (sameIds) return;
+    const cur = players[idx];
+
+    const changed =
+      (cur.avatar || '')    !== (fresh.avatar || '') ||
+      (cur.name || '')      !== (fresh.name || '') ||
+      (cur.birthDate || '') !== (fresh.birthDate || '') ||
+      JSON.stringify(cur.documents || [])  !== JSON.stringify(fresh.documents || []) ||
+      JSON.stringify(cur.medicalInfo || {}) !== JSON.stringify(fresh.medicalInfo || {});
+    if (!changed) return;
+
+    // No actualizar si el admin está escribiendo dentro del modal (perdería lo
+    // tecleado). No tocamos caché ni DOM: se reintenta en el próximo ciclo.
+    const modal = document.getElementById('playerDetailsModal');
+    const ae = document.activeElement;
+    const typingInModal = modal && ae && modal.contains(ae) &&
+      (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA');
+    if (typingInModal) return;
 
     // Persistir en localStorage sin reescribir a Supabase (no usar updatePlayer)
-    players[idx] = { ...players[idx], documents: supaDocs };
+    players[idx] = { ...cur, ...fresh };
     try { localStorage.setItem('players', JSON.stringify(players)); } catch (_) {}
 
-    // Si el modal sigue abierto en este jugador, refrescar solo la sección
-    const section = document.getElementById('docsSection_' + playerId);
-    const modal = document.getElementById('playerDetailsModal');
-    if (section && modal && !modal.classList.contains('hidden')) {
-      section.outerHTML = renderDocumentsSection(players[idx]);
-      if (typeof lucide !== 'undefined') lucide.createIcons();
+    // Si el modal sigue abierto en este jugador, re-renderizar con datos frescos
+    if (modal && !modal.classList.contains('hidden')) {
+      showPlayerDetails(playerId, true); // skipRefresh=true para no entrar en bucle
     }
   } catch (_) { /* silencioso: el caché local sigue mostrándose */ }
 }
