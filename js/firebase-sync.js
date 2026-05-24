@@ -577,7 +577,9 @@ async function saveSchoolSettingsToFirebase(settings) {
       if (settings.monthlyGraceDays != null) patch.monthly_grace_days = settings.monthlyGraceDays;
       if (settings.currency         != null) patch.currency           = settings.currency;
       if (settings.primaryColor     != null) patch.primary_color      = settings.primaryColor;
-      if (settings.logo             != null) patch.logo               = settings.logo;
+      // Logo: usar el del objeto si viene, sino leer del localStorage (nunca se pasaba explícitamente)
+      const _logoToSync = settings.logo ?? (() => { try { return JSON.parse(localStorage.getItem('schoolSettings') || '{}').logo || null; } catch(e) { return null; } })();
+      if (_logoToSync) patch.logo = _logoToSync;
       const res = await fetch(
         `${window.SUPA_URL}/rest/v1/clubs?id=eq.${encodeURIComponent(clubId)}`,
         {
