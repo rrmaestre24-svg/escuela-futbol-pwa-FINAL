@@ -1683,9 +1683,9 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false } = {}) {
     }
     console.log(`✅ ${players.length} jugadores descargados desde Supabase`);
 
-    // 2️⃣ Pagos (últimos 12 meses — mismo criterio que Firebase)
+    // 2️⃣ Pagos (últimos 6 meses — ver más antiguo on-demand desde payments.js)
     const cutoff = new Date();
-    cutoff.setFullYear(cutoff.getFullYear() - 1);
+    cutoff.setMonth(cutoff.getMonth() - 6);
     const cutoffStr = cutoff.toISOString().split('T')[0];
     const pmRes = await fetch(
       `${base}/payments?club_id=eq.${enc(clubId)}&deleted=eq.false&due_date=gte.${cutoffStr}&select=*`,
@@ -1700,17 +1700,9 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false } = {}) {
       deleted: p.deleted, clubId: clubId,
     }));
     localStorage.removeItem('paymentsFullHistory');
-    try {
-      localStorage.setItem('payments', JSON.stringify(payments));
-    } catch (quotaErr) {
-      // Cuota localStorage excedida — guardar solo los 300 más recientes
-      const reduced = payments
-        .sort((a, b) => (b.dueDate || '').localeCompare(a.dueDate || ''))
-        .slice(0, 300);
-      localStorage.setItem('payments', JSON.stringify(reduced));
-      console.warn(`⚠️ Cuota localStorage excedida — almacenados ${reduced.length} pagos recientes (de ${payments.length} totales)`);
-    }
-    console.log(`✅ ${payments.length} pagos descargados desde Supabase`);
+    localStorage.setItem('payments', JSON.stringify(payments));
+    localStorage.setItem('paymentsLoadedFrom', cutoffStr);
+    console.log(`✅ ${payments.length} pagos descargados desde Supabase (desde ${cutoffStr})`);
 
     // 3️⃣ Eventos
     const evRes = await fetch(`${base}/events?club_id=eq.${enc(clubId)}&deleted=eq.false&select=*`, { headers: h });

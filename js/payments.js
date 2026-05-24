@@ -18,6 +18,16 @@ const PAYMENTS_PER_PAGE = 30;
 
 let currentMonthlyPage = 1;
 let currentExtraPage = 1;
+
+// Pagos anteriores al cutoff de 6 meses — cargados on-demand desde Supabase (null = aún no pedidos)
+let _paymentsExtended = null;
+
+function _getPaymentsAll() {
+  const base = getPayments();
+  if (!_paymentsExtended || _paymentsExtended.length === 0) return base;
+  const ids = new Set(base.map(p => p.id));
+  return base.concat(_paymentsExtended.filter(p => !ids.has(p.id)));
+}
 let currentExpensePage = 1;
 
 // Escape HTML para evitar XSS en texto ingresado por el usuario (motivo/observación)
@@ -232,9 +242,8 @@ document.getElementById('paymentStatus')?.addEventListener('change', function() 
 // ========================================
 
 // Renderizar pagos
-// Renderizar pagos
 function renderPayments() {
-  const payments = getPayments();
+  const payments = _getPaymentsAll();
   const expenses = getExpenses();
   const thirdPartyIncomes = getThirdPartyIncomes();
   
@@ -327,9 +336,21 @@ function renderMonthlyPayments(payments, append = false) {
           </div>
       `);
       if (typeof setupMonthlyObserver === 'function') setupMonthlyObserver(payments);
+  } else {
+    const existingOlderBtn = document.getElementById('loadOlderPaymentsBtn');
+    if (existingOlderBtn) existingOlderBtn.remove();
+    const loadedFrom = localStorage.getItem('paymentsLoadedFrom');
+    if (_paymentsExtended === null && loadedFrom) {
+      container.insertAdjacentHTML('beforeend', `
+        <div id="loadOlderPaymentsBtn" class="w-full py-3 text-center border-t border-gray-200 dark:border-gray-700 mt-2">
+          <button onclick="window.loadOlderPaymentsFromSupabase()"
+            class="text-sm text-teal-600 dark:text-teal-400 hover:underline">
+            Ver pagos anteriores a ${loadedFrom}
+          </button>
+        </div>
+      `);
+    }
   }
-
-  // Iconos procesados de forma local en tempDiv
 }
 
 let monthlyObserver = null;
@@ -401,9 +422,21 @@ function renderExtraPayments(payments, append = false) {
           </div>
       `);
       if (typeof setupExtraObserver === 'function') setupExtraObserver(payments);
+  } else {
+    const existingOlderBtn = document.getElementById('loadOlderPaymentsBtn');
+    if (existingOlderBtn) existingOlderBtn.remove();
+    const loadedFrom = localStorage.getItem('paymentsLoadedFrom');
+    if (_paymentsExtended === null && loadedFrom) {
+      container.insertAdjacentHTML('beforeend', `
+        <div id="loadOlderPaymentsBtn" class="w-full py-3 text-center border-t border-gray-200 dark:border-gray-700 mt-2">
+          <button onclick="window.loadOlderPaymentsFromSupabase()"
+            class="text-sm text-teal-600 dark:text-teal-400 hover:underline">
+            Ver pagos anteriores a ${loadedFrom}
+          </button>
+        </div>
+      `);
+    }
   }
-  
-  // Iconos procesados de forma local en tempDiv
 }
 
 let extraObserver = null;
@@ -1224,6 +1257,56 @@ async function reconcileMissingHistory() {
 
 // Hacemos la función global para que el HTML la pueda llamar
 window.reconcileMissingHistory = reconcileMissingHistory;
+
+// ============================================================
+// PAGOS ANTERIORES — carga on-demand desde Supabase
+// Solo se activa si el admin hace clic en "Ver pagos anteriores"
+// Los resultados se guardan en _paymentsExtended (en memoria, no en localStorage)
+// ============================================================
+async function loadOlderPaymentsFromSupabase() {
+  const paymentsLoadedFrom = localStorage.getItem('paymentsLoadedFrom');
+  if (!paymentsLoadedFrom) return;
+  if (_paymentsExtended !== null) return;
+
+  const btn = document.getElementById('loadOlderPaymentsBtn');
+  if (btn) btn.innerHTML = '<span class="text-sm text-gray-400 dark:text-gray-500">Cargando...</span>';
+
+  try {
+    const clubId = typeof getClubId === 'function' ? getClubId() : null;
+    if (!clubId) { showToast('⚠️ Sin clubId'); return; }
+
+    const supaUrl  = window.SUPA_URL;
+    const supaAnon = window.SUPA_ANON;
+    if (!supaUrl || !supaAnon) { showToast('⚠️ Sin conexión a Supabase'); return; }
+
+    const res = await fetch(
+      `${supaUrl}/rest/v1/payments?club_id=eq.${encodeURIComponent(clubId)}&deleted=eq.false&due_date=lt.${paymentsLoadedFrom}&select=*`,
+      { headers: { apikey: supaAnon, Authorization: `Bearer ${supaAnon}` } }
+    );
+    if (!res.ok) throw new Error(await res.text());
+
+    const rows = await res.json();
+    _paymentsExtended = rows.map(p => ({
+      id: p.id, playerId: p.player_id, concept: p.concept, type: p.type,
+      status: p.status, amount: p.amount, dueDate: p.due_date, paidDate: p.paid_date,
+      method: p.method, invoiceNumber: p.invoice_number, notes: p.notes,
+      deleted: p.deleted, clubId: clubId,
+    }));
+
+    showToast(`✅ ${_paymentsExtended.length} pagos históricos cargados`);
+    renderPayments();
+
+  } catch (err) {
+    console.error('[payments] Error cargando pagos anteriores:', err);
+    showToast('⚠️ No se pudieron cargar pagos anteriores');
+    if (btn) btn.innerHTML = `
+      <button onclick="window.loadOlderPaymentsFromSupabase()"
+        class="text-sm text-teal-600 dark:text-teal-400 hover:underline">
+        Reintentar — ver pagos anteriores
+      </button>`;
+  }
+}
+window.loadOlderPaymentsFromSupabase = loadOlderPaymentsFromSupabase;
 
 
 // Eliminar pago — abre modal para pedir motivo de anulación (solo admin principal)
