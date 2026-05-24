@@ -2587,21 +2587,40 @@ async function handlePaymentFormSubmit(e) {
           return;
         }
 
-        // 2. Anulada en Firebase → CONFIRMACIÓN del admin
+        // 2. Anulada → CONFIRMACIÓN del admin
         let anuladoExiste = false;
         try {
-          if (window.firebase?.db && typeof getClubId === 'function') {
-            const voidedSnap = await window.firebase.getDocs(
-              window.firebase.collection(window.firebase.db, `clubs/${getClubId()}/voided_payments`)
-            );
-            voidedSnap.forEach(doc => {
-              const v = doc.data();
-              if (v.playerId === playerId &&
-                  v.type === 'Mensualidad' &&
-                  (v.dueDate || '').slice(0, 7) === mesRef) {
-                anuladoExiste = true;
+          const clubId = typeof getClubId === 'function' ? getClubId() : localStorage.getItem('clubId');
+          if (clubId) {
+            if (window.MODO_SUPABASE) {
+              const res = await fetch(
+                `${window.SUPA_URL}/rest/v1/voided_payments?club_id=eq.${encodeURIComponent(clubId)}&select=original_data`,
+                { headers: { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}` } }
+              );
+              if (res.ok) {
+                const rows = await res.json();
+                rows.forEach(row => {
+                  const v = row.original_data || {};
+                  if (v.playerId === playerId &&
+                      v.type === 'Mensualidad' &&
+                      (v.dueDate || '').slice(0, 7) === mesRef) {
+                    anuladoExiste = true;
+                  }
+                });
               }
-            });
+            } else if (window.firebase?.db) {
+              const voidedSnap = await window.firebase.getDocs(
+                window.firebase.collection(window.firebase.db, `clubs/${clubId}/voided_payments`)
+              );
+              voidedSnap.forEach(doc => {
+                const v = doc.data();
+                if (v.playerId === playerId &&
+                    v.type === 'Mensualidad' &&
+                    (v.dueDate || '').slice(0, 7) === mesRef) {
+                  anuladoExiste = true;
+                }
+              });
+            }
           }
         } catch (e) {
           console.warn('[validación] No se pudo consultar facturas anuladas:', e.message);

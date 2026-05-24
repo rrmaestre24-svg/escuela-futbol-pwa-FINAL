@@ -837,7 +837,10 @@ async function uploadPlayerDocument(playerId, input) {
   let playerRef = null;
   const clubId = localStorage.getItem('clubId');
 
-  if (window.firebase?.db && clubId && window.firebase.doc && window.firebase.getDoc && window.firebase.updateDoc) {
+  if (window.MODO_SUPABASE) {
+    // En Supabase el local es canonical — usar docs ya cargados
+    canUpdateDocsFieldDirectly = true;
+  } else if (window.firebase?.db && clubId && window.firebase.doc && window.firebase.getDoc && window.firebase.updateDoc) {
     try {
       playerRef = window.firebase.doc(window.firebase.db, `clubs/${clubId}/players`, playerId);
       const playerSnap = await window.firebase.getDoc(playerRef);
@@ -879,13 +882,17 @@ async function uploadPlayerDocument(playerId, input) {
 
     const updatedDocs = [...docs, newDoc];
 
-    if (canUpdateDocsFieldDirectly && playerRef) {
-      await window.firebase.updateDoc(playerRef, { documents: updatedDocs });
+    if (canUpdateDocsFieldDirectly) {
       const currentPlayers = getPlayers();
       const playerIndex = currentPlayers.findIndex(p => p.id === playerId);
       if (playerIndex !== -1) {
         currentPlayers[playerIndex] = { ...currentPlayers[playerIndex], documents: updatedDocs };
         localStorage.setItem('players', JSON.stringify(currentPlayers));
+        if (typeof savePlayerToFirebase === 'function') {
+          savePlayerToFirebase(currentPlayers[playerIndex]).catch(() => {});
+        }
+      } else {
+        updatePlayer(playerId, { documents: updatedDocs });
       }
     } else {
       updatePlayer(playerId, { documents: updatedDocs });
@@ -926,21 +933,27 @@ async function deletePlayerDocument(playerId, docId) {
   }
 
   const clubId = localStorage.getItem('clubId');
-  if (window.firebase?.db && clubId && window.firebase.doc && window.firebase.updateDoc) {
+  const currentPlayers = getPlayers();
+  const playerIndex = currentPlayers.findIndex(p => p.id === playerId);
+  if (playerIndex !== -1) {
+    currentPlayers[playerIndex] = { ...currentPlayers[playerIndex], documents: docs };
+    localStorage.setItem('players', JSON.stringify(currentPlayers));
+    if (typeof savePlayerToFirebase === 'function') {
+      savePlayerToFirebase(currentPlayers[playerIndex]).catch(() => {});
+    }
+    showToast('🗑️ Documento eliminado');
+    showPlayerDetails(playerId);
+    return;
+  }
+  if (!window.MODO_SUPABASE && window.firebase?.db && clubId && window.firebase.doc && window.firebase.updateDoc) {
     window.firebase.updateDoc(
       window.firebase.doc(window.firebase.db, `clubs/${clubId}/players`, playerId),
       { documents: docs }
     ).then(() => {
-      const currentPlayers = getPlayers();
-      const playerIndex = currentPlayers.findIndex(p => p.id === playerId);
-      if (playerIndex !== -1) {
-        currentPlayers[playerIndex] = { ...currentPlayers[playerIndex], documents: docs };
-        localStorage.setItem('players', JSON.stringify(currentPlayers));
-      }
       showToast('🗑️ Documento eliminado');
       showPlayerDetails(playerId);
     }).catch((error) => {
-      console.warn('⚠️ No se pudo eliminar documento directo en Firebase, usando fallback:', error?.message || error);
+      console.warn('⚠️ No se pudo eliminar documento directo en Firebase:', error?.message || error);
       updatePlayer(playerId, { documents: docs });
       showToast('🗑️ Documento eliminado');
       showPlayerDetails(playerId);

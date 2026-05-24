@@ -1027,14 +1027,34 @@ async function renderVoidedPayments() {
     const clubId = localStorage.getItem('clubId');
     if (!clubId) return;
 
-    const snap = await window.firebase.getDocs(
-      window.firebase.query(
-        window.firebase.collection(window.firebase.db, `clubs/${clubId}/voided_payments`),
-        window.firebase.orderBy('voidedAt', 'desc')
-      )
-    );
+    let voidedRows = [];
+    if (window.MODO_SUPABASE) {
+      const res = await fetch(
+        `${window.SUPA_URL}/rest/v1/voided_payments?club_id=eq.${encodeURIComponent(clubId)}&order=voided_at.desc`,
+        { headers: { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}` } }
+      );
+      if (res.ok) {
+        const rows = await res.json();
+        voidedRows = rows.map(r => ({
+          id:            r.id,
+          invoiceNumber: r.invoice_number,
+          voidedAt:      r.voided_at,
+          voidedBy:      r.voided_by,
+          reason:        r.reason,
+          ...(r.original_data || {}),
+        }));
+      }
+    } else {
+      const snap = await window.firebase.getDocs(
+        window.firebase.query(
+          window.firebase.collection(window.firebase.db, `clubs/${clubId}/voided_payments`),
+          window.firebase.orderBy('voidedAt', 'desc')
+        )
+      );
+      voidedRows = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    }
 
-    if (snap.empty) {
+    if (voidedRows.length === 0) {
       container.innerHTML = '<p class="text-gray-400 text-sm text-center py-6">Sin facturas anuladas</p>';
       // Limpiar badge
       const badge = document.getElementById('voidedCountBadge');
@@ -1043,7 +1063,7 @@ async function renderVoidedPayments() {
     }
 
     // Guardar para exportar y actualizar badge de cantidad
-    window._voidedPaymentsCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    window._voidedPaymentsCache = voidedRows;
     const badge = document.getElementById('voidedCountBadge');
     if (badge) badge.textContent = `${window._voidedPaymentsCache.length} registros`;
 

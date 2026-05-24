@@ -40,18 +40,28 @@ function closeCoachAccessModal() {
  */
 async function loadCoachAccessStatus() {
     const clubId = localStorage.getItem('clubId');
-    if (!window.firebase?.db) return;
-    
-    const coachesRef = window.firebase.collection(window.firebase.db, `clubs/${clubId}/coaches`);
-    const coachesSnapshot = await window.firebase.getDocs(coachesRef);
-    
+    if (!clubId) return;
+
     let loadedCoaches = [];
-    coachesSnapshot.forEach(doc => {
-        loadedCoaches.push({
-            id: doc.id,
-            ...doc.data()
-        });
-    });
+
+    if (window.MODO_SUPABASE) {
+      try {
+        const res = await fetch(
+          `${window.SUPA_URL}/rest/v1/coaches?club_id=eq.${encodeURIComponent(clubId)}&select=*`,
+          { headers: { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}` } }
+        );
+        if (res.ok) loadedCoaches = await res.json();
+      } catch (e) {
+        console.warn('⚠️ Error cargando entrenadores desde Supabase:', e.message);
+      }
+    } else {
+      if (!window.firebase?.db) return;
+      const coachesRef = window.firebase.collection(window.firebase.db, `clubs/${clubId}/coaches`);
+      const coachesSnapshot = await window.firebase.getDocs(coachesRef);
+      coachesSnapshot.forEach(doc => {
+        loadedCoaches.push({ id: doc.id, ...doc.data() });
+      });
+    }
 
     coachAccessData.coaches = loadedCoaches;
 

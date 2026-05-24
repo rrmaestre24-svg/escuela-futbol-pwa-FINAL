@@ -472,28 +472,36 @@ console.log('✅ app.js cargado (ACTUALIZADO)');
 // ========================================
 function setupUserDeletionListener() {
   const currentUser = getCurrentUser();
-  
-  if (!currentUser || !window.firebase?.db) {
-    console.log('⚠️ No se puede activar listener: usuario o Firebase no disponible');
-    return;
-  }
-  
   const clubId = localStorage.getItem('clubId');
-  
-  if (!clubId || !currentUser.id) {
-    console.log('⚠️ No se puede activar listener: falta clubId o userId');
+
+  if (!currentUser || !clubId || !currentUser.id) {
+    console.log('⚠️ No se puede activar listener: falta usuario o clubId');
     return;
   }
-  
-  console.log('👁️ Activando polling de eliminación para:', currentUser.email);
 
-  const userDocRef = window.firebase.doc(
-    window.firebase.db,
-    `clubs/${clubId}/users/${currentUser.id}`
-  );
+  console.log('👁️ Activando polling de eliminación para:', currentUser.email);
 
   async function checkUserExists() {
     try {
+      if (window.MODO_SUPABASE) {
+        const res = await fetch(
+          `${window.SUPA_URL}/rest/v1/users?id=eq.${encodeURIComponent(currentUser.id)}&club_id=eq.${encodeURIComponent(clubId)}&select=id,deleted`,
+          { headers: { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}` } }
+        );
+        if (!res.ok) return;
+        const rows = await res.json();
+        if (rows.length === 0 || rows[0].deleted === true) {
+          console.log('🚨 Usuario eliminado en Supabase — Cerrando sesión...');
+          handleUserDeleted();
+        }
+        return;
+      }
+
+      if (!window.firebase?.db) return;
+      const userDocRef = window.firebase.doc(
+        window.firebase.db,
+        `clubs/${clubId}/users/${currentUser.id}`
+      );
       const docSnapshot = await window.firebase.getDoc(userDocRef);
       if (!docSnapshot.exists()) {
         console.log('🚨 Usuario ELIMINADO de Firebase - Cerrando sesión...');

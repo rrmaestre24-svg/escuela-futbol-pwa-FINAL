@@ -152,12 +152,41 @@ async function startRealtimeSync(clubId) {
     console.error('❌ clubId es requerido para sincronización en tiempo real');
     return false;
   }
-  
+
+  // En Supabase no hay listeners — los datos ya fueron descargados por auth.js.
+  // Solo refrescamos si el caché no está fresco y actualizamos la UI.
+  if (window.MODO_SUPABASE) {
+    if (window.realtimeSyncState.isActive && window.realtimeSyncState.clubId === clubId) {
+      console.log('ℹ️ [Supabase] Sincronización ya activa para este club');
+      return true;
+    }
+    window.realtimeSyncState.isActive = true;
+    window.realtimeSyncState.clubId = clubId;
+    window.realtimeSyncState.lastSync = new Date().toISOString();
+    window.realtimeSyncState.initialLoadComplete = true;
+
+    const _lastDL = JSON.parse(localStorage.getItem('_lastFullDownload') || 'null');
+    const dataFresh = _lastDL?.clubId === clubId && (Date.now() - _lastDL.ts) < 10 * 60 * 1000;
+    if (!dataFresh && typeof downloadAllClubDataFromSupabase === 'function') {
+      await downloadAllClubDataFromSupabase(clubId, { force: false });
+    }
+
+    if (typeof updateDashboard === 'function') updateDashboard();
+    if (typeof renderPlayersList === 'function') renderPlayersList();
+    if (typeof renderCalendar === 'function') renderCalendar();
+    if (typeof renderAccounting === 'function') renderAccounting();
+    if (typeof renderSchoolUsers === 'function') renderSchoolUsers();
+
+    showSyncIndicator(true);
+    console.log('✅ [Supabase] Sincronización local activa (sin listeners)');
+    return true;
+  }
+
   if (!window.firebase?.db || !window.firebase?.getDocs) {
     console.error('❌ Firebase no está inicializado');
     return false;
   }
-  
+
   // Si ya está activo con el mismo club, no hacer nada
   if (window.realtimeSyncState.isActive && window.realtimeSyncState.clubId === clubId) {
     console.log('ℹ️ Sincronización ya activa para este club');
@@ -237,6 +266,12 @@ async function startRealtimeSync(clubId) {
 // Solo colecciones sin listener en tiempo real.
 // ========================================
 async function downloadAuxiliaryDataInitially(clubId) {
+  // En Supabase, downloadAllClubDataFromSupabase ya cubre todas las colecciones auxiliares
+  if (window.MODO_SUPABASE) {
+    console.log('⚡ [Supabase] Descarga auxiliar omitida — cubierta por downloadAllClubDataFromSupabase');
+    return false;
+  }
+
   console.log('📥 ========================================');
   console.log('📥 DESCARGA AUXILIAR (SIN DUPLICAR LISTENERS)');
   console.log('📥 ========================================');
@@ -369,6 +404,26 @@ async function downloadAuxiliaryDataInitially(clubId) {
 // ========================================
 
 async function downloadAllDataInitially(clubId) {
+  if (window.MODO_SUPABASE) {
+    console.log('☁️ [Supabase] Redirigiendo descarga inicial a downloadAllClubDataFromSupabase...');
+    if (typeof downloadAllClubDataFromSupabase === 'function') {
+      const ok = await downloadAllClubDataFromSupabase(clubId, { force: true });
+      if (ok) {
+        if (typeof updateDashboard === 'function') updateDashboard();
+        if (typeof renderPlayersList === 'function') renderPlayersList();
+        if (typeof renderCalendar === 'function') renderCalendar();
+        if (typeof renderAccounting === 'function') renderAccounting();
+        if (typeof renderSchoolUsers === 'function') renderSchoolUsers();
+        if (typeof markLocalSnapshotSynced === 'function') {
+          ['players', 'payments', 'events', 'expenses', 'users', 'thirdPartyIncomes', 'parentCodes'].forEach(
+            scope => markLocalSnapshotSynced(clubId, scope, { source: 'supabase' })
+          );
+        }
+      }
+    }
+    return;
+  }
+
   console.log('📥 ========================================');
   console.log('📥 DESCARGA INICIAL DE TODOS LOS DATOS');
   console.log('📥 ========================================');
@@ -1340,7 +1395,7 @@ function startLogoListener(clubId) {
 async function refreshPaymentMovementLogOnDemand(options = {}) {
   const force = options.force === true;
   const clubId = window.realtimeSyncState.clubId || localStorage.getItem('clubId');
-  if (!clubId || !window.firebase?.db) return false;
+  if (!clubId) return false;
 
   const cacheKey = `paymentLogLastFetch_${clubId}`;
   const lastFetch = Number(localStorage.getItem(cacheKey) || '0');
@@ -1348,6 +1403,36 @@ async function refreshPaymentMovementLogOnDemand(options = {}) {
     return false;
   }
 
+  if (window.MODO_SUPABASE) {
+    try {
+      const res = await fetch(
+        `${window.SUPA_URL}/rest/v1/payment_audit_log?club_id=eq.${encodeURIComponent(clubId)}&order=created_at.desc&limit=120`,
+        { headers: { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}` } }
+      );
+      if (!res.ok) return false;
+      const rows = await res.json();
+      const entries = rows.map(r => ({
+        id:            r.id,
+        clubId:        r.club_id,
+        action:        r.action,
+        playerName:    r.player_name,
+        amount:        r.amount,
+        invoiceNumber: r.invoice_number,
+        userName:      r.admin_name,
+        notes:         r.reason,
+        timestamp:     r.created_at,
+      }));
+      localStorage.setItem('paymentMovementLog', JSON.stringify(entries));
+      localStorage.setItem(cacheKey, String(Date.now()));
+      console.log(`📋 [Supabase] Log de movimientos actualizado: ${entries.length} entradas`);
+      return true;
+    } catch (error) {
+      console.warn('⚠️ Error actualizando log desde Supabase:', error);
+      return false;
+    }
+  }
+
+  if (!window.firebase?.db) return false;
   try {
     const logSnapshot = await window.firebase.getDocs(
       window.firebase.query(

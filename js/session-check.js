@@ -69,6 +69,52 @@ window.addEventListener('DOMContentLoaded', async function () {
             const user = window.firebase.auth.currentUser;
             let clubId = localStorage.getItem('clubId');
 
+            // En Supabase: buscar clubId y datos del usuario en la tabla users
+            if (window.MODO_SUPABASE) {
+                try {
+                    const email = (user.email || '').trim().toLowerCase();
+                    const res = await fetch(
+                        `${window.SUPA_URL}/rest/v1/users?email=eq.${encodeURIComponent(email)}&deleted=eq.false&select=id,club_id,name,is_main_admin,phone`,
+                        { headers: { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}` } }
+                    );
+                    if (res.ok) {
+                        const rows = await res.json();
+                        if (rows.length > 0) {
+                            const u = rows[0];
+                            clubId = u.club_id;
+                            const sessionData = {
+                                id: u.id || user.uid,
+                                email: user.email,
+                                name: u.name || user.email.split('@')[0],
+                                schoolId: clubId,
+                                isMainAdmin: u.is_main_admin || false,
+                                role: 'admin',
+                                avatar: '',
+                                phone: u.phone || ''
+                            };
+                            localStorage.setItem('clubId', clubId);
+                            localStorage.setItem('currentUser', JSON.stringify(sessionData));
+                            sessionStorage.setItem('currentUser', JSON.stringify(sessionData));
+                            console.log('[INDEX] Sesion restaurada desde Supabase');
+                            hideLoader();
+                            document.getElementById('appContainer').classList.remove('hidden');
+                            if (typeof initApp === 'function') initApp();
+                            return;
+                        }
+                    }
+                } catch (e) {
+                    console.warn('[INDEX] Error restaurando desde Supabase:', e);
+                }
+                // No se pudo restaurar — cerrar sesion
+                try { if (window.firebase?.auth) await window.firebase.signOut(window.firebase.auth); } catch (e) {}
+                localStorage.removeItem('currentUser');
+                localStorage.removeItem('clubId');
+                sessionStorage.clear();
+                hideLoader();
+                window.location.href = 'login.html';
+                return;
+            }
+
             // Buscar clubId en Firebase si no esta local
             if (!clubId && window.firebase.db) {
                 try {
