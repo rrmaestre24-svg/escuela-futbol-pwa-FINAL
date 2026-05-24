@@ -112,19 +112,21 @@ async function initFirebase() {
     const app = initializeApp(firebaseConfig);
     db = getFirestore(app);
 
-    // CONFIGURAR PERSISTENCIA OFFLINE FIRESTORE (CACHÉ PARA LECTURAS)
-    try {
-      await enableMultiTabIndexedDbPersistence(db);
-      console.log('[OK] Persistencia Offline Firestore habilitada (IndexedDB)');
-    } catch (err) {
-      if (err.code == 'failed-precondition') {
-        console.warn('[WARN] Persistencia Firestore falló: Múltiples pestañas bloquean IndexedDB');
-      } else if (err.code == 'unimplemented') {
-        console.warn('[WARN] Persistencia Firestore no soportada por el navegador (ej. modo incógnito)');
-      } else {
-        console.error('[ERROR] Error habilitando persistencia Firestore:', err);
+    // CONFIGURAR PERSISTENCIA OFFLINE FIRESTORE — solo si Supabase NO es el modo activo
+    // En modo Supabase, Firestore no escribe datos; habilitar IndexedDB solo consume storage y causa crashes
+    if (!window.MODO_SUPABASE) {
+      try {
+        await enableMultiTabIndexedDbPersistence(db);
+        console.log('[OK] Persistencia Offline Firestore habilitada (IndexedDB)');
+      } catch (err) {
+        if (err.code == 'failed-precondition') {
+          console.warn('[WARN] Persistencia Firestore falló: Múltiples pestañas bloquean IndexedDB');
+        } else if (err.code == 'unimplemented') {
+          console.warn('[WARN] Persistencia Firestore no soportada por el navegador (ej. modo incógnito)');
+        } else {
+          console.error('[ERROR] Error habilitando persistencia Firestore:', err);
+        }
       }
-      // La app sigue viva, usando LocalStorage + Lecturas Normales de Firebase.
     }
 
     auth = getAuth(app);

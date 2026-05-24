@@ -1200,7 +1200,11 @@ function addPaymentLogEntry(entry) {
   log.unshift(newEntry);
   // Máximo 500 entradas para no saturar el localStorage
   if (log.length > 500) log.splice(500);
-  localStorage.setItem('paymentMovementLog', JSON.stringify(log));
+  try {
+    localStorage.setItem('paymentMovementLog', JSON.stringify(log));
+  } catch (_) {
+    try { localStorage.setItem('paymentMovementLog', JSON.stringify(log.slice(0, 100))); } catch (_) {}
+  }
   // Sincronizar con Firebase en tiempo real (fire-and-forget)
   if (typeof window.savePaymentLogEntryToFirebase === 'function') {
     window.savePaymentLogEntryToFirebase(newEntry);
@@ -1257,7 +1261,11 @@ function fixMissingPaymentLogEntries(options = {}) {
       const finalLog = [...log, ...newEntries];
       // Ordenar por fecha descendente
       finalLog.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-      localStorage.setItem('paymentMovementLog', JSON.stringify(finalLog.slice(0, 500)));
+      try {
+        localStorage.setItem('paymentMovementLog', JSON.stringify(finalLog.slice(0, 500)));
+      } catch (_) {
+        try { localStorage.setItem('paymentMovementLog', JSON.stringify(finalLog.slice(0, 100))); } catch (_) {}
+      }
     }
 
     localStorage.setItem('paymentLogBackfill_v1', 'true');
