@@ -1517,7 +1517,16 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false } = {}) {
       deleted: p.deleted, clubId: clubId,
     }));
     localStorage.removeItem('paymentsFullHistory');
-    localStorage.setItem('payments', JSON.stringify(payments));
+    try {
+      localStorage.setItem('payments', JSON.stringify(payments));
+    } catch (quotaErr) {
+      // Cuota localStorage excedida — guardar solo los 300 más recientes
+      const reduced = payments
+        .sort((a, b) => (b.dueDate || '').localeCompare(a.dueDate || ''))
+        .slice(0, 300);
+      localStorage.setItem('payments', JSON.stringify(reduced));
+      console.warn(`⚠️ Cuota localStorage excedida — almacenados ${reduced.length} pagos recientes (de ${payments.length} totales)`);
+    }
     console.log(`✅ ${payments.length} pagos descargados desde Supabase`);
 
     // 3️⃣ Eventos
