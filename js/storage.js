@@ -789,7 +789,8 @@ async function exportDataExcel() {
 
 // Lee asistencias de los últimos 90 días desde Firestore
 async function _fetchAttendanceForExport(clubId) {
-  if (!clubId || !window.firebase?.db) return [];
+  // En Supabase, la asistencia es gestionada por la app separada (no disponible aquí)
+  if (!clubId || window.MODO_SUPABASE || !window.firebase?.db) return [];
 
   try {
     const { collection, query, where, getDocs, orderBy } = window.firebase;

@@ -114,11 +114,6 @@ async function validateActivationCode(code) {
  * Marcar código como usado y crear licencia
  */
 async function activateLicense(code, clubId, clubName, clubPhone, plan, codeSource) {
-  if (!window.firebase?.db) {
-    console.error('❌ Firebase no disponible');
-    return false;
-  }
-
   try {
     const cleanCode = code.trim().toUpperCase();
     const now = new Date();
@@ -131,9 +126,9 @@ async function activateLicense(code, clubId, clubName, clubPhone, plan, codeSour
     }
 
     console.log('📝 Marcando código como usado...');
-    if (codeSource === 'supabase') {
+    if (codeSource === 'supabase' || window.MODO_SUPABASE) {
       await _markCodeUsedSupabase(cleanCode, clubId);
-    } else {
+    } else if (window.firebase?.db) {
       await window.firebase.updateDoc(
         window.firebase.doc(window.firebase.db, 'activation_codes', cleanCode),
         { used: true, usedBy: clubId, usedAt: now.toISOString() }
@@ -141,27 +136,74 @@ async function activateLicense(code, clubId, clubName, clubPhone, plan, codeSour
     }
 
     console.log('📝 Creando licencia...');
-    await window.firebase.setDoc(
-      window.firebase.doc(window.firebase.db, 'licenses', clubId),
-      {
-        clubId: clubId,
-        clubName: clubName,
-        clubPhone: clubPhone || '',
-        plan: plan,
-        activationCode: cleanCode,
-        startDate: now.toISOString(),
-        endDate: endDate.toISOString(),
-        status: 'activo',
-        totalPlayers: 0,
-        createdAt: now.toISOString(),
-        paymentHistory: [{
-          date: now.toISOString(),
-          plan: plan,
-          code: cleanCode,
-          action: 'activation'
-        }]
+    if (window.MODO_SUPABASE) {
+      const licRes = await fetch(
+        `${_SUPA_URL}/rest/v1/licenses?club_id=eq.${encodeURIComponent(clubId)}`,
+        {
+          method: 'PATCH',
+          headers: { apikey: _SUPA_ANON, Authorization: `Bearer ${_SUPA_ANON}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+          body: JSON.stringify({
+            club_name: clubName,
+            plan: plan,
+            activation_code: cleanCode,
+            start_date: now.toISOString(),
+            end_date: endDate.toISOString(),
+            status: 'activo',
+            total_players: 0
+          })
+        }
+      );
+      // Si no existe aún, crear con POST
+      if (!licRes.ok || licRes.status === 204) {
+        const checkRes = await fetch(
+          `${_SUPA_URL}/rest/v1/licenses?club_id=eq.${encodeURIComponent(clubId)}&select=id&limit=1`,
+          { headers: { apikey: _SUPA_ANON, Authorization: `Bearer ${_SUPA_ANON}` } }
+        );
+        const existing = checkRes.ok ? await checkRes.json() : [];
+        if (existing.length === 0) {
+          await fetch(`${_SUPA_URL}/rest/v1/licenses`, {
+            method: 'POST',
+            headers: { apikey: _SUPA_ANON, Authorization: `Bearer ${_SUPA_ANON}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+            body: JSON.stringify({
+              club_id: clubId,
+              club_name: clubName,
+              plan: plan,
+              activation_code: cleanCode,
+              start_date: now.toISOString(),
+              end_date: endDate.toISOString(),
+              status: 'activo',
+              total_players: 0,
+              created_at: now.toISOString()
+            })
+          });
+        }
       }
-    );
+    } else if (window.firebase?.db) {
+      await window.firebase.setDoc(
+        window.firebase.doc(window.firebase.db, 'licenses', clubId),
+        {
+          clubId: clubId,
+          clubName: clubName,
+          clubPhone: clubPhone || '',
+          plan: plan,
+          activationCode: cleanCode,
+          startDate: now.toISOString(),
+          endDate: endDate.toISOString(),
+          status: 'activo',
+          totalPlayers: 0,
+          createdAt: now.toISOString(),
+          paymentHistory: [{
+            date: now.toISOString(),
+            plan: plan,
+            code: cleanCode,
+            action: 'activation'
+          }]
+        }
+      );
+    } else {
+      console.error('❌ Ni Supabase ni Firebase disponibles para crear licencia');
+      return false;
+    }
 
     localStorage.setItem('licenseStatus', 'activo');
     localStorage.setItem('licenseEndDate', endDate.toISOString());
@@ -451,25 +493,35 @@ async function initLicenseSystem() {
 
 async function updatePlayerCount() {
   const clubId = localStorage.getItem('clubId');
-  if (!clubId || !window.firebase?.db) return;
+  if (!clubId) return;
 
   try {
     const players = JSON.parse(localStorage.getItem('players') || '[]');
     const totalPlayers = players.length;
 
-    // ✅ Solo escribir si el número cambió — evita snapshot/reload innecesario
+    // Solo escribir si el número cambió — evita escrituras innecesarias
     const cachedCount = Number(localStorage.getItem('_cachedPlayerCount') ?? '-1');
     if (cachedCount === totalPlayers) {
-      console.log('📊 Contador de jugadores sin cambios, omitiendo escritura a Firestore');
+      console.log('📊 Contador de jugadores sin cambios, omitiendo escritura');
       return;
     }
     localStorage.setItem('_cachedPlayerCount', String(totalPlayers));
 
-    await window.firebase.updateDoc(
-      window.firebase.doc(window.firebase.db, 'licenses', clubId),
-      { totalPlayers: totalPlayers }
-      // ⚠️ NO incluir lastUpdated — causaba que onSnapshot siempre detectara cambio
-    );
+    if (window.MODO_SUPABASE) {
+      await fetch(
+        `${_SUPA_URL}/rest/v1/licenses?club_id=eq.${encodeURIComponent(clubId)}`,
+        {
+          method: 'PATCH',
+          headers: { apikey: _SUPA_ANON, Authorization: `Bearer ${_SUPA_ANON}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+          body: JSON.stringify({ total_players: totalPlayers })
+        }
+      );
+    } else if (window.firebase?.db) {
+      await window.firebase.updateDoc(
+        window.firebase.doc(window.firebase.db, 'licenses', clubId),
+        { totalPlayers: totalPlayers }
+      );
+    }
 
     console.log('📊 Contador de jugadores actualizado:', totalPlayers);
   } catch (error) {
@@ -486,7 +538,7 @@ function listenToLicenseChanges() {
   
   if (!clubId) return;
 
-  if (!window.firebase?.db) {
+  if (!window.MODO_SUPABASE && !window.firebase?.db) {
     // Máximo 5 intentos para no bloquear la app
     if (!window._licenseRetries) window._licenseRetries = 0;
     window._licenseRetries++;
@@ -526,14 +578,15 @@ function listenToLicenseChanges() {
           }
         } catch (_) {}
 
-        // Firebase fallback
-        if (!newStatus) {
+        // Firebase fallback (solo en modo no-Supabase)
+        if (!newStatus && !window.MODO_SUPABASE && window.firebase?.db) {
           const doc = await window.firebase.getDoc(licenseRef);
           if (!doc.exists()) { console.log('⚠️ Licencia no encontrada'); return; }
           const d = doc.data();
           newStatus = d.status;
           newModulos = d.modulos;
         }
+        if (!newStatus) return; // sin datos disponibles
 
         const currentStatus = localStorage.getItem('licenseStatus');
         const modulosChanged = JSON.stringify(newModulos) !== localStorage.getItem('licenseModulos');

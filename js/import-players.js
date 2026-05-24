@@ -1077,37 +1077,44 @@ async function createImportedPlayer(playerData) {
             localStorage.setItem('players', JSON.stringify(players));
         }
         
-        // Guardar código de padre en Firebase si está disponible
+        // Sincronizar jugador y código de padre con la nube
         const clubId = localStorage.getItem('clubId');
-        if (window.APP_STATE?.firebaseReady && window.firebase?.db && clubId) {
+        if (clubId) {
             try {
-                // Guardar jugador en Firebase
-                if (window.firebase.setDoc && window.firebase.doc) {
-                    await window.firebase.setDoc(
-                        window.firebase.doc(window.firebase.db, `clubs/${clubId}/players`, playerId),
-                        newPlayer
-                    );
+                if (window.MODO_SUPABASE) {
+                    // Supabase: usar funciones globales que ya tienen la lógica de migración
+                    if (typeof savePlayerToFirebase === 'function') {
+                        savePlayerToFirebase(newPlayer).catch(() => {});
+                    }
+                    if (typeof syncParentCodeToFirebase === 'function') {
+                        syncParentCodeToFirebase(playerId, parentCode).catch(() => {});
+                    }
+                    console.log(`✅ Jugador ${playerData.name} sincronizado con Supabase`);
+                } else if (window.APP_STATE?.firebaseReady && window.firebase?.db) {
+                    if (window.firebase.setDoc && window.firebase.doc) {
+                        await window.firebase.setDoc(
+                            window.firebase.doc(window.firebase.db, `clubs/${clubId}/players`, playerId),
+                            newPlayer
+                        );
+                    }
+                    if (window.firebase.addDoc && window.firebase.collection) {
+                        await window.firebase.addDoc(
+                            window.firebase.collection(window.firebase.db, `clubs/${clubId}/parentCodes`),
+                            {
+                                code: parentCode,
+                                playerId: playerId,
+                                playerName: playerData.name,
+                                phone: playerData.phone || '',
+                                createdAt: new Date().toISOString(),
+                                used: false
+                            }
+                        );
+                    }
+                    console.log(`✅ Jugador ${playerData.name} sincronizado con Firebase`);
                 }
-                
-                // Guardar código de padre
-                if (window.firebase.addDoc && window.firebase.collection) {
-                    await window.firebase.addDoc(
-                        window.firebase.collection(window.firebase.db, `clubs/${clubId}/parentCodes`),
-                        {
-                            code: parentCode,
-                            playerId: playerId,
-                            playerName: playerData.name,
-                            phone: playerData.phone || '',
-                            createdAt: new Date().toISOString(),
-                            used: false
-                        }
-                    );
-                }
-                
-                console.log(`✅ Jugador ${playerData.name} sincronizado con Firebase`);
             } catch (fbError) {
-                console.warn('⚠️ Error sincronizando con Firebase:', fbError);
-                // Continuar aunque falle Firebase - el jugador ya está en localStorage
+                console.warn('⚠️ Error sincronizando jugador importado:', fbError);
+                // Continuar aunque falle — el jugador ya está en localStorage
             }
         }
         
