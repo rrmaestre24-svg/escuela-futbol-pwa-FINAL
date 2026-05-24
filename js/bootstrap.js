@@ -41,9 +41,4 @@ if ('serviceWorker' in navigator) {
             });
         });
     }).catch(err => console.log('❌ Error al registrar SW', err));
-
-    // ⚠️ TEMP CUTOVER: reload automático sin modal al activarse nuevo SW
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-        window.location.reload();
-    });
 }

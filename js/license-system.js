@@ -566,13 +566,11 @@ function listenToLicenseChanges() {
       }
     }
 
-    // ⚠️ CUTOVER: intervalo reducido a 30 seg para detectar desactivación rápido.
-    // Restaurar a 10 * 60 * 1000 después del cutover.
     checkLicenseStatus(); // primera verificación inmediata al arrancar
-    const intervalId = setInterval(checkLicenseStatus, 30 * 1000);
+    const intervalId = setInterval(checkLicenseStatus, 10 * 60 * 1000);
     window.licenseUnsubscribe = () => clearInterval(intervalId);
 
-    console.log('✅ Polling de licencia activado (30 seg — cutover)');
+    console.log('✅ Polling de licencia activado (10 min)');
     
   } catch (error) {
     console.error('❌ Error al configurar listener:', error);
