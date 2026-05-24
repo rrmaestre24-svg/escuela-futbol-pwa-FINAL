@@ -1,8 +1,70 @@
 // ========================================
 // PORTAL DE PADRES - LÓGICA COMPLETA
 // ========================================
-// 📍 CREAR ESTE ARCHIVO NUEVO: js/parent-portal.js
-// ========================================
+
+// Supabase — constantes locales para este portal
+const _PP_SUPA_URL  = 'https://lcyebvfvolepcqzsqxfk.supabase.co';
+const _PP_SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxjeWVidmZ2b2xlcGNxenNxeGZrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk0MTA1OTUsImV4cCI6MjA5NDk4NjU5NX0.ZVd4uIYqv8TPIbezOqe8PmA6ZK9yLJ2tybLYz9NYriM';
+
+// Helpers Supabase
+async function _pp_fetchPlayer(clubId, playerId) {
+  try {
+    const res = await fetch(
+      `${_PP_SUPA_URL}/rest/v1/players?id=eq.${encodeURIComponent(playerId)}&club_id=eq.${encodeURIComponent(clubId)}&select=id,name,status,category,birth_date,avatar_url,jersey_number,position,document_type,document_number,phone,emergency_contact,medical_info&limit=1`,
+      { headers: { apikey: _PP_SUPA_ANON, Authorization: `Bearer ${_PP_SUPA_ANON}` } }
+    );
+    if (!res.ok) return null;
+    const rows = await res.json();
+    const p = rows?.[0];
+    if (!p) return null;
+    return {
+      id: p.id, name: p.name, status: p.status, category: p.category,
+      birthDate: p.birth_date, avatar: p.avatar_url, jerseyNumber: p.jersey_number,
+      position: p.position, documentType: p.document_type, documentNumber: p.document_number,
+      phone: p.phone, emergencyContact: p.emergency_contact, medicalInfo: p.medical_info
+    };
+  } catch (_) { return null; }
+}
+
+async function _pp_fetchPayments(clubId, playerId) {
+  try {
+    const res = await fetch(
+      `${_PP_SUPA_URL}/rest/v1/payments?player_id=eq.${encodeURIComponent(playerId)}&club_id=eq.${encodeURIComponent(clubId)}&deleted=eq.false&select=id,concept,type,status,amount,due_date,paid_date`,
+      { headers: { apikey: _PP_SUPA_ANON, Authorization: `Bearer ${_PP_SUPA_ANON}` } }
+    );
+    if (!res.ok) return [];
+    const rows = await res.json();
+    return (rows || []).map(p => ({
+      id: p.id, concept: p.concept, type: p.type,
+      status: p.status, amount: p.amount, dueDate: p.due_date, paidDate: p.paid_date
+    }));
+  } catch (_) { return []; }
+}
+
+async function _pp_fetchSettings(clubId) {
+  try {
+    const res = await fetch(
+      `${_PP_SUPA_URL}/rest/v1/clubs?id=eq.${encodeURIComponent(clubId)}&select=name,logo,phone&limit=1`,
+      { headers: { apikey: _PP_SUPA_ANON, Authorization: `Bearer ${_PP_SUPA_ANON}` } }
+    );
+    if (!res.ok) return null;
+    const rows = await res.json();
+    return rows?.[0] || null;
+  } catch (_) { return null; }
+}
+
+async function _pp_fetchEvents(clubId) {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const res = await fetch(
+      `${_PP_SUPA_URL}/rest/v1/events?club_id=eq.${encodeURIComponent(clubId)}&deleted=eq.false&date=gte.${today}&order=date.asc&limit=5`,
+      { headers: { apikey: _PP_SUPA_ANON, Authorization: `Bearer ${_PP_SUPA_ANON}` } }
+    );
+    if (!res.ok) return [];
+    const rows = await res.json();
+    return (rows || []).map(e => ({ id: e.id, title: e.title, date: e.date, type: e.type }));
+  } catch (_) { return []; }
+}
 
 // Estado del portal
 let currentPlayer = null;
@@ -64,117 +126,55 @@ async function handleParentLogin(e) {
 
 async function loadClubDataFromFirebase(clubId, accessCode) {
   try {
-    if (!window.firebase?.db) {
-      await initFirebaseForParent();
-    }
-    
-    if (!window.firebase?.db) {
-      console.error('Firebase no disponible');
-      return false;
-    }
-    
-    const codesRef = window.firebase.collection(window.firebase.db, `clubs/${clubId}/parentCodes`);
     let playerId = null;
 
-    // ✅ Optimización de costo: consultar solo el código solicitado
-    if (window.firebase.query && window.firebase.where && window.firebase.limit) {
-      const codeQuery = window.firebase.query(
-        codesRef,
-        window.firebase.where('code', '==', accessCode),
-        window.firebase.limit(1)
-      );
-      const codeSnap = await window.firebase.getDocs(codeQuery);
-      if (!codeSnap.empty) {
-        const match = codeSnap.docs[0].data();
-        playerId = match.playerId || null;
-      }
-    } else {
-      // Fallback de compatibilidad (entornos antiguos)
-      const codesSnapshot = await window.firebase.getDocs(codesRef);
-      codesSnapshot.forEach(doc => {
-        const data = doc.data();
-        if (data.code === accessCode) {
-          playerId = data.playerId;
+    // Intento 1: Supabase Edge Function
+    try {
+      const res = await fetch(
+        `${_PP_SUPA_URL}/functions/v1/create-parent-session`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', apikey: _PP_SUPA_ANON, Authorization: `Bearer ${_PP_SUPA_ANON}` },
+          body: JSON.stringify({ clubId, accessCode })
         }
-      });
+      );
+      if (res.ok) {
+        const data = await res.json();
+        if (data.playerId) playerId = data.playerId;
+      }
+    } catch (_) {}
+
+    // Intento 2: consulta directa a tabla parent_codes
+    if (!playerId) {
+      try {
+        const pcRes = await fetch(
+          `${_PP_SUPA_URL}/rest/v1/parent_codes?code=eq.${encodeURIComponent(accessCode)}&club_id=eq.${encodeURIComponent(clubId)}&select=player_id&limit=1`,
+          { headers: { apikey: _PP_SUPA_ANON, Authorization: `Bearer ${_PP_SUPA_ANON}` } }
+        );
+        if (pcRes.ok) {
+          const rows = await pcRes.json();
+          if (rows?.[0]?.player_id) playerId = rows[0].player_id;
+        }
+      } catch (_) {}
     }
-    
+
     if (!playerId) {
       console.log('Código no encontrado');
       return false;
     }
-    
-    const playerRef = window.firebase.doc(window.firebase.db, `clubs/${clubId}/players`, playerId);
-    const playerSnap = await window.firebase.getDoc(playerRef);
-    
-    if (!playerSnap.exists()) {
-      console.log('Jugador no encontrado');
-      return false;
-    }
-    
-    currentPlayer = { id: playerSnap.id, ...playerSnap.data() };
-    
-    const settingsRef = window.firebase.doc(window.firebase.db, `clubs/${clubId}/settings`, 'main');
-    const settingsSnap = await window.firebase.getDoc(settingsRef);
-    
-    if (settingsSnap.exists()) {
-      currentClubSettings = settingsSnap.data();
-    } else {
-      currentClubSettings = { name: 'Escuela de Fútbol' };
-    }
-    
-    const paymentsRef = window.firebase.collection(window.firebase.db, `clubs/${clubId}/payments`);
-    let paymentsSnapshot;
 
-    if (window.firebase.query && window.firebase.where) {
-      const paymentsQuery = window.firebase.query(
-        paymentsRef,
-        window.firebase.where('playerId', '==', playerId)
-      );
-      paymentsSnapshot = await window.firebase.getDocs(paymentsQuery);
-    } else {
-      paymentsSnapshot = await window.firebase.getDocs(paymentsRef);
-    }
+    const playerData = await _pp_fetchPlayer(clubId, playerId);
+    if (!playerData) { console.log('Jugador no encontrado'); return false; }
 
-    const playerPayments = [];
-    paymentsSnapshot.forEach(doc => {
-      const payment = { id: doc.id, ...doc.data() };
-      if (payment.playerId === playerId) {
-        playerPayments.push(payment);
-      }
-    });
-    
-    currentPlayer.payments = playerPayments;
-    
-    // 🆕 5. Cargar próximos eventos del club
-    try {
-      const eventsRef = window.firebase.collection(window.firebase.db, `clubs/${clubId}/events`);
-      const eventsSnapshot = await window.firebase.getDocs(eventsRef);
-      
-      const today = new Date().toISOString().split('T')[0];
-      const upcomingEvents = [];
-      
-      eventsSnapshot.forEach(doc => {
-        const event = { id: doc.id, ...doc.data() };
-        if (event.date >= today) {
-          upcomingEvents.push(event);
-        }
-      });
-      
-      // Ordenar por fecha y tomar los próximos 5
-      currentPlayer.upcomingEvents = upcomingEvents
-        .sort((a, b) => new Date(a.date) - new Date(b.date))
-        .slice(0, 5);
-    } catch (e) {
-      console.log('No se pudieron cargar eventos');
-      currentPlayer.upcomingEvents = [];
-    }
-    
+    currentPlayer = { ...playerData };
+    currentClubSettings = (await _pp_fetchSettings(clubId)) || { name: 'Escuela de Fútbol' };
+    currentPlayer.payments = await _pp_fetchPayments(clubId, playerId);
+    currentPlayer.upcomingEvents = await _pp_fetchEvents(clubId);
     currentClubId = clubId;
-    
+
     console.log('✅ Datos cargados correctamente');
     return true;
-    
+
   } catch (error) {
     console.error('Error al cargar datos:', error);
     return false;
@@ -182,30 +182,8 @@ async function loadClubDataFromFirebase(clubId, accessCode) {
 }
 
 async function initFirebaseForParent() {
-  try {
-    const firebaseConfig = {
-      apiKey: "AIzaSyBThVgzEsTLWSW7puKOVErZ_KOLDEq8v3A",
-      authDomain: "my-club-fae98.firebaseapp.com",
-      projectId: "my-club-fae98",
-      storageBucket: "my-club-fae98.firebasestorage.app",
-      messagingSenderId: "807792685568",
-      appId: "1:807792685568:web:06097faad391a9fd8c9ee5"
-    };
-    
-    const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js');
-    const { getFirestore, collection, doc, getDoc, getDocs, query, where, limit } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
-    
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-    
-    window.firebase = { db, collection, doc, getDoc, getDocs, query, where, limit };
-    
-    console.log('✅ Firebase inicializado para portal de padres');
-    return true;
-  } catch (error) {
-    console.error('Error al inicializar Firebase:', error);
-    return false;
-  }
+  // Firebase ya no se usa en este portal — función mantenida por compatibilidad
+  return true;
 }
 
 // ========================================
