@@ -154,9 +154,10 @@ async function processInChunks(items, chunkSize, processor) {
 }
 
 /**
- * ✅ Sube todos los datos locales a Firebase - CORREGIDO PARA USUARIOS SECUNDARIOS
+ * ✅ Sube todos los datos locales (Firebase o Supabase según MODO_SUPABASE)
  */
 async function syncAllToFirebase() {
+  if (window.MODO_SUPABASE) return syncAllToSupabase();
   if (!checkFirebaseReady()) return;
 
   const clubId = getClubId();
@@ -306,9 +307,13 @@ async function syncAllToFirebase() {
 }
 
 /**
- * ✅ Descarga todos los datos desde Firebase - CORREGIDO CON RE-SYNC DE CONTADOR
+ * ✅ Descarga todos los datos (Firebase o Supabase según MODO_SUPABASE)
  */
 async function downloadFromFirebase() {
+  if (window.MODO_SUPABASE) {
+    const clubId = getClubId();
+    return downloadAllClubDataFromSupabase(clubId, { force: true });
+  }
   if (!checkFirebaseReady()) return;
 
   const clubId = getClubId();
@@ -451,30 +456,48 @@ async function downloadFromFirebase() {
 }
 
 /**
- * ✅ Verifica si hay actualizaciones en Firebase
+ * ✅ Verifica si hay actualizaciones (Firebase o Supabase según MODO_SUPABASE)
  */
 async function checkForUpdates() {
-  if (!checkFirebaseReady()) return;
-
   const clubId = getClubId();
-  if (!clubId) {
-    showToast('❌ No se puede verificar sin clubId');
+  if (!clubId) { showToast('❌ No se puede verificar sin clubId'); return; }
+
+  if (window.MODO_SUPABASE) {
+    try {
+      showToast('🔍 Buscando actualizaciones...');
+      const res = await fetch(
+        `${window.SUPA_URL}/rest/v1/clubs?id=eq.${encodeURIComponent(clubId)}&select=name,updated_at`,
+        { headers: _supaHeaders() }
+      );
+      if (!res.ok) { showToast('⚠️ Error al verificar en Supabase'); return; }
+      const rows = await res.json();
+      if (rows.length) {
+        const clubName = rows[0].name || 'Sin nombre';
+        const lastUpdate = rows[0].updated_at || 'desconocida';
+        showToast(`✅ Club: ${clubName}\n📅 Última actualización: ${lastUpdate}`);
+      } else {
+        showToast('ℹ️ No hay datos en Supabase para este club');
+      }
+    } catch (error) {
+      showToast('⚠️ Error al verificar actualizaciones: ' + error.message);
+    }
     return;
   }
+
+  if (!checkFirebaseReady()) return;
 
   try {
     console.log('🔍 Buscando actualizaciones...');
     console.log('🔍 Club ID:', clubId);
     showToast('🔍 Buscando actualizaciones...');
-    
-    // ✅ RUTA CORREGIDA
+
     const settingsRef = window.firebase.doc(
-      window.firebase.db, 
-      `clubs/${clubId}/settings`, 
+      window.firebase.db,
+      `clubs/${clubId}/settings`,
       "main"
     );
     const docSnap = await window.firebase.getDoc(settingsRef);
-    
+
     if (docSnap.exists()) {
       const data = docSnap.data();
       const lastUpdate = data.lastUpdated || 'desconocida';
@@ -534,10 +557,43 @@ async function savePlayerToFirebase(player) {
  * ✅ Guardar pago individual en Firebase
  */
 async function saveSchoolSettingsToFirebase(settings) {
-  if (!checkFirebaseReady()) return false;
-
   const clubId = getClubId();
   if (!clubId || !settings) return false;
+
+  if (window.MODO_SUPABASE) {
+    try {
+      const patch = {
+        updated_at:          new Date().toISOString(),
+      };
+      if (settings.name             != null) patch.name               = settings.name;
+      if (settings.phone            != null) patch.phone              = settings.phone;
+      if (settings.email            != null) patch.email              = settings.email;
+      if (settings.address          != null) patch.address            = settings.address;
+      if (settings.city             != null) patch.city               = settings.city;
+      if (settings.country          != null) patch.country            = settings.country;
+      if (settings.coachCode        != null) patch.coach_code         = settings.coachCode;
+      if (settings.monthlyFee       != null) patch.monthly_fee        = settings.monthlyFee;
+      if (settings.monthlyDueDay    != null) patch.monthly_due_day    = settings.monthlyDueDay;
+      if (settings.monthlyGraceDays != null) patch.monthly_grace_days = settings.monthlyGraceDays;
+      if (settings.currency         != null) patch.currency           = settings.currency;
+      if (settings.primaryColor     != null) patch.primary_color      = settings.primaryColor;
+      const res = await fetch(
+        `${window.SUPA_URL}/rest/v1/clubs?id=eq.${encodeURIComponent(clubId)}`,
+        {
+          method: 'PATCH',
+          headers: _supaHeaders({ Prefer: 'return=minimal' }),
+          body: JSON.stringify(patch),
+        }
+      );
+      if (!res.ok) console.warn('⚠️ Supabase PATCH clubs/settings:', await res.text());
+      return res.ok;
+    } catch (e) {
+      console.warn('⚠️ Supabase PATCH clubs/settings:', e.message);
+      return false;
+    }
+  }
+
+  if (!checkFirebaseReady()) return false;
 
   try {
     await window.firebase.setDoc(
@@ -827,10 +883,25 @@ async function deleteExpenseFromFirebase(expenseId) {
 }
 
 async function saveCashRegisterToFirebase(cashRegister) {
-  if (!checkFirebaseReady()) return false;
   const clubId = getClubId();
   if (!clubId || !cashRegister?.id) return false;
 
+  if (window.MODO_SUPABASE) {
+    return _supaUpsertOne('cash_registers', {
+      id:            cashRegister.id,
+      club_id:       clubId,
+      date:          cashRegister.date          || new Date().toISOString(),
+      cash_expected: cashRegister.cashExpected  || 0,
+      cash_counted:  cashRegister.cashCounted   || 0,
+      bank_expected: cashRegister.bankExpected  || 0,
+      discrepancy:   cashRegister.discrepancy   || 0,
+      notes:         cashRegister.notes         || null,
+      audited_by:    cashRegister.auditedBy     || null,
+      updated_at:    new Date().toISOString(),
+    });
+  }
+
+  if (!checkFirebaseReady()) return false;
   try {
     await window.firebase.setDoc(
       window.firebase.doc(window.firebase.db, `clubs/${clubId}/cash_registers`, cashRegister.id),
@@ -845,10 +916,33 @@ async function saveCashRegisterToFirebase(cashRegister) {
 }
 
 async function saveThirdPartyIncomeToFirebase(income) {
-  if (!checkFirebaseReady()) return false;
   const clubId = getClubId();
   if (!clubId || !income?.id) return false;
 
+  if (window.MODO_SUPABASE) {
+    return _supaUpsertOne('third_party_incomes', {
+      id:                   income.id,
+      club_id:              clubId,
+      type:                 income.type                || 'third-party-income',
+      contributor_type:     income.contributorType     || null,
+      contributor_name:     income.contributorName     || null,
+      contributor_phone:    income.contributorPhone    || null,
+      contributor_email:    income.contributorEmail    || null,
+      contributor_document: income.contributorDocument || null,
+      contributor_address:  income.contributorAddress  || null,
+      category:             income.category            || null,
+      concept:              income.concept             || null,
+      amount:               income.amount              || 0,
+      date:                 income.date                || null,
+      method:               income.method              || null,
+      notes:                income.notes               || null,
+      invoice_number:       income.invoiceNumber       || null,
+      deleted:              income.deleted             || false,
+      updated_at:           new Date().toISOString(),
+    });
+  }
+
+  if (!checkFirebaseReady()) return false;
   try {
     await window.firebase.setDoc(
       window.firebase.doc(window.firebase.db, `clubs/${clubId}/thirdPartyIncomes`, income.id),
@@ -863,10 +957,14 @@ async function saveThirdPartyIncomeToFirebase(income) {
 }
 
 async function deleteThirdPartyIncomeFromFirebase(incomeId) {
-  if (!checkFirebaseReady()) return false;
   const clubId = getClubId();
   if (!clubId || !incomeId) return false;
 
+  if (window.MODO_SUPABASE) {
+    return _supaPatch('third_party_incomes', incomeId, clubId, { deleted: true });
+  }
+
+  if (!checkFirebaseReady()) return false;
   try {
     await window.firebase.deleteDoc(
       window.firebase.doc(window.firebase.db, `clubs/${clubId}/thirdPartyIncomes`, incomeId)
@@ -884,12 +982,28 @@ async function deleteThirdPartyIncomeFromFirebase(incomeId) {
 // ========================================
 
 /**
- * Guarda una sola entrada del log en Firebase (llamado en tiempo real al crear cada entrada)
+ * Guarda una sola entrada del log en tiempo real al crear cada entrada
  */
 async function savePaymentLogEntryToFirebase(entry) {
-  if (!window.APP_STATE?.firebaseReady || !window.firebase?.auth?.currentUser) return false;
   const clubId = getClubId();
   if (!clubId || !entry?.id) return false;
+
+  if (window.MODO_SUPABASE) {
+    const reasonParts = [entry.concept, entry.period, entry.method, entry.notes].filter(Boolean);
+    return _supaUpsertOne('payment_audit_log', {
+      id:             entry.id,
+      club_id:        clubId,
+      action:         entry.action        || null,
+      player_name:    entry.playerName    || null,
+      amount:         entry.amount        || null,
+      invoice_number: entry.invoiceNumber || null,
+      admin_name:     entry.userName      || null,
+      reason:         reasonParts.join(' | ') || null,
+      created_at:     entry.timestamp     || new Date().toISOString(),
+    });
+  }
+
+  if (!window.APP_STATE?.firebaseReady || !window.firebase?.auth?.currentUser) return false;
   try {
     await window.firebase.setDoc(
       window.firebase.doc(window.firebase.db, `clubs/${clubId}/paymentMovementLog`, entry.id),
@@ -905,8 +1019,11 @@ async function savePaymentLogEntryToFirebase(entry) {
 /**
  * Migración única: sube todas las entradas locales existentes a Firebase.
  * Solo corre una vez por dispositivo/club (flag paymentLogFirebaseMigration_v1).
+ * En MODO_SUPABASE no hace nada — las entradas se guardan directamente vía savePaymentLogEntryToFirebase.
  */
 async function migrateLocalPaymentLogToFirebase() {
+  if (window.MODO_SUPABASE) return;
+
   const clubId = getClubId();
   if (!clubId) return;
   const FLAG = `paymentLogFirebaseMigration_v1_${clubId}`;
@@ -933,6 +1050,7 @@ async function migrateLocalPaymentLogToFirebase() {
 /**
  * Limpieza única: elimina entradas 'Recuperado' con timestamps incorrectos,
  * las regenera con la fecha real del pago y sincroniza con Firebase.
+ * En MODO_SUPABASE solo corrige el localStorage — no toca Firebase.
  */
 async function fixRecoveredPaymentLogEntries() {
   const clubId = getClubId();
@@ -951,14 +1069,14 @@ async function fixRecoveredPaymentLogEntries() {
     const cleaned = log.filter(e => e.action !== 'Recuperado');
     localStorage.setItem('paymentMovementLog', JSON.stringify(cleaned));
 
-    // Re-generar con fechas correctas via fixMissingPaymentLogEntries (usa createdAt/paidDate del pago)
+    // Re-generar con fechas correctas
     localStorage.removeItem('paymentLogBackfill_v1');
     if (typeof window.fixMissingPaymentLogEntries === 'function') {
       window.fixMissingPaymentLogEntries({ force: true });
     }
 
-    // Limpiar en Firebase: borrar los 'Recuperado' y subir el log corregido
-    if (window.APP_STATE?.firebaseReady && window.firebase?.auth?.currentUser) {
+    // En Supabase solo se corrige el localStorage — las entradas nuevas se guardan directamente
+    if (!window.MODO_SUPABASE && window.APP_STATE?.firebaseReady && window.firebase?.auth?.currentUser) {
       const snap = await window.firebase.getDocs(
         window.firebase.collection(window.firebase.db, `clubs/${clubId}/paymentMovementLog`)
       );
@@ -971,7 +1089,6 @@ async function fixRecoveredPaymentLogEntries() {
       await Promise.allSettled(deleteOps);
       console.log(`🗑️ ${deleteOps.length} entradas 'Recuperado' eliminadas de Firebase`);
 
-      // Subir el log corregido
       const correctLog = (typeof getPaymentLog === 'function' ? getPaymentLog() : []).filter(e => e.id);
       await processInChunks(correctLog, 20, async (entry) => {
         await window.firebase.setDoc(
@@ -980,7 +1097,6 @@ async function fixRecoveredPaymentLogEntries() {
         );
         return true;
       });
-      // Resetear flag de migración para que se vuelva a hacer con datos correctos
       localStorage.removeItem(`paymentLogFirebaseMigration_v1_${clubId}`);
       console.log(`✅ Log corregido subido a Firebase: ${correctLog.length} entradas`);
     }
@@ -1073,9 +1189,14 @@ function markCounterSyncRun(clubId) {
 }
 
 /**
- * Obtener el siguiente número de factura desde Firebase (único para todos los dispositivos)
+ * Obtener el siguiente número de factura (Firebase o Supabase según MODO_SUPABASE).
+ * En Supabase usa el máximo local cross-módulos — suficiente para un solo admin activo.
  */
 async function getNextInvoiceNumberFromFirebase() {
+  if (window.MODO_SUPABASE) {
+    return getNextInvoiceNumberLocal();
+  }
+
   if (!checkFirebaseReady()) {
     console.warn('⚠️ Firebase no listo, usando consecutivo local');
     return getNextInvoiceNumberLocal();
@@ -1164,8 +1285,10 @@ function getNextInvoiceNumberLocal() {
 
 /**
  * ✅ Sincronizar contador con facturas reales en todos los módulos
+ * En MODO_SUPABASE no hay contador central — no-op.
  */
 async function syncInvoiceCounter(options = {}) {
+  if (window.MODO_SUPABASE) return;
   if (!checkFirebaseReady()) return;
 
   const clubId = getClubId();
@@ -1245,13 +1368,37 @@ async function syncInvoiceCounter(options = {}) {
 }
 
 /**
- * Guardar factura anulada en Firebase — registro permanente de auditoría
+ * Guardar factura anulada — registro permanente de auditoría
  */
 async function saveVoidedPaymentToFirebase(voidedData) {
-  if (!checkFirebaseReady()) return false;
   const clubId = getClubId();
   if (!clubId) return false;
 
+  if (window.MODO_SUPABASE) {
+    try {
+      const row = {
+        id:             voidedData.id || crypto.randomUUID(),
+        club_id:        clubId,
+        invoice_number: voidedData.invoiceNumber || null,
+        voided_at:      voidedData.voidedAt      || new Date().toISOString(),
+        voided_by:      voidedData.voidedBy      || null,
+        reason:         voidedData.reason        || null,
+        original_data:  voidedData.originalData  || voidedData,
+      };
+      const res = await fetch(`${window.SUPA_URL}/rest/v1/voided_payments`, {
+        method: 'POST',
+        headers: _supaHeaders({ Prefer: 'resolution=merge-duplicates,return=minimal' }),
+        body: JSON.stringify(row),
+      });
+      if (!res.ok) console.warn('⚠️ Supabase voided_payments:', await res.text());
+      return res.ok;
+    } catch (e) {
+      console.warn('⚠️ Supabase voided_payments:', e.message);
+      return false;
+    }
+  }
+
+  if (!checkFirebaseReady()) return false;
   try {
     await window.firebase.addDoc(
       window.firebase.collection(window.firebase.db, `clubs/${clubId}/voided_payments`),
@@ -1442,6 +1589,30 @@ async function syncAllToSupabase() {
   }));
   syncedItems.push(`${await _supaUpsert('parent_codes', pcRows)} códigos padres`);
 
+  // 7️⃣ Otros ingresos (terceros)
+  const thirdPartyIncomes = (typeof getThirdPartyIncomes === 'function' ? getThirdPartyIncomes() : []).filter(i => i.id);
+  const tpiRows = thirdPartyIncomes.map(i => ({
+    id:                   i.id,
+    club_id:              clubId,
+    type:                 i.type                || 'third-party-income',
+    contributor_type:     i.contributorType     || null,
+    contributor_name:     i.contributorName     || null,
+    contributor_phone:    i.contributorPhone    || null,
+    contributor_email:    i.contributorEmail    || null,
+    contributor_document: i.contributorDocument || null,
+    contributor_address:  i.contributorAddress  || null,
+    category:             i.category            || null,
+    concept:              i.concept             || null,
+    amount:               i.amount              || 0,
+    date:                 i.date                || null,
+    method:               i.method              || null,
+    notes:                i.notes               || null,
+    invoice_number:       i.invoiceNumber       || null,
+    deleted:              i.deleted             || false,
+    updated_at:           new Date().toISOString(),
+  }));
+  syncedItems.push(`${await _supaUpsert('third_party_incomes', tpiRows)} otros ingresos`);
+
   showToast(`✅ Supabase: ${syncedItems.join(', ')}`);
   console.log('✅ syncAllToSupabase completado:', syncedItems.join(', '));
 }
@@ -1482,7 +1653,7 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false } = {}) {
     const enc = encodeURIComponent;
 
     // Limpiar datos previos del club para maximizar espacio disponible en localStorage
-    ['players', 'payments', 'paymentsFullHistory', 'calendarEvents', 'users', 'expenses', 'parentCodes'].forEach(k => {
+    ['players', 'payments', 'paymentsFullHistory', 'calendarEvents', 'users', 'expenses', 'parentCodes', 'thirdPartyIncomes'].forEach(k => {
       try { localStorage.removeItem(k); } catch(_) {}
     });
 
@@ -1591,6 +1762,37 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false } = {}) {
       console.log(`✅ ${parentCodes.length} códigos de padres descargados desde Supabase`);
     }
 
+    // 7️⃣ Otros ingresos (terceros)
+    const tpiRes = await fetch(
+      `${base}/third_party_incomes?club_id=eq.${enc(clubId)}&deleted=eq.false&select=*`,
+      { headers: h }
+    );
+    if (tpiRes.ok) {
+      const tpiRows = await tpiRes.json();
+      const thirdPartyIncomes = tpiRows.map(i => ({
+        id:                   i.id,
+        type:                 i.type,
+        contributorType:      i.contributor_type,
+        contributorName:      i.contributor_name,
+        contributorPhone:     i.contributor_phone,
+        contributorEmail:     i.contributor_email,
+        contributorDocument:  i.contributor_document,
+        contributorAddress:   i.contributor_address,
+        category:             i.category,
+        concept:              i.concept,
+        amount:               i.amount,
+        date:                 i.date,
+        method:               i.method,
+        notes:                i.notes,
+        invoiceNumber:        i.invoice_number,
+        deleted:              i.deleted,
+        createdAt:            i.created_at,
+        clubId:               clubId,
+      }));
+      localStorage.setItem('thirdPartyIncomes', JSON.stringify(thirdPartyIncomes));
+      console.log(`✅ ${thirdPartyIncomes.length} otros ingresos descargados desde Supabase`);
+    }
+
     // Marcas de caché LOCAL-FIRST (mismo patrón que Firebase)
     localStorage.setItem('_lastFullDownload', JSON.stringify({ clubId, ts: Date.now() }));
     if (typeof markLocalSnapshotSynced === 'function') {
@@ -1616,24 +1818,29 @@ window.downloadAllClubDataFromSupabase = downloadAllClubDataFromSupabase;
 // ============================================================
 
 window.addEventListener('load', async () => {
+  const clubId = getClubId();
+  if (!clubId) {
+    console.log('⏳ No hay clubId aún, saltando sincronización de arranque');
+    return;
+  }
+
+  // Limpiar entradas 'Recuperado' con fechas incorrectas (una sola vez — local en MODO_SUPABASE)
+  if (typeof window.fixRecoveredPaymentLogEntries === 'function') {
+    await window.fixRecoveredPaymentLogEntries();
+  }
+
+  // En Supabase no hay contador central ni migración de log a Firebase
+  if (window.MODO_SUPABASE) {
+    console.log('✅ [Supabase] Arranque: contador local activo, no se requiere sync de contador');
+    return;
+  }
+
   // Esperar 2 segundos para que Firebase esté completamente listo
   await new Promise(resolve => setTimeout(resolve, 2000));
-  
-  // Verificar que Firebase esté listo
+
   if (!checkFirebaseReady()) {
     console.log('⏳ Firebase aún no está listo, saltando sincronización');
     return;
-  }
-
-  const clubId = getClubId();
-  if (!clubId) {
-    console.log('⏳ No hay clubId aún, saltando sincronización');
-    return;
-  }
-
-  // Limpiar entradas 'Recuperado' con fechas incorrectas (una sola vez)
-  if (typeof window.fixRecoveredPaymentLogEntries === 'function') {
-    await window.fixRecoveredPaymentLogEntries();
   }
 
   // Migrar log de movimientos a Firebase (una sola vez, no bloquea el contador)
@@ -1641,7 +1848,7 @@ window.addEventListener('load', async () => {
     window.migrateLocalPaymentLogToFirebase();
   }
 
-  // Verificar si ya se sincronizó antes en este dispositivo
+  // Verificar si ya se sincronizó el contador antes en este dispositivo
   const syncKey = `counterSynced_${clubId}`;
   if (localStorage.getItem(syncKey)) {
     console.log('✅ Contador ya sincronizado anteriormente en este dispositivo');
@@ -1649,23 +1856,19 @@ window.addEventListener('load', async () => {
   }
 
   console.log('🔄 Sincronizando contador automáticamente por primera vez...');
-  
+
   try {
-    // Verificar que la función exista antes de llamarla
     if (typeof window.syncInvoiceCounter !== 'function') {
       console.error('❌ syncInvoiceCounter no está disponible aún');
       return;
     }
-    
+
     await window.syncInvoiceCounter();
-    
-    // Marcar como sincronizado para este dispositivo
+
     localStorage.setItem(syncKey, new Date().toISOString());
-    
     console.log('✅ Sincronización automática completada');
-    
+
   } catch (error) {
     console.error('❌ Error en sincronización automática:', error);
-    // No marcamos como sincronizado, para que lo intente de nuevo
   }
 });
