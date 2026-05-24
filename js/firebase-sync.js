@@ -1827,6 +1827,20 @@ window.addEventListener('load', async () => {
   // En Supabase no hay contador central ni migración de log a Firebase
   if (window.MODO_SUPABASE) {
     console.log('✅ [Supabase] Arranque: contador local activo, no se requiere sync de contador');
+    // Sincronizar logo automáticamente si está en localStorage pero no en Supabase
+    try {
+      const _localLogo = (() => { try { return JSON.parse(localStorage.getItem('schoolSettings') || '{}').logo || null; } catch(e) { return null; } })();
+      if (_localLogo) {
+        const _chk = await fetch(`${window.SUPA_URL}/rest/v1/clubs?id=eq.${encodeURIComponent(clubId)}&select=logo&limit=1`, { headers: { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}` } });
+        if (_chk.ok) {
+          const _chkRows = await _chk.json();
+          if (!_chkRows?.[0]?.logo) {
+            fetch(`${window.SUPA_URL}/rest/v1/clubs?id=eq.${encodeURIComponent(clubId)}`, { method: 'PATCH', headers: { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify({ logo: _localLogo, updated_at: new Date().toISOString() }) });
+            console.log('☁️ [AUTO] Logo del club sincronizado a Supabase');
+          }
+        }
+      }
+    } catch(_) {}
     return;
   }
 
