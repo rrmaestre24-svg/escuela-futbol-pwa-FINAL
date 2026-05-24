@@ -244,21 +244,23 @@ document.getElementById('changeClubLogo')?.addEventListener('change', function(e
       }
       showToast('⏳ Subiendo logo a la nube...');
 
-      // ✅ Subir a Firebase Storage
-// ✅ Guardar logo en documento separado de Firestore
+      // Guardar logo en la nube
       try {
-        if (window.firebase?.db) {
+        if (window.MODO_SUPABASE) {
+          // Logo almacenado en schoolSettings local — no hay tabla assets en Supabase
+          showToast('✅ Logo actualizado');
+        } else if (window.firebase?.db) {
           const settings = getSchoolSettings();
           const clubId = settings.clubId || localStorage.getItem('clubId') || 'default';
-          
+
           await window.firebase.setDoc(
             window.firebase.doc(window.firebase.db, `clubs/${clubId}/assets`, 'logo'),
-            { 
+            {
               logo: compressed,
               updatedAt: new Date().toISOString()
             }
           );
-          
+
           console.log('✅ Logo guardado en Firestore (documento separado)');
           showToast('✅ Logo actualizado en la nube');
         } else {
@@ -376,19 +378,29 @@ document.getElementById('changePasswordForm')?.addEventListener('submit', async 
     updateUser(currentUser.id, { password: newPassword });
     console.log('✅ Contraseña actualizada en localStorage');
     
-    // 4. Actualizar en Firestore si existe
+    // 4. Actualizar timestamp en la nube
     const clubId = localStorage.getItem('clubId');
-    if (clubId && window.firebase?.db) {
+    if (clubId) {
       try {
-        await window.firebase.updateDoc(
-          window.firebase.doc(window.firebase.db, `clubs/${clubId}/users`, currentUser.id),
-          { 
-            passwordUpdatedAt: new Date().toISOString()
-          }
-        );
-        console.log('✅ Timestamp actualizado en Firestore');
-      } catch (firestoreError) {
-        console.log('ℹ️ No se pudo actualizar Firestore:', firestoreError.message);
+        if (window.MODO_SUPABASE) {
+          await fetch(
+            `${window.SUPA_URL}/rest/v1/users?id=eq.${encodeURIComponent(currentUser.id)}&club_id=eq.${encodeURIComponent(clubId)}`,
+            {
+              method: 'PATCH',
+              headers: { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+              body: JSON.stringify({ password_updated_at: new Date().toISOString() })
+            }
+          );
+          console.log('✅ Timestamp actualizado en Supabase');
+        } else if (window.firebase?.db) {
+          await window.firebase.updateDoc(
+            window.firebase.doc(window.firebase.db, `clubs/${clubId}/users`, currentUser.id),
+            { passwordUpdatedAt: new Date().toISOString() }
+          );
+          console.log('✅ Timestamp actualizado en Firestore');
+        }
+      } catch (tsError) {
+        console.log('ℹ️ No se pudo actualizar timestamp:', tsError.message);
       }
     }
     
@@ -800,31 +812,57 @@ async function saveSchoolUser(userData) {
     const clubId = settings.clubId || currentUser.schoolId || 'default_club';
     console.log('🏢 Club ID:', clubId);
     
-    console.log('📝 Escribiendo en Firestore como admin principal...');
-    
-    await window.firebase.setDoc(
-      window.firebase.doc(window.firebase.db, `clubs/${clubId}/users`, newUserUid),
-      {
-        id: newUserUid,
-        email: newUser.email,
-        name: newUser.name,
-        isMainAdmin: false,
-        role: 'admin',
-        avatar: newUser.avatar || '',
-        phone: newUser.phone || '',
-        birthDate: newUser.birthDate || '',
-        createdAt: new Date().toISOString()
+    if (window.MODO_SUPABASE) {
+      console.log('📝 Escribiendo usuario en Supabase...');
+      const res = await fetch(
+        `${window.SUPA_URL}/rest/v1/users`,
+        {
+          method: 'POST',
+          headers: { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+          body: JSON.stringify({
+            id: newUserUid,
+            club_id: clubId,
+            email: newUser.email,
+            name: newUser.name,
+            is_main_admin: false,
+            role: 'admin',
+            phone: newUser.phone || '',
+            deleted: false,
+            created_at: new Date().toISOString()
+          })
+        }
+      );
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error('Supabase POST users: ' + errText);
       }
-    );
-    console.log('✅ Usuario guardado en Firestore');
-    
-    if (typeof saveUserClubMapping === 'function') {
-      console.log('🗺️ Guardando mapeo para login multi-dispositivo...');
-      const mappingSaved = await saveUserClubMapping(userData.email, clubId, newUserUid);
-      if (mappingSaved) {
-        console.log('✅ Mapeo guardado');
-      } else {
-        console.warn('⚠️ Mapeo no se pudo guardar');
+      console.log('✅ Usuario guardado en Supabase');
+    } else {
+      console.log('📝 Escribiendo en Firestore como admin principal...');
+      await window.firebase.setDoc(
+        window.firebase.doc(window.firebase.db, `clubs/${clubId}/users`, newUserUid),
+        {
+          id: newUserUid,
+          email: newUser.email,
+          name: newUser.name,
+          isMainAdmin: false,
+          role: 'admin',
+          avatar: newUser.avatar || '',
+          phone: newUser.phone || '',
+          birthDate: newUser.birthDate || '',
+          createdAt: new Date().toISOString()
+        }
+      );
+      console.log('✅ Usuario guardado en Firestore');
+
+      if (typeof saveUserClubMapping === 'function') {
+        console.log('🗺️ Guardando mapeo para login multi-dispositivo...');
+        const mappingSaved = await saveUserClubMapping(userData.email, clubId, newUserUid);
+        if (mappingSaved) {
+          console.log('✅ Mapeo guardado');
+        } else {
+          console.warn('⚠️ Mapeo no se pudo guardar');
+        }
       }
     }
     
@@ -924,27 +962,40 @@ async function deleteSchoolUser(userId) {
       return;
     }
     
-    // 1️⃣ ELIMINAR DOCUMENTO COMPLETAMENTE DE FIRESTORE (NO SOLO MARCAR)
-    try {
-      await window.firebase.deleteDoc(
-        window.firebase.doc(window.firebase.db, `clubs/${clubId}/users`, userId)
+    // 1️⃣ Marcar usuario como eliminado en la nube
+    if (window.MODO_SUPABASE) {
+      const delRes = await fetch(
+        `${window.SUPA_URL}/rest/v1/users?id=eq.${encodeURIComponent(userId)}&club_id=eq.${encodeURIComponent(clubId)}`,
+        {
+          method: 'PATCH',
+          headers: { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+          body: JSON.stringify({ deleted: true })
+        }
       );
-      console.log('✅ Usuario ELIMINADO completamente de Firestore (documento borrado)');
-    } catch (firestoreError) {
-      console.error('⚠️ Error al eliminar de Firestore:', firestoreError);
-      throw firestoreError;
+      if (!delRes.ok) throw new Error('Supabase PATCH users: ' + delRes.status);
+      console.log('✅ Usuario marcado como eliminado en Supabase');
+    } else {
+      try {
+        await window.firebase.deleteDoc(
+          window.firebase.doc(window.firebase.db, `clubs/${clubId}/users`, userId)
+        );
+        console.log('✅ Usuario ELIMINADO completamente de Firestore (documento borrado)');
+      } catch (firestoreError) {
+        console.error('⚠️ Error al eliminar de Firestore:', firestoreError);
+        throw firestoreError;
+      }
     }
-    
+
     // 2️⃣ Eliminar de localStorage
     const updatedUsers = users.filter(u => u.id !== userId);
     localStorage.setItem('users', JSON.stringify(updatedUsers));
     console.log('✅ Usuario eliminado de localStorage');
-    
+
     // 3️⃣ Actualizar UI
     renderSchoolUsers();
-    
-    // 4️⃣ Eliminar mapeo (impide login)
-    if (userToDelete.email) {
+
+    // 4️⃣ Eliminar mapeo (solo Firebase — en Supabase no hay tabla de mapeo)
+    if (!window.MODO_SUPABASE && userToDelete.email) {
       try {
         const mappingEmail = typeof normalizeUserEmail === 'function'
           ? normalizeUserEmail(userToDelete.email)
@@ -969,22 +1020,20 @@ async function deleteSchoolUser(userId) {
         console.log('⚠️ No se pudo eliminar el mapeo:', mappingError.code);
       }
     }
-    
-    // 5️⃣ Eliminar la cuenta de Firebase Authentication vía Cloud Function
-    // Esto evita que la cuenta quede huérfana y no pueda usarse en otro club
-    if (userToDelete.id && window.firebase?.functions && window.firebase?.httpsCallable) {
+
+    // 5️⃣ Eliminar la cuenta de Firebase Authentication vía Cloud Function (solo Firebase)
+    if (!window.MODO_SUPABASE && userToDelete.id && window.firebase?.functions && window.firebase?.httpsCallable) {
       try {
         const deleteAuthUser = window.firebase.httpsCallable(window.firebase.functions, 'deleteAuthUser');
         await deleteAuthUser({ uidToDelete: userToDelete.id, clubId });
         console.log('✅ Cuenta de Firebase Authentication eliminada');
       } catch (authDeleteError) {
-        // No bloquear la operación si falla — el usuario ya está bloqueado por Firestore
         console.warn('⚠️ No se pudo eliminar la cuenta Auth (usuario ya bloqueado):', authDeleteError.message);
       }
     }
 
     showToast('✅ Usuario eliminado permanentemente');
-    console.log('✅ Eliminación completada. Cuenta Auth y acceso Firestore removidos.');
+    console.log('✅ Eliminación completada.');
 
   } catch (error) {
     console.error('❌ Error al eliminar usuario:', error);
@@ -1445,105 +1494,111 @@ async function executeClubDestruction(clubId, currentUser) {
   console.log('🔥 ========================================');
   
   try {
-    showToast('🔥 Eliminando datos de Firebase...');
-    
-    let deletedItems = {
-      players: 0,
-      payments: 0,
-      events: 0,
-      users: 0,
-      expenses: 0,
-      settings: false
+    showToast('🔥 Eliminando datos en la nube...');
+
+    const _supaDelete = async (table) => {
+      const r = await fetch(
+        `${window.SUPA_URL}/rest/v1/${table}?club_id=eq.${encodeURIComponent(clubId)}`,
+        { method: 'DELETE', headers: { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}`, Prefer: 'return=minimal' } }
+      );
+      return r.ok;
     };
-    
-    // Verificar Firebase
-    if (window.firebase?.db) {
+
+    if (window.MODO_SUPABASE) {
+      // Borrar en orden: datos → usuarios → club
+      for (const table of ['players', 'payments', 'events', 'expenses', 'coaches', 'users']) {
+        try {
+          const ok = await _supaDelete(table);
+          console.log(`${ok ? '✅' : '⚠️'} ${table} eliminados de Supabase`);
+        } catch (e) {
+          console.error(`❌ Error eliminando ${table}:`, e);
+        }
+      }
+      try {
+        await fetch(
+          `${window.SUPA_URL}/rest/v1/clubs?id=eq.${encodeURIComponent(clubId)}`,
+          { method: 'DELETE', headers: { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}`, Prefer: 'return=minimal' } }
+        );
+        console.log('✅ Club eliminado de Supabase');
+      } catch (e) {
+        console.error('❌ Error eliminando club:', e);
+      }
+    } else if (window.firebase?.db) {
       // 1️⃣ Eliminar Jugadores
       try {
         const playersSnapshot = await window.firebase.getDocs(
           window.firebase.collection(window.firebase.db, `clubs/${clubId}/players`)
         );
-        
         for (const doc of playersSnapshot.docs) {
           await window.firebase.deleteDoc(doc.ref);
-          deletedItems.players++;
         }
-        console.log(`✅ ${deletedItems.players} jugadores eliminados de Firebase`);
+        console.log(`✅ Jugadores eliminados de Firebase`);
       } catch (error) {
         console.error('❌ Error eliminando jugadores:', error);
       }
-      
+
       // 2️⃣ Eliminar Pagos
       try {
         const paymentsSnapshot = await window.firebase.getDocs(
           window.firebase.collection(window.firebase.db, `clubs/${clubId}/payments`)
         );
-        
         for (const doc of paymentsSnapshot.docs) {
           await window.firebase.deleteDoc(doc.ref);
-          deletedItems.payments++;
         }
-        console.log(`✅ ${deletedItems.payments} pagos eliminados de Firebase`);
+        console.log(`✅ Pagos eliminados de Firebase`);
       } catch (error) {
         console.error('❌ Error eliminando pagos:', error);
       }
-      
+
       // 3️⃣ Eliminar Eventos
       try {
         const eventsSnapshot = await window.firebase.getDocs(
           window.firebase.collection(window.firebase.db, `clubs/${clubId}/events`)
         );
-        
         for (const doc of eventsSnapshot.docs) {
           await window.firebase.deleteDoc(doc.ref);
-          deletedItems.events++;
         }
-        console.log(`✅ ${deletedItems.events} eventos eliminados de Firebase`);
+        console.log(`✅ Eventos eliminados de Firebase`);
       } catch (error) {
         console.error('❌ Error eliminando eventos:', error);
       }
-      
+
       // 4️⃣ Eliminar Egresos
       try {
         const expensesSnapshot = await window.firebase.getDocs(
           window.firebase.collection(window.firebase.db, `clubs/${clubId}/expenses`)
         );
-        
         for (const doc of expensesSnapshot.docs) {
           await window.firebase.deleteDoc(doc.ref);
-          deletedItems.expenses++;
         }
-        console.log(`✅ ${deletedItems.expenses} egresos eliminados de Firebase`);
+        console.log(`✅ Egresos eliminados de Firebase`);
       } catch (error) {
         console.error('❌ Error eliminando egresos:', error);
       }
-      
+
       // 5️⃣ Eliminar Usuarios
       try {
         const usersSnapshot = await window.firebase.getDocs(
           window.firebase.collection(window.firebase.db, `clubs/${clubId}/users`)
         );
-        
         for (const doc of usersSnapshot.docs) {
           await window.firebase.deleteDoc(doc.ref);
-          deletedItems.users++;
         }
-        console.log(`✅ ${deletedItems.users} usuarios eliminados de Firebase`);
+        console.log(`✅ Usuarios eliminados de Firebase`);
       } catch (error) {
         console.error('❌ Error eliminando usuarios:', error);
       }
-      
+
       // 6️⃣ Eliminar Configuración
       try {
         await window.firebase.deleteDoc(
           window.firebase.doc(window.firebase.db, `clubs/${clubId}/settings`, "main")
         );
-        deletedItems.settings = true;
         console.log('✅ Configuración eliminada de Firebase');
       } catch (error) {
         console.error('❌ Error eliminando configuración:', error);
       }
-      
+
       // 7️⃣ Eliminar Mapeo
       try {
         const mappingEmail = typeof normalizeUserEmail === 'function'
@@ -1561,9 +1616,7 @@ async function executeClubDestruction(clubId, currentUser) {
             console.log('⚠️ No se pudo eliminar mapeo candidato:', candidateEmail, candidateError.code);
           }
         }
-        if (!deletedAnyMapping) {
-          throw new Error('No se pudo eliminar ningún mapeo de usuario');
-        }
+        if (!deletedAnyMapping) throw new Error('No se pudo eliminar ningún mapeo');
         console.log('✅ Mapeo eliminado');
       } catch (error) {
         console.log('ℹ️ No se pudo eliminar mapeo:', error.code);
