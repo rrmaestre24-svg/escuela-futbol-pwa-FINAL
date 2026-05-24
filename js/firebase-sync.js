@@ -1481,6 +1481,11 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false } = {}) {
     const base = `${window.SUPA_URL}/rest/v1`;
     const enc = encodeURIComponent;
 
+    // Limpiar datos previos del club para maximizar espacio disponible en localStorage
+    ['players', 'payments', 'paymentsFullHistory', 'calendarEvents', 'users', 'expenses', 'parentCodes'].forEach(k => {
+      try { localStorage.removeItem(k); } catch(_) {}
+    });
+
     // 1️⃣ Jugadores
     const pRes = await fetch(`${base}/players?club_id=eq.${enc(clubId)}&deleted=eq.false&select=*`, { headers: h });
     if (!pRes.ok) throw new Error('Error al leer jugadores de Supabase: ' + await pRes.text());
@@ -1497,7 +1502,14 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false } = {}) {
       lastInactivatedAt: p.last_inactivated_at,
       deleted: p.deleted, schoolId: clubId,
     }));
-    localStorage.setItem('players', JSON.stringify(players));
+    try {
+      localStorage.setItem('players', JSON.stringify(players));
+    } catch (quotaErr) {
+      // Jugadores no caben completos — guardar solo los activos
+      const reduced = players.filter(p => p.status === 'activo');
+      localStorage.setItem('players', JSON.stringify(reduced));
+      console.warn(`⚠️ Cuota localStorage — almacenados ${reduced.length} jugadores activos (de ${players.length} totales)`);
+    }
     console.log(`✅ ${players.length} jugadores descargados desde Supabase`);
 
     // 2️⃣ Pagos (últimos 12 meses — mismo criterio que Firebase)
