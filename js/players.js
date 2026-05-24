@@ -838,7 +838,21 @@ async function uploadPlayerDocument(playerId, input) {
   const clubId = localStorage.getItem('clubId');
 
   if (window.MODO_SUPABASE) {
-    // En Supabase el local es canonical — usar docs ya cargados
+    // Leer documentos desde Supabase y hacer merge con localStorage
+    // (evita sobreescribir docs subidos desde el portal de padres)
+    try {
+      const _sr = await fetch(
+        `${window.SUPA_URL}/rest/v1/players?id=eq.${encodeURIComponent(playerId)}&club_id=eq.${encodeURIComponent(clubId)}&select=documents&limit=1`,
+        { headers: { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}` } }
+      );
+      if (_sr.ok) {
+        const _srows = await _sr.json();
+        const supaDocs = _srows?.[0]?.documents || [];
+        const supaIds = new Set(supaDocs.map(d => d.id).filter(Boolean));
+        const localOnly = docs.filter(d => d.id && !supaIds.has(d.id));
+        docs = [...supaDocs, ...localOnly];
+      }
+    } catch (_) { /* usar docs locales si falla */ }
     canUpdateDocsFieldDirectly = true;
   } else if (window.firebase?.db && clubId && window.firebase.doc && window.firebase.getDoc && window.firebase.updateDoc) {
     try {
@@ -868,7 +882,6 @@ async function uploadPlayerDocument(playerId, input) {
   showToast('⏳ Subiendo documento...');
 
   try {
-    // Subir a Cloudinary a través de la capa de abstracción
     const result = await uploadDocument(file, playerId);
 
     const newDoc = {
@@ -923,16 +936,32 @@ async function deletePlayerDocument(playerId, docId) {
   const player = getPlayerById(playerId);
   if (!player) return;
 
-  const currentDocs = player.documents || [];
+  const clubId = localStorage.getItem('clubId');
+  let currentDocs = player.documents || [];
+
+  // En modo Supabase: merge con docs de Supabase antes de eliminar
+  if (window.MODO_SUPABASE && clubId) {
+    try {
+      const _sr = await fetch(
+        `${window.SUPA_URL}/rest/v1/players?id=eq.${encodeURIComponent(playerId)}&club_id=eq.${encodeURIComponent(clubId)}&select=documents&limit=1`,
+        { headers: { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}` } }
+      );
+      if (_sr.ok) {
+        const _srows = await _sr.json();
+        const supaDocs = _srows?.[0]?.documents || [];
+        const supaIds = new Set(supaDocs.map(d => d.id).filter(Boolean));
+        const localOnly = currentDocs.filter(d => d.id && !supaIds.has(d.id));
+        currentDocs = [...supaDocs, ...localOnly];
+      }
+    } catch (_) { /* usar docs locales si falla */ }
+  }
+
   const docs = currentDocs.filter(d => d.id !== docId);
   const docToDelete = currentDocs.find(d => d.id === docId);
 
-  // Eliminar referencia en almacenamiento (Cloudinary soft-delete)
   if (docToDelete?.publicId) {
     deleteDocumentFromStorage(docToDelete.publicId);
   }
-
-  const clubId = localStorage.getItem('clubId');
   const currentPlayers = getPlayers();
   const playerIndex = currentPlayers.findIndex(p => p.id === playerId);
   if (playerIndex !== -1) {
