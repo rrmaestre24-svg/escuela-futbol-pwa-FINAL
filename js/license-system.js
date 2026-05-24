@@ -553,9 +553,10 @@ function listenToLicenseChanges() {
 
   try {
     console.log('👂 Escuchando cambios en licencia:', clubId);
-    
-    const licenseRef = window.firebase.doc(window.firebase.db, 'licenses', clubId);
-    
+
+    const licenseRef = !window.MODO_SUPABASE && window.firebase?.doc
+      ? window.firebase.doc(window.firebase.db, 'licenses', clubId) : null;
+
     // Cancelar polling anterior si existe (evita duplicados al reiniciar sesión)
     if (typeof window.licenseUnsubscribe === 'function') {
       window.licenseUnsubscribe();
