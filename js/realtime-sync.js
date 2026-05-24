@@ -1411,20 +1411,32 @@ async function refreshPaymentMovementLogOnDemand(options = {}) {
       );
       if (!res.ok) return false;
       const rows = await res.json();
-      const entries = rows.map(r => ({
+      // Mapear con los MISMOS nombres de campo que usa renderPaymentMovementLog
+      // (adminName, reason, playerName, invoiceNumber) — antes usaba userName/notes
+      // y se veían vacíos en la tabla.
+      const remote = rows.map(r => ({
         id:            r.id,
-        clubId:        r.club_id,
         action:        r.action,
         playerName:    r.player_name,
         amount:        r.amount,
         invoiceNumber: r.invoice_number,
-        userName:      r.admin_name,
-        notes:         r.reason,
+        adminName:     r.admin_name,
+        reason:        r.reason,
         timestamp:     r.created_at,
       }));
-      localStorage.setItem('paymentMovementLog', JSON.stringify(entries));
+      // Merge en vez de sobrescribir: conservar entradas locales que aún no estén
+      // en Supabase (recién creadas con el POST en vuelo, o creadas sin conexión),
+      // para no borrar un movimiento que el usuario acaba de registrar.
+      let local = [];
+      try { local = JSON.parse(localStorage.getItem('paymentMovementLog') || '[]'); } catch (_) {}
+      const remoteIds = new Set(remote.map(e => e.id).filter(Boolean));
+      const localOnly = local.filter(e => e.id && !remoteIds.has(e.id));
+      const merged = [...remote, ...localOnly]
+        .sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0))
+        .slice(0, 200);
+      localStorage.setItem('paymentMovementLog', JSON.stringify(merged));
       localStorage.setItem(cacheKey, String(Date.now()));
-      console.log(`📋 [Supabase] Log de movimientos actualizado: ${entries.length} entradas`);
+      console.log(`📋 [Supabase] Log de movimientos: ${remote.length} remotas + ${localOnly.length} locales`);
       return true;
     } catch (error) {
       console.warn('⚠️ Error actualizando log desde Supabase:', error);

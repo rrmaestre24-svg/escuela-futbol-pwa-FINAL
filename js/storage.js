@@ -1206,8 +1206,36 @@ function addPaymentLogEntry(entry) {
   } catch (_) {
     try { localStorage.setItem('paymentMovementLog', JSON.stringify(log.slice(0, 100))); } catch (_) {}
   }
-  // Sincronizar con Firebase — solo si NO estamos en modo Supabase
-  if (!window.MODO_SUPABASE && typeof window.savePaymentLogEntryToFirebase === 'function') {
+  // Sincronizar a la nube
+  if (window.MODO_SUPABASE) {
+    // Persistir el movimiento en Supabase (tabla payment_audit_log) para que el
+    // historial sobreviva recargas y se vea en cualquier dispositivo.
+    try {
+      const clubId = typeof getClubId === 'function' ? getClubId() : localStorage.getItem('clubId');
+      if (clubId && window.SUPA_URL && window.SUPA_ANON) {
+        fetch(`${window.SUPA_URL}/rest/v1/payment_audit_log`, {
+          method: 'POST',
+          headers: {
+            apikey: window.SUPA_ANON,
+            Authorization: `Bearer ${window.SUPA_ANON}`,
+            'Content-Type': 'application/json',
+            Prefer: 'return=minimal'
+          },
+          body: JSON.stringify({
+            id:             newEntry.id,
+            club_id:        clubId,
+            action:         newEntry.action,
+            invoice_number: newEntry.invoiceNumber,
+            player_name:    newEntry.playerName,
+            amount:         newEntry.amount,
+            admin_name:     newEntry.adminName,
+            reason:         newEntry.reason,
+            created_at:     newEntry.timestamp
+          })
+        }).catch(err => console.warn('⚠️ No se pudo sincronizar movimiento con Supabase:', err?.message || err));
+      }
+    } catch (_) {}
+  } else if (typeof window.savePaymentLogEntryToFirebase === 'function') {
     window.savePaymentLogEntryToFirebase(newEntry);
   }
 }
