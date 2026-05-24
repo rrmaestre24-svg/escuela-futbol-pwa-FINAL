@@ -740,6 +740,9 @@ function showPlayerDetails(playerId) {
   document.getElementById('playerDetailsContent').innerHTML = content;
   document.getElementById('playerDetailsModal').classList.remove('hidden');
   lucide.createIcons();
+
+  // Traer documentos frescos desde Supabase (los que el padre pudo subir desde el portal)
+  refreshPlayerDocumentsFromSupabase(playerId);
 }
 
 // Cerrar modal detalles
@@ -801,7 +804,7 @@ function renderDocumentsSection(player) {
   ` : '<p class="text-xs text-center text-gray-500 mt-2">Límite de 5 documentos alcanzado</p>';
 
   return `
-    <div class="bg-gray-50 dark:bg-gray-700 rounded-xl p-4">
+    <div id="docsSection_${player.id}" class="bg-gray-50 dark:bg-gray-700 rounded-xl p-4">
       <h3 class="font-bold text-gray-800 dark:text-white mb-3 flex items-center gap-2">
         <i data-lucide="folder-open" class="w-5 h-5 text-blue-600"></i>
         Documentos
@@ -813,6 +816,44 @@ function renderDocumentsSection(player) {
       ${uploadForm}
     </div>
   `;
+}
+
+// Refresca los documentos desde Supabase al abrir el perfil, para que el club
+// vea al instante los que el padre subió desde el portal (sin esperar el TTL del caché)
+async function refreshPlayerDocumentsFromSupabase(playerId) {
+  if (!window.MODO_SUPABASE) return;
+  const clubId = (typeof getClubId === 'function') ? getClubId() : null;
+  if (!clubId) return;
+  try {
+    const res = await fetch(
+      `${window.SUPA_URL}/rest/v1/players?id=eq.${encodeURIComponent(playerId)}&club_id=eq.${encodeURIComponent(clubId)}&select=documents&limit=1`,
+      { headers: { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}` } }
+    );
+    if (!res.ok) return;
+    const rows = await res.json();
+    const supaDocs = Array.isArray(rows?.[0]?.documents) ? rows[0].documents : [];
+
+    // Comparar con el caché local; si no cambió, no hacer nada
+    const players = getPlayers();
+    const idx = players.findIndex(p => p.id === playerId);
+    if (idx === -1) return;
+    const localDocs = Array.isArray(players[idx].documents) ? players[idx].documents : [];
+    const sameLength = localDocs.length === supaDocs.length;
+    const sameIds = sameLength && supaDocs.every(d => localDocs.some(l => l.id === d.id));
+    if (sameIds) return;
+
+    // Persistir en localStorage sin reescribir a Supabase (no usar updatePlayer)
+    players[idx] = { ...players[idx], documents: supaDocs };
+    try { localStorage.setItem('players', JSON.stringify(players)); } catch (_) {}
+
+    // Si el modal sigue abierto en este jugador, refrescar solo la sección
+    const section = document.getElementById('docsSection_' + playerId);
+    const modal = document.getElementById('playerDetailsModal');
+    if (section && modal && !modal.classList.contains('hidden')) {
+      section.outerHTML = renderDocumentsSection(players[idx]);
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+  } catch (_) { /* silencioso: el caché local sigue mostrándose */ }
 }
 
 // Sube un documento al perfil del jugador
