@@ -1205,8 +1205,8 @@ function addPaymentLogEntry(entry) {
   } catch (_) {
     try { localStorage.setItem('paymentMovementLog', JSON.stringify(log.slice(0, 100))); } catch (_) {}
   }
-  // Sincronizar con Firebase en tiempo real (fire-and-forget)
-  if (typeof window.savePaymentLogEntryToFirebase === 'function') {
+  // Sincronizar con Firebase — solo si NO estamos en modo Supabase
+  if (!window.MODO_SUPABASE && typeof window.savePaymentLogEntryToFirebase === 'function') {
     window.savePaymentLogEntryToFirebase(newEntry);
   }
 }
