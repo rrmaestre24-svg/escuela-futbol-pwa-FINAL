@@ -899,9 +899,9 @@ function stopRealtimeSync() {
 }
 
 // ========================================
-// 👥 POLLING DE JUGADORES (cada 30 min)
+// 👥 POLLING DE JUGADORES (cada 5 min)
 // ========================================
-const POLL_PLAYERS_TTL_MS = 30 * 60 * 1000;
+const POLL_PLAYERS_TTL_MS = 5 * 60 * 1000;
 
 function _normalizePlayerStatus(data) {
   const status = data.status;
@@ -975,7 +975,7 @@ function startPlayersListener(clubId) {
     console.log('⚡ Jugadores en caché local, omitiendo descarga');
   }
 
-  // Polling cada 30 min
+  // Polling cada 5 min
   const intervalId = setInterval(async () => {
     if (window.realtimeSyncState.clubId !== clubId) return;
     await _fetchPlayers(clubId);
@@ -985,13 +985,13 @@ function startPlayersListener(clubId) {
   }, POLL_PLAYERS_TTL_MS);
 
   window.realtimeListeners.players = () => clearInterval(intervalId);
-  console.log('👥 Polling de jugadores iniciado (30 min)');
+  console.log('👥 Polling de jugadores iniciado (5 min)');
 }
 
 // ========================================
-// 💰 POLLING DE PAGOS (cada 30 min)
+// 💰 POLLING DE PAGOS (cada 5 min)
 // ========================================
-const POLL_PAYMENTS_TTL_MS = 30 * 60 * 1000;
+const POLL_PAYMENTS_TTL_MS = 5 * 60 * 1000;
 
 async function _fetchPayments(clubId) {
   try {
@@ -1084,7 +1084,7 @@ function startPaymentsListener(clubId) {
   }, POLL_PAYMENTS_TTL_MS);
 
   window.realtimeListeners.payments = () => clearInterval(intervalId);
-  console.log('💰 Polling de pagos iniciado (30 min)');
+  console.log('💰 Polling de pagos iniciado (5 min)');
 }
 
 // ========================================
@@ -1137,9 +1137,9 @@ async function loadAllPaymentsHistory() {
 }
 
 // ========================================
-// 📅 POLLING DE EVENTOS (cada 30 min)
+// 📅 POLLING DE EVENTOS (cada 5 min)
 // ========================================
-const POLL_EVENTS_TTL_MS = 30 * 60 * 1000;
+const POLL_EVENTS_TTL_MS = 5 * 60 * 1000;
 
 async function _fetchEvents(clubId) {
   try {
@@ -1207,13 +1207,13 @@ function startEventsListener(clubId) {
   }, POLL_EVENTS_TTL_MS);
 
   window.realtimeListeners.events = () => clearInterval(intervalId);
-  console.log('📅 Polling de eventos iniciado (30 min)');
+  console.log('📅 Polling de eventos iniciado (5 min)');
 }
 
 // ========================================
-// 💸 POLLING DE EGRESOS (cada 30 min)
+// 💸 POLLING DE EGRESOS (cada 5 min)
 // ========================================
-const POLL_EXPENSES_TTL_MS = 30 * 60 * 1000;
+const POLL_EXPENSES_TTL_MS = 5 * 60 * 1000;
 
 async function _fetchExpenses(clubId) {
   try {
@@ -1281,7 +1281,7 @@ function startExpensesListener(clubId) {
   }, POLL_EXPENSES_TTL_MS);
 
   window.realtimeListeners.expenses = () => clearInterval(intervalId);
-  console.log('💸 Polling de egresos iniciado (30 min)');
+  console.log('💸 Polling de egresos iniciado (5 min)');
 }
 
 // ========================================

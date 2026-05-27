@@ -2,6 +2,33 @@
 // GESTIÓN DE LOCALSTORAGE - CON SINCRONIZACIÓN AUTOMÁTICA
 // ========================================
 
+// Guarda en localStorage tolerando QuotaExceededError.
+// Si el cache local se llenó, registra el error y dispara un evento
+// para que el monitor avise al usuario. La sincronización a la nube
+// que viene después se ejecuta igual aunque esto falle.
+function safeSetItem(key, value) {
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch (err) {
+    const isQuota = err && (
+      err.name === 'QuotaExceededError' ||
+      err.name === 'NS_ERROR_DOM_QUOTA_REACHED' ||
+      err.code === 22 || err.code === 1014
+    );
+    if (isQuota) {
+      console.error(`⚠️ Cuota localStorage agotada al guardar "${key}"`);
+      window.dispatchEvent(new CustomEvent('storage-quota-exceeded', {
+        detail: { key, size: value ? value.length : 0 }
+      }));
+    } else {
+      console.error(`Error al guardar "${key}" en localStorage:`, err);
+    }
+    return false;
+  }
+}
+window.safeSetItem = safeSetItem;
+
 // Inicializar estructura de datos
 function initStorage() {
   if (!localStorage.getItem('users')) {

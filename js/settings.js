@@ -179,112 +179,112 @@ function loadSettings() {
   loadVibrationSetting();
 }
 
-document.getElementById('changeAvatar')?.addEventListener('change', function(e) {
+document.getElementById('changeAvatar')?.addEventListener('change', async function(e) {
   const file = e.target.files[0];
-  if (file) {
-    if (!file.type.startsWith('image/')) {
-      showToast('❌ Por favor selecciona una imagen válida');
-      return;
+  if (!file) return;
+
+  if (!file.type.startsWith('image/')) {
+    showToast('❌ Por favor selecciona una imagen válida');
+    return;
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    showToast('❌ La imagen es muy grande. Máximo 5MB');
+    return;
+  }
+  
+  const currentUser = getCurrentUser();
+  if (!currentUser) return;
+
+  try {
+    // 1. Borrar avatar viejo si está en la nube
+    if (currentUser.avatar && typeof deleteAvatarFromStorage === 'function') {
+      deleteAvatarFromStorage(currentUser.avatar).catch(err => console.warn(err));
     }
-    if (file.size > 5 * 1024 * 1024) {
-      showToast('❌ La imagen es muy grande. Máximo 5MB');
-      return;
-    }
+
+    showToast('⏳ Subiendo foto a la nube...');
+    // Se usa uploadAvatarToStorage que comprime y sube
+    const result = await uploadAvatarToStorage(file, currentUser.id);
+    const newAvatarUrl = result.url;
     
-    // ✅ COMPRIMIR IMAGEN ANTES DE GUARDAR
+    const userAvatar = document.getElementById('userAvatar');
+    if (userAvatar) userAvatar.src = newAvatarUrl;
+    
+    updateUser(currentUser.id, { avatar: newAvatarUrl });
+    setCurrentUser({ ...currentUser, avatar: newAvatarUrl });
+    showToast('✅ Foto actualizada en la nube');
+  } catch (error) {
+    console.error(error);
+    showToast('⚠️ Usando almacenamiento local por falla de red');
+    // Fallback a base64
     imageToBase64(file, async function(base64) {
-      console.log('🗜️ Comprimiendo avatar del usuario actual...');
       const compressed = await compressImageForFirebase(base64, 300, 0.6);
-      
       const userAvatar = document.getElementById('userAvatar');
       if (userAvatar) userAvatar.src = compressed;
-      
-      const currentUser = getCurrentUser();
-      if (currentUser) {
-        updateUser(currentUser.id, { avatar: compressed });
-        setCurrentUser({ ...currentUser, avatar: compressed });
-        showToast('✅ Foto actualizada');
-      }
-      console.log(`✅ Avatar comprimido: ${Math.round(base64.length/1024)}KB → ${Math.round(compressed.length/1024)}KB`);
+      updateUser(currentUser.id, { avatar: compressed });
+      setCurrentUser({ ...currentUser, avatar: compressed });
+      showToast('✅ Foto actualizada localmente');
     });
   }
 });
 
 
-// Cambiar logo del club - ✅ CON COMPRESIÓN
-document.getElementById('changeClubLogo')?.addEventListener('change', function(e) {
+// Cambiar logo del club - HIBRIDO SUPABASE/LOCAL
+document.getElementById('changeClubLogo')?.addEventListener('change', async function(e) {
   const file = e.target.files[0];
-  if (file) {
-    if (!file.type.startsWith('image/')) {
-      showToast('❌ Por favor selecciona una imagen válida');
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      showToast('❌ La imagen es muy grande. Máximo 5MB');
-      return;
+  if (!file) return;
+
+  if (!file.type.startsWith('image/')) {
+    showToast('❌ Por favor selecciona una imagen válida');
+    return;
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    showToast('❌ La imagen es muy grande. Máximo 5MB');
+    return;
+  }
+
+  const settings = getSchoolSettings();
+  
+  const finishLocalSync = (finalLogo) => {
+    const clubLogo = document.getElementById('clubLogo');
+    const headerLogo = document.getElementById('headerLogo');
+    if (clubLogo) clubLogo.src = finalLogo;
+    if (headerLogo) headerLogo.src = finalLogo;
+
+    if (typeof saveSchoolSettings === 'function') {
+      saveSchoolSettings({ logo: finalLogo });
+    } else {
+      const current = JSON.parse(localStorage.getItem('schoolSettings') || '{}');
+      localStorage.setItem('schoolSettings', JSON.stringify({ ...current, logo: finalLogo }));
     }
     
-    // ✅ COMPRIMIR LOGO ANTES DE GUARDAR
+    if (typeof generatePWAIcons === 'function') {
+      localStorage.removeItem('pwa_icon_192');
+      localStorage.removeItem('pwa_icon_512');
+      localStorage.removeItem('pwa_icons_updated');
+      setTimeout(() => generatePWAIcons(), 800);
+    }
+  };
+
+  try {
+    // Intentar borrar viejo logo si es nube
+    if (settings.logo && typeof deleteAvatarFromStorage === 'function') {
+      deleteAvatarFromStorage(settings.logo).catch(e => console.warn(e));
+    }
+    
+    showToast('⏳ Subiendo logo al servidor...');
+    const result = await uploadAvatarToStorage(file, 'logo');
+    finishLocalSync(result.url);
+    showToast('✅ Logo actualizado en la nube');
+  } catch (error) {
+    console.error(error);
+    showToast('⚠️ Falló servidor. Guardando logo localmente.');
+    // Fallback base64
     imageToBase64(file, async function(base64) {
-      console.log('🗜️ Comprimiendo logo del club...');
       const compressed = await compressImageForFirebase(base64, 400, 0.7);
-      
-      const clubLogo = document.getElementById('clubLogo');
-      const headerLogo = document.getElementById('headerLogo');
-      
-      if (clubLogo) clubLogo.src = compressed;
-      if (headerLogo) headerLogo.src = compressed;
-
-      // ✅ Guardar base64 local inmediatamente (sin forzar escritura en settings/main)
-      if (typeof saveSchoolSettings === 'function') {
-        saveSchoolSettings({ logo: compressed });
-      } else {
-        const current = JSON.parse(localStorage.getItem('schoolSettings') || '{}');
-        localStorage.setItem('schoolSettings', JSON.stringify({ ...current, logo: compressed }));
-      }
-      showToast('⏳ Subiendo logo a la nube...');
-
-      // Guardar logo en la nube
-      try {
-        if (window.MODO_SUPABASE) {
-          // Logo almacenado en schoolSettings local — no hay tabla assets en Supabase
-          showToast('✅ Logo actualizado');
-        } else if (window.firebase?.db) {
-          const settings = getSchoolSettings();
-          const clubId = settings.clubId || localStorage.getItem('clubId') || 'default';
-
-          await window.firebase.setDoc(
-            window.firebase.doc(window.firebase.db, `clubs/${clubId}/assets`, 'logo'),
-            {
-              logo: compressed,
-              updatedAt: new Date().toISOString()
-            }
-          );
-
-          console.log('✅ Logo guardado en Firestore (documento separado)');
-          showToast('✅ Logo actualizado en la nube');
-        } else {
-          showToast('✅ Logo actualizado localmente');
-        }
-      } catch (storageError) {
-        console.error('❌ Error guardando logo:', storageError);
-        showToast('⚠️ Logo guardado solo localmente');
-      }
-      
-      console.log(`✅ Logo comprimido: ${Math.round(base64.length/1024)}KB → ${Math.round(compressed.length/1024)}KB`);
-      
-      // ⭐ GENERAR ICONOS PWA CON EL NUEVO LOGO
-      if (typeof generatePWAIcons === 'function') {
-        console.log('🎨 Regenerando íconos de la PWA...');
-        localStorage.removeItem('pwa_icon_192');
-        localStorage.removeItem('pwa_icon_512');
-        localStorage.removeItem('pwa_icons_updated');
-        setTimeout(() => {
-          generatePWAIcons();
-        }, 800);
-      }
-    }); 
-  }   
+      finishLocalSync(compressed);
+      showToast('✅ Logo actualizado localmente');
+    });
+  }
 });   
 
 // Guardar perfil de usuario
@@ -1082,11 +1082,24 @@ document.getElementById('addSchoolUserForm')?.addEventListener('submit', async f
   // ✅ USAR LA IMAGEN DEL PREVIEW (YA COMPRIMIDA)
   let finalAvatar = schoolUserAvatarPreview ? schoolUserAvatarPreview.src : getDefaultAvatar();
   
-  // ✅ VERIFICAR SI NECESITA COMPRESIÓN ADICIONAL
-  if (finalAvatar && finalAvatar.startsWith('data:image') && finalAvatar.length > 500000) {
+  // 🚀 NUBE: Subir a Supabase Storage si hay archivo
+  if (schoolUserAvatar && schoolUserAvatar.files[0]) {
+    try {
+      showToast('⏳ Subiendo avatar...');
+      const targetId = 'user_' + Date.now();
+      const result = await uploadAvatarToStorage(schoolUserAvatar.files[0], targetId);
+      finalAvatar = result.url;
+    } catch (e) {
+      console.warn('⚠️ Falló Supabase para usuario secundario. Usando Base64 local.', e);
+      // Fallback: Verificar si necesita compresión adicional
+      if (finalAvatar && finalAvatar.startsWith('data:image') && finalAvatar.length > 500000) {
+        console.warn('⚠️ Avatar muy grande, comprimiendo...');
+        finalAvatar = await compressImageForFirebase(finalAvatar, 300, 0.6);
+      }
+    }
+  } else if (finalAvatar && finalAvatar.startsWith('data:image') && finalAvatar.length > 500000) {
     console.warn('⚠️ Avatar muy grande, comprimiendo...');
     finalAvatar = await compressImageForFirebase(finalAvatar, 300, 0.6);
-    console.log(`✅ Avatar comprimido: ${Math.round(finalAvatar.length/1024)}KB`);
   }
   
   const userData = {
@@ -1095,7 +1108,7 @@ document.getElementById('addSchoolUserForm')?.addEventListener('submit', async f
     phone: schoolUserPhone ? schoolUserPhone.value : '',
     password: schoolUserPassword ? schoolUserPassword.value : '',
     birthDate: schoolUserBirthDate ? schoolUserBirthDate.value : '',
-    avatar: finalAvatar  // ✅ USAR IMAGEN COMPRIMIDA
+    avatar: finalAvatar  // ✅ USAR IMAGEN (NUBE O COMPRIMIDA)
   };
   
   saveSchoolUser(userData);

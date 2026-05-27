@@ -989,38 +989,9 @@ document.getElementById('registerForm')?.addEventListener('submit', async functi
   }
 
   // ========================================
-  // PROCESAR IMÁGENES CON COMPRESIÓN
-  // ========================================
-  const processClubData = () => {
-    if (clubLogoFile) {
-      imageToBase64(clubLogoFile, function(clubLogo) {
-        // ⭐ COMPRIMIR logo antes de procesar
-        compressImageForFirestore(clubLogo, 800, function(compressedLogo) {
-          processAdminData(compressedLogo);
-        });
-      });
-    } else {
-      processAdminData(getDefaultLogo());
-    }
-  };
-
-  const processAdminData = (clubLogo) => {
-    if (adminAvatarFile) {
-      imageToBase64(adminAvatarFile, function(adminAvatar) {
-        // ⭐ COMPRIMIR avatar antes de registrar
-        compressImageForFirestore(adminAvatar, 800, function(compressedAvatar) {
-          completeRegistration(clubLogo, compressedAvatar);
-        });
-      });
-    } else {
-      completeRegistration(clubLogo, getDefaultAvatar());
-    }
-  };
-  
-  // ========================================
   // FUNCIÓN PRINCIPAL DE REGISTRO
   // ========================================
-const completeRegistration = async (clubLogo, adminAvatar) => {
+const completeRegistration = async (clubLogoFile, adminAvatarFile) => {
     // ✅ OBTENER CLUB ID PERSONALIZADO DEL USUARIO
     const customClubIdInput = document.getElementById('regClubId')?.value.trim() || '';
     let clubId;
@@ -1048,7 +1019,7 @@ const completeRegistration = async (clubLogo, adminAvatar) => {
         return;
       }
       
-      console.log('✅ Club ID personalizado disponible:', clubId);
+    console.log('✅ Club ID personalizado disponible:', clubId);
     } else {
       // Si no proporcionó ID, generar uno automático (fallback)
       clubId = 'club_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 6);
@@ -1067,7 +1038,7 @@ const completeRegistration = async (clubLogo, adminAvatar) => {
       schoolId: clubId,
       name: clubName,
       clubId: clubId,
-      logo: clubLogo,
+      logo: '', // Se actualizará tras subida
       email: adminEmail,
       phone: clubPhone,
       address: clubAddress,
@@ -1098,6 +1069,45 @@ const completeRegistration = async (clubLogo, adminAvatar) => {
       console.log('🔥 Creando club:', clubId);
       showToast('🔥 Creando tu club...');
       
+      // ======================================================
+      // 🚀 NUBE: SUBIR IMÁGENES A SUPABASE STORAGE AHORA QUE HAY CLUB_ID
+      // ======================================================
+      let finalClubLogo = getDefaultLogo();
+      let finalAdminAvatar = getDefaultAvatar();
+
+      showToast('⏳ Preparando imágenes...');
+      try {
+        if (clubLogoFile && typeof uploadAvatarToStorage === 'function') {
+           const res = await uploadAvatarToStorage(clubLogoFile, 'logo', clubId);
+           finalClubLogo = res.url;
+        }
+      } catch (err) {
+        console.warn('⚠️ Falló subida de Logo a Supabase. Usando Base64 local', err);
+        finalClubLogo = await new Promise(resolve => {
+          imageToBase64(clubLogoFile, base64 => {
+             compressImageForFirestore(base64, 800, compressed => resolve(compressed));
+          });
+        });
+      }
+
+      try {
+        if (adminAvatarFile && typeof uploadAvatarToStorage === 'function') {
+           const tempAdminId = 'admin_' + Date.now();
+           const res = await uploadAvatarToStorage(adminAvatarFile, tempAdminId, clubId);
+           finalAdminAvatar = res.url;
+        }
+      } catch (err) {
+        console.warn('⚠️ Falló subida de Avatar a Supabase. Usando Base64 local', err);
+        finalAdminAvatar = await new Promise(resolve => {
+          imageToBase64(adminAvatarFile, base64 => {
+             compressImageForFirestore(base64, 800, compressed => resolve(compressed));
+          });
+        });
+      }
+      
+      // Actualizar logo en settings
+      clubSettings.logo = finalClubLogo;
+
       // ========================================
       // PASO 1: CREAR USUARIO EN AUTHENTICATION
       // ========================================
@@ -1159,7 +1169,7 @@ const completeRegistration = async (clubLogo, adminAvatar) => {
         name: adminName,
         birthDate: adminBirthDate,
         phone: adminPhone, // ⭐ YA NORMALIZADO
-        avatar: adminAvatar,
+        avatar: finalAdminAvatar,
         role: 'admin',
         isMainAdmin: true,
         createdAt: getCurrentDateTime()
@@ -1201,7 +1211,7 @@ const completeRegistration = async (clubLogo, adminAvatar) => {
             name: adminName,
             isMainAdmin: true,
             role: 'admin',
-            avatar: adminAvatar || '',
+            avatar: finalAdminAvatar || '',
             phone: adminPhone || '',
             birthDate: adminBirthDate || '',
             createdAt: new Date().toISOString()
@@ -1355,7 +1365,7 @@ const completeRegistration = async (clubLogo, adminAvatar) => {
   };
   
   // Iniciar proceso
-  processClubData();
+  completeRegistration(clubLogoFile, adminAvatarFile);
 });
 
 // ✅ FUNCIÓN: Mostrar Club ID al usuario con opción de copiar

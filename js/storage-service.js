@@ -176,7 +176,7 @@ async function deleteDocumentFromStorage(publicId) {
 }
 
 // ── AVATARS STORAGE (Bucket: avatars) ─────────────────────────────
-async function uploadAvatarToStorage(file, playerId) {
+async function uploadAvatarToStorage(file, playerId, customClubId = null) {
   const resolvedType = resolveFileType(file);
   if (!resolvedType.startsWith('image/')) {
     throw new Error('Solo se permiten imágenes (JPG, PNG) para el avatar');
@@ -195,7 +195,7 @@ async function uploadAvatarToStorage(file, playerId) {
 
   const fileToUpload = await compressImage(file);
   const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
-  const clubId = currentUser.schoolId || localStorage.getItem('clubId') || 'sin-club';
+  const clubId = customClubId || currentUser.schoolId || localStorage.getItem('clubId') || 'sin-club';
   const timestamp = Date.now();
   const path = `players/${clubId}/${playerId}_${timestamp}.jpg`;
 
