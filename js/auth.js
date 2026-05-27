@@ -690,7 +690,18 @@ document.getElementById('loginForm')?.addEventListener('submit', async function(
     console.log('✅ Autenticado en Firebase');
     window.APP_STATE.currentUser = userCredential.user;
     const firebaseUid = userCredential.user.uid;
-    
+
+    // Obtener JWT de Supabase con club_id (para que RLS pueda enforcear).
+    // Aditivo: si falla, la app sigue funcionando con anon.
+    if (window.SupaAuth) {
+      try {
+        const idToken = await userCredential.user.getIdToken();
+        await window.SupaAuth.mintFirebase(idToken);
+      } catch (e) {
+        console.warn('[SupaAuth] mint falló (sigue con anon):', e?.message || e);
+      }
+    }
+
     let clubId = null;
     
     // 2️⃣ Si proporcionó clubId, intentar login directo
@@ -1541,6 +1552,9 @@ function copyNavbarClubId() {
 async function logout() {
   if (await confirmAction('¿Estás seguro de cerrar sesión?', { type: 'warning', title: 'Cerrar sesión' })) {
     try {
+      // Limpiar el JWT de Supabase del usuario (vuelve a anon hasta el próximo login)
+      if (window.SupaAuth) window.SupaAuth.clear();
+
       // Cancelar listeners de Firebase antes de salir
       if (typeof window.userDeletionUnsubscribe === 'function') {
         window.userDeletionUnsubscribe();
