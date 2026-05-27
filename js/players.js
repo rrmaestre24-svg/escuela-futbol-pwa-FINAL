@@ -175,21 +175,28 @@ document.getElementById('playerForm')?.addEventListener('submit', async function
     }
   };
 
-  // Si hay foto nueva, subirla a Firebase Storage
+  // Si hay foto nueva, subirla a Supabase Storage
   if (avatarFile) {
     // Usar el ID existente (editar) o pre-generar uno nuevo (crear)
     const targetId = playerId || generateId();
 
-    if (window.APP_STATE?.firebaseReady && window.firebase?.storage) {
-      try {
-        showToast('⏳ Subiendo foto...');
-        const result = await uploadDocument(avatarFile, targetId);
-        savePlayerData(result.url, targetId);
-      } catch (err) {
-        showToast('❌ Error al subir foto: ' + err.message);
+    try {
+      // 1. Borrar avatar viejo de Supabase si existe y estamos editando
+      if (playerId) {
+        const oldPlayer = getPlayerById(playerId);
+        if (oldPlayer && oldPlayer.avatar) {
+          // No bloqueamos si falla
+          deleteAvatarFromStorage(oldPlayer.avatar).catch(e => console.warn(e));
+        }
       }
-    } else {
-      // Fallback a base64 si Firebase Storage no está disponible
+
+      showToast('⏳ Subiendo foto...');
+      const result = await uploadAvatarToStorage(avatarFile, targetId);
+      savePlayerData(result.url, targetId);
+    } catch (err) {
+      console.error(err);
+      showToast('⚠️ Error en Supabase, guardando local: ' + err.message);
+      // Fallback a base64 solo si falla la subida a Supabase
       imageToBase64(avatarFile, (base64) => savePlayerData(base64, targetId));
     }
   } else {
@@ -1088,6 +1095,20 @@ async function deletePlayerConfirm(playerId) {
     title: 'Eliminar jugador',
     confirmText: 'Sí, eliminar'
   })) {
+    // 🗑️ Limpiar avatar de Supabase Storage
+    if (player.avatar && typeof deleteAvatarFromStorage === 'function') {
+      deleteAvatarFromStorage(player.avatar).catch(e => console.warn('No se borró avatar viejo:', e));
+    }
+    
+    // 🗑️ Limpiar documentos asociados al jugador
+    if (player.documents && player.documents.length > 0) {
+      player.documents.forEach(doc => {
+         if (doc.url && typeof deleteDocumentFromStorage === 'function') {
+           deleteDocumentFromStorage(doc.url).catch(e => console.warn('No se borró documento:', e));
+         }
+      });
+    }
+
     deletePlayer(playerId);
     showToast('✅ Jugador eliminado');
     renderPlayersList();

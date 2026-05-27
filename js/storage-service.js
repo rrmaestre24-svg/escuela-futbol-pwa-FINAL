@@ -4,6 +4,7 @@
 // ============================================================
 
 const STORAGE_BUCKET = 'players';
+const AVATARS_BUCKET = 'avatars';
 
 // ── Tipos de archivo permitidos ──────────────────────────────
 const ALLOWED_TYPES = [
@@ -173,3 +174,90 @@ async function deleteDocumentFromStorage(publicId) {
     console.warn('[storage-service] No se pudo eliminar el archivo:', err);
   }
 }
+
+// ── AVATARS STORAGE (Bucket: avatars) ─────────────────────────────
+async function uploadAvatarToStorage(file, playerId) {
+  const resolvedType = resolveFileType(file);
+  if (!resolvedType.startsWith('image/')) {
+    throw new Error('Solo se permiten imágenes (JPG, PNG) para el avatar');
+  }
+
+  if (file.size > MAX_FILE_SIZE) {
+    throw new Error('El archivo es muy grande. Máximo permitido: 10 MB');
+  }
+
+  const supaUrl  = window.SUPA_URL  || window._SUPA_URL;
+  const supaAnon = window.SUPA_ANON || window._SUPA_ANON;
+
+  if (!supaUrl || !supaAnon) {
+    throw new Error('Supabase no está disponible todavía. Intenta de nuevo.');
+  }
+
+  const fileToUpload = await compressImage(file);
+  const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+  const clubId = currentUser.schoolId || localStorage.getItem('clubId') || 'sin-club';
+  const timestamp = Date.now();
+  const path = `players/${clubId}/${playerId}_${timestamp}.jpg`;
+
+  const uploadRes = await fetch(
+    `${supaUrl}/storage/v1/object/${AVATARS_BUCKET}/${path}`,
+    {
+      method: 'POST',
+      headers: {
+        apikey: supaAnon,
+        Authorization: `Bearer ${supaAnon}`,
+        'Content-Type': 'image/jpeg',
+        'x-upsert': 'true'
+      },
+      body: fileToUpload
+    }
+  );
+
+  if (!uploadRes.ok) {
+    const err = await uploadRes.json().catch(() => ({}));
+    throw new Error(err.error || err.message || 'Error al subir el avatar. Intenta de nuevo');
+  }
+
+  const url = `${supaUrl}/storage/v1/object/public/${AVATARS_BUCKET}/${path}`;
+  return { url, publicId: path };
+}
+
+async function deleteAvatarFromStorage(urlOrPath) {
+  const supaUrl  = window.SUPA_URL  || window._SUPA_URL;
+  const supaAnon = window.SUPA_ANON || window._SUPA_ANON;
+
+  // Solo intentar borrar si es una URL de Supabase y tiene un dominio valido
+  if (!supaUrl || !supaAnon || !urlOrPath || typeof urlOrPath !== 'string' || !urlOrPath.includes(supaUrl)) {
+    return;
+  }
+
+  try {
+    const urlObj = new URL(urlOrPath);
+    const pathParts = urlObj.pathname.split(`${AVATARS_BUCKET}/`);
+    if (pathParts.length < 2) return;
+    const publicId = pathParts[1];
+
+    await fetch(
+      `${supaUrl}/storage/v1/object/${AVATARS_BUCKET}`,
+      {
+        method: 'DELETE',
+        headers: {
+          apikey: supaAnon,
+          Authorization: `Bearer ${supaAnon}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ prefixes: [publicId] })
+      }
+    );
+    console.log('[storage-service] Avatar eliminado de Supabase:', publicId);
+  } catch (err) {
+    console.warn('[storage-service] No se pudo eliminar avatar:', err);
+  }
+}
+
+// Hacer funciones globales
+window.uploadDocument = uploadDocument;
+window.downloadDocument = downloadDocument;
+window.deleteDocumentFromStorage = deleteDocumentFromStorage;
+window.uploadAvatarToStorage = uploadAvatarToStorage;
+window.deleteAvatarFromStorage = deleteAvatarFromStorage;

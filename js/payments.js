@@ -1234,7 +1234,10 @@ async function reconcileMissingHistory() {
         adminName: 'Sistema', // Se atribuye al sistema porque es una acción automática
         reason: 'Historial antiguo',
         // Usamos la fecha de pago de la factura para que se ordene correctamente en el historial
-        timestamp: new Date(payment.paidDate || payment.createdAt).toISOString() 
+        timestamp: (() => {
+          const d = new Date(payment.paidDate || payment.createdAt || Date.now());
+          return isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
+        })()
       });
       
       newEntriesCount++;
