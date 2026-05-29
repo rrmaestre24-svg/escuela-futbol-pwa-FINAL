@@ -950,10 +950,15 @@ function exportHistoryPDF() {
     if (historyDateTo   && dateStr > historyDateTo)   return false;
     return true;
   }).sort((a, b) => {
+    // Más reciente primero (timestamp DESC). InvoiceNumber como tiebreaker
+    // cuando los timestamps coinciden — esto cubre el caso de entradas
+    // reconciliadas que comparten fecha pero tienen invoice numbers viejos.
+    const tDiff = new Date(b.timestamp || 0) - new Date(a.timestamp || 0);
+    if (tDiff !== 0) return tDiff;
     if (a.invoiceNumber && b.invoiceNumber) return b.invoiceNumber.localeCompare(a.invoiceNumber);
     if (a.invoiceNumber && !b.invoiceNumber) return -1;
     if (!a.invoiceNumber && b.invoiceNumber) return 1;
-    return new Date(b.timestamp || 0) - new Date(a.timestamp || 0);
+    return 0;
   });
 
   if (rows.length === 0) {
@@ -1103,10 +1108,15 @@ function renderPaymentMovementLog(append = false) {
     if (historyDateTo   && dateStr > historyDateTo)   return false;
     return true;
   }).sort((a, b) => {
+    // Más reciente primero (timestamp DESC). InvoiceNumber como tiebreaker
+    // cuando los timestamps coinciden — esto cubre el caso de entradas
+    // reconciliadas que comparten fecha pero tienen invoice numbers viejos.
+    const tDiff = new Date(b.timestamp || 0) - new Date(a.timestamp || 0);
+    if (tDiff !== 0) return tDiff;
     if (a.invoiceNumber && b.invoiceNumber) return b.invoiceNumber.localeCompare(a.invoiceNumber);
     if (a.invoiceNumber && !b.invoiceNumber) return -1;
     if (!a.invoiceNumber && b.invoiceNumber) return 1;
-    return new Date(b.timestamp || 0) - new Date(a.timestamp || 0);
+    return 0;
   });
 
   // Actualizar resumen del período
