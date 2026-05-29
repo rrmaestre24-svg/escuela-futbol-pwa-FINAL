@@ -501,6 +501,9 @@ async function downloadAllClubData(clubId, { force = false } = {}) {
     // ✅ Resetear flag de historial completo para no dejar listeners sin límite
     localStorage.removeItem('paymentsFullHistory');
     localStorage.setItem('payments', JSON.stringify(payments));
+    if (window.idb && window.idb.syncPaymentsToIDB) {
+      window.idb.syncPaymentsToIDB(payments).catch(e => console.warn('[idb] sync (post-login) falló:', e));
+    }
     console.log(`✅ ${payments.length} pagos descargados (últimos 12 meses desde ${_paymentCutoffStr})`);
 
     // 4️⃣ Eventos

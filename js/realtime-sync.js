@@ -657,6 +657,9 @@ async function downloadAllDataInitially(clubId) {
       const payments = Object.values(paymentsMap);
 
       localStorage.setItem('payments', JSON.stringify(payments));
+      if (window.idb && window.idb.syncPaymentsToIDB) {
+        window.idb.syncPaymentsToIDB(payments).catch(e => console.warn('[idb] sync (firstBoot Firebase) falló:', e));
+      }
       localStorage.setItem(cacheKey, String(Date.now()));
       localStorage.removeItem('paymentsFullHistory');
       stats.payments = payments.length;
@@ -1018,7 +1021,11 @@ async function _fetchPayments(clubId) {
           if (data.deleted) delete existingMap[doc.id];
           else existingMap[doc.id] = { id: doc.id, ...data };
         });
-        localStorage.setItem('payments', JSON.stringify(Object.values(existingMap)));
+        const _mergedDelta = Object.values(existingMap);
+        localStorage.setItem('payments', JSON.stringify(_mergedDelta));
+        if (window.idb && window.idb.syncPaymentsToIDB) {
+          window.idb.syncPaymentsToIDB(_mergedDelta).catch(e => console.warn('[idb] sync (delta) falló:', e));
+        }
         console.log(`💰 Delta pagos: ${snap.size} cambios aplicados`);
       } else {
         console.log('💰 Delta pagos: sin cambios');
@@ -1045,6 +1052,7 @@ async function _fetchPayments(clubId) {
         if (!data.deleted) payments.push({ id: doc.id, ...data });
       });
 
+      let _finalPayments;
       if (paymentsFullHistory) {
         const existing = JSON.parse(localStorage.getItem('payments') || '[]');
         const incomingMap = {};
@@ -1053,8 +1061,13 @@ async function _fetchPayments(clubId) {
         const existingIds = new Set(existing.map(p => p.id));
         payments.forEach(p => { if (!existingIds.has(p.id)) merged.push(p); });
         localStorage.setItem('payments', JSON.stringify(merged));
+        _finalPayments = merged;
       } else {
         localStorage.setItem('payments', JSON.stringify(payments));
+        _finalPayments = payments;
+      }
+      if (window.idb && window.idb.syncPaymentsToIDB) {
+        window.idb.syncPaymentsToIDB(_finalPayments).catch(e => console.warn('[idb] sync (full) falló:', e));
       }
       console.log(`💰 Full sync pagos: ${payments.length}`);
     }
@@ -1122,6 +1135,9 @@ async function loadAllPaymentsHistory() {
     snap.forEach(doc => payments.push({ id: doc.id, ...doc.data() }));
 
     localStorage.setItem('payments', JSON.stringify(payments));
+    if (window.idb && window.idb.syncPaymentsToIDB) {
+      window.idb.syncPaymentsToIDB(payments).catch(e => console.warn('[idb] sync (historial completo) falló:', e));
+    }
     localStorage.setItem('paymentsFullHistory', 'true');
 
     if (typeof window.fixMissingPaymentLogEntries === 'function') {

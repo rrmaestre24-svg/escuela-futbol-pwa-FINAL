@@ -360,6 +360,9 @@ async function downloadFromFirebase() {
     // ✅ Resetear flag de historial completo al descargar
     localStorage.removeItem('paymentsFullHistory');
     localStorage.setItem('payments', JSON.stringify(payments));
+    if (window.idb && window.idb.syncPaymentsToIDB) {
+      window.idb.syncPaymentsToIDB(payments).catch(e => console.warn('[idb] sync (firebase download) falló:', e));
+    }
     console.log(`✅ ${payments.length} pagos descargados (últimos 12 meses desde ${_dlCutoffStr})`);
 
     // 4️⃣ Eventos - ✅ RUTA CORREGIDA
@@ -1704,6 +1707,9 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false } = {}) {
     }));
     localStorage.removeItem('paymentsFullHistory');
     localStorage.setItem('payments', JSON.stringify(payments));
+    if (window.idb && window.idb.syncPaymentsToIDB) {
+      window.idb.syncPaymentsToIDB(payments).catch(e => console.warn('[idb] sync (supabase download) falló:', e));
+    }
     localStorage.setItem('paymentsLoadedFrom', cutoffStr);
     console.log(`✅ ${payments.length} pagos descargados desde Supabase (desde ${cutoffStr})`);
 

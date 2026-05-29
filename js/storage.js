@@ -216,6 +216,9 @@ function deletePlayer(playerId) {
   const orphanPayments = payments.filter(p => p.playerId === playerId);
   payments = payments.filter(p => p.playerId !== playerId);
   localStorage.setItem('payments', JSON.stringify(payments));
+  if (window.idb && window.idb.syncPaymentsToIDB) {
+    window.idb.syncPaymentsToIDB(payments).catch(e => console.warn('[idb] sync (cascade deletePlayer) falló:', e));
+  }
 
   // Borrar jugador de Firebase
   if (typeof deletePlayerFromFirebase === 'function') {
@@ -275,7 +278,7 @@ function getPaymentById(id) {
 function savePayment(payment) {
   const payments = getPayments();
   payments.push(payment);
-  localStorage.setItem('payments', JSON.stringify(payments));
+  safeSetItem('payments', JSON.stringify(payments));
 
   // Registrar en el log de movimientos
   const player = getPlayerById(payment.playerId);
@@ -289,10 +292,17 @@ function savePayment(payment) {
     reason: 'Registro inicial'
   });
 
-  // ⭐ SINCRONIZACIÓN AUTOMÁTICA
+  // ⭐ SINCRONIZACIÓN AUTOMÁTICA (Supabase)
   if (typeof savePaymentToFirebase === 'function') {
     savePaymentToFirebase(payment).catch(err =>
       console.warn('⚠️ No se pudo sincronizar pago con Firebase:', err)
+    );
+  }
+
+  // 🆕 ESPEJO A INDEXEDDB (piloto)
+  if (window.idb && window.idb.put) {
+    window.idb.put('payments', payment).catch(err =>
+      console.warn('[idb] No se pudo guardar pago en IndexedDB:', err)
     );
   }
 }
@@ -302,12 +312,19 @@ function updatePayment(paymentId, paymentData) {
   const index = payments.findIndex(p => p.id === paymentId);
   if (index !== -1) {
     payments[index] = { ...payments[index], ...paymentData };
-    localStorage.setItem('payments', JSON.stringify(payments));
-    
-    // ⭐ SINCRONIZACIÓN AUTOMÁTICA
+    safeSetItem('payments', JSON.stringify(payments));
+
+    // ⭐ SINCRONIZACIÓN AUTOMÁTICA (Supabase)
     if (typeof savePaymentToFirebase === 'function') {
-      savePaymentToFirebase(payments[index]).catch(err => 
+      savePaymentToFirebase(payments[index]).catch(err =>
         console.warn('⚠️ No se pudo sincronizar pago con Firebase:', err)
+      );
+    }
+
+    // 🆕 ESPEJO A INDEXEDDB (piloto)
+    if (window.idb && window.idb.put) {
+      window.idb.put('payments', payments[index]).catch(err =>
+        console.warn('[idb] No se pudo actualizar pago en IndexedDB:', err)
       );
     }
   }
@@ -316,12 +333,19 @@ function updatePayment(paymentId, paymentData) {
 function deletePayment(paymentId) {
   let payments = getPayments();
   payments = payments.filter(p => p.id !== paymentId);
-  localStorage.setItem('payments', JSON.stringify(payments));
-  
-  // ⭐ SINCRONIZACIÓN AUTOMÁTICA
+  safeSetItem('payments', JSON.stringify(payments));
+
+  // ⭐ SINCRONIZACIÓN AUTOMÁTICA (Supabase)
   if (typeof deletePaymentFromFirebase === 'function') {
-    deletePaymentFromFirebase(paymentId).catch(err => 
+    deletePaymentFromFirebase(paymentId).catch(err =>
       console.warn('⚠️ No se pudo eliminar pago de Firebase:', err)
+    );
+  }
+
+  // 🆕 ESPEJO A INDEXEDDB (piloto)
+  if (window.idb && window.idb.delete) {
+    window.idb.delete('payments', paymentId).catch(err =>
+      console.warn('[idb] No se pudo eliminar pago en IndexedDB:', err)
     );
   }
 }
