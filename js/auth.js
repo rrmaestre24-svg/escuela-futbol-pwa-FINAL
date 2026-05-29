@@ -129,6 +129,10 @@ function saveAllPlayers(players) {
   } catch (error) {
     console.error('Error al guardar jugadores:', error);
   }
+  // 🆕 ESPEJO A INDEXEDDB
+  if (window.idb && window.idb.syncStore) {
+    window.idb.syncStore('players', players).catch(e => console.warn('[idb] sync players (saveAllPlayers auth) falló:', e));
+  }
 }
 
 // Confirmar acción
@@ -517,6 +521,9 @@ async function downloadAllClubData(clubId, { force = false } = {}) {
     });
     
     localStorage.setItem('calendarEvents', JSON.stringify(events));
+    if (window.idb && window.idb.syncStore) {
+      window.idb.syncStore('events', events).catch(e => console.warn('[idb] sync events (post-login) falló:', e));
+    }
     console.log(`✅ ${events.length} eventos descargados`);
 
     // 5️⃣ Usuarios del club
@@ -558,6 +565,9 @@ async function downloadAllClubData(clubId, { force = false } = {}) {
     });
 
     localStorage.setItem('expenses', JSON.stringify(expenses));
+    if (window.idb && window.idb.syncStore) {
+      window.idb.syncStore('expenses', expenses).catch(e => console.warn('[idb] sync expenses (post-login) falló:', e));
+    }
     console.log(`✅ ${expenses.length} egresos descargados`);
 
     // 7️⃣ Otros ingresos (terceros)
@@ -571,6 +581,9 @@ async function downloadAllClubData(clubId, { force = false } = {}) {
     });
 
     localStorage.setItem('thirdPartyIncomes', JSON.stringify(thirdPartyIncomes));
+    if (window.idb && window.idb.syncStore) {
+      window.idb.syncStore('thirdPartyIncomes', thirdPartyIncomes).catch(e => console.warn('[idb] sync thirdPartyIncomes (post-login) falló:', e));
+    }
     console.log(`✅ ${thirdPartyIncomes.length} otros ingresos descargados`);
 
     // Marca el momento de la descarga para que realtime-sync no vuelva a bajar los mismos datos

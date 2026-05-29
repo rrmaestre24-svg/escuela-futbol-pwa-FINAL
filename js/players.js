@@ -897,6 +897,10 @@ async function refreshPlayerFromSupabase(playerId) {
     // Persistir en localStorage sin reescribir a Supabase (no usar updatePlayer)
     players[idx] = { ...cur, ...fresh };
     try { localStorage.setItem('players', JSON.stringify(players)); } catch (_) {}
+    // 🆕 ESPEJO A INDEXEDDB (refresh on open)
+    if (window.idb && window.idb.put) {
+      window.idb.put('players', players[idx]).catch(e => console.warn('[idb] sync player (refresh) falló:', e));
+    }
 
     // Si el modal sigue abierto en este jugador, re-renderizar con datos frescos
     if (modal && !modal.classList.contains('hidden')) {
@@ -991,6 +995,10 @@ async function uploadPlayerDocument(playerId, input) {
       if (playerIndex !== -1) {
         currentPlayers[playerIndex] = { ...currentPlayers[playerIndex], documents: updatedDocs };
         localStorage.setItem('players', JSON.stringify(currentPlayers));
+        // 🆕 ESPEJO A INDEXEDDB (update documents)
+        if (window.idb && window.idb.put) {
+          window.idb.put('players', currentPlayers[playerIndex]).catch(e => console.warn('[idb] sync player (docs update) falló:', e));
+        }
         if (typeof savePlayerToFirebase === 'function') {
           savePlayerToFirebase(currentPlayers[playerIndex]).catch(() => {});
         }
@@ -1057,6 +1065,10 @@ async function deletePlayerDocument(playerId, docId) {
   if (playerIndex !== -1) {
     currentPlayers[playerIndex] = { ...currentPlayers[playerIndex], documents: docs };
     localStorage.setItem('players', JSON.stringify(currentPlayers));
+    // 🆕 ESPEJO A INDEXEDDB (update documents)
+    if (window.idb && window.idb.put) {
+      window.idb.put('players', currentPlayers[playerIndex]).catch(e => console.warn('[idb] sync player (docs) falló:', e));
+    }
     if (typeof savePlayerToFirebase === 'function') {
       savePlayerToFirebase(currentPlayers[playerIndex]).catch(() => {});
     }

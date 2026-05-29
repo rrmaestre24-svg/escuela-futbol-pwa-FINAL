@@ -330,6 +330,9 @@ async function downloadAuxiliaryDataInitially(clubId) {
       });
 
       localStorage.setItem('thirdPartyIncomes', JSON.stringify(incomes));
+      if (window.idb && window.idb.syncStore) {
+        window.idb.syncStore('thirdPartyIncomes', incomes).catch(e => console.warn('[idb] sync thirdPartyIncomes (firstBoot) falló:', e));
+      }
       markLocalFirstCollection(clubId, 'thirdPartyIncomes');
       stats.thirdPartyIncomes = incomes.length;
       syncedCollections++;
@@ -598,6 +601,9 @@ async function downloadAllDataInitially(clubId) {
       saveAllPlayers(finalPlayers);
     } else {
       localStorage.setItem('players', JSON.stringify(finalPlayers));
+      if (window.idb && window.idb.syncStore) {
+        window.idb.syncStore('players', finalPlayers).catch(e => console.warn('[idb] sync players (firstBoot fallback) falló:', e));
+      }
     }
     localStorage.setItem(_playKey, String(Date.now()));
     stats.players = finalPlayers.length;
@@ -687,6 +693,9 @@ async function downloadAllDataInitially(clubId) {
       const events = [];
       eventsSnapshot.forEach(doc => { events.push({ id: doc.id, ...doc.data() }); });
       localStorage.setItem('calendarEvents', JSON.stringify(events));
+      if (window.idb && window.idb.syncStore) {
+        window.idb.syncStore('events', events).catch(e => console.warn('[idb] sync events (firstBoot) falló:', e));
+      }
       localStorage.setItem(_evKey, String(Date.now()));
       stats.events = events.length;
       console.log(`✅ ${events.length} eventos`);
@@ -711,6 +720,9 @@ async function downloadAllDataInitially(clubId) {
       const expenses = [];
       expensesSnapshot.forEach(doc => { expenses.push({ id: doc.id, ...doc.data() }); });
       localStorage.setItem('expenses', JSON.stringify(expenses));
+      if (window.idb && window.idb.syncStore) {
+        window.idb.syncStore('expenses', expenses).catch(e => console.warn('[idb] sync expenses (firstBoot) falló:', e));
+      }
       localStorage.setItem(_expKey, String(Date.now()));
       stats.expenses = expenses.length;
       console.log(`✅ ${expenses.length} egresos`);
@@ -762,6 +774,9 @@ async function downloadAllDataInitially(clubId) {
       const incomes = [];
       incomesSnapshot.forEach(doc => { incomes.push({ id: doc.id, ...doc.data() }); });
       localStorage.setItem('thirdPartyIncomes', JSON.stringify(incomes));
+      if (window.idb && window.idb.syncStore) {
+        window.idb.syncStore('thirdPartyIncomes', incomes).catch(e => console.warn('[idb] sync thirdPartyIncomes (firstBoot Firebase) falló:', e));
+      }
       localStorage.setItem(_incKey, String(Date.now()));
       stats.thirdPartyIncomes = incomes.length;
       console.log(`✅ ${incomes.length} ingresos externos`);
@@ -942,6 +957,9 @@ async function _fetchPlayers(clubId) {
         const merged = Object.values(existingMap);
         if (typeof saveAllPlayers === 'function') saveAllPlayers(merged);
         else localStorage.setItem('players', JSON.stringify(merged));
+        if (window.idb && window.idb.syncStore) {
+          window.idb.syncStore('players', merged).catch(e => console.warn('[idb] sync players (delta) falló:', e));
+        }
         console.log(`👥 Delta jugadores: ${snap.size} cambios aplicados`);
       } else {
         console.log('👥 Delta jugadores: sin cambios');
@@ -958,6 +976,9 @@ async function _fetchPlayers(clubId) {
       });
       if (typeof saveAllPlayers === 'function') saveAllPlayers(players);
       else localStorage.setItem('players', JSON.stringify(players));
+      if (window.idb && window.idb.syncStore) {
+        window.idb.syncStore('players', players).catch(e => console.warn('[idb] sync players (full) falló:', e));
+      }
       console.log(`👥 Full sync jugadores: ${players.length}`);
     }
 
@@ -1180,7 +1201,11 @@ async function _fetchEvents(clubId) {
           if (data.deleted) delete existingMap[doc.id];
           else existingMap[doc.id] = { id: doc.id, ...data };
         });
-        localStorage.setItem('calendarEvents', JSON.stringify(Object.values(existingMap)));
+        const _mergedEvents = Object.values(existingMap);
+        localStorage.setItem('calendarEvents', JSON.stringify(_mergedEvents));
+        if (window.idb && window.idb.syncStore) {
+          window.idb.syncStore('events', _mergedEvents).catch(e => console.warn('[idb] sync events (delta) falló:', e));
+        }
         console.log(`📅 Delta eventos: ${snap.size} cambios aplicados`);
       } else {
         console.log('📅 Delta eventos: sin cambios');
@@ -1195,6 +1220,9 @@ async function _fetchEvents(clubId) {
         if (!data.deleted) events.push({ id: doc.id, ...data });
       });
       localStorage.setItem('calendarEvents', JSON.stringify(events));
+      if (window.idb && window.idb.syncStore) {
+        window.idb.syncStore('events', events).catch(e => console.warn('[idb] sync events (full) falló:', e));
+      }
       console.log(`📅 Full sync eventos: ${events.length}`);
     }
 
@@ -1254,7 +1282,11 @@ async function _fetchExpenses(clubId) {
           if (data.deleted) delete existingMap[doc.id];
           else existingMap[doc.id] = { id: doc.id, ...data };
         });
-        localStorage.setItem('expenses', JSON.stringify(Object.values(existingMap)));
+        const _mergedExpenses = Object.values(existingMap);
+        localStorage.setItem('expenses', JSON.stringify(_mergedExpenses));
+        if (window.idb && window.idb.syncStore) {
+          window.idb.syncStore('expenses', _mergedExpenses).catch(e => console.warn('[idb] sync expenses (delta) falló:', e));
+        }
         console.log(`💸 Delta egresos: ${snap.size} cambios aplicados`);
       } else {
         console.log('💸 Delta egresos: sin cambios');
@@ -1269,6 +1301,9 @@ async function _fetchExpenses(clubId) {
         if (!data.deleted) expenses.push({ id: doc.id, ...data });
       });
       localStorage.setItem('expenses', JSON.stringify(expenses));
+      if (window.idb && window.idb.syncStore) {
+        window.idb.syncStore('expenses', expenses).catch(e => console.warn('[idb] sync expenses (full) falló:', e));
+      }
       console.log(`💸 Full sync egresos: ${expenses.length}`);
     }
 

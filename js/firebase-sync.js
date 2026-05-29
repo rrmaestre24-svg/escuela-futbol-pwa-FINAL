@@ -343,6 +343,9 @@ async function downloadFromFirebase() {
     const players = [];
     playersSnapshot.forEach(doc => players.push({ id: doc.id, ...doc.data() }));
     localStorage.setItem('players', JSON.stringify(players));
+    if (window.idb && window.idb.syncStore) {
+      window.idb.syncStore('players', players).catch(e => console.warn('[idb] sync players (firebase download) falló:', e));
+    }
     console.log(`✅ ${players.length} jugadores descargados`);
 
     // 3️⃣ Pagos — filtro 12 meses para evitar lecturas masivas
@@ -372,6 +375,9 @@ async function downloadFromFirebase() {
     const events = [];
     eventsSnapshot.forEach(doc => events.push(doc.data()));
     localStorage.setItem('calendarEvents', JSON.stringify(events));
+    if (window.idb && window.idb.syncStore) {
+      window.idb.syncStore('events', events).catch(e => console.warn('[idb] sync events (firebase download) falló:', e));
+    }
     console.log(`✅ ${events.length} eventos descargados`);
 
     // 5️⃣ Usuarios - ✅ RUTA CORREGIDA
@@ -413,6 +419,9 @@ async function downloadFromFirebase() {
     const expenses = [];
     expensesSnapshot.forEach(doc => expenses.push(doc.data()));
     localStorage.setItem('expenses', JSON.stringify(expenses));
+    if (window.idb && window.idb.syncStore) {
+      window.idb.syncStore('expenses', expenses).catch(e => console.warn('[idb] sync expenses (firebase download) falló:', e));
+    }
     console.log(`✅ ${expenses.length} egresos descargados`);
 
    // 7️⃣ Ingresos de Terceros
@@ -422,6 +431,9 @@ async function downloadFromFirebase() {
     const thirdPartyIncomes = [];
     thirdPartySnapshot.forEach(doc => thirdPartyIncomes.push(doc.data()));
     localStorage.setItem('thirdPartyIncomes', JSON.stringify(thirdPartyIncomes));
+    if (window.idb && window.idb.syncStore) {
+      window.idb.syncStore('thirdPartyIncomes', thirdPartyIncomes).catch(e => console.warn('[idb] sync thirdPartyIncomes (firebase download) falló:', e));
+    }
     console.log(`✅ ${thirdPartyIncomes.length} otros ingresos descargados`);
 
     // 8️⃣ Log de Movimientos de Pagos
@@ -1687,6 +1699,10 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false } = {}) {
       localStorage.setItem('players', JSON.stringify(reduced));
       console.warn(`⚠️ Cuota localStorage — almacenados ${reduced.length} jugadores activos (de ${players.length} totales)`);
     }
+    // 🆕 IDB recibe la lista COMPLETA aunque localStorage haya capado
+    if (window.idb && window.idb.syncStore) {
+      window.idb.syncStore('players', players).catch(e => console.warn('[idb] sync players (supabase download) falló:', e));
+    }
     console.log(`✅ ${players.length} jugadores descargados desde Supabase`);
 
     // 2️⃣ Pagos (últimos 6 meses — ver más antiguo on-demand desde payments.js)
@@ -1723,6 +1739,9 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false } = {}) {
       deleted: ev.deleted, clubId: clubId,
     }));
     localStorage.setItem('calendarEvents', JSON.stringify(events));
+    if (window.idb && window.idb.syncStore) {
+      window.idb.syncStore('events', events).catch(e => console.warn('[idb] sync events (supabase download) falló:', e));
+    }
     console.log(`✅ ${events.length} eventos descargados desde Supabase`);
 
     // 4️⃣ Usuarios
@@ -1749,6 +1768,9 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false } = {}) {
       invoiceNumber: e.invoice_number, deleted: e.deleted, clubId: clubId,
     }));
     localStorage.setItem('expenses', JSON.stringify(expenses));
+    if (window.idb && window.idb.syncStore) {
+      window.idb.syncStore('expenses', expenses).catch(e => console.warn('[idb] sync expenses (supabase download) falló:', e));
+    }
     console.log(`✅ ${expenses.length} egresos descargados desde Supabase`);
 
     // 6️⃣ Códigos de padres
@@ -1791,6 +1813,9 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false } = {}) {
         clubId:               clubId,
       }));
       localStorage.setItem('thirdPartyIncomes', JSON.stringify(thirdPartyIncomes));
+      if (window.idb && window.idb.syncStore) {
+        window.idb.syncStore('thirdPartyIncomes', thirdPartyIncomes).catch(e => console.warn('[idb] sync thirdPartyIncomes (supabase download) falló:', e));
+      }
       console.log(`✅ ${thirdPartyIncomes.length} otros ingresos descargados desde Supabase`);
     }
 

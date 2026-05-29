@@ -180,12 +180,19 @@ function getPlayerById(id) {
 function savePlayer(player) {
   const players = getPlayers();
   players.push(player);
-  localStorage.setItem('players', JSON.stringify(players));
-  
-  // ⭐ SINCRONIZACIÓN AUTOMÁTICA
+  safeSetItem('players', JSON.stringify(players));
+
+  // ⭐ SINCRONIZACIÓN AUTOMÁTICA (Supabase)
   if (typeof savePlayerToFirebase === 'function') {
-    savePlayerToFirebase(player).catch(err => 
+    savePlayerToFirebase(player).catch(err =>
       console.warn('⚠️ No se pudo sincronizar jugador con Firebase:', err)
+    );
+  }
+
+  // 🆕 ESPEJO A INDEXEDDB
+  if (window.idb && window.idb.put) {
+    window.idb.put('players', player).catch(err =>
+      console.warn('[idb] No se pudo guardar jugador en IndexedDB:', err)
     );
   }
 }
@@ -195,12 +202,19 @@ function updatePlayer(playerId, playerData) {
   const index = players.findIndex(p => p.id === playerId);
   if (index !== -1) {
     players[index] = { ...players[index], ...playerData };
-    localStorage.setItem('players', JSON.stringify(players));
-    
-    // ⭐ SINCRONIZACIÓN AUTOMÁTICA
+    safeSetItem('players', JSON.stringify(players));
+
+    // ⭐ SINCRONIZACIÓN AUTOMÁTICA (Supabase)
     if (typeof savePlayerToFirebase === 'function') {
-      savePlayerToFirebase(players[index]).catch(err => 
+      savePlayerToFirebase(players[index]).catch(err =>
         console.warn('⚠️ No se pudo sincronizar jugador con Firebase:', err)
+      );
+    }
+
+    // 🆕 ESPEJO A INDEXEDDB
+    if (window.idb && window.idb.put) {
+      window.idb.put('players', players[index]).catch(err =>
+        console.warn('[idb] No se pudo actualizar jugador en IndexedDB:', err)
       );
     }
   }
@@ -209,13 +223,18 @@ function updatePlayer(playerId, playerData) {
 function deletePlayer(playerId) {
   let players = getPlayers();
   players = players.filter(p => p.id !== playerId);
-  localStorage.setItem('players', JSON.stringify(players));
+  safeSetItem('players', JSON.stringify(players));
+  if (window.idb && window.idb.delete) {
+    window.idb.delete('players', playerId).catch(err =>
+      console.warn('[idb] No se pudo eliminar jugador en IndexedDB:', err)
+    );
+  }
 
   // Eliminar pagos del jugador de localStorage Y de Firebase
   let payments = getPayments();
   const orphanPayments = payments.filter(p => p.playerId === playerId);
   payments = payments.filter(p => p.playerId !== playerId);
-  localStorage.setItem('payments', JSON.stringify(payments));
+  safeSetItem('payments', JSON.stringify(payments));
   if (window.idb && window.idb.syncPaymentsToIDB) {
     window.idb.syncPaymentsToIDB(payments).catch(e => console.warn('[idb] sync (cascade deletePlayer) falló:', e));
   }
@@ -384,12 +403,19 @@ function getExpenseById(expenseId) {
 function saveExpense(expense) {
   const expenses = getExpenses();
   expenses.push(expense);
-  localStorage.setItem('expenses', JSON.stringify(expenses));
-  
-  // ⭐ SINCRONIZACIÓN AUTOMÁTICA
+  safeSetItem('expenses', JSON.stringify(expenses));
+
+  // ⭐ SINCRONIZACIÓN AUTOMÁTICA (Supabase)
   if (typeof saveExpenseToFirebase === 'function') {
-    saveExpenseToFirebase(expense).catch(err => 
+    saveExpenseToFirebase(expense).catch(err =>
       console.warn('⚠️ No se pudo sincronizar egreso con Firebase:', err)
+    );
+  }
+
+  // 🆕 ESPEJO A INDEXEDDB
+  if (window.idb && window.idb.put) {
+    window.idb.put('expenses', expense).catch(err =>
+      console.warn('[idb] No se pudo guardar egreso en IndexedDB:', err)
     );
   }
 }
@@ -399,12 +425,19 @@ function updateExpense(expenseId, expenseData) {
   const index = expenses.findIndex(e => e.id === expenseId);
   if (index !== -1) {
     expenses[index] = { ...expenses[index], ...expenseData };
-    localStorage.setItem('expenses', JSON.stringify(expenses));
-    
-    // ⭐ SINCRONIZACIÓN AUTOMÁTICA
+    safeSetItem('expenses', JSON.stringify(expenses));
+
+    // ⭐ SINCRONIZACIÓN AUTOMÁTICA (Supabase)
     if (typeof saveExpenseToFirebase === 'function') {
-      saveExpenseToFirebase(expenses[index]).catch(err => 
+      saveExpenseToFirebase(expenses[index]).catch(err =>
         console.warn('⚠️ No se pudo sincronizar egreso con Firebase:', err)
+      );
+    }
+
+    // 🆕 ESPEJO A INDEXEDDB
+    if (window.idb && window.idb.put) {
+      window.idb.put('expenses', expenses[index]).catch(err =>
+        console.warn('[idb] No se pudo actualizar egreso en IndexedDB:', err)
       );
     }
   }
@@ -413,12 +446,19 @@ function updateExpense(expenseId, expenseData) {
 function deleteExpense(expenseId) {
   let expenses = getExpenses();
   expenses = expenses.filter(e => e.id !== expenseId);
-  localStorage.setItem('expenses', JSON.stringify(expenses));
-  
-  // ⭐ SINCRONIZACIÓN AUTOMÁTICA
+  safeSetItem('expenses', JSON.stringify(expenses));
+
+  // ⭐ SINCRONIZACIÓN AUTOMÁTICA (Supabase)
   if (typeof deleteExpenseFromFirebase === 'function') {
-    deleteExpenseFromFirebase(expenseId).catch(err => 
+    deleteExpenseFromFirebase(expenseId).catch(err =>
       console.warn('⚠️ No se pudo eliminar egreso de Firebase:', err)
+    );
+  }
+
+  // 🆕 ESPEJO A INDEXEDDB
+  if (window.idb && window.idb.delete) {
+    window.idb.delete('expenses', expenseId).catch(err =>
+      console.warn('[idb] No se pudo eliminar egreso en IndexedDB:', err)
     );
   }
 }
@@ -446,12 +486,19 @@ function getThirdPartyIncomeById(incomeId) {
 function saveThirdPartyIncome(income) {
   const incomes = getThirdPartyIncomes();
   incomes.push(income);
-  localStorage.setItem('thirdPartyIncomes', JSON.stringify(incomes));
-  
-  // ⭐ SINCRONIZACIÓN AUTOMÁTICA
+  safeSetItem('thirdPartyIncomes', JSON.stringify(incomes));
+
+  // ⭐ SINCRONIZACIÓN AUTOMÁTICA (Supabase)
   if (typeof saveThirdPartyIncomeToFirebase === 'function') {
-    saveThirdPartyIncomeToFirebase(income).catch(err => 
+    saveThirdPartyIncomeToFirebase(income).catch(err =>
       console.warn('⚠️ No se pudo sincronizar ingreso con Firebase:', err)
+    );
+  }
+
+  // 🆕 ESPEJO A INDEXEDDB
+  if (window.idb && window.idb.put) {
+    window.idb.put('thirdPartyIncomes', income).catch(err =>
+      console.warn('[idb] No se pudo guardar ingreso en IndexedDB:', err)
     );
   }
 }
@@ -461,12 +508,19 @@ function updateThirdPartyIncome(incomeId, incomeData) {
   const index = incomes.findIndex(i => i.id === incomeId);
   if (index !== -1) {
     incomes[index] = { ...incomes[index], ...incomeData };
-    localStorage.setItem('thirdPartyIncomes', JSON.stringify(incomes));
-    
-    // ⭐ SINCRONIZACIÓN AUTOMÁTICA
+    safeSetItem('thirdPartyIncomes', JSON.stringify(incomes));
+
+    // ⭐ SINCRONIZACIÓN AUTOMÁTICA (Supabase)
     if (typeof saveThirdPartyIncomeToFirebase === 'function') {
-      saveThirdPartyIncomeToFirebase(incomes[index]).catch(err => 
+      saveThirdPartyIncomeToFirebase(incomes[index]).catch(err =>
         console.warn('⚠️ No se pudo sincronizar ingreso con Firebase:', err)
+      );
+    }
+
+    // 🆕 ESPEJO A INDEXEDDB
+    if (window.idb && window.idb.put) {
+      window.idb.put('thirdPartyIncomes', incomes[index]).catch(err =>
+        console.warn('[idb] No se pudo actualizar ingreso en IndexedDB:', err)
       );
     }
   }
@@ -475,12 +529,19 @@ function updateThirdPartyIncome(incomeId, incomeData) {
 function deleteThirdPartyIncome(incomeId) {
   let incomes = getThirdPartyIncomes();
   incomes = incomes.filter(i => i.id !== incomeId);
-  localStorage.setItem('thirdPartyIncomes', JSON.stringify(incomes));
-  
-  // ⭐ SINCRONIZACIÓN AUTOMÁTICA
+  safeSetItem('thirdPartyIncomes', JSON.stringify(incomes));
+
+  // ⭐ SINCRONIZACIÓN AUTOMÁTICA (Supabase)
   if (typeof deleteThirdPartyIncomeFromFirebase === 'function') {
-    deleteThirdPartyIncomeFromFirebase(incomeId).catch(err => 
+    deleteThirdPartyIncomeFromFirebase(incomeId).catch(err =>
       console.warn('⚠️ No se pudo eliminar ingreso de Firebase:', err)
+    );
+  }
+
+  // 🆕 ESPEJO A INDEXEDDB
+  if (window.idb && window.idb.delete) {
+    window.idb.delete('thirdPartyIncomes', incomeId).catch(err =>
+      console.warn('[idb] No se pudo eliminar ingreso en IndexedDB:', err)
     );
   }
 }
@@ -507,12 +568,19 @@ function getEventById(eventId) {
 function saveEvent(event) {
   const events = getCalendarEvents();
   events.push(event);
-  localStorage.setItem('calendarEvents', JSON.stringify(events));
-  
-  // ⭐ SINCRONIZACIÓN AUTOMÁTICA
+  safeSetItem('calendarEvents', JSON.stringify(events));
+
+  // ⭐ SINCRONIZACIÓN AUTOMÁTICA (Supabase)
   if (typeof saveEventToFirebase === 'function') {
-    saveEventToFirebase(event).catch(err => 
+    saveEventToFirebase(event).catch(err =>
       console.warn('⚠️ No se pudo sincronizar evento con Firebase:', err)
+    );
+  }
+
+  // 🆕 ESPEJO A INDEXEDDB (store: events)
+  if (window.idb && window.idb.put) {
+    window.idb.put('events', event).catch(err =>
+      console.warn('[idb] No se pudo guardar evento en IndexedDB:', err)
     );
   }
 }
@@ -522,12 +590,19 @@ function updateEvent(eventId, eventData) {
   const index = events.findIndex(e => e.id === eventId);
   if (index !== -1) {
     events[index] = { ...events[index], ...eventData };
-    localStorage.setItem('calendarEvents', JSON.stringify(events));
-    
-    // ⭐ SINCRONIZACIÓN AUTOMÁTICA
+    safeSetItem('calendarEvents', JSON.stringify(events));
+
+    // ⭐ SINCRONIZACIÓN AUTOMÁTICA (Supabase)
     if (typeof saveEventToFirebase === 'function') {
-      saveEventToFirebase(events[index]).catch(err => 
+      saveEventToFirebase(events[index]).catch(err =>
         console.warn('⚠️ No se pudo sincronizar evento con Firebase:', err)
+      );
+    }
+
+    // 🆕 ESPEJO A INDEXEDDB (store: events)
+    if (window.idb && window.idb.put) {
+      window.idb.put('events', events[index]).catch(err =>
+        console.warn('[idb] No se pudo actualizar evento en IndexedDB:', err)
       );
     }
   }
@@ -536,12 +611,19 @@ function updateEvent(eventId, eventData) {
 function deleteEvent(eventId) {
   let events = getCalendarEvents();
   events = events.filter(e => e.id !== eventId);
-  localStorage.setItem('calendarEvents', JSON.stringify(events));
-  
-  // ⭐ SINCRONIZACIÓN AUTOMÁTICA
+  safeSetItem('calendarEvents', JSON.stringify(events));
+
+  // ⭐ SINCRONIZACIÓN AUTOMÁTICA (Supabase)
   if (typeof deleteEventFromFirebase === 'function') {
-    deleteEventFromFirebase(eventId).catch(err => 
+    deleteEventFromFirebase(eventId).catch(err =>
       console.warn('⚠️ No se pudo eliminar evento de Firebase:', err)
+    );
+  }
+
+  // 🆕 ESPEJO A INDEXEDDB (store: events)
+  if (window.idb && window.idb.delete) {
+    window.idb.delete('events', eventId).catch(err =>
+      console.warn('[idb] No se pudo eliminar evento en IndexedDB:', err)
     );
   }
 }
@@ -954,7 +1036,10 @@ function getAllPlayers() {
 }
 
 function saveAllPlayers(players) {
-  localStorage.setItem('players', JSON.stringify(players));
+  safeSetItem('players', JSON.stringify(players));
+  if (window.idb && window.idb.syncStore) {
+    window.idb.syncStore('players', players).catch(e => console.warn('[idb] sync players (saveAllPlayers) falló:', e));
+  }
 }
 
 function saveSchoolSettings(settings) {
