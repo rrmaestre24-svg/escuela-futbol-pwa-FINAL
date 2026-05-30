@@ -23,6 +23,19 @@
     { name: 'thirdPartyIncomes',  localStorageKey: 'thirdPartyIncomes' },
   ];
 
+  // 🚀 FASE 3 — Cache RAM hidratada desde IDB al boot.
+  // Los getters de storage.js leen de acá primero, con fallback a localStorage
+  // si la cache aún no está lista o si la lectura falla.
+  // Las escrituras (put/delete/clear/syncStore) mantienen este objeto sincronizado.
+  window._cache = window._cache || {
+    payments: null,
+    players: null,
+    expenses: null,
+    events: null,
+    thirdPartyIncomes: null,
+    hydrated: false,
+  };
+
   function open() {
     if (_dbPromise) return _dbPromise;
     _dbPromise = new Promise((resolve, reject) => {
@@ -61,12 +74,37 @@
     });
   }
 
+  // Helper: actualiza window._cache después de un cambio en IDB
+  // (upsert por id si obj se pasa, delete por id si id se pasa)
+  function _cacheUpsert(storeName, obj) {
+    if (!window._cache || !obj || !obj.id) return;
+    const arr = window._cache[storeName];
+    if (!Array.isArray(arr)) return; // cache aún no hidratada para este store
+    const idx = arr.findIndex(i => i && i.id === obj.id);
+    if (idx >= 0) arr[idx] = obj;
+    else arr.push(obj);
+  }
+  function _cacheDelete(storeName, id) {
+    if (!window._cache || !id) return;
+    const arr = window._cache[storeName];
+    if (!Array.isArray(arr)) return;
+    const idx = arr.findIndex(i => i && i.id === id);
+    if (idx >= 0) arr.splice(idx, 1);
+  }
+  function _cacheReplace(storeName, items) {
+    if (!window._cache) return;
+    window._cache[storeName] = Array.isArray(items) ? items : [];
+  }
+
   async function put(storeName, obj) {
     const db = await open();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(storeName, 'readwrite');
       const req = tx.objectStore(storeName).put(obj);
-      req.onsuccess = () => resolve(true);
+      req.onsuccess = () => {
+        _cacheUpsert(storeName, obj);
+        resolve(true);
+      };
       req.onerror = () => reject(req.error);
     });
   }
@@ -76,7 +114,10 @@
     return new Promise((resolve, reject) => {
       const tx = db.transaction(storeName, 'readwrite');
       const req = tx.objectStore(storeName).delete(id);
-      req.onsuccess = () => resolve(true);
+      req.onsuccess = () => {
+        _cacheDelete(storeName, id);
+        resolve(true);
+      };
       req.onerror = () => reject(req.error);
     });
   }
@@ -96,7 +137,10 @@
     return new Promise((resolve, reject) => {
       const tx = db.transaction(storeName, 'readwrite');
       const req = tx.objectStore(storeName).clear();
-      req.onsuccess = () => resolve(true);
+      req.onsuccess = () => {
+        _cacheReplace(storeName, []);
+        resolve(true);
+      };
       req.onerror = () => reject(req.error);
     });
   }
@@ -225,10 +269,40 @@
       const store = tx.objectStore(storeName);
       store.clear();
       items.forEach(it => { if (it && it.id) store.put(it); });
-      tx.oncomplete = () => resolve({ store: storeName, synced: items.length });
+      tx.oncomplete = () => {
+        // Mantener cache RAM en sync: reemplazar la lista entera
+        _cacheReplace(storeName, items);
+        resolve({ store: storeName, synced: items.length });
+      };
       tx.onerror = () => reject(tx.error);
       tx.onabort = () => reject(tx.error);
     });
+  }
+
+  // 🚀 FASE 3 — Hidrata window._cache leyendo todas las stores de IDB.
+  // Se llama una vez al boot. Después, los updates a IDB mantienen el cache
+  // sincronizado automáticamente (vía put/del/clear/syncStore).
+  async function hydrateCache() {
+    try {
+      const t0 = Date.now();
+      for (const s of STORES) {
+        try {
+          const items = await getAll(s.name);
+          window._cache[s.name] = items;
+        } catch (e) {
+          console.warn(`[idb] hydrateCache: falló getAll(${s.name}):`, e);
+          window._cache[s.name] = []; // array vacío para que el getter no caiga al fallback de LS
+        }
+      }
+      window._cache.hydrated = true;
+      const ms = Date.now() - t0;
+      console.log(`[idb] 🚀 Cache RAM hidratada en ${ms}ms — pagos:${window._cache.payments.length} ` +
+        `jugadores:${window._cache.players.length} egresos:${window._cache.expenses.length} ` +
+        `eventos:${window._cache.events.length} ingresos:${window._cache.thirdPartyIncomes.length}`);
+      window.dispatchEvent(new CustomEvent('idb-cache-ready'));
+    } catch (err) {
+      console.error('[idb] ❌ Error hidratando cache RAM:', err);
+    }
   }
 
   // Alias para mantener compat con el código del piloto inicial
@@ -281,6 +355,9 @@
       Object.entries(mig).forEach(([store, r]) => {
         if (r && r.migrated) console.log(`[idb] 📦 Migración inicial ${store}: ${r.migrated} items`);
       });
+      // 🚀 FASE 3 — Hidratar cache RAM ANTES de la verificación para que los
+      // getters de storage.js lean de cache en cuanto pidan datos.
+      await hydrateCache();
       await verifyAllConsistency();
       console.log('[idb] ✅ Listo');
     } catch (err) {
@@ -302,6 +379,8 @@
     syncStore,
     // aislamiento de datos por club (se llama al inicio de cada login/download)
     ensureClubIsolation,
+    // Fase 3: hidratación de cache RAM (también re-llamable desde consola)
+    hydrateCache,
     // aliases retrocompat (NO eliminar — los usan los archivos antiguos)
     migratePaymentsFromLocalStorage,
     verifyPaymentsConsistency,

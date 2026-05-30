@@ -163,6 +163,11 @@ function clearCurrentUser() {
 // ========================================
 
 function getPlayers() {
+  // 🚀 FASE 3 — Si la cache RAM está hidratada, leer de ahí (incluye todo el set, sin cap de LS).
+  if (window._cache && Array.isArray(window._cache.players)) {
+    return window._cache.players;
+  }
+  // Fallback: localStorage (mientras la cache se hidrata, o si IDB falla)
   try {
     return JSON.parse(localStorage.getItem('players') || '[]');
   } catch (e) {
@@ -280,6 +285,10 @@ function normalizePlayerStatus(status) {
 // ========================================
 
 function getPayments() {
+  // 🚀 FASE 3 — Cache RAM si está hidratada (sin cap de localStorage).
+  if (window._cache && Array.isArray(window._cache.payments)) {
+    return window._cache.payments;
+  }
   try {
     return JSON.parse(localStorage.getItem('payments') || '[]');
   } catch (e) {
@@ -386,6 +395,10 @@ function getPaidPayments() {
 // ========================================
 
 function getExpenses() {
+  // 🚀 FASE 3 — Cache RAM si está hidratada.
+  if (window._cache && Array.isArray(window._cache.expenses)) {
+    return window._cache.expenses;
+  }
   try {
     const expenses = localStorage.getItem('expenses');
     return expenses ? JSON.parse(expenses) : [];
@@ -469,6 +482,10 @@ function deleteExpense(expenseId) {
 // ========================================
 
 function getThirdPartyIncomes() {
+  // 🚀 FASE 3 — Cache RAM si está hidratada.
+  if (window._cache && Array.isArray(window._cache.thirdPartyIncomes)) {
+    return window._cache.thirdPartyIncomes;
+  }
   try {
     const incomes = localStorage.getItem('thirdPartyIncomes');
     return incomes ? JSON.parse(incomes) : [];
@@ -551,6 +568,10 @@ function deleteThirdPartyIncome(incomeId) {
 // ========================================
 
 function getCalendarEvents() {
+  // 🚀 FASE 3 — Cache RAM (store 'events') si está hidratada.
+  if (window._cache && Array.isArray(window._cache.events)) {
+    return window._cache.events;
+  }
   try {
     return JSON.parse(localStorage.getItem('calendarEvents') || '[]');
   } catch (e) {
