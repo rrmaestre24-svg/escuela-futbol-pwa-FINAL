@@ -322,6 +322,12 @@ async function downloadFromFirebase() {
     return;
   }
 
+  // 🆕 AISLAMIENTO POR CLUB EN IndexedDB
+  if (window.idb && window.idb.ensureClubIsolation) {
+    try { await window.idb.ensureClubIsolation(clubId); }
+    catch (e) { console.warn('[idb] ensureClubIsolation (firebase) falló:', e); }
+  }
+
   try {
     console.log('📥 Descargando datos desde Firebase...');
     console.log('📥 Club ID:', clubId);
@@ -1648,6 +1654,16 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false } = {}) {
     console.error('❌ clubId es requerido');
     showToast('❌ Error: No se encontró el ID del club');
     return false;
+  }
+
+  // 🆕 AISLAMIENTO POR CLUB EN IndexedDB
+  // Garantiza que esta función nunca sirva mezcla de clubes incluso si se
+  // invoca directamente (sin pasar por auth.js downloadAllClubData).
+  if (window.idb && window.idb.ensureClubIsolation) {
+    try {
+      const r = await window.idb.ensureClubIsolation(clubId);
+      if (r && r.cleared) force = true;
+    } catch (e) { console.warn('[idb] ensureClubIsolation (supabase) falló:', e); }
   }
 
   // LOCAL-FIRST GUARD: reutilizar caché si está fresca (mismo comportamiento que Firebase)

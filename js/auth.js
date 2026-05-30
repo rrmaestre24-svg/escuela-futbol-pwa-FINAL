@@ -420,6 +420,21 @@ async function getClubIdForUser(email) {
 const _FULL_DOWNLOAD_TTL_MS = 15 * 60 * 1000; // 15 minutos
 
 async function downloadAllClubData(clubId, { force = false } = {}) {
+  if (!clubId) {
+    console.error('❌ clubId es requerido para descargar datos');
+    showToast('❌ Error: No se encontró el ID del club');
+    return false;
+  }
+
+  // 🆕 AISLAMIENTO POR CLUB EN IndexedDB (corre antes de cualquier descarga)
+  // Si cambió el club desde el último login, limpia IDB y fuerza re-descarga.
+  if (window.idb && window.idb.ensureClubIsolation) {
+    try {
+      const r = await window.idb.ensureClubIsolation(clubId);
+      if (r && r.cleared) force = true;
+    } catch (e) { console.warn('[idb] ensureClubIsolation falló:', e); }
+  }
+
   // Cuando MODO_SUPABASE está activo, delegar completamente a Supabase
   if (window.MODO_SUPABASE && typeof downloadAllClubDataFromSupabase === 'function') {
     return downloadAllClubDataFromSupabase(clubId, { force });
@@ -427,12 +442,6 @@ async function downloadAllClubData(clubId, { force = false } = {}) {
 
   if (!window.APP_STATE?.firebaseReady || !window.firebase?.auth?.currentUser) {
     console.warn('⚠️ Firebase no está listo o no hay usuario autenticado');
-    return false;
-  }
-
-  if (!clubId) {
-    console.error('❌ clubId es requerido para descargar datos');
-    showToast('❌ Error: No se encontró el ID del club');
     return false;
   }
 

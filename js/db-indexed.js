@@ -191,6 +191,28 @@
     return migrateStoreFromLocalStorage('payments', 'payments');
   }
 
+  // Garantiza aislamiento de datos por club. Si el clubId cambió desde la
+  // última vez que IDB se pobló (o es la primera vez), limpia TODAS las
+  // stores y devuelve { cleared: true } para que el caller fuerce una
+  // re-descarga. Si es el mismo club, no toca nada y devuelve { cleared: false }.
+  // El flag `idb_current_club` vive en localStorage por su persistencia simple.
+  async function ensureClubIsolation(clubId) {
+    if (!clubId) return { cleared: false, reason: 'sin clubId' };
+    const lastClubId = localStorage.getItem('idb_current_club');
+    const clubChanged = lastClubId && lastClubId !== clubId;
+    const firstLogin = !lastClubId;
+    if (!clubChanged && !firstLogin) {
+      return { cleared: false, reason: 'mismo club', clubId };
+    }
+    for (const s of STORES) {
+      try { await clear(s.name); }
+      catch (e) { console.warn(`[idb] ensureClubIsolation: falló clear de ${s.name}:`, e); }
+    }
+    localStorage.setItem('idb_current_club', clubId);
+    console.log(`[idb] 🧹 Aislamiento: stores limpiadas (${lastClubId || 'ninguno'} → ${clubId})`);
+    return { cleared: true, previousClubId: lastClubId, newClubId: clubId };
+  }
+
   // Sincroniza una store completa a partir de una lista nueva.
   // Lo usan los caminos de sync remoto (realtime-sync, firebase-sync, auth)
   // para mantener IndexedDB alineada con localStorage tras cada descarga.
@@ -278,6 +300,8 @@
     verifyStoreConsistency, verifyAllConsistency,
     // sync espejo (lo llaman los caminos de descarga remota)
     syncStore,
+    // aislamiento de datos por club (se llama al inicio de cada login/download)
+    ensureClubIsolation,
     // aliases retrocompat (NO eliminar — los usan los archivos antiguos)
     migratePaymentsFromLocalStorage,
     verifyPaymentsConsistency,
