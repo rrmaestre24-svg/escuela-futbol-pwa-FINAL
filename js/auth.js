@@ -504,9 +504,30 @@ async function downloadAllClubData(clubId, { force = false } = {}) {
     
     // ✅ Resetear flag de historial completo para no dejar listeners sin límite
     localStorage.removeItem('paymentsFullHistory');
-    localStorage.setItem('payments', JSON.stringify(payments));
+    // 🆕 IDB PRIMERO — recibe TODOS los pagos sin importar la cuota de localStorage
     if (window.idb && window.idb.syncPaymentsToIDB) {
       window.idb.syncPaymentsToIDB(payments).catch(e => console.warn('[idb] sync (post-login) falló:', e));
+    }
+    // localStorage con fallback si supera la cuota (clientes grandes)
+    try {
+      localStorage.setItem('payments', JSON.stringify(payments));
+    } catch (quotaErr) {
+      const sorted = [...payments].sort((a, b) =>
+        (b.paidDate || b.dueDate || '').localeCompare(a.paidDate || a.dueDate || '')
+      );
+      let saved = false;
+      for (const limit of [500, 300, 200, 100]) {
+        try {
+          localStorage.setItem('payments', JSON.stringify(sorted.slice(0, limit)));
+          console.warn(`⚠️ Cuota localStorage — guardados ${limit} pagos más recientes (de ${payments.length}). Resto disponible en IndexedDB.`);
+          saved = true;
+          break;
+        } catch (_) { /* probar tamaño más chico */ }
+      }
+      if (!saved) {
+        console.error('⚠️ Cuota localStorage crítica — pagos solo en IndexedDB');
+        try { localStorage.setItem('payments', '[]'); } catch (_) {}
+      }
     }
     console.log(`✅ ${payments.length} pagos descargados (últimos 12 meses desde ${_paymentCutoffStr})`);
 
@@ -520,10 +541,11 @@ async function downloadAllClubData(clubId, { force = false } = {}) {
       events.push({ id: doc.id, ...doc.data() });
     });
     
-    localStorage.setItem('calendarEvents', JSON.stringify(events));
+    // IDB primero
     if (window.idb && window.idb.syncStore) {
       window.idb.syncStore('events', events).catch(e => console.warn('[idb] sync events (post-login) falló:', e));
     }
+    safeSetItem('calendarEvents', JSON.stringify(events));
     console.log(`✅ ${events.length} eventos descargados`);
 
     // 5️⃣ Usuarios del club
@@ -551,7 +573,7 @@ async function downloadAllClubData(clubId, { force = false } = {}) {
       });
     });
     
-    localStorage.setItem('users', JSON.stringify(clubUsers));
+    safeSetItem('users', JSON.stringify(clubUsers));
     console.log(`✅ ${clubUsers.length} usuarios descargados`);
 
     // 6️⃣ Egresos
@@ -564,10 +586,11 @@ async function downloadAllClubData(clubId, { force = false } = {}) {
       expenses.push({ id: doc.id, ...doc.data() });
     });
 
-    localStorage.setItem('expenses', JSON.stringify(expenses));
+    // IDB primero
     if (window.idb && window.idb.syncStore) {
       window.idb.syncStore('expenses', expenses).catch(e => console.warn('[idb] sync expenses (post-login) falló:', e));
     }
+    safeSetItem('expenses', JSON.stringify(expenses));
     console.log(`✅ ${expenses.length} egresos descargados`);
 
     // 7️⃣ Otros ingresos (terceros)
@@ -580,10 +603,11 @@ async function downloadAllClubData(clubId, { force = false } = {}) {
       thirdPartyIncomes.push({ id: doc.id, ...doc.data() });
     });
 
-    localStorage.setItem('thirdPartyIncomes', JSON.stringify(thirdPartyIncomes));
+    // IDB primero
     if (window.idb && window.idb.syncStore) {
       window.idb.syncStore('thirdPartyIncomes', thirdPartyIncomes).catch(e => console.warn('[idb] sync thirdPartyIncomes (post-login) falló:', e));
     }
+    safeSetItem('thirdPartyIncomes', JSON.stringify(thirdPartyIncomes));
     console.log(`✅ ${thirdPartyIncomes.length} otros ingresos descargados`);
 
     // Marca el momento de la descarga para que realtime-sync no vuelva a bajar los mismos datos
