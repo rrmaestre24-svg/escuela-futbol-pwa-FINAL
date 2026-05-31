@@ -9,7 +9,7 @@
 
 (function () {
   const DB_NAME = 'myclub_db';
-  const DB_VERSION = 2;
+  const DB_VERSION = 3;
   let _dbPromise = null;
 
   // Stores cubiertas por el espejo IDB.
@@ -21,6 +21,14 @@
     { name: 'expenses',           localStorageKey: 'expenses' },
     { name: 'events',             localStorageKey: 'calendarEvents' },
     { name: 'thirdPartyIncomes',  localStorageKey: 'thirdPartyIncomes' },
+  ];
+
+  // Stores auxiliares — NO entran en STORES porque no se espejan ni se hidratan al cache.
+  // Solo se crean si faltan en onupgradeneeded.
+  const AUX_STORES = [
+    // Cola de escrituras a Supabase que fallaron por red.
+    // Cada item: { id, table, operation, payload, clubId, attempts, lastAttempt, createdAt }
+    { name: 'pendingSyncQueue', keyPath: 'id', indexes: [{ name: 'createdAt', keyPath: 'createdAt' }] },
   ];
 
   // 🚀 FASE 3 — Cache RAM hidratada desde IDB al boot.
@@ -46,7 +54,7 @@
       const req = indexedDB.open(DB_NAME, DB_VERSION);
       req.onupgradeneeded = (e) => {
         const db = e.target.result;
-        // Crear stores faltantes (cubre v1->v2 y fresh installs)
+        // Crear stores faltantes (cubre v1->v2->v3 y fresh installs)
         STORES.forEach(s => {
           if (!db.objectStoreNames.contains(s.name)) {
             const store = db.createObjectStore(s.name, { keyPath: 'id' });
@@ -54,6 +62,15 @@
             if (s.name === 'payments') {
               store.createIndex('playerId', 'playerId', { unique: false });
             }
+          }
+        });
+        // Stores auxiliares (v3+): cola de reintentos, etc.
+        AUX_STORES.forEach(s => {
+          if (!db.objectStoreNames.contains(s.name)) {
+            const store = db.createObjectStore(s.name, { keyPath: s.keyPath });
+            (s.indexes || []).forEach(ix => {
+              store.createIndex(ix.name, ix.keyPath, { unique: !!ix.unique });
+            });
           }
         });
       };
