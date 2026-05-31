@@ -44,6 +44,40 @@
     hydrated: false,
   };
 
+  // 🧹 FASE 4 — Deny list: estas 5 keys ya viven solo en IndexedDB + cache RAM.
+  // Bloqueamos sus escrituras a localStorage para liberar los 5 MB y evitar
+  // datos duplicados que pueden quedar stale. Los reads aún funcionan como
+  // fallback en getters (devolverán [] si LS está limpio).
+  const _LS_DENY_KEYS = new Set([
+    'payments', 'players', 'expenses', 'calendarEvents', 'thirdPartyIncomes'
+  ]);
+  // Monkey-patch localStorage.setItem: no-op silencioso para las 5 keys pesadas.
+  // Se aplica AL CARGAR este script (antes que cualquier otro módulo escriba).
+  try {
+    const _originalSetItem = localStorage.setItem.bind(localStorage);
+    Object.defineProperty(localStorage, 'setItem', {
+      configurable: true,
+      writable: true,
+      value: function (key, value) {
+        if (_LS_DENY_KEYS.has(key)) return; // ignora silenciosamente
+        return _originalSetItem(key, value);
+      }
+    });
+  } catch (e) {
+    console.warn('[idb] No se pudo patchear localStorage.setItem:', e);
+  }
+  // Cleanup one-shot: borra las 5 keys pesadas del localStorage existente,
+  // liberando el espacio que ocupaban. Se ejecuta UNA vez por dispositivo.
+  if (localStorage.getItem('idb_fase4_cleanup_v1') !== 'true') {
+    try {
+      _LS_DENY_KEYS.forEach(k => localStorage.removeItem(k));
+      localStorage.setItem('idb_fase4_cleanup_v1', 'true');
+      console.log('[idb] 🧹 Fase 4: localStorage liberado de las 5 listas pesadas.');
+    } catch (e) {
+      console.warn('[idb] Cleanup Fase 4 falló:', e);
+    }
+  }
+
   function open() {
     if (_dbPromise) return _dbPromise;
     _dbPromise = new Promise((resolve, reject) => {
