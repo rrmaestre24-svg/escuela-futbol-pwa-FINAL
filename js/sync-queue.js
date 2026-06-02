@@ -77,6 +77,58 @@
     catch (_) { return []; }
   }
 
+  // 🆕 Protege items locales aún en cola contra syncStore que clear+bulkPut.
+  // Recibe la lista descargada de Supabase y la mergea con los items pendientes:
+  //   - Excluye IDs con delete pendiente (el usuario los borró localmente).
+  //   - Agrega/sobrescribe con upserts pendientes (el usuario los modificó localmente).
+  // Si la cola está vacía o falla cualquier paso, devuelve remoteItems sin cambios.
+  // Llamado desde firebase-sync.js antes de cada syncStore en downloadAllClubDataFromSupabase.
+  async function mergeWithPending(table, remoteItems) {
+    if (!Array.isArray(remoteItems)) return remoteItems;
+    let items;
+    try {
+      items = await getQueueItems();
+    } catch (e) {
+      console.warn('[syncQueue] mergeWithPending getQueueItems falló:', e);
+      return remoteItems;
+    }
+    if (!items || items.length === 0) return remoteItems;
+
+    const pendingUpsertsById = {};
+    const pendingDeleteIds = new Set();
+    items.forEach(item => {
+      if (!item || item.table !== table) return;
+      if (item.operation === 'upsert' && item.payload && item.payload.id) {
+        pendingUpsertsById[item.payload.id] = item.payload;
+      } else if (item.operation === 'delete') {
+        // payload puede ser string (id directo) o { id }
+        const id = typeof item.payload === 'string' ? item.payload : item.payload && item.payload.id;
+        if (id) pendingDeleteIds.add(id);
+      }
+    });
+
+    if (Object.keys(pendingUpsertsById).length === 0 && pendingDeleteIds.size === 0) {
+      return remoteItems;
+    }
+
+    const byId = {};
+    remoteItems.forEach(r => {
+      if (!r || !r.id) return;
+      if (pendingDeleteIds.has(r.id)) return; // excluido por delete pendiente
+      byId[r.id] = r;
+    });
+    // El delete tiene precedencia sobre upsert si por error coincide el id
+    Object.entries(pendingUpsertsById).forEach(([id, payload]) => {
+      if (!pendingDeleteIds.has(id)) byId[id] = payload;
+    });
+
+    const merged = Object.values(byId);
+    if (merged.length !== remoteItems.length) {
+      console.log(`[syncQueue] mergeWithPending(${table}): remotos=${remoteItems.length}, upserts pendientes=${Object.keys(pendingUpsertsById).length}, deletes pendientes=${pendingDeleteIds.size}, final=${merged.length}`);
+    }
+    return merged;
+  }
+
   // Procesa la cola: para cada item, intenta volver a hacer la operación
   // contra Supabase. Si tiene éxito, borra de la cola. Si falla, incrementa
   // attempts y lo deja para el próximo ciclo.
@@ -268,6 +320,7 @@
   // API pública
   window.syncQueue = {
     enqueue, processQueue, getQueueSize, getQueueItems, setupListeners,
+    mergeWithPending,
   };
 
   // Auto-boot cuando el documento está listo

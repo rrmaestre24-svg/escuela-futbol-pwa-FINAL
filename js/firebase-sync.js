@@ -1718,9 +1718,16 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false } = {}) {
       localStorage.setItem('players', JSON.stringify(reduced));
       console.warn(`⚠️ Cuota localStorage — almacenados ${reduced.length} jugadores activos (de ${players.length} totales)`);
     }
-    // 🆕 IDB recibe la lista COMPLETA aunque localStorage haya capado
+    // 🆕 IDB recibe la lista COMPLETA aunque localStorage haya capado.
+    // Se mergea con items pendientes en cola para no borrar locales aún no subidos.
+    let _finalPlayers = players;
+    try {
+      if (window.syncQueue && window.syncQueue.mergeWithPending) {
+        _finalPlayers = await window.syncQueue.mergeWithPending('players', players);
+      }
+    } catch (e) { console.warn('[syncQueue] mergeWithPending players falló:', e); }
     if (window.idb && window.idb.syncStore) {
-      window.idb.syncStore('players', players).catch(e => console.warn('[idb] sync players (supabase download) falló:', e));
+      window.idb.syncStore('players', _finalPlayers).catch(e => console.warn('[idb] sync players (supabase download) falló:', e));
     }
     console.log(`✅ ${players.length} jugadores descargados desde Supabase`);
 
@@ -1741,9 +1748,16 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false } = {}) {
       deleted: p.deleted, clubId: clubId,
     }));
     localStorage.removeItem('paymentsFullHistory');
-    // 🆕 IDB PRIMERO — recibe TODOS los pagos sin importar la cuota de localStorage
+    // 🆕 IDB PRIMERO — recibe TODOS los pagos sin importar la cuota de localStorage.
+    // Se mergea con items pendientes en cola para no borrar locales aún no subidos.
+    let _finalPayments = payments;
+    try {
+      if (window.syncQueue && window.syncQueue.mergeWithPending) {
+        _finalPayments = await window.syncQueue.mergeWithPending('payments', payments);
+      }
+    } catch (e) { console.warn('[syncQueue] mergeWithPending payments falló:', e); }
     if (window.idb && window.idb.syncPaymentsToIDB) {
-      window.idb.syncPaymentsToIDB(payments).catch(e => console.warn('[idb] sync (supabase download) falló:', e));
+      window.idb.syncPaymentsToIDB(_finalPayments).catch(e => console.warn('[idb] sync (supabase download) falló:', e));
     }
     // localStorage con fallback si supera la cuota (clientes grandes)
     try {
@@ -1778,9 +1792,15 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false } = {}) {
       description: ev.description, location: ev.location,
       deleted: ev.deleted, clubId: clubId,
     }));
-    // IDB primero
+    // IDB primero — mergeado con cola pendiente para no borrar locales aún no subidos
+    let _finalEvents = events;
+    try {
+      if (window.syncQueue && window.syncQueue.mergeWithPending) {
+        _finalEvents = await window.syncQueue.mergeWithPending('events', events);
+      }
+    } catch (e) { console.warn('[syncQueue] mergeWithPending events falló:', e); }
     if (window.idb && window.idb.syncStore) {
-      window.idb.syncStore('events', events).catch(e => console.warn('[idb] sync events (supabase download) falló:', e));
+      window.idb.syncStore('events', _finalEvents).catch(e => console.warn('[idb] sync events (supabase download) falló:', e));
     }
     safeSetItem('calendarEvents', JSON.stringify(events));
     console.log(`✅ ${events.length} eventos descargados desde Supabase`);
@@ -1808,9 +1828,15 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false } = {}) {
       category: e.category, description: e.description,
       invoiceNumber: e.invoice_number, deleted: e.deleted, clubId: clubId,
     }));
-    // IDB primero
+    // IDB primero — mergeado con cola pendiente para no borrar locales aún no subidos
+    let _finalExpenses = expenses;
+    try {
+      if (window.syncQueue && window.syncQueue.mergeWithPending) {
+        _finalExpenses = await window.syncQueue.mergeWithPending('expenses', expenses);
+      }
+    } catch (e) { console.warn('[syncQueue] mergeWithPending expenses falló:', e); }
     if (window.idb && window.idb.syncStore) {
-      window.idb.syncStore('expenses', expenses).catch(e => console.warn('[idb] sync expenses (supabase download) falló:', e));
+      window.idb.syncStore('expenses', _finalExpenses).catch(e => console.warn('[idb] sync expenses (supabase download) falló:', e));
     }
     safeSetItem('expenses', JSON.stringify(expenses));
     console.log(`✅ ${expenses.length} egresos descargados desde Supabase`);
@@ -1854,9 +1880,15 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false } = {}) {
         createdAt:            i.created_at,
         clubId:               clubId,
       }));
-      // IDB primero
+      // IDB primero — mergeado con cola pendiente para no borrar locales aún no subidos
+      let _finalIncomes = thirdPartyIncomes;
+      try {
+        if (window.syncQueue && window.syncQueue.mergeWithPending) {
+          _finalIncomes = await window.syncQueue.mergeWithPending('thirdPartyIncomes', thirdPartyIncomes);
+        }
+      } catch (e) { console.warn('[syncQueue] mergeWithPending thirdPartyIncomes falló:', e); }
       if (window.idb && window.idb.syncStore) {
-        window.idb.syncStore('thirdPartyIncomes', thirdPartyIncomes).catch(e => console.warn('[idb] sync thirdPartyIncomes (supabase download) falló:', e));
+        window.idb.syncStore('thirdPartyIncomes', _finalIncomes).catch(e => console.warn('[idb] sync thirdPartyIncomes (supabase download) falló:', e));
       }
       safeSetItem('thirdPartyIncomes', JSON.stringify(thirdPartyIncomes));
       console.log(`✅ ${thirdPartyIncomes.length} otros ingresos descargados desde Supabase`);

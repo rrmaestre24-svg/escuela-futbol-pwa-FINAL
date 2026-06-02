@@ -1,4 +1,4 @@
-const CACHE_NAME = 'my-club-v1.3.0';
+const CACHE_NAME = 'my-club-v1.3.1';
 
 const urlsToCache = [
   '/',
@@ -126,6 +126,8 @@ self.addEventListener('fetch', event => {
   if (!event.request.url.startsWith('http')) return;
 
   // Ignorar peticiones a Firebase, APIs externas, etc.
+  // 🆕 Supabase REST/AUTH/FUNCTIONS NO se cachean (datos en tiempo real).
+  // Supabase Storage (avatars/logos) SÍ se cachea más abajo con Cache First.
   if (
     event.request.url.includes('firebaseio.com') ||
     event.request.url.includes('googleapis.com') ||
@@ -136,7 +138,10 @@ self.addEventListener('fetch', event => {
     event.request.url.includes('cdn.tailwindcss.com') ||
     event.request.url.includes('cdn.jsdelivr.net') ||
     event.request.url.includes('cdnjs.cloudflare.com') ||
-    event.request.url.includes('ui-avatars.com')
+    event.request.url.includes('ui-avatars.com') ||
+    event.request.url.includes('.supabase.co/rest/') ||
+    event.request.url.includes('.supabase.co/auth/') ||
+    event.request.url.includes('.supabase.co/functions/')
   ) {
     return;
   }
