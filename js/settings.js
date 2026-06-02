@@ -1860,3 +1860,112 @@ async function manualSync() {
 window.manualSync = manualSync;
 
 console.log('✅ Sistema de sincronización manual cargado')
+
+// ========================================
+// 💾 ALMACENAMIENTO — Stats + Limpiar cache local
+// ========================================
+
+/**
+ * Refresca la UI de "💾 Almacenamiento": barra de uso, persistencia, cola pendiente.
+ * Se llama cuando el admin abre la sección.
+ */
+async function refreshStorageInfo() {
+  // 1. Estadísticas de uso vía navigator.storage.estimate()
+  try {
+    if (navigator.storage && navigator.storage.estimate) {
+      const est = await navigator.storage.estimate();
+      const usedBytes = est.usage || 0;
+      const quotaBytes = est.quota || 0;
+      const percent = quotaBytes > 0 ? (usedBytes / quotaBytes * 100) : 0;
+      const usedFmt = _formatBytes(usedBytes);
+      const quotaFmt = _formatBytes(quotaBytes);
+      const percentEl = document.getElementById('storagePercent');
+      const barEl = document.getElementById('storageBar');
+      const detailsEl = document.getElementById('storageDetails');
+      if (percentEl) percentEl.textContent = `${percent.toFixed(2)}%`;
+      if (barEl) {
+        barEl.style.width = `${Math.min(percent, 100)}%`;
+        barEl.classList.remove('bg-teal-500', 'bg-yellow-500', 'bg-red-500');
+        if (percent >= 95) barEl.classList.add('bg-red-500');
+        else if (percent >= 80) barEl.classList.add('bg-yellow-500');
+        else barEl.classList.add('bg-teal-500');
+      }
+      if (detailsEl) detailsEl.textContent = `${usedFmt} usados de ${quotaFmt} disponibles`;
+    }
+  } catch (e) {
+    console.warn('No se pudo obtener storage estimate:', e);
+  }
+
+  // 2. Banner de persistencia
+  try {
+    if (navigator.storage && navigator.storage.persisted) {
+      const persisted = await navigator.storage.persisted();
+      const banner = document.getElementById('persistenceBanner');
+      if (banner) banner.classList.toggle('hidden', persisted);
+    }
+  } catch (e) { /* silenciar */ }
+
+  // 3. Cola de operaciones pendientes
+  try {
+    if (window.syncQueue && window.syncQueue.getQueueSize) {
+      const size = await window.syncQueue.getQueueSize();
+      const banner = document.getElementById('syncQueueBanner');
+      const count = document.getElementById('syncQueueCount');
+      if (banner) banner.classList.toggle('hidden', size === 0);
+      if (count) count.textContent = String(size);
+    }
+  } catch (e) { /* silenciar */ }
+}
+window.refreshStorageInfo = refreshStorageInfo;
+
+function _formatBytes(bytes) {
+  if (!bytes || bytes === 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  const val = bytes / Math.pow(1024, i);
+  return `${val.toFixed(i === 0 ? 0 : 2)} ${units[i]}`;
+}
+
+/**
+ * Limpia SOLO el cache local (IndexedDB + flags) y recarga la app.
+ * NO toca Supabase — los datos están seguros en la nube y se vuelven a descargar.
+ * Útil si algo se traba o el admin quiere "empezar de cero" localmente.
+ */
+async function clearLocalCacheOnly() {
+  const confirmed = await showAppConfirm(
+    '🧹 Esto borrará la copia local de tu club (IndexedDB).\n\n' +
+    '✅ Tus datos están seguros en la nube y se descargarán de nuevo al recargar.\n' +
+    '❌ NO borra nada de la nube (Supabase).\n\n' +
+    '¿Continuar?',
+    { type: 'warning', title: 'Limpiar cache local', confirmText: 'Sí, limpiar' }
+  );
+  if (!confirmed) return;
+
+  showToast('🧹 Limpiando cache local...');
+
+  try {
+    // 1. Limpiar las 5 stores principales de IndexedDB + cola de reintentos
+    if (window.idb && window.idb.clear) {
+      const stores = ['payments', 'players', 'expenses', 'events', 'thirdPartyIncomes', 'pendingSyncQueue'];
+      for (const store of stores) {
+        try { await window.idb.clear(store); } catch (_) {}
+      }
+    }
+
+    // 2. Limpiar flags que controlan migración inicial y cleanup (para que vuelvan a correr)
+    [
+      'idb_migrated_payments', 'idb_migrated_players', 'idb_migrated_expenses',
+      'idb_migrated_events', 'idb_migrated_thirdPartyIncomes',
+      'idb_fase4_cleanup_v1', 'idb_current_club',
+      '_lastFullDownload',
+    ].forEach(k => { try { localStorage.removeItem(k); } catch (_) {} });
+
+    showToast('✅ Cache local limpiado. Recargando...');
+    setTimeout(() => window.location.reload(), 800);
+  } catch (error) {
+    console.error('❌ Error al limpiar cache local:', error);
+    showToast('❌ Error al limpiar cache local');
+  }
+}
+window.clearLocalCacheOnly = clearLocalCacheOnly;
+
