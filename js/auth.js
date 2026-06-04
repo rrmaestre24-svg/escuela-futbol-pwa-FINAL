@@ -728,27 +728,63 @@ document.getElementById('loginForm')?.addEventListener('submit', async function(
   
   try {
     showToast('🔐 Verificando credenciales...');
-    
-    // 1️⃣ Autenticar con Firebase
-    const userCredential = await window.firebase.signInWithEmailAndPassword(
-      window.firebase.auth,
-      email,
-      password
-    );
-    
-    console.log('✅ Autenticado en Firebase');
-    window.APP_STATE.currentUser = userCredential.user;
-    const firebaseUid = userCredential.user.uid;
 
-    // Obtener JWT de Supabase con club_id (para que RLS pueda enforcear).
-    // Aditivo: si falla, la app sigue funcionando con anon.
-    if (window.SupaAuth) {
+    // 1️⃣ DUAL AUTH: intentar Supabase primero (camino principal post-cutover).
+    //    Si falla, fallback Firebase (legacy, será removido el 26/06).
+    let firebaseUid = null;
+    let authMethod = null;
+
+    // Intento Supabase v2
+    if (window.SupaAuthV2) {
       try {
-        const idToken = await userCredential.user.getIdToken();
-        await window.SupaAuth.mintFirebase(idToken);
-      } catch (e) {
-        console.warn('[SupaAuth] mint falló (sigue con anon):', e?.message || e);
+        await window.SupaAuthV2.login(email, password);
+        authMethod = 'supabase';
+        console.log('✅ Autenticado en Supabase (v2)');
+
+        // Resolver el users.id (= firebase UID histórico) por email
+        const lookup = await fetch(
+          `${window.SUPA_URL}/rest/v1/users?email=eq.${encodeURIComponent(email)}&deleted=eq.false&select=id&limit=1`
+        );
+        if (lookup.ok) {
+          const rows = await lookup.json();
+          if (rows[0]?.id) firebaseUid = rows[0].id;
+        }
+
+        // Mock mínimo de currentUser para compatibilidad con código existente
+        window.APP_STATE.currentUser = {
+          uid: firebaseUid,
+          email,
+          getIdToken: async () => null,
+        };
+      } catch (supaErr) {
+        console.log('[DUAL AUTH] Supabase falló, intentando Firebase:', supaErr?.message || supaErr);
       }
+    }
+
+    // Fallback Firebase (camino legacy)
+    if (!authMethod) {
+      const userCredential = await window.firebase.signInWithEmailAndPassword(
+        window.firebase.auth, email, password
+      );
+      authMethod = 'firebase';
+      console.log('✅ Autenticado en Firebase (fallback)');
+      window.APP_STATE.currentUser = userCredential.user;
+      firebaseUid = userCredential.user.uid;
+
+      // Mint JWT Supabase a partir del Firebase ID Token
+      if (window.SupaAuth) {
+        try {
+          const idToken = await userCredential.user.getIdToken();
+          await window.SupaAuth.mintFirebase(idToken);
+        } catch (e) {
+          console.warn('[SupaAuth] mint falló (sigue con anon):', e?.message || e);
+        }
+      }
+    }
+
+    if (!firebaseUid) {
+      showToast('❌ No se pudo identificar el usuario');
+      return;
     }
 
     let clubId = null;
@@ -840,7 +876,7 @@ document.getElementById('loginForm')?.addEventListener('submit', async function(
                 id: firebaseUid,
                 club_id: clubId,
                 email: email,
-                name: userCredential.user.displayName || email.split('@')[0],
+                name: window.APP_STATE.currentUser?.displayName || email.split('@')[0],
                 is_main_admin: false,
                 role: 'admin',
                 deleted: false,
@@ -865,7 +901,7 @@ document.getElementById('loginForm')?.addEventListener('submit', async function(
           await window.firebase.setDoc(userInClubRef, {
             id: firebaseUid,
             email: email,
-            name: userCredential.user.displayName || email.split('@')[0],
+            name: window.APP_STATE.currentUser?.displayName || email.split('@')[0],
             isMainAdmin: false,
             role: 'admin',
             avatar: '',
@@ -897,7 +933,7 @@ document.getElementById('loginForm')?.addEventListener('submit', async function(
         user = {
           id: firebaseUid,
           email: email,
-          name: userCredential.user.displayName || email.split('@')[0],
+          name: window.APP_STATE.currentUser?.displayName || email.split('@')[0],
           schoolId: clubId,
           role: 'admin',
           isMainAdmin: false,
@@ -1611,8 +1647,9 @@ function copyNavbarClubId() {
 async function logout() {
   if (await confirmAction('¿Estás seguro de cerrar sesión?', { type: 'warning', title: 'Cerrar sesión' })) {
     try {
-      // Limpiar el JWT de Supabase del usuario (vuelve a anon hasta el próximo login)
-      if (window.SupaAuth) window.SupaAuth.clear();
+      // Limpiar JWT de Supabase del usuario (v1 y v2) — vuelve a anon hasta el próximo login
+      if (window.SupaAuth)   window.SupaAuth.clear();
+      if (window.SupaAuthV2) { try { await window.SupaAuthV2.logout(); } catch (_) {} }
 
       // Cancelar listeners de Firebase antes de salir
       if (typeof window.userDeletionUnsubscribe === 'function') {
@@ -1973,17 +2010,20 @@ if (!emailRegex.test(email)) {
 showResetMessage('❌ Email no válido', 'error');
 return;
 }
-if (!window.firebase?.auth) {
-showResetMessage('❌ Error de conexión. Recarga la página.', 'error');
-return;
-}
 submitBtn.disabled = true;
 submitBtn.textContent = '⏳ Enviando...';
 try {
-await window.firebase.sendPasswordResetEmail(
-window.firebase.auth,
-email
-);
+// Reset vía SUPABASE Auth (camino post-cutover).
+// El email lo emite Supabase con el template configurado en el dashboard.
+const res = await fetch(`${window.SUPA_URL}/auth/v1/recover`, {
+  method: 'POST',
+  headers: { apikey: window.SUPA_ANON, 'Content-Type': 'application/json' },
+  body: JSON.stringify({ email })
+});
+if (!res.ok) {
+  const data = await res.json().catch(() => ({}));
+  throw new Error(data?.msg || data?.error_description || `HTTP ${res.status}`);
+}
 showResetMessage(
   `✅ ¡Email enviado! Revisa tu bandeja de entrada (${email}) y sigue las instrucciones para restablecer tu contraseña.`,
   'success'

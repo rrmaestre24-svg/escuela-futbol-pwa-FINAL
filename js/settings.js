@@ -350,29 +350,75 @@ document.getElementById('changePasswordForm')?.addEventListener('submit', async 
     return;
   }
   
-  // 🔥 ACTUALIZAR EN FIREBASE AUTHENTICATION
+  // 🔥 ACTUALIZAR EN AMBOS LADOS (DUAL AUTH)
+  //    - Supabase Auth es el principal (post-cutover)
+  //    - Firebase Auth es legacy (se quita el 26/06)
   try {
-    const firebaseUser = window.firebase?.auth?.currentUser;
-    
-    if (!firebaseUser) {
-      showToast('❌ No hay sesión activa en Firebase');
+    showToast('🔄 Cambiando contraseña...');
+
+    let supaUpdated = false;
+    let firebaseUpdated = false;
+
+    // 1) Actualizar en SUPABASE AUTH (re-autenticar + PUT /auth/v1/user)
+    try {
+      // Re-autenticar con la contraseña actual obtiene un access_token fresco
+      const reAuthRes = await fetch(`${window.SUPA_URL}/auth/v1/token?grant_type=password`, {
+        method: 'POST',
+        headers: { apikey: window.SUPA_ANON, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: currentUser.email.trim().toLowerCase(), password: currentPassword })
+      });
+      const reAuthData = await reAuthRes.json().catch(() => ({}));
+      if (!reAuthRes.ok || !reAuthData?.access_token) {
+        throw new Error(reAuthData?.error_description || reAuthData?.msg || 'No se pudo re-autenticar en Supabase');
+      }
+      // Actualizar password con el Bearer del access_token recién emitido
+      const updRes = await fetch(`${window.SUPA_URL}/auth/v1/user`, {
+        method: 'PUT',
+        headers: {
+          apikey: window.SUPA_ANON,
+          Authorization: `Bearer ${reAuthData.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ password: newPassword })
+      });
+      if (!updRes.ok) {
+        const errData = await updRes.json().catch(() => ({}));
+        throw new Error(errData?.msg || `HTTP ${updRes.status}`);
+      }
+      // Refrescar la sesión v2 si está activa, con el nuevo password
+      if (window.SupaAuthV2 && window.SupaAuthV2.isLogged()) {
+        try { await window.SupaAuthV2.login(currentUser.email, newPassword); } catch (_) {}
+      }
+      supaUpdated = true;
+      console.log('✅ Contraseña actualizada en Supabase Auth');
+    } catch (supaErr) {
+      console.warn('[Supabase] No se pudo actualizar password:', supaErr.message);
+    }
+
+    // 2) Actualizar en FIREBASE AUTH (camino legacy, durante DUAL AUTH)
+    try {
+      const firebaseUser = window.firebase?.auth?.currentUser;
+      if (firebaseUser) {
+        const credential = window.firebase.EmailAuthProvider.credential(
+          firebaseUser.email, currentPassword
+        );
+        await window.firebase.reauthenticateWithCredential(firebaseUser, credential);
+        await window.firebase.updatePassword(firebaseUser, newPassword);
+        firebaseUpdated = true;
+        console.log('✅ Contraseña actualizada en Firebase Authentication');
+      } else {
+        console.log('ℹ️ Sin sesión Firebase activa — solo se actualizó Supabase');
+      }
+    } catch (fbErr) {
+      console.warn('[Firebase] No se pudo actualizar password:', fbErr.message);
+    }
+
+    // Si NINGUNO se actualizó, asumir que la password actual es incorrecta
+    if (!supaUpdated && !firebaseUpdated) {
+      showToast('❌ La contraseña actual es incorrecta');
+      currentPasswordInput.classList.add('border-red-500');
       return;
     }
-    
-    showToast('🔄 Cambiando contraseña...');
-    
-    // 1. Re-autenticar (requerido por Firebase)
-    const credential = window.firebase.EmailAuthProvider.credential(
-      firebaseUser.email,
-      currentPassword
-    );
-    
-    await window.firebase.reauthenticateWithCredential(firebaseUser, credential);
-    console.log('✅ Re-autenticación exitosa');
-    
-    // 2. Actualizar contraseña en Firebase
-    await window.firebase.updatePassword(firebaseUser, newPassword);
-    console.log('✅ Contraseña actualizada en Firebase Authentication');
     
     // 3. Actualizar en localStorage (mantener coherencia)
     updateUser(currentUser.id, { password: newPassword });
@@ -414,9 +460,9 @@ document.getElementById('changePasswordForm')?.addEventListener('submit', async 
     console.log('🔐 CONTRASEÑA ACTUALIZADA EXITOSAMENTE');
     console.log('🔐 ========================================');
     console.log('   • Usuario:', currentUser.email);
-    console.log('   • Firebase Auth: ✅');
+    console.log('   • Supabase Auth:', supaUpdated ? '✅' : '❌');
+    console.log('   • Firebase Auth:', firebaseUpdated ? '✅' : '❌');
     console.log('   • localStorage: ✅');
-    console.log('   • Firestore: ✅');
     console.log('========================================');
     
   } catch (error) {

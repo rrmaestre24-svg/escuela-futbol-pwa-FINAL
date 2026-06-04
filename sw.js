@@ -1,4 +1,4 @@
-const CACHE_NAME = 'my-club-v1.3.2';
+const CACHE_NAME = 'my-club-v1.3.3';
 
 const urlsToCache = [
   '/',
@@ -29,6 +29,7 @@ const urlsToCache = [
   '/js/auth.js',
   '/js/firebase-config.js',
   '/js/supabase-auth.js',
+  '/js/supabase-auth-v2.js',
   '/js/storage.js',
   '/js/db-indexed.js',
   '/js/sync-queue.js',
