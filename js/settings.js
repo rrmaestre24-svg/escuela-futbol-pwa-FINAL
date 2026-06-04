@@ -203,7 +203,7 @@ document.getElementById('changeAvatar')?.addEventListener('change', async functi
 
     showToast('⏳ Subiendo foto a la nube...');
     // Se usa uploadAvatarToStorage que comprime y sube
-    const result = await uploadAvatarToStorage(file, currentUser.id);
+    const result = await uploadAvatarToStorage(file, currentUser.id, null, 'admin');
     const newAvatarUrl = result.url;
     
     const userAvatar = document.getElementById('userAvatar');
@@ -272,7 +272,7 @@ document.getElementById('changeClubLogo')?.addEventListener('change', async func
     }
     
     showToast('⏳ Subiendo logo al servidor...');
-    const result = await uploadAvatarToStorage(file, 'logo');
+    const result = await uploadAvatarToStorage(file, 'logo', null, 'logo');
     finishLocalSync(result.url);
     showToast('✅ Logo actualizado en la nube');
   } catch (error) {
@@ -1000,14 +1000,19 @@ async function deleteSchoolUser(userId) {
   
   try {
     showToast('🗑️ Eliminando usuario permanentemente...');
-    
+
     const clubId = localStorage.getItem('clubId');
-    
+
     if (!clubId) {
       showToast('❌ No se encontró el ID del club');
       return;
     }
-    
+
+    // 0️⃣ Eliminar avatar del Storage (no deja huérfanos)
+    if (userToDelete.avatar && typeof deleteAvatarFromStorage === 'function') {
+      deleteAvatarFromStorage(userToDelete.avatar).catch(e => console.warn('⚠️ No se pudo borrar avatar:', e));
+    }
+
     // 1️⃣ Marcar usuario como eliminado en la nube
     if (window.MODO_SUPABASE) {
       const delRes = await fetch(
@@ -1133,7 +1138,7 @@ document.getElementById('addSchoolUserForm')?.addEventListener('submit', async f
     try {
       showToast('⏳ Subiendo avatar...');
       const targetId = 'user_' + Date.now();
-      const result = await uploadAvatarToStorage(schoolUserAvatar.files[0], targetId);
+      const result = await uploadAvatarToStorage(schoolUserAvatar.files[0], targetId, null, 'admin');
       finalAvatar = result.url;
     } catch (e) {
       console.warn('⚠️ Falló Supabase para usuario secundario. Usando Base64 local.', e);
@@ -1581,6 +1586,31 @@ async function executeClubDestruction(clubId, currentUser) {
         console.log('✅ Club eliminado de Supabase');
       } catch (e) {
         console.error('❌ Error eliminando club:', e);
+      }
+
+      // 🗑️ Borrar TODAS las carpetas del club del bucket avatars (logo, fotos jugadores, avatares admins)
+      try {
+        const _supaHeaders = { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}`, 'Content-Type': 'application/json' };
+        const _bucket = 'avatars';
+        for (const folder of ['clubs', 'admins', 'players']) {
+          const listRes = await fetch(
+            `${window.SUPA_URL}/storage/v1/object/list/${_bucket}`,
+            { method: 'POST', headers: _supaHeaders, body: JSON.stringify({ prefix: `${folder}/${clubId}/`, limit: 1000 }) }
+          );
+          if (listRes.ok) {
+            const files = await listRes.json();
+            const paths = (files || []).map(f => `${folder}/${clubId}/${f.name}`);
+            if (paths.length) {
+              await fetch(
+                `${window.SUPA_URL}/storage/v1/object/${_bucket}`,
+                { method: 'DELETE', headers: _supaHeaders, body: JSON.stringify({ prefixes: paths }) }
+              );
+              console.log(`✅ ${paths.length} archivos eliminados de Storage/${_bucket}/${folder}/${clubId}/`);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('⚠️ No se pudieron limpiar todas las carpetas Storage del club:', e.message);
       }
     } else if (window.firebase?.db) {
       // 1️⃣ Eliminar Jugadores

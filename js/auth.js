@@ -1163,7 +1163,7 @@ const completeRegistration = async (clubLogoFile, adminAvatarFile) => {
       showToast('⏳ Preparando imágenes...');
       try {
         if (clubLogoFile && typeof uploadAvatarToStorage === 'function') {
-           const res = await uploadAvatarToStorage(clubLogoFile, 'logo', clubId);
+           const res = await uploadAvatarToStorage(clubLogoFile, 'logo', clubId, 'logo');
            finalClubLogo = res.url;
         }
       } catch (err) {
@@ -1178,7 +1178,7 @@ const completeRegistration = async (clubLogoFile, adminAvatarFile) => {
       try {
         if (adminAvatarFile && typeof uploadAvatarToStorage === 'function') {
            const tempAdminId = 'admin_' + Date.now();
-           const res = await uploadAvatarToStorage(adminAvatarFile, tempAdminId, clubId);
+           const res = await uploadAvatarToStorage(adminAvatarFile, tempAdminId, clubId, 'admin');
            finalAdminAvatar = res.url;
         }
       } catch (err) {

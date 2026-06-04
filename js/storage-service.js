@@ -176,7 +176,12 @@ async function deleteDocumentFromStorage(publicId) {
 }
 
 // ── AVATARS STORAGE (Bucket: avatars) ─────────────────────────────
-async function uploadAvatarToStorage(file, playerId, customClubId = null) {
+// Sube imagen al bucket avatars con estructura organizada por tipo:
+//   kind='logo'   → clubs/{clubId}/logo.jpg
+//   kind='admin'  → admins/{clubId}/{id}.jpg
+//   kind='player' → players/{clubId}/{id}.jpg  (default, retrocompatible)
+// Sin timestamp en el nombre: upsert sobrescribe el mismo archivo y evita huérfanos.
+async function uploadAvatarToStorage(file, id, customClubId = null, kind = 'player') {
   const resolvedType = resolveFileType(file);
   if (!resolvedType.startsWith('image/')) {
     throw new Error('Solo se permiten imágenes (JPG, PNG) para el avatar');
@@ -196,8 +201,19 @@ async function uploadAvatarToStorage(file, playerId, customClubId = null) {
   const fileToUpload = await compressImage(file);
   const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
   const clubId = customClubId || currentUser.schoolId || localStorage.getItem('clubId') || 'sin-club';
-  const timestamp = Date.now();
-  const path = `players/${clubId}/${playerId}_${timestamp}.jpg`;
+
+  // Resolver carpeta según el tipo
+  let path;
+  if (kind === 'logo' || id === 'logo') {
+    path = `clubs/${clubId}/logo.jpg`;
+  } else if (kind === 'admin') {
+    path = `admins/${clubId}/${id}.jpg`;
+  } else {
+    path = `players/${clubId}/${id}.jpg`;
+  }
+  // Cache-buster query (?v=timestamp) para que la app vea la nueva versión
+  // sin necesidad de archivo nuevo en Storage. upsert pisa el viejo.
+  const cacheBust = Date.now();
 
   const uploadRes = await fetch(
     `${supaUrl}/storage/v1/object/${AVATARS_BUCKET}/${path}`,
@@ -218,7 +234,7 @@ async function uploadAvatarToStorage(file, playerId, customClubId = null) {
     throw new Error(err.error || err.message || 'Error al subir el avatar. Intenta de nuevo');
   }
 
-  const url = `${supaUrl}/storage/v1/object/public/${AVATARS_BUCKET}/${path}`;
+  const url = `${supaUrl}/storage/v1/object/public/${AVATARS_BUCKET}/${path}?v=${cacheBust}`;
   return { url, publicId: path };
 }
 
