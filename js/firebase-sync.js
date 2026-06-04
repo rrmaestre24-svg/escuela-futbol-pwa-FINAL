@@ -1894,10 +1894,48 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false } = {}) {
       console.log(`✅ ${thirdPartyIncomes.length} otros ingresos descargados desde Supabase`);
     }
 
+    // 9️⃣ Configuración del CLUB (logo, nombre, colores, datos generales)
+    //     Se mapea a schoolSettings para compat con código existente.
+    try {
+      const cRes = await fetch(
+        `${base}/clubs?id=eq.${enc(clubId)}&select=*`,
+        { headers: h }
+      );
+      if (cRes.ok) {
+        const cRows = await cRes.json();
+        if (cRows?.[0]) {
+          const c = cRows[0];
+          const prevSettings = (() => {
+            try { return JSON.parse(localStorage.getItem('schoolSettings') || '{}'); } catch(_) { return {}; }
+          })();
+          const schoolSettings = {
+            ...prevSettings,
+            clubId:        c.id,
+            name:          c.name || prevSettings.name || '',
+            logo:          c.logo || prevSettings.logo || '',
+            email:         c.email || prevSettings.email || '',
+            phone:         c.phone || prevSettings.phone || '',
+            address:       c.address || prevSettings.address || '',
+            city:          c.city || prevSettings.city || '',
+            country:       c.country || prevSettings.country || '',
+            monthlyFee:    c.monthly_fee ?? prevSettings.monthlyFee ?? 0,
+            monthlyDueDay: c.monthly_due_day ?? prevSettings.monthlyDueDay ?? 1,
+            monthlyGraceDays: c.monthly_grace_days ?? prevSettings.monthlyGraceDays ?? 5,
+            currency:      c.currency || prevSettings.currency || 'COP',
+            primaryColor:  c.primary_color || prevSettings.primaryColor || '#0000ff',
+            coachCode:     c.coach_code || prevSettings.coachCode || null,
+            updatedAt:     c.updated_at || prevSettings.updatedAt || null,
+          };
+          safeSetItem('schoolSettings', JSON.stringify(schoolSettings));
+          console.log(`✅ Config del club descargada desde Supabase (logo: ${schoolSettings.logo ? 'SÍ' : 'NO'})`);
+        }
+      }
+    } catch (e) { console.warn('[Supabase] descarga config del club falló:', e); }
+
     // Marcas de caché LOCAL-FIRST (mismo patrón que Firebase)
     localStorage.setItem('_lastFullDownload', JSON.stringify({ clubId, ts: Date.now() }));
     if (typeof markLocalSnapshotSynced === 'function') {
-      ['players', 'payments', 'events', 'expenses', 'users'].forEach(scope =>
+      ['players', 'payments', 'events', 'expenses', 'users', 'settings'].forEach(scope =>
         markLocalSnapshotSynced(clubId, scope, { source: 'supabase' })
       );
     }
