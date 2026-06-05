@@ -110,6 +110,7 @@
   window.fetch = async function (input, init = {}) {
     const url = typeof input === 'string' ? input : (input && input.url) || '';
     if (_shouldUseJwt(url)) {
+      // 1) Refresh proactivo si el token está próximo a expirar
       if (_session && _isExpiredSoon(_session)) {
         try { await _refresh(); } catch (_) {}
       }
@@ -120,6 +121,22 @@
         init = { ...init, headers };
         if (typeof input !== 'string') input = new Request(input, init);
       }
+      // 2) Auto-retry en 401: refresh reactivo y reintentar UNA vez
+      let res = await _origFetch(input, init);
+      if (res.status === 401 && _session?.refresh_token) {
+        try {
+          const refreshed = await _refresh();
+          if (refreshed?.access_token) {
+            const headers2 = new Headers(init.headers || {});
+            headers2.set('Authorization', `Bearer ${refreshed.access_token}`);
+            if (!headers2.has('apikey')) headers2.set('apikey', ANON);
+            const retryInit = { ...init, headers: headers2 };
+            const retryInput = (typeof input !== 'string') ? new Request(typeof input === 'object' && input.url ? input.url : url, retryInit) : input;
+            res = await _origFetch(retryInput, retryInit);
+          }
+        } catch (_) {}
+      }
+      return res;
     }
     return _origFetch(input, init);
   };

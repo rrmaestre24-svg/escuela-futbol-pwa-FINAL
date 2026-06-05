@@ -165,6 +165,7 @@
         try { await _refresh(); } catch (_) {}
       }
       let token = _session?.access_token || null;
+      let usingV2 = !!token;
       // 2) Fallback v1 — solo si v2 no tiene sesión
       if (!token && window.SupaAuth && typeof window.SupaAuth.getToken === 'function') {
         token = window.SupaAuth.getToken();
@@ -176,6 +177,22 @@
         init = { ...init, headers };
         if (typeof input !== 'string') input = new Request(input, init);
       }
+      // 3) Auto-retry en 401: refresh v2 reactivo y reintentar UNA vez
+      let res = await _curFetch(input, init);
+      if (res.status === 401 && usingV2 && _session?.refresh_token) {
+        try {
+          const refreshed = await _refresh();
+          if (refreshed?.access_token) {
+            const headers2 = new Headers(init.headers || {});
+            headers2.set('Authorization', `Bearer ${refreshed.access_token}`);
+            if (!headers2.has('apikey')) headers2.set('apikey', ANON);
+            const retryInit = { ...init, headers: headers2 };
+            const retryInput = (typeof input !== 'string') ? new Request(typeof input === 'object' && input.url ? input.url : url, retryInit) : input;
+            res = await _curFetch(retryInput, retryInit);
+          }
+        } catch (_) {}
+      }
+      return res;
     }
     return _curFetch(input, init);
   };
