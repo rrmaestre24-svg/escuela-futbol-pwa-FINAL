@@ -6,6 +6,52 @@
 
 
 // ========================================
+// HELPER: Logo para PDF (base64 directo o URL de Storage)
+// jsPDF.addImage necesita base64. Si el logo es una URL (post-migración a
+// Supabase Storage), lo descargamos una vez y lo cacheamos.
+// ========================================
+let _logoBase64Cache = { url: null, base64: null };
+
+async function _getLogoBase64(logoSrc) {
+  if (!logoSrc) return null;
+  if (typeof logoSrc !== 'string') return null;
+  // Caso 1: ya es base64
+  if (logoSrc.startsWith('data:image')) return logoSrc;
+  // Caso 2: URL HTTP — descargamos y convertimos a base64
+  // Quitar query string (?v=...) para que el cache no se invalide en vano
+  const cacheKey = logoSrc.split('?')[0];
+  if (_logoBase64Cache.url === cacheKey && _logoBase64Cache.base64) {
+    return _logoBase64Cache.base64;
+  }
+  try {
+    const res = await fetch(logoSrc, { cache: 'force-cache' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const blob = await res.blob();
+    const base64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload  = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+    _logoBase64Cache = { url: cacheKey, base64 };
+    return base64;
+  } catch (e) {
+    console.warn('[pdf] No se pudo cargar logo desde URL:', e?.message || e);
+    return null;
+  }
+}
+
+async function _addLogoToPdf(doc, settings, x, y, w, h) {
+  try {
+    const data = await _getLogoBase64(settings && settings.logo);
+    if (data) doc.addImage(data, 'PNG', x, y, w, h);
+  } catch (e) {
+    console.log('[pdf] Logo no agregado:', e?.message || e);
+  }
+}
+
+
+// ========================================
 // FUNCIÓN: NORMALIZAR TEXTO PARA PDF
 // Convierte caracteres especiales a ASCII simple
 // ========================================
@@ -143,7 +189,7 @@ function loadJsPDF(callback) {
 // FACTURAS DE INGRESOS (CON FIRMA, EMOJIS Y DOCUMENTO)
 // 🆕 ACTUALIZADO: Incluye documento de identidad
 // ========================================
-function generateInvoicePDF(paymentId, autoDownload = true) {
+async function generateInvoicePDF(paymentId, autoDownload = true) {
   if (typeof window.jspdf === 'undefined') {
     loadJsPDF(() => generateInvoicePDF(paymentId, autoDownload));
     return null;
@@ -170,13 +216,7 @@ function generateInvoicePDF(paymentId, autoDownload = true) {
     const textColor = [31, 41, 55];
     
     // Logo
-    try {
-      if (settings.logo && settings.logo.startsWith('data:image')) {
-        doc.addImage(settings.logo, 'PNG', 15, 15, 30, 30);
-      }
-    } catch (e) {
-      console.log('Logo no disponible');
-    }
+    await _addLogoToPdf(doc, settings, 15, 15, 30, 30);
 
 
     
@@ -333,7 +373,7 @@ async function saveInvoicePDFToStorage(doc, payment) {
 // ========================================
 // NOTIFICACIÓN DE PAGO (CON FIRMA Y DOCUMENTO)
 // ========================================
-function generatePaymentNotificationPDF(paymentId) {
+async function generatePaymentNotificationPDF(paymentId) {
   if (typeof window.jspdf === 'undefined') {
     loadJsPDF(() => generatePaymentNotificationPDF(paymentId));
     return;
@@ -362,13 +402,7 @@ function generatePaymentNotificationPDF(paymentId) {
     const yellowColor = [245, 158, 11];
     
     // Logo
-    try {
-      if (settings.logo && settings.logo.startsWith('data:image')) {
-        doc.addImage(settings.logo, 'PNG', 15, 15, 30, 30);
-      }
-    } catch (e) {
-      console.log('Logo no disponible');
-    }
+    await _addLogoToPdf(doc, settings, 15, 15, 30, 30);
 
     
     
@@ -487,7 +521,7 @@ function generatePaymentNotificationPDF(paymentId) {
 // ========================================
 // ESTADO DE CUENTA (CON FIRMA Y DOCUMENTO)
 // ========================================
-function generatePlayerAccountStatementPDF(playerId) {
+async function generatePlayerAccountStatementPDF(playerId) {
   if (typeof window.jspdf === 'undefined') {
     loadJsPDF(() => generatePlayerAccountStatementPDF(playerId));
     return;
@@ -509,13 +543,7 @@ function generatePlayerAccountStatementPDF(playerId) {
     const textColor = [31, 41, 55];
     
     // Logo
-    try {
-      if (settings.logo && settings.logo.startsWith('data:image')) {
-        doc.addImage(settings.logo, 'PNG', 15, 15, 30, 30);
-      }
-    } catch (e) {
-      console.log('Logo no disponible');
-    }
+    await _addLogoToPdf(doc, settings, 15, 15, 30, 30);
 
    
     
@@ -646,7 +674,7 @@ function generatePlayerAccountStatementPDF(playerId) {
 // ========================================
 // 🆕 REPORTE CONTABLE COMPLETO - CON DOCUMENTO
 // ========================================
-function generateFullAccountingReportPDF() {
+async function generateFullAccountingReportPDF() {
   if (typeof window.jspdf === 'undefined') {
     loadJsPDF(() => generateFullAccountingReportPDF());
     return;
@@ -676,11 +704,7 @@ function generateFullAccountingReportPDF() {
     doc.setFillColor(...primaryColor);
     doc.rect(0, 0, 210, 297, 'F');
     
-    try {
-      if (settings.logo && settings.logo.startsWith('data:image')) {
-        doc.addImage(settings.logo, 'PNG', 80, 80, 50, 50);
-      }
-    } catch (e) {}
+    await _addLogoToPdf(doc, settings, 80, 80, 50, 50);
     
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(32);
@@ -698,11 +722,7 @@ function generateFullAccountingReportPDF() {
     doc.addPage();
     doc.setTextColor(...textColor);
     
-    try {
-      if (settings.logo && settings.logo.startsWith('data:image')) {
-        doc.addImage(settings.logo, 'PNG', 15, 15, 25, 25);
-      }
-    } catch (e) {}
+    await _addLogoToPdf(doc, settings, 15, 15, 25, 25);
     
     doc.setFontSize(18);
     doc.setTextColor(...primaryColor);
@@ -1024,7 +1044,7 @@ function generateFullAccountingReportPDF() {
 /// ========================================
 // COMPROBANTE DE EGRESO (CON FIRMA Y EMOJIS)
 // ========================================
-function generateExpenseInvoicePDF(expenseId, autoDownload = true) {
+async function generateExpenseInvoicePDF(expenseId, autoDownload = true) {
   if (typeof window.jspdf === 'undefined') {
     loadJsPDF(() => generateExpenseInvoicePDF(expenseId, autoDownload));
     return null;
@@ -1046,11 +1066,7 @@ function generateExpenseInvoicePDF(expenseId, autoDownload = true) {
     const redColor = [220, 38, 38];
     
     // Logo
-    try {
-      if (settings.logo && settings.logo.startsWith('data:image')) {
-        doc.addImage(settings.logo, 'PNG', 15, 15, 30, 30);
-      }
-    } catch (e) {}
+    await _addLogoToPdf(doc, settings, 15, 15, 30, 30);
 
     
     
@@ -1199,7 +1215,7 @@ function generateExpenseInvoicePDF(expenseId, autoDownload = true) {
 // ========================================
 // 🆕 ARQUEO DE CAJA (Cierre Diario)
 // ========================================
-function generateCashRegisterClosurePDF(arqueo, ingresosText, egresosText) {
+async function generateCashRegisterClosurePDF(arqueo, ingresosText, egresosText) {
   if (typeof window.jspdf === 'undefined') {
     loadJsPDF(() => generateCashRegisterClosurePDF(arqueo, ingresosText, egresosText));
     return null;
@@ -1220,11 +1236,7 @@ function generateCashRegisterClosurePDF(arqueo, ingresosText, egresosText) {
     const textColor = [31, 41, 55];
     
     // Logo
-    try {
-      if (settings.logo && settings.logo.startsWith('data:image')) {
-        doc.addImage(settings.logo, 'PNG', 15, 15, 30, 30);
-      }
-    } catch (e) {}
+    await _addLogoToPdf(doc, settings, 15, 15, 30, 30);
     
     // Encabezado
     doc.setFontSize(20);

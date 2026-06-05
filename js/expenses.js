@@ -291,9 +291,9 @@ async function deleteExpenseConfirm(expenseId) {
 // ========================================
 
 // Generar factura de egreso con flujo automático
-function generateExpenseInvoicePDFWithWhatsApp(expenseId) {
+async function generateExpenseInvoicePDFWithWhatsApp(expenseId) {
   console.log('📄 Generando PDF de egreso:', expenseId);
-  
+
   try {
     // Primero generar el PDF
     if (typeof generateExpenseInvoicePDF !== 'function') {
@@ -301,9 +301,12 @@ function generateExpenseInvoicePDFWithWhatsApp(expenseId) {
       showToast('⚠️ Función PDF no disponible');
       return;
     }
-    
-    const pdfGenerated = generateExpenseInvoicePDF(expenseId, true);
-    
+
+    // generateExpenseInvoicePDF ahora es async (descarga el logo desde Storage).
+    // Esperamos su Promise y capturamos errores para mantener el check de fallo.
+    const pdfGenerated = await Promise.resolve(generateExpenseInvoicePDF(expenseId, true))
+      .catch(err => { console.warn('⚠️ Error generando PDF:', err); return null; });
+
     if (!pdfGenerated) {
       console.warn('⚠️ No se pudo generar el PDF');
       return;
