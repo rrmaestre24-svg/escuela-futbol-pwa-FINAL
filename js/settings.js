@@ -205,10 +205,28 @@ document.getElementById('changeAvatar')?.addEventListener('change', async functi
     // Se usa uploadAvatarToStorage que comprime y sube
     const result = await uploadAvatarToStorage(file, currentUser.id, null, 'admin');
     const newAvatarUrl = result.url;
-    
+
     const userAvatar = document.getElementById('userAvatar');
     if (userAvatar) userAvatar.src = newAvatarUrl;
-    
+
+    // 🆕 Persistir URL en Supabase users.avatar (para que se vea en otros dispositivos)
+    const _clubId = localStorage.getItem('clubId');
+    if (window.MODO_SUPABASE && _clubId) {
+      try {
+        await fetch(
+          `${window.SUPA_URL}/rest/v1/users?id=eq.${encodeURIComponent(currentUser.id)}&club_id=eq.${encodeURIComponent(_clubId)}`,
+          {
+            method: 'PATCH',
+            headers: { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+            body: JSON.stringify({ avatar: newAvatarUrl }),
+          }
+        );
+        console.log('✅ Avatar sincronizado a Supabase');
+      } catch (e) {
+        console.warn('⚠️ No se pudo sincronizar avatar con Supabase:', e.message);
+      }
+    }
+
     updateUser(currentUser.id, { avatar: newAvatarUrl });
     setCurrentUser({ ...currentUser, avatar: newAvatarUrl });
     showToast('✅ Foto actualizada en la nube');
@@ -288,25 +306,49 @@ document.getElementById('changeClubLogo')?.addEventListener('change', async func
 });   
 
 // Guardar perfil de usuario
-document.getElementById('userProfileForm')?.addEventListener('submit', function(e) {
+document.getElementById('userProfileForm')?.addEventListener('submit', async function(e) {
   e.preventDefault();
-  
+
   const currentUser = getCurrentUser();
   if (!currentUser) return;
-  
+
   const userName = document.getElementById('userName');
   const userBirthDate = document.getElementById('userBirthDate');
   const userPhone = document.getElementById('userPhone');
-  
+
   const userData = {
     name: userName ? userName.value : '',
     birthDate: userBirthDate ? userBirthDate.value : '',
     phone: userPhone ? userPhone.value : ''
   };
-  
+
+  // 🆕 Persistir en Supabase para que se sincronice entre dispositivos
+  const clubId = localStorage.getItem('clubId');
+  if (window.MODO_SUPABASE && clubId) {
+    try {
+      const res = await fetch(
+        `${window.SUPA_URL}/rest/v1/users?id=eq.${encodeURIComponent(currentUser.id)}&club_id=eq.${encodeURIComponent(clubId)}`,
+        {
+          method: 'PATCH',
+          headers: { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+          body: JSON.stringify({
+            name:       userData.name,
+            birth_date: userData.birthDate || null,
+            phone:      userData.phone || null,
+          }),
+        }
+      );
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      console.log('✅ Perfil sincronizado a Supabase');
+    } catch (err) {
+      console.warn('⚠️ No se pudo sincronizar perfil con Supabase:', err.message);
+      showToast('⚠️ Guardado local. Falló subida a la nube.');
+    }
+  }
+
   updateUser(currentUser.id, userData);
   setCurrentUser({ ...currentUser, ...userData });
-  
+
   showToast('✅ Perfil actualizado');
 });
 
