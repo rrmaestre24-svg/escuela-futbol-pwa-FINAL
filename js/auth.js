@@ -350,16 +350,21 @@ async function getClubIdForUser(email) {
 
     // 3️⃣ TERCERA OPCIÓN: Supabase / Firebase (crítico para multi-dispositivo)
     if (window.MODO_SUPABASE) {
-      console.log('☁️ Buscando clubId en Supabase...');
+      console.log('☁️ Buscando clubId en Supabase (Edge Function)...');
       try {
+        // Edge Function: solo devuelve club_id, no expone toda la tabla users
         const res = await fetch(
-          `${window.SUPA_URL}/rest/v1/users?email=eq.${encodeURIComponent(normalizedEmail)}&deleted=eq.false&select=club_id&limit=1`,
-          { headers: { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}` } }
+          `${window.SUPA_URL}/functions/v1/lookup-club-by-email`,
+          {
+            method: 'POST',
+            headers: { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: normalizedEmail })
+          }
         );
         if (res.ok) {
-          const rows = await res.json();
-          if (rows.length > 0 && rows[0].club_id) {
-            const clubId = rows[0].club_id;
+          const data = await res.json();
+          if (data?.club_id) {
+            const clubId = data.club_id;
             localStorage.setItem('clubId', clubId);
             console.log('✅ clubId encontrado en Supabase:', clubId);
             return clubId;
@@ -1778,24 +1783,35 @@ window.addEventListener('DOMContentLoaded', async function() {
         try {
           const email = (user.email || '').trim().toLowerCase();
           if (!clubId) {
+            // Edge Function: solo devuelve club_id, no expone toda la tabla users
             const cRes = await fetch(
-              `${window.SUPA_URL}/rest/v1/users?email=eq.${encodeURIComponent(email)}&deleted=eq.false&select=club_id&limit=1`,
-              { headers: { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}` } }
+              `${window.SUPA_URL}/functions/v1/lookup-club-by-email`,
+              {
+                method: 'POST',
+                headers: { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email })
+              }
             );
             if (cRes.ok) {
-              const cRows = await cRes.json();
-              if (cRows.length > 0) clubId = cRows[0].club_id;
+              const cData = await cRes.json();
+              if (cData?.club_id) clubId = cData.club_id;
             }
           }
           if (clubId) {
+            // Edge Function full: devuelve id/name/is_main_admin/phone sin
+            // exponer toda la tabla users
             const uRes = await fetch(
-              `${window.SUPA_URL}/rest/v1/users?email=eq.${encodeURIComponent(email)}&club_id=eq.${encodeURIComponent(clubId)}&deleted=eq.false&select=id,club_id,name,is_main_admin,phone&limit=1`,
-              { headers: { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}` } }
+              `${window.SUPA_URL}/functions/v1/lookup-club-by-email`,
+              {
+                method: 'POST',
+                headers: { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, full: true })
+              }
             );
             if (uRes.ok) {
-              const uRows = await uRes.json();
-              if (uRows.length > 0) {
-                const u = uRows[0];
+              const uData = await uRes.json();
+              const u = uData?.user;
+              if (u && u.club_id === clubId) {
                 const sessionData = {
                   id: u.id || user.uid,
                   email: user.email,
