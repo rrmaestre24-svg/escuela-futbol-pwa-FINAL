@@ -235,7 +235,12 @@ async function loadParentAccessStatus() {
     const clubId = localStorage.getItem('clubId');
     if (!clubId) return;
 
-    const players = JSON.parse(localStorage.getItem('players') || '[]');
+    // 🆕 Usar getPlayers() (lee de window._cache.players, hidratado desde IndexedDB).
+    //    Tras migración Fase 3 IndexedDB, localStorage.players quedó limpio para no
+    //    duplicar storage — los datos están en RAM cache + IDB. Fallback a LS por compat.
+    const players = (typeof window.getPlayers === 'function')
+        ? window.getPlayers()
+        : JSON.parse(localStorage.getItem('players') || '[]');
     const localCodes = JSON.parse(localStorage.getItem('parentCodes') || '[]');
     const codesByPlayer = {};
 
@@ -244,6 +249,69 @@ async function loadParentAccessStatus() {
         localCodes.forEach(lc => {
             if (lc.playerId && lc.code) codesByPlayer[lc.playerId] = lc;
         });
+
+        // 🆕 Sincronizar sent_at desde Supabase (fuente de verdad cross-device).
+        //    Si otro admin envió WhatsApp desde otro dispositivo, lo reconocemos acá.
+        try {
+            const supaUrl = window.SUPA_URL || window._SUPA_URL;
+            const supaAnon = window.SUPA_ANON || window._SUPA_ANON;
+            const sRes = await fetch(
+                `${supaUrl}/rest/v1/parent_codes?club_id=eq.${encodeURIComponent(clubId)}&select=player_id,code,sent_at`,
+                { headers: { apikey: supaAnon, Authorization: `Bearer ${supaAnon}` } }
+            );
+            if (sRes.ok) {
+                const supaCodes = await sRes.json();
+                let storedDirty = false;
+                const ahoraEnBD = new Set(supaCodes.filter(c => c.sent_at).map(c => c.player_id));
+
+                // 1. DOWN-SYNC: BD → LS (gana BD si tiene sent_at)
+                supaCodes.forEach(sc => {
+                    if (!sc.player_id) return;
+                    if (!codesByPlayer[sc.player_id]) {
+                        codesByPlayer[sc.player_id] = { playerId: sc.player_id, code: sc.code };
+                    }
+                    if (sc.sent_at) {
+                        codesByPlayer[sc.player_id].sentAt = sc.sent_at;
+                        const idx = localCodes.findIndex(lc => lc.playerId === sc.player_id);
+                        if (idx !== -1 && localCodes[idx].sentAt !== sc.sent_at) {
+                            localCodes[idx].sentAt = sc.sent_at;
+                            storedDirty = true;
+                        } else if (idx === -1) {
+                            localCodes.push({ playerId: sc.player_id, code: sc.code, sentAt: sc.sent_at });
+                            storedDirty = true;
+                        }
+                    }
+                });
+
+                // 2. UP-SYNC: LS → BD (subir histórico de sentAt que aún no están en BD).
+                //    Una sola vez por padre, transparente, fire-and-forget.
+                const aSubir = localCodes.filter(lc => lc.sentAt && lc.playerId && !ahoraEnBD.has(lc.playerId));
+                if (aSubir.length > 0) {
+                    console.log(`[parent-automation] Migrando ${aSubir.length} sentAt locales hacia BD (1 vez)`);
+                    aSubir.forEach(lc => {
+                        fetch(
+                            `${supaUrl}/rest/v1/parent_codes?player_id=eq.${encodeURIComponent(lc.playerId)}&club_id=eq.${encodeURIComponent(clubId)}`,
+                            {
+                                method: 'PATCH',
+                                headers: {
+                                    apikey: supaAnon,
+                                    Authorization: `Bearer ${supaAnon}`,
+                                    'Content-Type': 'application/json',
+                                    'Prefer': 'return=minimal'
+                                },
+                                body: JSON.stringify({ sent_at: lc.sentAt })
+                            }
+                        ).catch(() => { /* silencioso — se reintenta en próxima carga */ });
+                    });
+                }
+
+                if (storedDirty) {
+                    try { localStorage.setItem('parentCodes', JSON.stringify(localCodes)); } catch (e) {}
+                }
+            }
+        } catch (e) {
+            console.warn('[parent-automation] No se pudo sincronizar sent_at desde Supabase:', e?.message || e);
+        }
     } else {
         if (!window.firebase?.db) return;
 
@@ -352,7 +420,9 @@ function renderParentAccessList() {
     } else if (filter === 'sent') {
         filteredPlayers = activePlayers.filter(p => hasSentNotification(codes[p.id]));
     } else if (filter === 'noaccess') {
-        filteredPlayers = players.filter(p => !hasPortalAccess(p, codes));
+        // 🆕 Unificado con "Pendientes": activos que aún no recibieron WhatsApp.
+        //    (Antes filtraba inactivos sin código — confuso para el admin.)
+        filteredPlayers = activePlayers.filter(p => !hasSentNotification(codes[p.id]));
     }
 
     const titleElem = document.getElementById('parentListTitle');
@@ -380,7 +450,9 @@ function renderParentAccessList() {
         const access = codes[player.id];
         const hasCode = !!access;
         const isSent  = hasSentNotification(access);
-        const isNoAccess = filter === 'noaccess';
+        // 🆕 noaccess ahora = pending (activos sin WhatsApp), no "revocado".
+        //    Se mantiene la variable por compatibilidad pero ya no aplica badges rojos.
+        const isNoAccess = false;
         const contactPhone = player.phone || player.emergencyContact || '';
         const phone = contactPhone || 'Sin teléfono';
         
@@ -548,7 +620,7 @@ async function openWhatsAppForParent(player, access) {
     try {
         const sentAt = new Date().toISOString();
         if (window.MODO_SUPABASE) {
-            // En Supabase: guardar sentAt solo en localStorage (es un marcador de UI)
+            // En Supabase: guardar sentAt en localStorage (UI inmediata) + persistir en BD (cross-device).
             const storedCodes = JSON.parse(localStorage.getItem('parentCodes') || '[]');
             const idx = storedCodes.findIndex(lc => lc.playerId === player.id);
             if (idx !== -1) {
@@ -558,6 +630,26 @@ async function openWhatsAppForParent(player, access) {
                 storedCodes.push({ playerId: player.id, code: access.code, sentAt });
             }
             localStorage.setItem('parentCodes', JSON.stringify(storedCodes));
+
+            // 🆕 Persistir sent_at en Supabase parent_codes (NO bloqueante; fire-and-forget).
+            //    Si falla, queda en LS — al próximo load se reintenta sync desde BD.
+            try {
+                const supaUrl = window.SUPA_URL || window._SUPA_URL;
+                const supaAnon = window.SUPA_ANON || window._SUPA_ANON;
+                fetch(
+                    `${supaUrl}/rest/v1/parent_codes?player_id=eq.${encodeURIComponent(player.id)}&club_id=eq.${encodeURIComponent(clubId)}`,
+                    {
+                        method: 'PATCH',
+                        headers: {
+                            apikey: supaAnon,
+                            Authorization: `Bearer ${supaAnon}`,
+                            'Content-Type': 'application/json',
+                            'Prefer': 'return=minimal'
+                        },
+                        body: JSON.stringify({ sent_at: sentAt })
+                    }
+                ).catch(e => console.warn('[parent-automation] Persist sent_at falló (LS sigue OK):', e?.message || e));
+            } catch (e) { /* defensivo */ }
         } else {
             const updateRef = window.firebase.doc(window.firebase.db, `clubs/${clubId}/parentCodes`, player.id);
             await window.firebase.setDoc(updateRef, {
@@ -605,10 +697,29 @@ async function confirmResetAllParentAccess() {
         const clubId = localStorage.getItem('clubId');
 
         if (window.MODO_SUPABASE) {
-            // En Supabase: borrar sentAt solo del localStorage (marcador de UI)
+            // En Supabase: borrar sentAt del localStorage + de la BD (cross-device).
             const storedCodes = JSON.parse(localStorage.getItem('parentCodes') || '[]');
             storedCodes.forEach(lc => { delete lc.sentAt; });
             localStorage.setItem('parentCodes', JSON.stringify(storedCodes));
+
+            // 🆕 Borrar sent_at en Supabase para TODOS los códigos del club (un solo PATCH)
+            try {
+                const supaUrl = window.SUPA_URL || window._SUPA_URL;
+                const supaAnon = window.SUPA_ANON || window._SUPA_ANON;
+                fetch(
+                    `${supaUrl}/rest/v1/parent_codes?club_id=eq.${encodeURIComponent(clubId)}&sent_at=not.is.null`,
+                    {
+                        method: 'PATCH',
+                        headers: {
+                            apikey: supaAnon,
+                            Authorization: `Bearer ${supaAnon}`,
+                            'Content-Type': 'application/json',
+                            'Prefer': 'return=minimal'
+                        },
+                        body: JSON.stringify({ sent_at: null })
+                    }
+                ).catch(e => console.warn('[parent-automation] Reset sent_at en BD falló (LS sigue OK):', e?.message || e));
+            } catch (e) { /* defensivo */ }
         } else {
             const { db, getDocs, collection, doc, updateDoc, deleteField } = window.firebase;
             const snapshot = await getDocs(collection(db, `clubs/${clubId}/parentCodes`));
