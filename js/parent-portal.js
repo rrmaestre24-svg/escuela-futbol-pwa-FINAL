@@ -43,13 +43,19 @@ async function _pp_fetchPayments(clubId, playerId) {
 
 async function _pp_fetchSettings(clubId) {
   try {
+    // Edge Function pre-JWT (clubs_anon_select fue borrada)
     const res = await fetch(
-      `${_PP_SUPA_URL}/rest/v1/clubs?id=eq.${encodeURIComponent(clubId)}&select=name,logo,phone&limit=1`,
-      { headers: { apikey: _PP_SUPA_ANON, Authorization: `Bearer ${_PP_SUPA_ANON}` } }
+      `${_PP_SUPA_URL}/functions/v1/get-club-public-info`,
+      {
+        method: 'POST',
+        headers: { apikey: _PP_SUPA_ANON, Authorization: `Bearer ${_PP_SUPA_ANON}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ club_id: clubId })
+      }
     );
     if (!res.ok) return null;
-    const rows = await res.json();
-    return rows?.[0] || null;
+    const data = await res.json();
+    if (!data?.exists) return null;
+    return { name: data.name, logo: data.logo, phone: data.phone };
   } catch (_) { return null; }
 }
 

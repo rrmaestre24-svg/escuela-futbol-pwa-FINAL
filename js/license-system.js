@@ -242,14 +242,19 @@ async function checkLicenseStatus() {
 
   // ── Intento 1: Supabase ─────────────────────────────────────────────────────
   // No depende de Firebase init — responde más rápido y capta cambios del super-admin
+  // Edge Function pre-JWT (licenses_anon_select fue borrada)
   try {
     const res = await fetch(
-      `${_SUPA_URL}/rest/v1/licenses?club_id=eq.${encodeURIComponent(clubId)}&select=status,end_date,modulos,plan&limit=1`,
-      { headers: { apikey: _SUPA_ANON, Authorization: `Bearer ${_SUPA_ANON}` } }
+      `${_SUPA_URL}/functions/v1/get-club-public-info`,
+      {
+        method: 'POST',
+        headers: { apikey: _SUPA_ANON, Authorization: `Bearer ${_SUPA_ANON}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ club_id: clubId, include_license: true })
+      }
     );
     if (res.ok) {
-      const rows = await res.json();
-      const lic = rows?.[0];
+      const data = await res.json();
+      const lic = data?.license;
       if (lic) {
         if (lic.status === 'inactivo') {
           console.log('🔴 [Supabase] Licencia desactivada por administrador');
@@ -569,13 +574,18 @@ function listenToLicenseChanges() {
         let newStatus = null;
         let newModulos = null;
         try {
+          // Edge Function pre-JWT (licenses_anon_select fue borrada)
           const res = await fetch(
-            `${window.SUPA_URL}/rest/v1/licenses?club_id=eq.${encodeURIComponent(clubId)}&select=status,modulos&limit=1`,
-            { headers: { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}` } }
+            `${window.SUPA_URL}/functions/v1/get-club-public-info`,
+            {
+              method: 'POST',
+              headers: { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ club_id: clubId, include_license: true })
+            }
           );
           if (res.ok) {
-            const rows = await res.json();
-            if (rows?.[0]) { newStatus = rows[0].status; newModulos = rows[0].modulos; }
+            const data = await res.json();
+            if (data?.license) { newStatus = data.license.status; newModulos = data.license.modulos; }
           }
         } catch (_) {}
 

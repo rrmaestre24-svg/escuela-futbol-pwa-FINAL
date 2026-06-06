@@ -192,13 +192,18 @@ window.onClubIdInput = function(value) {
 async function checkClubIdExists(clubId) {
   if (window.MODO_SUPABASE) {
     try {
+      // Edge Function pre-JWT (clubs_anon_select fue borrada)
       const res = await fetch(
-        `${window.SUPA_URL}/rest/v1/clubs?id=eq.${encodeURIComponent(clubId)}&select=id`,
-        { headers: { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}` } }
+        `${window.SUPA_URL}/functions/v1/get-club-public-info`,
+        {
+          method: 'POST',
+          headers: { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ club_id: clubId })
+        }
       );
       if (res.ok) {
-        const rows = await res.json();
-        const exists = rows.length > 0;
+        const data = await res.json();
+        const exists = data?.exists === true;
         console.log(exists ? '❌ Club ID ya existe en Supabase:' : '✅ Club ID disponible:', clubId);
         return exists;
       }
