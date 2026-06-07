@@ -1812,12 +1812,32 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false } = {}) {
     const clubUsers = uRows.map(u => ({
       id: u.id, schoolId: clubId, email: u.email, name: u.name,
       isMainAdmin: u.is_main_admin === true,
-      role: u.role || 'admin', avatar: '', phone: u.phone || '',
+      role: u.role || 'admin',
+      avatar: u.avatar || '',  // 🆕 Preservar avatar URL desde BD (antes se descartaba)
+      phone: u.phone || '',
       birthDate: u.birth_date || '', password: 'encrypted',
       createdAt: u.created_at || new Date().toISOString(),
     }));
     safeSetItem('users', JSON.stringify(clubUsers));
     console.log(`✅ ${clubUsers.length} usuarios descargados desde Supabase`);
+
+    // 🆕 Sincronizar currentUser desde BD (avatar, name, phone, birth_date).
+    //    Esencial para cross-device: al loguearse desde otro celular, el admin
+    //    tenía currentUser sin foto/datos en localStorage (porque updateUser
+    //    sólo guarda local). Al descargar de BD, refrescamos su perfil.
+    try {
+      const currentUserStr = localStorage.getItem('currentUser');
+      if (currentUserStr) {
+        const current = JSON.parse(currentUserStr);
+        const fresh = clubUsers.find(u => u.id === current.id || (current.email && u.email === current.email));
+        if (fresh) {
+          const merged = { ...current, name: fresh.name, avatar: fresh.avatar, phone: fresh.phone, birthDate: fresh.birthDate, isMainAdmin: fresh.isMainAdmin };
+          localStorage.setItem('currentUser', JSON.stringify(merged));
+          try { sessionStorage.setItem('currentUser', JSON.stringify(merged)); } catch (e) {}
+          console.log('✅ Perfil del usuario actual sincronizado desde BD');
+        }
+      }
+    } catch (e) { console.warn('No se pudo sincronizar currentUser desde BD:', e?.message || e); }
 
     // 5️⃣ Egresos
     const exRes = await fetch(`${base}/expenses?club_id=eq.${enc(clubId)}&deleted=eq.false&select=*`, { headers: h });
