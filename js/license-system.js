@@ -262,10 +262,14 @@ async function checkLicenseStatus() {
           return { status: 'inactivo', daysRemaining: 0, endDate: new Date(lic.end_date), message: '🔴 Licencia desactivada - Contacta al administrador' };
         }
         const endDate = new Date(lic.end_date);
-        const result = calculateLicenseState(endDate);
+        // 🆕 Usa grace_period_days configurable por club (super_admin lo puede ajustar)
+        const result = calculateLicenseState(endDate, lic.grace_period_days);
         _applyModuloButtons(lic.modulos);
         localStorage.setItem('licenseStatus', result.status);
         localStorage.setItem('licenseEndDate', lic.end_date);
+        if (typeof lic.grace_period_days === 'number') {
+          localStorage.setItem('licenseGraceDays', String(lic.grace_period_days));
+        }
         if (lic.plan) localStorage.setItem('licensePlan', lic.plan);
         console.log('📋 [Supabase] Estado de licencia:', result);
         return result;
@@ -319,14 +323,19 @@ async function checkLicenseStatus() {
 }
 
 /**
- * Calcular estado de licencia basado en fecha de vencimiento
+ * Calcular estado de licencia basado en fecha de vencimiento.
+ * 🆕 gracePeriodDays: días de gracia configurables por club (default LICENSE_CONFIG.GRACE_PERIOD_DAYS=3).
+ *    Lo trae la EF get-club-public-info desde licenses.grace_period_days.
  */
-function calculateLicenseState(endDate) {
+function calculateLicenseState(endDate, gracePeriodDays) {
+  const grace = (typeof gracePeriodDays === 'number' && gracePeriodDays >= 0)
+    ? gracePeriodDays
+    : LICENSE_CONFIG.GRACE_PERIOD_DAYS;
   const now = new Date();
   const diffTime = endDate - now;
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-  if (diffDays > LICENSE_CONFIG.GRACE_PERIOD_DAYS) {
+  if (diffDays > grace) {
     return {
       status: 'activo',
       daysRemaining: diffDays,
@@ -340,12 +349,13 @@ function calculateLicenseState(endDate) {
       endDate: endDate,
       message: `⚠️ Tu licencia vence en ${diffDays} día${diffDays > 1 ? 's' : ''}`
     };
-  } else if (diffDays > -LICENSE_CONFIG.GRACE_PERIOD_DAYS) {
-    const graceDaysLeft = LICENSE_CONFIG.GRACE_PERIOD_DAYS + diffDays;
+  } else if (diffDays > -grace) {
+    const graceDaysLeft = grace + diffDays;
     return {
       status: 'gracia',
       daysRemaining: graceDaysLeft,
       endDate: endDate,
+      graceTotal: grace,
       message: `⚠️ Período de gracia - ${graceDaysLeft} día${graceDaysLeft > 1 ? 's' : ''} para renovar`
     };
   } else {
@@ -369,53 +379,66 @@ function showLicenseBanner(status) {
   }
 
   if (status.status === 'activo') {
+    document.body.style.paddingTop = '';
     return;
   }
 
   const banner = document.createElement('div');
   banner.id = 'licenseBanner';
-  
-  let bgColor, textColor, icon;
-  
-  switch (status.status) {
-    case 'por_vencer':
-      bgColor = 'bg-yellow-500';
-      textColor = 'text-yellow-900';
-      icon = '⚠️';
-      break;
-    case 'gracia':
-      bgColor = 'bg-orange-500';
-      textColor = 'text-orange-900';
-      icon = '⏰';
-      break;
-    case 'inactivo':
-      bgColor = 'bg-red-600';
-      textColor = 'text-white';
-      icon = '🔴';
-      break;
-    default:
-      bgColor = 'bg-gray-500';
-      textColor = 'text-white';
-      icon = 'ℹ️';
-  }
 
-  banner.className = `${bgColor} ${textColor} px-4 py-3 text-center font-medium text-sm fixed top-0 left-0 right-0 z-50 shadow-lg`;
+  // 🆕 Banner mejorado: animación pulsante en gracia, countdown grande,
+  //    botón de acción claro (WhatsApp), y mensaje específico según severidad.
+  const cfg = {
+    por_vencer: {
+      bg: 'bg-gradient-to-r from-yellow-400 to-amber-500',
+      text: 'text-yellow-900',
+      icon: '⚠️',
+      title: 'Tu licencia vence pronto',
+      subtitle: `Vence en ${status.daysRemaining} día${status.daysRemaining !== 1 ? 's' : ''}. Renová antes para no perder acceso.`,
+      pulse: false
+    },
+    gracia: {
+      bg: 'bg-gradient-to-r from-orange-500 to-red-500',
+      text: 'text-white',
+      icon: '⏰',
+      title: '⚠️ Tu licencia venció — Período de gracia',
+      subtitle: `Tu cuenta se BLOQUEARÁ en ${status.daysRemaining} día${status.daysRemaining !== 1 ? 's' : ''} si no renovás.`,
+      pulse: true
+    },
+    inactivo: {
+      bg: 'bg-gradient-to-r from-red-700 to-rose-700',
+      text: 'text-white',
+      icon: '🔴',
+      title: 'Licencia vencida — Cuenta bloqueada',
+      subtitle: 'Tu cuenta está en modo solo lectura. Contactá a MY CLUB para reactivar.',
+      pulse: false
+    }
+  };
+  const c = cfg[status.status] || { bg: 'bg-gray-500', text: 'text-white', icon: 'ℹ️', title: status.message, subtitle: '', pulse: false };
+
+  const whatsappBtn = `<a href="https://wa.me/${ADMIN_WHATSAPP}?text=${encodeURIComponent('Hola, necesito renovar la licencia de mi club. Mi Club ID: ' + (localStorage.getItem('clubId')||''))}"
+       target="_blank"
+       class="shrink-0 inline-flex items-center gap-1 bg-white text-gray-900 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-gray-100 shadow-md">
+       📲 Renovar ahora
+     </a>`;
+
+  banner.className = `${c.bg} ${c.text} fixed top-0 left-0 right-0 z-[60] shadow-lg ${c.pulse ? 'animate-pulse' : ''}`;
   banner.innerHTML = `
-    <div class="flex items-center justify-center gap-2">
-      <span>${icon}</span>
-      <span>${status.message}</span>
-      ${status.status === 'inactivo' ? `
-        <a href="https://wa.me/${ADMIN_WHATSAPP}?text=Hola,%20necesito%20renovar%20mi%20licencia%20de%20MY%20CLUB" 
-           target="_blank" 
-           class="ml-4 bg-white text-gray-800 px-3 py-1 rounded-lg text-xs font-bold hover:bg-gray-100">
-          Contactar
-        </a>
-      ` : ''}
+    <div class="px-4 py-3 max-w-7xl mx-auto flex items-center gap-3">
+      <span class="text-2xl shrink-0">${c.icon}</span>
+      <div class="flex-1 min-w-0">
+        <p class="font-bold text-sm leading-tight">${c.title}</p>
+        <p class="text-xs opacity-95 mt-0.5">${c.subtitle}</p>
+      </div>
+      ${whatsappBtn}
     </div>
   `;
 
   document.body.prepend(banner);
-  document.body.style.paddingTop = '48px';
+  // Calcular altura real del banner (es variable según contenido)
+  requestAnimationFrame(() => {
+    document.body.style.paddingTop = (banner.offsetHeight + 4) + 'px';
+  });
 }
 
 function applyReadOnlyMode() {
