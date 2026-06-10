@@ -270,6 +270,7 @@ async function togglePlayerStatus(playerId) {
               status: updateData.status,
               last_inactivated_at: updateData.lastInactivatedAt || null,
               portal_access_revokes_at: updateData.portalAccessRevokesAt || null,
+              notifications_start_date: updateData.notificationsStartDate || null,
               updated_at: new Date().toISOString(),
             }),
           }

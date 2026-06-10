@@ -558,6 +558,8 @@ async function savePlayerToFirebase(player) {
       documents: player.documents || null,
       portal_access_revokes_at: player.portalAccessRevokesAt || null,
       last_inactivated_at: player.lastInactivatedAt || null,
+      uniform_size: player.uniformSize || null,
+      notifications_start_date: player.notificationsStartDate || null,
       deleted: player.deleted || false, updated_at: new Date().toISOString(),
     });
   }
@@ -1557,6 +1559,8 @@ async function syncAllToSupabase() {
     enrollment_date: p.enrollmentDate || null, medical_info: p.medicalInfo || null,
     documents: p.documents || null, portal_access_revokes_at: p.portalAccessRevokesAt || null,
     last_inactivated_at: p.lastInactivatedAt || null,
+    uniform_size: p.uniformSize || null,
+    notifications_start_date: p.notificationsStartDate || null,
     deleted: p.deleted || false, updated_at: new Date().toISOString(),
   }));
   syncedItems.push(`${await _supaUpsert('players', playerRows)} jugadores`);
@@ -1708,6 +1712,8 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false } = {}) {
       documents: p.documents, avatar: p.avatar_url || '',
       portalAccessRevokesAt: p.portal_access_revokes_at,
       lastInactivatedAt: p.last_inactivated_at,
+      uniformSize: p.uniform_size || null,
+      notificationsStartDate: p.notifications_start_date || null,
       deleted: p.deleted, schoolId: clubId,
     }));
     try {
