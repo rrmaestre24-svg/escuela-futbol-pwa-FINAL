@@ -1920,6 +1920,27 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false } = {}) {
       console.log(`✅ ${thirdPartyIncomes.length} otros ingresos descargados desde Supabase`);
     }
 
+    // 8️⃣ Entrenadores (coaches) — 🆕 agregado al sync masivo para disponibilidad offline
+    //     y carga instantánea de la sección "Acceso a Profesores".
+    //     Pocos por club (≤14) → localStorage es suficiente (no requiere IndexedDB).
+    try {
+      const coRes = await fetch(`${base}/coaches?club_id=eq.${enc(clubId)}&deleted=eq.false&select=*`, { headers: h });
+      if (coRes.ok) {
+        const coRows = await coRes.json();
+        // Guardar tal cual los consume coach-automation.js (mantiene snake_case de BD + alias camelCase)
+        const coaches = coRows.map(c => ({
+          id: c.id, club_id: clubId, name: c.name, code: c.code,
+          categories: c.categories || [], active: c.active !== false,
+          access_type: c.access_type || 'permanent', accessType: c.access_type || 'permanent',
+          expires_at: c.expires_at || null, expiresAt: c.expires_at || null,
+          phone: c.phone || '', avatar: c.avatar || '',
+          deleted: c.deleted === true, created_at: c.created_at,
+        }));
+        safeSetItem('coaches', JSON.stringify(coaches));
+        console.log(`✅ ${coaches.length} entrenadores descargados desde Supabase`);
+      }
+    } catch (e) { console.warn('No se pudieron descargar coaches:', e?.message || e); }
+
     // 9️⃣ Configuración del CLUB (logo, nombre, colores, datos generales)
     //     Se mapea a schoolSettings para compat con código existente.
     try {

@@ -45,14 +45,32 @@ async function loadCoachAccessStatus() {
     let loadedCoaches = [];
 
     if (window.MODO_SUPABASE) {
+      // 🆕 Cache-first: leer del localStorage 'coaches' (poblado por el sync masivo)
+      //    para render instantáneo. Igual se refresca desde Supabase abajo.
+      try {
+        const cached = JSON.parse(localStorage.getItem('coaches') || '[]');
+        if (Array.isArray(cached) && cached.length > 0) {
+          coachAccessData.coaches = cached.filter(c => !c.deleted);
+          renderCoachAccessList?.();
+        }
+      } catch (e) { /* cache corrupto, ignorar */ }
+
       try {
         const res = await fetch(
-          `${window.SUPA_URL}/rest/v1/coaches?club_id=eq.${encodeURIComponent(clubId)}&select=*`,
+          `${window.SUPA_URL}/rest/v1/coaches?club_id=eq.${encodeURIComponent(clubId)}&deleted=eq.false&select=*`,
           { headers: { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}` } }
         );
-        if (res.ok) loadedCoaches = await res.json();
+        if (res.ok) {
+          loadedCoaches = await res.json();
+          // Refrescar cache para próximas aperturas y para offline
+          try { localStorage.setItem('coaches', JSON.stringify(loadedCoaches)); } catch (e) {}
+        }
       } catch (e) {
         console.warn('⚠️ Error cargando entrenadores desde Supabase:', e.message);
+        // Si falla la red, mantener lo que vino del cache
+        if (loadedCoaches.length === 0 && coachAccessData.coaches?.length) {
+          loadedCoaches = coachAccessData.coaches;
+        }
       }
     } else {
       if (!window.firebase?.db) return;
