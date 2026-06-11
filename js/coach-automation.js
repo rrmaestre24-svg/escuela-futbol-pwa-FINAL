@@ -45,10 +45,11 @@ async function loadCoachAccessStatus() {
     let loadedCoaches = [];
 
     if (window.MODO_SUPABASE) {
-      // 🆕 Cache-first: leer del localStorage 'coaches' (poblado por el sync masivo)
-      //    para render instantáneo. Igual se refresca desde Supabase abajo.
+      // 🆕 Cache-first: leer de la cache RAM (IndexedDB v4) para render instantáneo.
+      //    Fallback a localStorage 'coaches'. Igual se refresca desde Supabase abajo.
       try {
-        const cached = JSON.parse(localStorage.getItem('coaches') || '[]');
+        let cached = (window._cache && Array.isArray(window._cache.coaches)) ? window._cache.coaches : null;
+        if (!cached) cached = JSON.parse(localStorage.getItem('coaches') || '[]');
         if (Array.isArray(cached) && cached.length > 0) {
           coachAccessData.coaches = cached.filter(c => !c.deleted);
           renderCoachAccessList?.();
@@ -62,7 +63,10 @@ async function loadCoachAccessStatus() {
         );
         if (res.ok) {
           loadedCoaches = await res.json();
-          // Refrescar cache para próximas aperturas y para offline
+          // Refrescar IndexedDB + cache RAM + localStorage para próximas aperturas y offline
+          if (window.idb && window.idb.syncStore) {
+            window.idb.syncStore('coaches', loadedCoaches).catch(() => {});
+          }
           try { localStorage.setItem('coaches', JSON.stringify(loadedCoaches)); } catch (e) {}
         }
       } catch (e) {

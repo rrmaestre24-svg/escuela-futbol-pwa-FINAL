@@ -9,7 +9,7 @@
 
 (function () {
   const DB_NAME = 'myclub_db';
-  const DB_VERSION = 3;
+  const DB_VERSION = 4; // 🆕 v4: agrega store 'coaches' (onupgradeneeded lo crea solo)
   let _dbPromise = null;
 
   // Stores cubiertas por el espejo IDB.
@@ -21,6 +21,7 @@
     { name: 'expenses',           localStorageKey: 'expenses' },
     { name: 'events',             localStorageKey: 'calendarEvents' },
     { name: 'thirdPartyIncomes',  localStorageKey: 'thirdPartyIncomes' },
+    { name: 'coaches',            localStorageKey: 'coaches' }, // 🆕 v4
   ];
 
   // Stores auxiliares — NO entran en STORES porque no se espejan ni se hidratan al cache.
@@ -41,6 +42,7 @@
     expenses: null,
     events: null,
     thirdPartyIncomes: null,
+    coaches: null, // 🆕 v4
     hydrated: false,
   };
 
@@ -349,7 +351,8 @@
       const ms = Date.now() - t0;
       console.log(`[idb] 🚀 Cache RAM hidratada en ${ms}ms — pagos:${window._cache.payments.length} ` +
         `jugadores:${window._cache.players.length} egresos:${window._cache.expenses.length} ` +
-        `eventos:${window._cache.events.length} ingresos:${window._cache.thirdPartyIncomes.length}`);
+        `eventos:${window._cache.events.length} ingresos:${window._cache.thirdPartyIncomes.length} ` +
+        `coaches:${(window._cache.coaches || []).length}`);
       window.dispatchEvent(new CustomEvent('idb-cache-ready'));
     } catch (err) {
       console.error('[idb] ❌ Error hidratando cache RAM:', err);

@@ -1920,14 +1920,13 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false } = {}) {
       console.log(`✅ ${thirdPartyIncomes.length} otros ingresos descargados desde Supabase`);
     }
 
-    // 8️⃣ Entrenadores (coaches) — 🆕 agregado al sync masivo para disponibilidad offline
-    //     y carga instantánea de la sección "Acceso a Profesores".
-    //     Pocos por club (≤14) → localStorage es suficiente (no requiere IndexedDB).
+    // 8️⃣ Entrenadores (coaches) — 🆕 sync masivo a IndexedDB + cache RAM (v4)
+    //     para carga instantánea y disponibilidad offline, igual que players/pagos.
     try {
       const coRes = await fetch(`${base}/coaches?club_id=eq.${enc(clubId)}&deleted=eq.false&select=*`, { headers: h });
       if (coRes.ok) {
         const coRows = await coRes.json();
-        // Guardar tal cual los consume coach-automation.js (mantiene snake_case de BD + alias camelCase)
+        // Guardar tal cual los consume coach-automation.js (snake_case de BD + alias camelCase)
         const coaches = coRows.map(c => ({
           id: c.id, club_id: clubId, name: c.name, code: c.code,
           categories: c.categories || [], active: c.active !== false,
@@ -1936,6 +1935,12 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false } = {}) {
           phone: c.phone || '', avatar: c.avatar || '',
           deleted: c.deleted === true, created_at: c.created_at,
         }));
+        // IndexedDB + cache RAM (syncStore mantiene window._cache.coaches sincronizado)
+        if (window.idb && window.idb.syncStore) {
+          try { await window.idb.syncStore('coaches', coaches); }
+          catch (e) { console.warn('[idb] sync coaches falló:', e?.message || e); }
+        }
+        // localStorage como respaldo adicional (coaches es chico, no afecta cuota)
         safeSetItem('coaches', JSON.stringify(coaches));
         console.log(`✅ ${coaches.length} entrenadores descargados desde Supabase`);
       }
