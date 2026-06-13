@@ -1670,6 +1670,26 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false } = {}) {
     } catch (e) { console.warn('[idb] ensureClubIsolation (supabase) falló:', e); }
   }
 
+  // 🆕 GARANTÍA DE JWT ANTES DE DESCARGAR (clave para cerrar anon).
+  //    El interceptor reemplaza el header anon de las queries por el JWT si hay
+  //    sesión. Esta garantía asegura que la sesión esté lista en CUALQUIER camino
+  //    (login fresh, sesión guardada, google) sin depender del orden de cada uno.
+  //    - Si ya hay JWT (v2 admin o v1 coach/parent) → no hace nada.
+  //    - Si no hay pero existe sesión Firebase → emite mintFirebase.
+  //    Sin esto, al cerrar anon, una descarga sin JWT devolvería 0 filas.
+  try {
+    const _hasJwt = (window.SupaAuthV2 && typeof window.SupaAuthV2.getSession === 'function' && window.SupaAuthV2.getSession()?.access_token)
+                 || (window.SupaAuth && typeof window.SupaAuth.getToken === 'function' && window.SupaAuth.getToken());
+    if (!_hasJwt) {
+      const _fbUser = window.firebase?.auth?.currentUser;
+      if (_fbUser && window.SupaAuth && typeof window.SupaAuth.mintFirebase === 'function') {
+        const _idToken = await _fbUser.getIdToken();
+        await window.SupaAuth.mintFirebase(_idToken);
+        console.log('[sync] 🔑 JWT emitido antes de descargar (garantía pre-download)');
+      }
+    }
+  } catch (e) { console.warn('[sync] ensureJwt pre-download falló (sigue con anon):', e?.message || e); }
+
   // LOCAL-FIRST GUARD: reutilizar caché si está fresca (mismo comportamiento que Firebase)
   // Nota: _FULL_DOWNLOAD_TTL_MS es const en auth.js (no global), usamos el mismo valor literal.
   const _SUPA_TTL_MS = 15 * 60 * 1000; // 15 minutos
