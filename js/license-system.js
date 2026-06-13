@@ -378,8 +378,15 @@ function showLicenseBanner(status) {
     existingBanner.remove();
   }
 
-  if (status.status === 'activo') {
+  // No mostrar banner si está activo, o en estados transitorios/sin datos
+  // (sin_licencia / error aparecen al arrancar o sin conexión — evitar banner gris molesto).
+  if (status.status === 'activo' || status.status === 'sin_licencia' || status.status === 'error') {
+    // Restaurar layout: header y contenido vuelven a su posición normal
     document.body.style.paddingTop = '';
+    const _hdr = document.querySelector('header.fixed');
+    if (_hdr) _hdr.style.top = '';
+    const _main = document.querySelector('main');
+    if (_main) _main.style.paddingTop = '';
     return;
   }
 
@@ -416,7 +423,12 @@ function showLicenseBanner(status) {
   };
   const c = cfg[status.status] || { bg: 'bg-gray-500', text: 'text-white', icon: 'ℹ️', title: status.message, subtitle: '', pulse: false };
 
-  const whatsappBtn = `<a href="https://wa.me/${ADMIN_WHATSAPP}?text=${encodeURIComponent('Hola, necesito renovar la licencia de mi club. Mi Club ID: ' + (localStorage.getItem('clubId')||''))}"
+  // Mensaje de WhatsApp con nombre del club + estado para que MY CLUB lo identifique
+  const _clubNombre = (getSchoolSettings && getSchoolSettings()?.name) || localStorage.getItem('clubId') || '';
+  const _waMsg = status.status === 'inactivo'
+    ? `Hola, mi licencia de MY CLUB venció y necesito reactivarla. Club: ${_clubNombre}`
+    : `Hola, quiero renovar la licencia de MY CLUB antes de que venza. Club: ${_clubNombre}`;
+  const whatsappBtn = `<a href="https://wa.me/${ADMIN_WHATSAPP}?text=${encodeURIComponent(_waMsg)}"
        target="_blank"
        class="shrink-0 inline-flex items-center gap-1 bg-white text-gray-900 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-gray-100 shadow-md">
        📲 Renovar ahora
@@ -435,9 +447,14 @@ function showLicenseBanner(status) {
   `;
 
   document.body.prepend(banner);
-  // Calcular altura real del banner (es variable según contenido)
+  // El banner empuja el header (también fixed top-0) y el contenido hacia abajo,
+  // en vez de taparlos. Se recalcula al alto real del banner (variable).
   requestAnimationFrame(() => {
-    document.body.style.paddingTop = (banner.offsetHeight + 4) + 'px';
+    const h = banner.offsetHeight;
+    const header = document.querySelector('header.fixed');
+    if (header) header.style.top = h + 'px';
+    const main = document.querySelector('main');
+    if (main) main.style.paddingTop = `calc(6rem + ${h}px)`; // 6rem = pt-24 original del main
   });
 }
 
