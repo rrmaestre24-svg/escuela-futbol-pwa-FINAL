@@ -2181,6 +2181,16 @@ async function processGoogleUser(firebaseUser) {
 
   localStorage.setItem('clubId', clubId);
 
+  // 🆕 Garantizar JWT Supabase (app_role=admin + club_id) BLOQUEANTE antes de leer/escribir
+  //    users — el login con Google no minteaba; así estas queries van con JWT (no anon).
+  if (window.SupaAuth && typeof window.SupaAuth.mintFirebase === 'function') {
+    try {
+      await window.SupaAuth.mintFirebase(await firebaseUser.getIdToken());
+    } catch (e) {
+      console.warn('[Google] mintFirebase falló (sigue con anon):', e?.message || e);
+    }
+  }
+
   try {
     if (window.MODO_SUPABASE) {
       const checkRes = await fetch(

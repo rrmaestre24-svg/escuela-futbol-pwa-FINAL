@@ -73,6 +73,14 @@ window.addEventListener('DOMContentLoaded', async function () {
             if (window.MODO_SUPABASE) {
                 try {
                     const email = (user.email || '').trim().toLowerCase();
+                    // 🆕 Garantizar JWT Supabase antes de leer users (mint-club-jwt resuelve el club
+                    //    server-side); así la lectura va con JWT vía interceptor y no depende de anon.
+                    try {
+                        if (window.SupaAuth && typeof window.SupaAuth.mintFirebase === 'function') {
+                            const _idTok = await user.getIdToken();
+                            await window.SupaAuth.mintFirebase(_idTok);
+                        }
+                    } catch (e) { console.warn('[INDEX] mint pre-resolución falló:', e?.message || e); }
                     const res = await fetch(
                         `${window.SUPA_URL}/rest/v1/users?email=eq.${encodeURIComponent(email)}&deleted=eq.false&select=id,club_id,name,is_main_admin,phone`,
                         { headers: { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}` } }
