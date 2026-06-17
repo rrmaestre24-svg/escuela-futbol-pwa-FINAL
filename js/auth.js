@@ -751,19 +751,26 @@ document.getElementById('loginForm')?.addEventListener('submit', async function(
         authMethod = 'supabase';
         console.log('✅ Autenticado en Supabase (v2)');
 
-        // Resolver el users.id (= firebase UID histórico) por email
+        // Resolver el perfil del admin (id + name/avatar/phone/is_main_admin) por email,
+        // con el JWT v2 (vía interceptor). Antes solo traía el id → faltaban perfil y rol.
         const lookup = await fetch(
-          `${window.SUPA_URL}/rest/v1/users?email=eq.${encodeURIComponent(email)}&deleted=eq.false&select=id&limit=1`
+          `${window.SUPA_URL}/rest/v1/users?email=eq.${encodeURIComponent(email)}&deleted=eq.false&select=id,name,avatar,phone,is_main_admin&limit=1`
         );
+        let _prof = {};
         if (lookup.ok) {
           const rows = await lookup.json();
-          if (rows[0]?.id) firebaseUid = rows[0].id;
+          if (rows[0]?.id) { firebaseUid = rows[0].id; _prof = rows[0]; }
         }
 
-        // Mock mínimo de currentUser para compatibilidad con código existente
+        // currentUser con el perfil real (name/avatar/phone/isMainAdmin) para el dashboard
+        // y la gestión de usuarios (que dependen de currentUser.isMainAdmin).
         window.APP_STATE.currentUser = {
           uid: firebaseUid,
           email,
+          name: _prof.name || '',
+          avatar: _prof.avatar || '',
+          phone: _prof.phone || '',
+          isMainAdmin: _prof.is_main_admin || false,
           getIdToken: async () => null,
         };
       } catch (supaErr) {
@@ -929,8 +936,11 @@ document.getElementById('loginForm')?.addEventListener('submit', async function(
       // Continuar de todos modos
     }
 
-    // 7️⃣ Descargar todos los datos del club
-    const downloaded = await downloadAllClubData(clubId);
+    // 7️⃣ Descargar todos los datos del club.
+    //    force:true → en login fresco NO reutilizar caché LOCAL-FIRST: rebajar SIEMPRE
+    //    users (perfil, is_main_admin, lista de la escuela) y clubs (logo/nombre) con el JWT.
+    //    Sin esto, al cerrar/volver a entrar rápido, la caché incompleta deja sin perfil/logo.
+    const downloaded = await downloadAllClubData(clubId, { force: true });
 
     if (downloaded) {
       // 8️⃣ Buscar usuario en la lista descargada
@@ -939,16 +949,17 @@ document.getElementById('loginForm')?.addEventListener('submit', async function(
 
       // ✅ Fallback: si no lo encuentra localmente, construir sesión desde Firebase
       if (!user) {
-        console.warn('⚠️ Usuario no encontrado localmente, usando datos de Firebase Auth');
+        console.warn('⚠️ Usuario no en la lista descargada — usando el perfil leído en el login');
+        const _cu = window.APP_STATE.currentUser || {};
         user = {
           id: firebaseUid,
           email: email,
-          name: window.APP_STATE.currentUser?.displayName || email.split('@')[0],
+          name: _cu.name || _cu.displayName || email.split('@')[0],
           schoolId: clubId,
           role: 'admin',
-          isMainAdmin: false,
-          avatar: '',
-          phone: ''
+          isMainAdmin: _cu.isMainAdmin || false,
+          avatar: _cu.avatar || '',
+          phone: _cu.phone || ''
         };
       }
 
@@ -2237,7 +2248,9 @@ async function processGoogleUser(firebaseUser) {
     console.warn('[Google Login] No se pudo verificar usuario en users:', e.message);
   }
 
-  const downloaded = await downloadAllClubData(clubId);
+  // force:true → igual que el login normal: rebajar users/clubs frescos con el JWT
+  // (evita la misma regresión de logo/perfil/usuarios por caché LOCAL-FIRST).
+  const downloaded = await downloadAllClubData(clubId, { force: true });
 
   if (!downloaded) {
     showToast('❌ Error al descargar datos del club');
