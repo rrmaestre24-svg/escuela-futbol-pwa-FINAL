@@ -728,14 +728,17 @@ document.getElementById('loginForm')?.addEventListener('submit', async function(
     console.log('🔍 Club ID no proporcionado, se buscará automáticamente');
   }
   
-  // Esperar a que Firebase esté listo
+  // Esperar a que Firebase esté listo (solo necesario para el fallback legacy).
   const firebaseReady = await waitForFirebase();
-  
-  if (!firebaseReady || !window.firebase?.auth) {
-    showToast('❌ No se pudo conectar con Firebase. Recarga la página.');
+
+  // El login PRIMARIO es SupaAuthV2 (Supabase Auth, no requiere Firebase). Solo
+  // bloquear si NO hay ninguna forma de autenticar (ni Supabase Auth ni Firebase).
+  // Con Firebase presente el comportamiento es idéntico al anterior.
+  if (!window.SupaAuthV2 && (!firebaseReady || !window.firebase?.auth)) {
+    showToast('❌ No se pudo conectar. Recarga la página.');
     return;
   }
-  
+
   try {
     showToast('🔐 Verificando credenciales...');
 
