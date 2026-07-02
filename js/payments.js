@@ -2766,6 +2766,28 @@ async function handlePaymentFormSubmit(e) {
       if (status === 'Pagado') {
         setTimeout(() => mostrarOpcionWAPayment(newPayment.id), 500);
       }
+
+      // 🆕 Enviar SMS recordatorio si el pago está Pendiente
+      if (status !== 'Pagado' && typeof window.callSendSms === 'function') {
+        const clubId = typeof getClubId === 'function' ? getClubId() : localStorage.getItem('clubId');
+        const player = getPlayerById(playerId);
+        const settings = getSchoolSettings();
+        if (clubId && player) {
+          const today = new Date();
+          const due = new Date(paymentData.dueDate || dueDate);
+          const daysDiff = daysBetween(today, due);
+          const modulo = daysDiff < 0 ? 'vencidos' : 'recordatorios_pago';
+          const smsMsg = `${settings.name}: ${modulo === 'vencidos' ? 'Pago vencido' : 'Recordatorio de pago'} para ${player.name}. Concepto: ${concept}. Monto: ${formatCurrency(amount)}. Vence: ${formatDate(dueDate)}. Comunícate con nosotros.`;
+
+          window.callSendSms({
+            club_id: clubId,
+            modulo,
+            player_id: playerId,
+            phone: player.phone,
+            message: smsMsg,
+          });
+        }
+      }
     }
 
     closePaymentModal();

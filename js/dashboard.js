@@ -8,6 +8,7 @@ function updateDashboard() {
   updateDashboardBirthdays();
   updateDashboardEvents();
   updateDashboardNotifications();
+  updateDashboardSmsUsage();
 }
 
 // Actualizar estadísticas
@@ -91,6 +92,10 @@ function updateDashboardBirthdays() {
       </div>
     `;
   }).join('');
+  
+  // 🆕 SMS de cumpleaños automático movido a cron-daily-sms (servidor)
+  // Los envíos ahora los gestiona la tarea programada que corre a las 8:00 AM.
+  // Este bloque se eliminó para evitar envíos duplicados desde el frontend.
   
   lucide.createIcons();
 }
@@ -307,4 +312,59 @@ function abrirAsistencias() {
 // Exportar para uso global
 window.abrirAsistencias = abrirAsistencias;
 
-console.log('✅ dashboard.js cargado (CON OTROS INGRESOS + INVENTARIO + ASISTENCIAS)');
+// ========================================
+// SMS — Consumo Diario
+// ========================================
+async function updateDashboardSmsUsage() {
+  const clubId = typeof getClubId === 'function' ? getClubId() : localStorage.getItem('clubId');
+  const card = document.getElementById('smsDailyCard');
+  const text = document.getElementById('smsDailyText');
+  const bar = document.getElementById('smsDailyBar');
+  if (!card || !text || !bar || !clubId) return;
+
+  try {
+    // Obtener límite diario desde twilio_config
+    const licRes = await fetch(
+      `${window.SUPA_URL}/rest/v1/licenses?club_id=eq.${encodeURIComponent(clubId)}&select=twilio_config`,
+      { headers: { 'apikey': window.SUPA_ANON, 'Authorization': `Bearer ${window.SUPA_ANON}` } }
+    );
+    if (!licRes.ok) return;
+    const licData = await licRes.json();
+    const dailyLimit = licData?.[0]?.twilio_config?.limites?.diario || 0;
+    if (!dailyLimit) {
+      card.classList.add('hidden');
+      return;
+    }
+
+    // Obtener conteo de hoy
+    const today = new Date().toISOString().split('T')[0];
+    const logRes = await fetch(
+      `${window.SUPA_URL}/rest/v1/message_log?club_id=eq.${encodeURIComponent(clubId)}&created_at=gte.${today}&status=in.(sent,dry_run)&select=id`,
+      { headers: { 'apikey': window.SUPA_ANON, 'Authorization': `Bearer ${window.SUPA_ANON}` } }
+    );
+    if (!logRes.ok) return;
+    const logData = await logRes.json();
+    const sentCount = Array.isArray(logData) ? logData.length : 0;
+
+    const pct = Math.min(100, Math.round((sentCount / dailyLimit) * 100));
+
+    text.textContent = `${sentCount} / ${dailyLimit}`;
+    bar.style.width = `${pct}%`;
+
+    if (pct >= 100) {
+      bar.className = 'h-2 rounded-full transition-all duration-500 bg-red-500';
+    } else if (pct >= 80) {
+      bar.className = 'h-2 rounded-full transition-all duration-500 bg-orange-500';
+    } else {
+      bar.className = 'h-2 rounded-full transition-all duration-500 bg-green-500';
+    }
+
+    card.classList.remove('hidden');
+  } catch (err) {
+    console.error('[SMS Usage]', err);
+  }
+}
+
+window.updateDashboardSmsUsage = updateDashboardSmsUsage;
+
+console.log('✅ dashboard.js cargado (CON OTROS INGRESOS + INVENTARIO + ASISTENCIAS + SMS)');

@@ -667,6 +667,18 @@ async function openWhatsAppForParent(player, access) {
     }
 
     window.open(waUrl, '_blank');
+
+    // 🆕 Enviar SMS con el código si el helper está disponible
+    if (typeof window.callSendSms === 'function') {
+        const smsMessage = `Hola! Tu código de acceso al Portal de Padres de ${clubName} para ${player.name} es: ${access.code}. Ingresa en https://padres.appmyclub.com/ Club ID: ${clubId}`;
+        window.callSendSms({
+            club_id: clubId,
+            modulo: 'codigo_padres',
+            player_id: player.id,
+            phone: rawPhone,
+            message: smsMessage,
+        });
+    }
 }
 
 /**

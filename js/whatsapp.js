@@ -199,6 +199,21 @@ Quedamos atentos a cualquier inquietud. 🤝
   }
   
   showToast('✅ Preparando WhatsApp...');
+
+  // 🆕 Enviar SMS recordatorio
+  const clubId = typeof getClubId === 'function' ? getClubId() : localStorage.getItem('clubId');
+  if (typeof window.callSendSms === 'function' && clubId) {
+    const modulo = daysDiff < 0 ? 'vencidos' : 'recordatorios_pago';
+    const smsMessage = `${settings.name}: Recordatorio de pago para ${player.name}. Concepto: ${payment.concept}. Monto: ${formatCurrency(payment.amount)}. Vence: ${formatDate(payment.dueDate)}.`;
+
+    window.callSendSms({
+      club_id: clubId,
+      modulo,
+      player_id: player.id,
+      phone: player.phone,
+      message: smsMessage,
+    });
+  }
 }
 
 // ========================================
@@ -292,6 +307,21 @@ function sendVirtualReminderWhatsApp(playerId, nextDueDate) {
   }
   
   showToast('✅ Preparando Recordatorio Amable...');
+
+  // 🆕 Enviar SMS recordatorio
+  const clubId = typeof getClubId === 'function' ? getClubId() : localStorage.getItem('clubId');
+  if (typeof window.callSendSms === 'function' && clubId) {
+    const modulo = daysDiff < 0 ? 'vencidos' : 'recordatorios_pago';
+    const smsMessage = `${settings.name}: Recordatorio mensual para ${player.name}. Vence: ${formatDate(nextDueDate)}.`;
+
+    window.callSendSms({
+      club_id: clubId,
+      modulo,
+      player_id: player.id,
+      phone: player.phone,
+      message: smsMessage,
+    });
+  }
 }
 
 // Hacer funciones globales
