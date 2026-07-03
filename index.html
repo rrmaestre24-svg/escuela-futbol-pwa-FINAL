@@ -3192,11 +3192,16 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
             </div>
 
             <div
-                class="p-4 border-t border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800/80 backdrop-blur-sm">
+                class="p-4 border-t border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800/80 backdrop-blur-sm flex flex-col sm:flex-row gap-2.5">
                 <button onclick="processBatchParentAccess()" id="btnProcessBatchAccess"
-                    class="w-full bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-600 hover:from-indigo-700 hover:to-cyan-700 text-white font-bold py-4 rounded-2xl shadow-lg shadow-blue-600/25 flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+                    class="flex-1 bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-600 hover:from-indigo-700 hover:to-cyan-700 text-white font-bold py-4 rounded-2xl shadow-lg shadow-blue-600/25 flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
                     <i data-lucide="send" class="w-5 h-5"></i>
-                    Empezar a enviar por WhatsApp
+                    <span>Enviar por WhatsApp</span>
+                </button>
+                <button onclick="sendSmsToPendingParents()" id="btnSendSmsAccess"
+                    class="flex-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold py-4 rounded-2xl shadow-lg shadow-emerald-600/25 flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <i data-lucide="message-square" class="w-5 h-5"></i>
+                    <span>Enviar por SMS a pendientes</span>
                 </button>
             </div>
         </div>

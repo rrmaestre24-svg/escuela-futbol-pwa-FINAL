@@ -682,6 +682,168 @@ async function openWhatsAppForParent(player, access) {
 }
 
 /**
+ * Marca un código de padre como enviado (sentAt) en LS + BD (cross-device).
+ * Reutiliza el mismo patrón que openWhatsAppForParent, sin abrir WhatsApp.
+ */
+function _markParentCodeSent(playerId, code, clubId) {
+    const sentAt = new Date().toISOString();
+    try {
+        const storedCodes = JSON.parse(localStorage.getItem('parentCodes') || '[]');
+        const idx = storedCodes.findIndex(lc => lc.playerId === playerId);
+        if (idx !== -1) {
+            storedCodes[idx].sentAt = sentAt;
+            storedCodes[idx].code = code;
+        } else {
+            storedCodes.push({ playerId, code, sentAt });
+        }
+        localStorage.setItem('parentCodes', JSON.stringify(storedCodes));
+    } catch (e) { /* defensivo */ }
+
+    // Persistir en Supabase (fire-and-forget; el interceptor pone el JWT real).
+    try {
+        const supaUrl = window.SUPA_URL || window._SUPA_URL;
+        const supaAnon = window.SUPA_ANON || window._SUPA_ANON;
+        fetch(
+            `${supaUrl}/rest/v1/parent_codes?player_id=eq.${encodeURIComponent(playerId)}&club_id=eq.${encodeURIComponent(clubId)}`,
+            {
+                method: 'PATCH',
+                headers: {
+                    apikey: supaAnon,
+                    Authorization: `Bearer ${supaAnon}`,
+                    'Content-Type': 'application/json',
+                    'Prefer': 'return=minimal'
+                },
+                body: JSON.stringify({ sent_at: sentAt })
+            }
+        ).catch(() => { /* queda en LS, se reintenta al próximo load */ });
+    } catch (e) { /* defensivo */ }
+
+    if (parentAccessData.codes[playerId]) {
+        parentAccessData.codes[playerId].sentAt = sentAt;
+        parentAccessData.codes[playerId].code   = code;
+    }
+    return sentAt;
+}
+
+/**
+ * 🆕 Enviar el código de acceso por SMS SOLO a los padres pendientes.
+ * "Pendiente" = jugador activo, con teléfono válido, que aún NO fue notificado
+ * (sentAt viene hidratado desde la BD parent_codes, así que es cross-device).
+ * A los que ya tienen acceso NO se les reenvía. No abre WhatsApp.
+ */
+async function sendSmsToPendingParents() {
+    if (typeof window.callSendSms !== 'function') {
+        showToast('❌ El envío de SMS no está disponible');
+        return;
+    }
+
+    const clubId = localStorage.getItem('clubId');
+    if (!clubId) {
+        showToast('❌ No se pudo identificar el club');
+        return;
+    }
+
+    const { players, codes } = parentAccessData;
+    const activePlayers = players.filter(p => !isInactivePlayer(p));
+
+    // Pendientes = activos no notificados aún
+    const notSent = activePlayers.filter(p => !hasSentNotification(codes[p.id]));
+
+    // Teléfono válido = el que realmente aceptará callSendSms (E.164 colombiano).
+    // Se usa el MISMO validador que sms-utils para no marcar como enviado a
+    // quien luego rechazaría el helper.
+    const isValidPhone = (raw) => {
+        if (typeof window.normalizePhoneToE164 !== 'function') {
+            return String(raw || '').replace(/[^0-9]/g, '').length >= 10;
+        }
+        const tel = window.normalizePhoneToE164(raw);
+        return !!tel && tel.length >= 12;
+    };
+    const pending = notSent.filter(p => isValidPhone(p.phone || p.emergencyContact));
+    const sinTelefono = notSent.length - pending.length;
+
+    if (pending.length === 0) {
+        showToast(sinTelefono > 0
+            ? `No hay pendientes con teléfono válido (${sinTelefono} sin teléfono)`
+            : '✅ Todos los padres activos ya tienen su acceso');
+        return;
+    }
+
+    const confirmMsg = `Se enviará el código de acceso por SMS a ${pending.length} padre(s) pendiente(s).` +
+        (sinTelefono > 0 ? ` (${sinTelefono} sin teléfono válido se omitirán.)` : '') +
+        ` Los que ya tienen acceso NO recibirán mensaje.`;
+
+    const btn = document.getElementById('btnSendSmsAccess');
+    if (btn) btn.disabled = true;  // bloquear antes del confirm evita doble click
+
+    try {
+        const ok = await showFormalConfirmModal({
+            title: 'Enviar código por SMS',
+            message: confirmMsg,
+            confirmText: `Enviar a ${pending.length}`,
+            cancelText: 'Cancelar',
+            tone: 'primary'
+        });
+        if (!ok) return;
+
+        const settings = JSON.parse(localStorage.getItem('schoolSettings') || '{}');
+        const clubName = settings.name || 'Mi Escuela de Fútbol';
+        let realSent = 0, simulados = 0, fallidos = 0;
+
+        for (const player of pending) {
+            // Asegurar que tenga código; si no, generarlo y guardarlo
+            let access = codes[player.id];
+            if (!access?.code) {
+                const newCode = window.generateParentAccessCode
+                    ? window.generateParentAccessCode()
+                    : Math.random().toString(36).substring(2, 8).toUpperCase();
+                if (window.saveParentCode) await window.saveParentCode(player.id, newCode);
+                access = { playerId: player.id, code: newCode, createdAt: new Date().toISOString() };
+                codes[player.id] = access;
+            }
+
+            const rawPhone = player.phone || player.emergencyContact || '';
+            const smsMessage = `Hola! Tu código de acceso al Portal de Padres de ${clubName} para ${player.name} es: ${access.code}. Ingresa en https://padres.appmyclub.com/ Club ID: ${clubId}`;
+            const res = await window.callSendSms({
+                club_id: clubId,
+                modulo: 'codigo_padres',
+                player_id: player.id,
+                phone: rawPhone,
+                message: smsMessage,
+            });
+
+            // Solo se marca "Enviado" (pasa a la pestaña Enviados) si el SMS SALIÓ
+            // de verdad. En modo prueba (dry_run) o si falla, NO se marca, para no
+            // perder la lista de pendientes ni engañar al admin.
+            if (res?.status === 'sent') {
+                _markParentCodeSent(player.id, access.code, clubId);
+                realSent++;
+            } else if (res?.status === 'dry_run') {
+                simulados++;
+            } else {
+                fallidos++;
+            }
+        }
+
+        // Resumen honesto según lo que pasó realmente
+        if (realSent > 0) showToast(`✅ Código enviado por SMS a ${realSent} padre(s)`);
+        if (simulados > 0) showToast(`🧪 ${simulados} SMS simulado(s): el envío real aún no está activo (falta Twilio). No se marcaron como enviados.`);
+        if (realSent === 0 && simulados === 0 && fallidos > 0) showToast(`❌ No se pudo enviar ningún SMS (${fallidos} fallido/s)`);
+
+        if (realSent > 0) {
+            await loadParentAccessStatus();
+            renderParentAccessList();
+        }
+    } catch (e) {
+        console.error('[parent-automation] Error enviando SMS a pendientes:', e);
+        showToast('❌ Error al enviar los SMS');
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+window.sendSmsToPendingParents = sendSmsToPendingParents;
+
+/**
  * Reset all "Sent" markers
  * FIX 3: deleteField ya viene desestructurado — no necesita typeof
  */
@@ -810,8 +972,8 @@ function updateBatchButtonUI() {
             <span class="text-[10px] opacity-80">Alumno ${current} de ${total} · Pulsa para continuar</span>
         </div>
     `;
-    mainBtn.className = 'w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-4 px-6 rounded-2xl flex items-center justify-center gap-3 transition-all transform active:scale-95 shadow-lg shadow-emerald-500/20';
-    
+    mainBtn.className = 'flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-4 px-6 rounded-2xl flex items-center justify-center gap-3 transition-all transform active:scale-95 shadow-lg shadow-emerald-500/20';
+
     // Highlight del alumno actual en la lista
     const playerRow = document.querySelector(`[data-player-id="${nextPlayer.id}"]`);
     if (playerRow) {
@@ -829,9 +991,9 @@ function resetBatchState() {
     if (mainBtn) {
         mainBtn.innerHTML = `
             <i data-lucide="send" class="w-5 h-5"></i>
-            <span>Empezar a enviar por WhatsApp</span>
+            <span>Enviar por WhatsApp</span>
         `;
-        mainBtn.className = 'w-full bg-gradient-to-r from-teal-600 via-teal-700 to-emerald-700 hover:from-teal-700 hover:to-emerald-800 text-white font-bold py-4 px-6 rounded-2xl flex items-center justify-center gap-3 transition-all transform active:scale-95 shadow-xl shadow-teal-500/20';
+        mainBtn.className = 'flex-1 bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-600 hover:from-indigo-700 hover:to-cyan-700 text-white font-bold py-4 px-6 rounded-2xl flex items-center justify-center gap-2 transition-all transform active:scale-95 shadow-lg shadow-blue-600/25';
     }
     parentAccessData.isProcessing = false;
     parentAccessData.batchPlayers = [];
