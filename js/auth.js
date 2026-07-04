@@ -1033,15 +1033,12 @@ document.getElementById('registerForm')?.addEventListener('submit', async functi
     return;
   }
   
-  const codeValidation = await validateActivationCode(activationCode);
-  
-  if (!codeValidation.valid) {
-    showToast('❌ ' + codeValidation.error);
-    return;
-  }
-  
-  console.log('✅ Código válido:', codeValidation.data);
-  const activationPlan = codeValidation.data.plan;
+  // La validación AUTORITATIVA del código la hace la Edge Function register-club
+  // (server-side, service role). Acá ya se validó el FORMATO arriba; no se consulta
+  // la BD con la anon key (bloqueada por RLS). register-club devuelve el error exacto
+  // si el código es inválido, ya usado o expirado.
+  const activationPlan = null;
+  const codeValidation = { valid: true, source: 'supabase', data: { plan: null } };
   // ========================================
   
   // ========================================
@@ -1472,9 +1469,121 @@ const completeRegistration = async (clubLogoFile, adminAvatarFile) => {
       }
     }
   };
-  
+
+  // ⚠️ completeRegistration (arriba) quedó DEPRECADO: dependía de Firebase Auth +
+  // escrituras con la anon key (rotas al cerrar RLS). El registro real ahora usa la
+  // Edge Function register-club (server-side, service role) → todo vinculado a la BD.
+  const completeRegistrationV2 = async (clubLogoFile, adminAvatarFile) => {
+    // 1) Resolver club_id (personalizado o automático)
+    const customClubIdInput = document.getElementById('regClubId')?.value.trim() || '';
+    let clubId;
+    if (customClubIdInput) {
+      clubId = formatClubId(customClubIdInput);
+      if (!clubId || clubId.length < 3) { showToast('❌ El ID del club debe tener al menos 3 caracteres válidos'); return; }
+      if (clubId.length > 30) { showToast('❌ El ID del club no puede tener más de 30 caracteres'); return; }
+      showToast('🔍 Verificando disponibilidad del ID...');
+      try {
+        const exists = await checkClubIdExists(clubId);
+        if (exists) { showToast('❌ Este ID de club ya está en uso. Elige otro.'); return; }
+      } catch (e) { /* si la verificación falla, register-club igual valida el ID server-side */ }
+    } else {
+      clubId = 'club_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 6);
+    }
+
+    const monthlyFee = document.getElementById('regMonthlyFee')?.value.trim() || '50000';
+    const clubCurrency = document.getElementById('regClubCurrency')?.value || 'COP';
+    const clubColor = document.getElementById('regClubColor')?.value || '#0d9488';
+
+    // 2) Subir imágenes a Supabase Storage (best-effort; fallback a imagen por defecto)
+    let finalClubLogo = (typeof getDefaultLogo === 'function') ? getDefaultLogo() : '';
+    let finalAdminAvatar = (typeof getDefaultAvatar === 'function') ? getDefaultAvatar() : '';
+    showToast('⏳ Preparando imágenes...');
+    try {
+      if (clubLogoFile && typeof uploadAvatarToStorage === 'function') {
+        const res = await uploadAvatarToStorage(clubLogoFile, 'logo', clubId, 'logo');
+        finalClubLogo = res.url;
+      }
+    } catch (err) { console.warn('⚠️ Falló subida de logo (se usa default):', err); }
+    try {
+      if (adminAvatarFile && typeof uploadAvatarToStorage === 'function') {
+        const res = await uploadAvatarToStorage(adminAvatarFile, 'admin_' + Date.now(), clubId, 'admin');
+        finalAdminAvatar = res.url;
+      }
+    } catch (err) { console.warn('⚠️ Falló subida de avatar admin (se usa default):', err); }
+
+    // 3) Registro server-side: valida código + crea club + admin + licencia + marca código
+    showToast('🔐 Creando tu club...');
+    let regData;
+    try {
+      const regRes = await fetch(`${window.SUPA_URL}/functions/v1/register-club`, {
+        method: 'POST',
+        headers: { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: activationCode,
+          club: {
+            id: clubId, name: clubName, logo: finalClubLogo,
+            email: adminEmail, phone: clubPhone, address: clubAddress,
+            city: clubCity, country: clubCountry,
+            monthly_fee: parseFloat(monthlyFee) || 0, currency: clubCurrency, primary_color: clubColor
+          },
+          admin: {
+            name: adminName, email: adminEmail, password: adminPassword,
+            phone: adminPhone, birth_date: adminBirthDate, avatar: finalAdminAvatar
+          }
+        })
+      });
+      regData = await regRes.json().catch(() => ({}));
+      if (!regRes.ok || !regData.ok) {
+        showToast('❌ ' + (regData.error || 'No se pudo completar el registro'));
+        return;
+      }
+    } catch (err) {
+      console.error('❌ Error llamando register-club:', err);
+      showToast('❌ Error de conexión al crear el club. Intenta de nuevo.');
+      return;
+    }
+
+    const userId = regData.user_id;
+    console.log('✅ Club creado server-side:', clubId, '| plan:', regData.plan);
+
+    // 4) Iniciar sesión con Supabase Auth (email+password)
+    showToast('🔗 Iniciando sesión...');
+    if (window.SupaAuthV2 && typeof window.SupaAuthV2.login === 'function') {
+      try { await window.SupaAuthV2.login(adminEmail, adminPassword); }
+      catch (e) { console.warn('Login post-registro falló (podrá loguear manualmente):', e); }
+    }
+
+    // 5) Estado local + settings + sesión + UI
+    const clubSettings = {
+      schoolId: clubId, name: clubName, clubId: clubId, logo: finalClubLogo,
+      email: adminEmail, phone: clubPhone, address: clubAddress, city: clubCity,
+      country: clubCountry, website: clubWebsite, socialMedia: clubSocial,
+      foundedYear: clubFoundedYear, monthlyFee: monthlyFee, currency: clubCurrency,
+      primaryColor: clubColor
+    };
+
+    const newUser = {
+      id: userId, schoolId: clubId, email: adminEmail, name: adminName,
+      birthDate: adminBirthDate, phone: adminPhone, avatar: finalAdminAvatar,
+      role: 'admin', isMainAdmin: true,
+      createdAt: (typeof getCurrentDateTime === 'function' ? getCurrentDateTime() : new Date().toISOString())
+    };
+    if (typeof saveUser === 'function') saveUser(newUser);
+
+    localStorage.setItem('clubId', clubId);
+    if (typeof saveSchoolSettings === 'function') saveSchoolSettings(clubSettings);
+
+    const { password: _pw, ...userWithoutPassword } = newUser;
+    if (typeof setCurrentUser === 'function') setCurrentUser(userWithoutPassword);
+
+    if (typeof generatePWAIcons === 'function') { try { generatePWAIcons(); } catch (e) {} }
+
+    showToast('✅ Club creado exitosamente');
+    if (typeof showClubIdToUser === 'function') showClubIdToUser(clubId, clubName);
+  };
+
   // Iniciar proceso
-  completeRegistration(clubLogoFile, adminAvatarFile);
+  completeRegistrationV2(clubLogoFile, adminAvatarFile);
 });
 
 // ✅ FUNCIÓN: Mostrar Club ID al usuario con opción de copiar
