@@ -640,8 +640,12 @@ function listenToLicenseChanges() {
         if (!newStatus) return; // sin datos disponibles
 
         const currentStatus = localStorage.getItem('licenseStatus');
-        const modulosChanged = JSON.stringify(newModulos) !== localStorage.getItem('licenseModulos');
-        localStorage.setItem('licenseModulos', JSON.stringify(newModulos || {}));
+        // Normalizar ANTES de comparar y guardar con el MISMO valor. Antes se comparaba
+        // JSON.stringify(newModulos) ("null" si venía null) contra lo guardado ("{}"),
+        // que nunca coincidían => recarga infinita en clubs con modulos null. FIX.
+        const _modulosStr = JSON.stringify(newModulos || {});
+        const modulosChanged = _modulosStr !== localStorage.getItem('licenseModulos');
+        localStorage.setItem('licenseModulos', _modulosStr);
 
         localStorage.setItem('licenseStatus', newStatus);
 
