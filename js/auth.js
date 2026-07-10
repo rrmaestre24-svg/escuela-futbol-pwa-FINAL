@@ -1549,8 +1549,14 @@ const completeRegistration = async (clubLogoFile, adminAvatarFile) => {
     // 4) Iniciar sesión con Supabase Auth (email+password)
     showToast('🔗 Iniciando sesión...');
     if (window.SupaAuthV2 && typeof window.SupaAuthV2.login === 'function') {
-      try { await window.SupaAuthV2.login(adminEmail, adminPassword); }
-      catch (e) { console.warn('Login post-registro falló (podrá loguear manualmente):', e); }
+      try {
+        console.log('[AUTH] Ejecutando auto-login en Supabase Auth...');
+        await window.SupaAuthV2.login(adminEmail, adminPassword);
+        console.log('[AUTH] Auto-login exitoso');
+      }
+      catch (e) {
+        console.warn('Login post-registro falló (podrá loguear manualmente):', e);
+      }
     }
 
     // 5) Estado local + settings + sesión + UI
@@ -1869,6 +1875,11 @@ window.addEventListener('DOMContentLoaded', async function() {
   
   if (currentUser && currentUser.email) {
     console.log('[AUTH] Sesion local valida:', currentUser.email);
+    if (!appContainer) {
+      // Si estamos en login.html pero hay sesión, redirigir al dashboard
+      window.location.href = 'index.html';
+      return;
+    }
     showApp();
     return;
   }

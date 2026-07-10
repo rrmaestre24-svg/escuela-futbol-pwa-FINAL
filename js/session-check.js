@@ -197,10 +197,27 @@ window.addEventListener('DOMContentLoaded', async function () {
             return;
         }
 
-        // Firebase confirmo que no hay sesion
+        // 🆕 FIX: En modo Supabase, no dependemos exclusivamente de Firebase Auth.
+        const hasSupabaseSession = window.MODO_SUPABASE && window.SupaAuthV2 && window.SupaAuthV2.isLogged();
+
+        if (hasSupabaseSession) {
+            clearInterval(checkFirebase);
+            console.log('[INDEX] Firebase no tiene sesión, pero Supabase SÍ. Continuando...');
+            hideLoader();
+            document.getElementById('appContainer').classList.remove('hidden');
+            if (typeof initApp === 'function') initApp();
+            return;
+        }
+
+        // Firebase confirmó que no hay sesión y tampoco Supabase
         if (window.APP_STATE && window.APP_STATE.authRestored && !(window.firebase && window.firebase.auth && window.firebase.auth.currentUser)) {
             clearInterval(checkFirebase);
-            console.log('[INDEX] No hay sesion en Firebase');
+            console.log('[INDEX] No hay sesion activa en Firebase ni Supabase. Limpiando sesion local...');
+            
+            // 🚨 FIX CRÍTICO: Limpiar sesión local para romper el loop de redirección infinita
+            localStorage.removeItem('currentUser');
+            sessionStorage.clear();
+            
             hideLoader();
             window.location.href = 'login.html';
             return;
