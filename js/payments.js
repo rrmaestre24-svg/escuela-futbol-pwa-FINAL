@@ -1276,21 +1276,28 @@ window.reconcileMissingHistory = reconcileMissingHistory;
 // Solo se activa si el admin hace clic en "Ver pagos anteriores"
 // Los resultados se guardan en _paymentsExtended (en memoria, no en localStorage)
 // ============================================================
-async function loadOlderPaymentsFromSupabase() {
-  const paymentsLoadedFrom = localStorage.getItem('paymentsLoadedFrom');
-  if (!paymentsLoadedFrom) return;
-  if (_paymentsExtended !== null) return;
+let _paymentsExtendedLoading = false; // evita fetch doble si se llama concurrente
 
-  const btn = document.getElementById('loadOlderPaymentsBtn');
+// opts.silent: carga en segundo plano (la usa Contabilidad) — sin toasts ni
+// re-render de la lista de pagos. Devuelve true si cargó datos nuevos.
+async function loadOlderPaymentsFromSupabase(opts = {}) {
+  const silent = !!(opts && opts.silent);
+  const paymentsLoadedFrom = localStorage.getItem('paymentsLoadedFrom');
+  if (!paymentsLoadedFrom) return false;
+  if (_paymentsExtended !== null) return false;
+  if (_paymentsExtendedLoading) return false;
+  _paymentsExtendedLoading = true;
+
+  const btn = silent ? null : document.getElementById('loadOlderPaymentsBtn');
   if (btn) btn.innerHTML = '<span class="text-sm text-gray-400 dark:text-gray-500">Cargando...</span>';
 
   try {
     const clubId = typeof getClubId === 'function' ? getClubId() : null;
-    if (!clubId) { showToast('⚠️ Sin clubId'); return; }
+    if (!clubId) { if (!silent) showToast('⚠️ Sin clubId'); return false; }
 
     const supaUrl  = window.SUPA_URL;
     const supaAnon = window.SUPA_ANON;
-    if (!supaUrl || !supaAnon) { showToast('⚠️ Sin conexión a Supabase'); return; }
+    if (!supaUrl || !supaAnon) { if (!silent) showToast('⚠️ Sin conexión a Supabase'); return false; }
 
     const res = await fetch(
       `${supaUrl}/rest/v1/payments?club_id=eq.${encodeURIComponent(clubId)}&deleted=eq.false&due_date=lt.${paymentsLoadedFrom}&select=*`,
@@ -1306,17 +1313,25 @@ async function loadOlderPaymentsFromSupabase() {
       deleted: p.deleted, clubId: clubId,
     }));
 
-    showToast(`✅ ${_paymentsExtended.length} pagos históricos cargados`);
-    renderPayments();
+    if (!silent) {
+      showToast(`✅ ${_paymentsExtended.length} pagos históricos cargados`);
+      renderPayments();
+    }
+    return _paymentsExtended.length > 0;
 
   } catch (err) {
     console.error('[payments] Error cargando pagos anteriores:', err);
-    showToast('⚠️ No se pudieron cargar pagos anteriores');
-    if (btn) btn.innerHTML = `
-      <button onclick="window.loadOlderPaymentsFromSupabase()"
-        class="text-sm text-teal-600 dark:text-teal-400 hover:underline">
-        Reintentar — ver pagos anteriores
-      </button>`;
+    if (!silent) {
+      showToast('⚠️ No se pudieron cargar pagos anteriores');
+      if (btn) btn.innerHTML = `
+        <button onclick="window.loadOlderPaymentsFromSupabase()"
+          class="text-sm text-teal-600 dark:text-teal-400 hover:underline">
+          Reintentar — ver pagos anteriores
+        </button>`;
+    }
+    return false;
+  } finally {
+    _paymentsExtendedLoading = false;
   }
 }
 window.loadOlderPaymentsFromSupabase = loadOlderPaymentsFromSupabase;

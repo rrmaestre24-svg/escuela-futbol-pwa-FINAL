@@ -681,7 +681,8 @@ async function generateFullAccountingReportPDF() {
   }
   const settings = getSchoolSettings();
   const players = getPlayers();
-  const payments = getPayments();
+  // Igual que Contabilidad: el PDF debe incluir TODOS los pagos, no solo la caché reciente
+  const payments = (typeof _getPaymentsAll === 'function') ? _getPaymentsAll() : getPayments();
   const expenses = getExpenses();
   
   // 🆕 Obtener otros ingresos

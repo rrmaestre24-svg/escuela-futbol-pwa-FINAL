@@ -134,17 +134,45 @@ function showAccountingView() {
   }
 }
 
+// 🆕 Contabilidad debe calcular sobre TODOS los pagos, no solo la caché
+// reciente: getPayments() trae únicamente los últimos meses (paginación
+// f08e810) y dejaba totales y movimientos incompletos en todos los clubs.
+// _getPaymentsAll() (payments.js) mezcla caché + históricos sin duplicar.
+function _accPayments() {
+  return (typeof _getPaymentsAll === 'function') ? _getPaymentsAll() : getPayments();
+}
+function _accPaymentsByPlayer(playerId) {
+  return _accPayments().filter(p => p.playerId === playerId);
+}
+
 // Renderizar todo
-function renderAccounting() {
+async function renderAccounting() {
+  // 1) Render inmediato con los datos disponibles (misma UX de siempre)
   renderAccountingSummary();
   renderAccountingCharts();
   renderAccountingPlayersTable();
   renderVoidedPayments();
+
+  // 2) Cargar pagos históricos UNA vez (silencioso) y re-renderizar con los
+  //    totales completos. Si falla (offline), la vista queda con lo local.
+  if (typeof loadOlderPaymentsFromSupabase === 'function') {
+    try {
+      const loaded = await loadOlderPaymentsFromSupabase({ silent: true });
+      if (loaded) {
+        renderAccountingSummary();
+        renderAccountingCharts();
+        renderAccountingPlayersTable();
+        renderVoidedPayments();
+      }
+    } catch (e) {
+      console.warn('[accounting] Históricos no disponibles (se muestra caché reciente):', e?.message || e);
+    }
+  }
 }
 
 // 🆕 RESUMEN MEJORADO - CON EGRESOS Y OTROS INGRESOS
 function renderAccountingSummary() {
-  const payments = getPayments();
+  const payments = _accPayments();
   const expenses = getExpenses();
   const thirdPartyIncomes = typeof getThirdPartyIncomes === 'function' ? getThirdPartyIncomes() : [];
   
@@ -255,7 +283,7 @@ function renderIncomeVsExpensesChart() {
   const ctx = document.getElementById('incomeByMonthChart');
   if (!ctx) return;
   
-  const payments = getPayments().filter(p => p.status === 'Pagado' && p.paidDate);
+  const payments = _accPayments().filter(p => p.status === 'Pagado' && p.paidDate);
   const expenses = getExpenses();
   const thirdPartyIncomes = typeof getThirdPartyIncomes === 'function' ? getThirdPartyIncomes() : [];
   
@@ -360,7 +388,7 @@ function renderIncomeByCategoryChart() {
   if (!ctx) return;
   
   const players = getPlayers();
-  const payments = getPayments().filter(p => p.status === 'Pagado');
+  const payments = _accPayments().filter(p => p.status === 'Pagado');
   
   // Obtener categorías únicas de los jugadores
   const uniqueCategories = [...new Set(players.map(p => p.category))];
@@ -413,7 +441,7 @@ function renderIncomeByTypeChart() {
   const ctx = document.getElementById('incomeByTypeChart');
   if (!ctx) return;
   
-  const payments = getPayments().filter(p => p.status === 'Pagado');
+  const payments = _accPayments().filter(p => p.status === 'Pagado');
   const types = ['Mensualidad', 'Uniforme', 'Torneo', 'Equipamiento', 'Otro'];
   const data = [];
   
@@ -484,7 +512,7 @@ function renderAccountingPlayersTable() {
 
   // Precalcular datos por jugador
   accountingPlayersData = players.map(player => {
-    const payments = getPaymentsByPlayer(player.id);
+    const payments = _accPaymentsByPlayer(player.id);
     const paid     = payments.filter(p => p.status === 'Pagado');
     const pending  = payments.filter(p => p.status === 'Pendiente');
 
@@ -705,7 +733,7 @@ function sendPendingReminderWA(playerId) {
     return;
   }
 
-  const allPayments = getPaymentsByPlayer(playerId);
+  const allPayments = _accPaymentsByPlayer(playerId);
   const pending     = allPayments.filter(p => p.status === 'Pendiente');
   const missing     = _accMissingMonthsForPlayer(player, allPayments);
   const totalPending = pending.reduce((s, p) => s + _getAmt(p), 0);
@@ -788,7 +816,7 @@ function generateFullReport() {
 // ========================================
 
 function exportCSV() {
-  const payments = getPayments();
+  const payments = _accPayments();
   const thirdPartyIncomes = typeof getThirdPartyIncomes === 'function' ? getThirdPartyIncomes() : [];
   
   if (payments.length === 0 && thirdPartyIncomes.length === 0) {
@@ -865,7 +893,7 @@ function exportPlayersSummaryCSV() {
   }
   
   const csvData = players.map(player => {
-    const payments = getPaymentsByPlayer(player.id);
+    const payments = _accPaymentsByPlayer(player.id);
     const paid = payments.filter(p => p.status === 'Pagado');
     const pending = payments.filter(p => p.status === 'Pendiente');
     
@@ -922,7 +950,7 @@ function exportExpensesCSV() {
 
 // 🆕 Exportar reporte completo (todo junto) - CON DOCUMENTO
 function exportFullReportCSV() {
-  const payments = getPayments();
+  const payments = _accPayments();
   const expenses = getExpenses();
   const thirdPartyIncomes = typeof getThirdPartyIncomes === 'function' ? getThirdPartyIncomes() : [];
   
@@ -1153,7 +1181,7 @@ function openCashRegisterModal() {
   const currentLocalISODate = `${year}-${month}-${day}`;
   
   // Ingresos (Payments) de HOY
-  const payments = (typeof getPayments === 'function' ? getPayments() : []).filter(p => p.status === 'Pagado' && (
+  const payments = _accPayments().filter(p => p.status === 'Pagado' && (
       (p.paidDate && p.paidDate.startsWith(currentLocalISODate)) || 
       (p.paymentDate && p.paymentDate.startsWith(currentLocalISODate))
   ));
@@ -1321,7 +1349,7 @@ console.log('✅ accounting.js cargado correctamente CON DOCUMENTO DE IDENTIDAD'
 // AUDITORÍA DE MONTOS - DETECTA DISCREPANCIAS finalAmount vs amount
 // ========================================
 function runAmountAudit() {
-  const payments = typeof getPayments === 'function' ? getPayments() : [];
+  const payments = _accPayments();
   const players  = typeof getPlayers  === 'function' ? getPlayers()  : [];
 
   const getPlayerName = id => {
