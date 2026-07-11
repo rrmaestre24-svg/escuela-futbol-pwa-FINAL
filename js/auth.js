@@ -74,15 +74,15 @@ function updateUser(userId, updates) {
 
 // Guardar configuración del club
 function saveSchoolSettings(settings) {
-  try {
-    const current = typeof getSchoolSettings === 'function'
-      ? (getSchoolSettings() || {})
-      : JSON.parse(localStorage.getItem('schoolSettings') || '{}');
-
-    const updated = { ...current, ...(settings || {}) };
-    localStorage.setItem('schoolSettings', JSON.stringify(updated));
-  } catch (error) {
-    console.error('Error al guardar configuración:', error);
+  if (typeof updateSchoolSettings === 'function') {
+    updateSchoolSettings(settings || {});
+  } else {
+    try {
+      const current = JSON.parse(localStorage.getItem('schoolSettings') || '{}');
+      localStorage.setItem('schoolSettings', JSON.stringify({ ...current, ...(settings || {}) }));
+    } catch (error) {
+      console.error('Error al guardar configuración:', error);
+    }
   }
 }
 
@@ -96,26 +96,14 @@ function updateSchoolSettings(updates) {
     const updated = { ...current, ...(updates || {}) };
     localStorage.setItem('schoolSettings', JSON.stringify(updated));
 
-    if (!window.MODO_SUPABASE && window.APP_STATE?.firebaseReady && window.firebase?.db) {
-      const clubId = localStorage.getItem('clubId');
-      if (clubId) {
-        window.firebase.setDoc(
-          window.firebase.doc(window.firebase.db, `clubs/${clubId}/settings`, 'main'),
-          { ...updated, lastUpdated: new Date().toISOString() }
-        ).catch(err => console.warn('⚠️ No se pudo sincronizar configuración:', err));
-
-        if ((updates || {}).coachCode !== undefined) {
-          const attendanceCode = (updates || {}).coachCode || '';
-          window.firebase.setDoc(
-            window.firebase.doc(window.firebase.db, `clubs/${clubId}/settings`, 'attendance'),
-            {
-              coachCode: attendanceCode,
-              adminCode: attendanceCode,
-              updatedAt: new Date().toISOString()
-            }
-          ).catch(err => console.warn('⚠️ No se pudo sincronizar código de asistencia:', err));
-        }
-      }
+    // Solo sincronizar a la nube si updates trae claves reales del club
+    // (evita PATCH innecesarios cuando notifications.js o descartes triviales llaman updateSchoolSettings).
+    const CLUB_KEYS = ['name','phone','email','address','city','country','coachCode','monthlyFee','monthlyDueDay','monthlyGraceDays','currency','primaryColor','logo'];
+    const tocaClub = Object.keys(updates || {}).some(k => CLUB_KEYS.includes(k));
+    if (tocaClub && typeof saveSchoolSettingsToFirebase === 'function' &&
+        (window.MODO_SUPABASE || (window.APP_STATE?.firebaseReady && window.firebase?.db))) {
+      saveSchoolSettingsToFirebase(updated).catch(err =>
+        console.warn('⚠️ No se pudo sincronizar configuración:', err));
     }
   } catch (error) {
     console.error('Error al actualizar configuración:', error);
@@ -1577,6 +1565,7 @@ const completeRegistration = async (clubLogoFile, adminAvatarFile) => {
     if (typeof saveUser === 'function') saveUser(newUser);
 
     localStorage.setItem('clubId', clubId);
+    localStorage.removeItem('schoolSettings');
     if (typeof saveSchoolSettings === 'function') saveSchoolSettings(clubSettings);
 
     const { password: _pw, ...userWithoutPassword } = newUser;
