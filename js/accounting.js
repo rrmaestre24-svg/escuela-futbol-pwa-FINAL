@@ -7,6 +7,7 @@
 console.log('📄 Cargando accounting.js con egresos, otros ingresos y documento de identidad...');
 
 let accountingCharts = {};
+let _accMonthlyDetail = [];
 
 // Escape HTML para evitar XSS en texto ingresado por el usuario (motivo/observación)
 // Devuelve el monto efectivo de un pago considerando descuentos.
@@ -152,6 +153,7 @@ async function renderAccounting() {
   renderAccountingCharts();
   renderAccountingPlayersTable();
   renderVoidedPayments();
+  renderOverduePlayers();
 
   // 2) Cargar pagos históricos UNA vez (silencioso) y re-renderizar con los
   //    totales completos. Si falla (offline), la vista queda con lo local.
@@ -163,6 +165,7 @@ async function renderAccounting() {
         renderAccountingCharts();
         renderAccountingPlayersTable();
         renderVoidedPayments();
+        renderOverduePlayers();
       }
     } catch (e) {
       console.warn('[accounting] Históricos no disponibles (se muestra caché reciente):', e?.message || e);
@@ -292,9 +295,12 @@ function renderIncomeVsExpensesChart() {
   const incomeData = [];
   const expenseData = [];
   
+  _accMonthlyDetail = [];
+
   for (let i = 11; i >= 0; i--) {
     const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
     const monthName = getMonthName(date.getMonth());
+    const label = `${monthName} ${date.getFullYear()}`;
     labels.push(monthName.substring(0, 3));
     
     // Ingresos del mes (pagos + otros ingresos)
@@ -324,6 +330,15 @@ function renderIncomeVsExpensesChart() {
              expenseDate.getFullYear() === date.getFullYear();
     });
     expenseData.push(monthExpenses.reduce((sum, e) => sum + (e.amount || 0), 0));
+
+    _accMonthlyDetail.push({
+      label,
+      payments: monthPayments,
+      expenses: monthExpenses,
+      thirdParty: monthThirdParty,
+      incomeTotal: paymentsTotal + thirdPartyTotal,
+      expenseTotal: monthExpenses.reduce((sum, e) => sum + (e.amount || 0), 0)
+    });
   }
   
   accountingCharts.byMonth = new Chart(ctx, {
@@ -374,6 +389,11 @@ function renderIncomeVsExpensesChart() {
               return formatCurrency(value);
             }
           }
+        }
+      },
+      onClick: function(_, activeElements) {
+        if (activeElements.length > 0) {
+          showMonthlyDetail(activeElements[0].index);
         }
       }
     }
@@ -1162,6 +1182,24 @@ function toggleAccountingTable() {
 }
 window.toggleAccountingTable = toggleAccountingTable;
 
+function toggleOverdueSection() {
+  const body = document.getElementById('overdueSectionBody');
+  const chevron = document.getElementById('overdueChevron');
+  if (!body) return;
+  const isHidden = body.classList.toggle('hidden');
+  if (chevron) chevron.style.transform = isHidden ? 'rotate(-90deg)' : 'rotate(0deg)';
+}
+window.toggleOverdueSection = toggleOverdueSection;
+
+function toggleVoidedSection() {
+  const body = document.getElementById('voidedSectionBody');
+  const chevron = document.getElementById('voidedChevron');
+  if (!body) return;
+  const isHidden = body.classList.toggle('hidden');
+  if (chevron) chevron.style.transform = isHidden ? 'rotate(-90deg)' : 'rotate(0deg)';
+}
+window.toggleVoidedSection = toggleVoidedSection;
+
 // ========================================
 // 🆕 ARQUEO DE CAJA DIARIO (Cierre de Caja)
 // ========================================
@@ -1497,3 +1535,563 @@ function closeAuditModal() {
 
 window.runAmountAudit = runAmountAudit;
 window.closeAuditModal = closeAuditModal;
+
+// ========================================
+// 📊 DETALLE MENSUAL (CLICK EN BARRA DEL GRÁFICO)
+// ========================================
+
+function showMonthlyDetail(monthIndex) {
+  const data = _accMonthlyDetail && _accMonthlyDetail[monthIndex];
+  if (!data) { showToast('⚠️ No hay datos para este mes'); return; }
+
+  const payments = data.payments || [];
+  const expenses = data.expenses || [];
+  const thirdParty = data.thirdParty || [];
+  const totalIncome = payments.reduce((s, p) => s + _getAmt(p), 0) + thirdParty.reduce((s, i) => s + (i.amount || 0), 0);
+  const totalExpenses = expenses.reduce((s, e) => s + (e.amount || 0), 0);
+  const neto = totalIncome - totalExpenses;
+
+  let html = `<div class="space-y-3 text-sm">`;
+
+  html += `<div class="grid grid-cols-3 gap-2 text-center">
+    <div class="bg-green-50 dark:bg-green-900/20 rounded-lg p-2">
+      <div class="text-lg font-bold text-green-600">${formatCurrency(totalIncome)}</div>
+      <div class="text-xs text-gray-500">Ingresos</div>
+    </div>
+    <div class="bg-red-50 dark:bg-red-900/20 rounded-lg p-2">
+      <div class="text-lg font-bold text-red-600">${formatCurrency(totalExpenses)}</div>
+      <div class="text-xs text-gray-500">Egresos</div>
+    </div>
+    <div class="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-2">
+      <div class="text-lg font-bold ${neto >= 0 ? 'text-green-600' : 'text-red-600'}">${formatCurrency(neto)}</div>
+      <div class="text-xs text-gray-500">Neto</div>
+    </div>
+  </div>`;
+
+  const allIncomes = [...payments, ...thirdParty].sort((a, b) => {
+    const da = a.paidDate || a.date || '';
+    const db = b.paidDate || b.date || '';
+    return db.localeCompare(da);
+  });
+
+  if (allIncomes.length > 0) {
+    html += `<h5 class="font-bold text-gray-700 dark:text-gray-300 mt-3">💰 Ingresos</h5>`;
+    html += `<div class="max-h-60 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-700 border border-gray-200 dark:border-gray-700 rounded-lg">`;
+    allIncomes.forEach(p => {
+      const isThirdParty = !p.playerId;
+      const playerName = isThirdParty ? (p.contributorName || 'Otro ingreso') : (getPlayerById(p.playerId)?.name || 'Desconocido');
+      const billMonth = isThirdParty ? '-' : (extractBillingMonth(p) || '-');
+      html += `<div class="px-3 py-2 flex justify-between items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-800/50">
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-2">
+            <span class="font-mono text-xs text-gray-400">${p.invoiceNumber || 'N/A'}</span>
+            <span class="text-gray-700 dark:text-gray-200 truncate font-medium">${_accEscapeHtml(playerName)}</span>
+          </div>
+          <div class="text-xs text-gray-400 mt-0.5">
+            ${_accEscapeHtml(p.concept || p.type || '')}
+            ${billMonth !== '-' ? ` · <span class="text-teal-600 dark:text-teal-400">${billMonth}</span>` : ''}
+          </div>
+        </div>
+        <div class="text-right shrink-0">
+          <div class="font-semibold text-green-600">${formatCurrency(_getAmt(p))}</div>
+          <div class="text-xs text-gray-400">${(p.paidDate || p.date || '').substring(0, 10)}</div>
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  if (expenses.length > 0) {
+    html += `<h5 class="font-bold text-gray-700 dark:text-gray-300 mt-3">💸 Egresos</h5>`;
+    html += `<div class="max-h-40 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-700 border border-gray-200 dark:border-gray-700 rounded-lg">`;
+    expenses.forEach(e => {
+      html += `<div class="px-3 py-2 flex justify-between items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-800/50">
+        <div class="min-w-0 flex-1">
+          <span class="text-gray-700 dark:text-gray-200 font-medium">${_accEscapeHtml(e.concept || e.description || '')}</span>
+          <div class="text-xs text-gray-400">${_accEscapeHtml(e.beneficiaryName || '')}</div>
+        </div>
+        <div class="text-right shrink-0">
+          <div class="font-semibold text-red-600">${formatCurrency(e.amount || 0)}</div>
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  html += `<div class="grid grid-cols-2 gap-2 mt-3">
+    <button onclick="exportMonthlyDetailCSV(${monthIndex})"
+      class="py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium flex items-center justify-center gap-2">
+      <i data-lucide="download" class="w-4 h-4"></i>
+      CSV
+    </button>
+    <button onclick="generateMonthlyDetailPDF(${monthIndex})"
+      class="py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-sm font-medium flex items-center justify-center gap-2">
+      <i data-lucide="file-text" class="w-4 h-4"></i>
+      PDF
+    </button>
+  </div>`;
+
+  html += `</div>`;
+
+  let modal = document.getElementById('monthlyDetailModal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'monthlyDetailModal';
+    modal.className = 'fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4';
+    document.body.appendChild(modal);
+  }
+
+  modal.innerHTML = `
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col animate-scale-in">
+      <div class="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-700 shrink-0">
+        <h2 class="font-bold text-gray-800 dark:text-white text-lg">${data.label}</h2>
+        <button onclick="closeMonthlyDetailModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-2xl leading-none">&times;</button>
+      </div>
+      <div class="overflow-y-auto flex-1 p-4">
+        ${html}
+      </div>
+    </div>
+  `;
+
+  modal.classList.remove('hidden');
+  modal.onclick = e => { if (e.target === modal) closeMonthlyDetailModal(); };
+
+  if (typeof lucide !== 'undefined' && lucide.createIcons) {
+    setTimeout(() => { try { lucide.createIcons(); } catch(e) { /* noop */ } }, 50);
+  }
+}
+
+function closeMonthlyDetailModal() {
+  const modal = document.getElementById('monthlyDetailModal');
+  if (modal) modal.classList.add('hidden');
+}
+
+function exportMonthlyDetailCSV(monthIndex) {
+  const data = _accMonthlyDetail && _accMonthlyDetail[monthIndex];
+  if (!data) { showToast('⚠️ No hay datos'); return; }
+
+  const rows = [];
+
+  data.payments.forEach(p => {
+    const player = getPlayerById(p.playerId);
+    rows.push({
+      Tipo: 'Ingreso',
+      Factura: p.invoiceNumber || '',
+      Fecha: (p.paidDate || '').substring(0, 10),
+      Jugador: player ? player.name : 'Desconocido',
+      Concepto: p.concept || p.type || '',
+      'Mes Facturación': extractBillingMonth(p) || '',
+      Monto: _getAmt(p),
+      Método: p.method || ''
+    });
+  });
+
+  data.thirdParty.forEach(i => {
+    rows.push({
+      Tipo: 'Otro Ingreso',
+      Factura: i.invoiceNumber || '',
+      Fecha: (i.date || '').substring(0, 10),
+      Jugador: i.contributorName || 'Otro ingreso',
+      Concepto: i.concept || '',
+      'Mes Facturación': '',
+      Monto: i.amount || 0,
+      Método: ''
+    });
+  });
+
+  data.expenses.forEach(e => {
+    rows.push({
+      Tipo: 'Egreso',
+      Factura: e.invoiceNumber || '',
+      Fecha: (e.date || '').substring(0, 10),
+      Jugador: e.beneficiaryName || '',
+      Concepto: e.concept || e.description || '',
+      'Mes Facturación': '',
+      Monto: -(e.amount || 0),
+      Método: ''
+    });
+  });
+
+  rows.sort((a, b) => (a.Jugador || '').localeCompare(b.Jugador || '') || a.Fecha.localeCompare(b.Fecha));
+
+  downloadCSV(rows, `detalle-mensual-${data.label.replace(/\s+/g, '-')}.csv`);
+  showToast('✅ CSV descargado');
+}
+
+function _loadPdfLibs(callback) {
+  if (typeof window.jspdf !== 'undefined') {
+    try { const t = new window.jspdf.jsPDF(); if (typeof t.autoTable === 'function') { callback(); return; } } catch(e) {}
+  }
+  showToast('📄 Cargando librería PDF...');
+  const s = document.createElement('script');
+  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+  s.onload = () => {
+    const s2 = document.createElement('script');
+    s2.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js';
+    s2.onload = callback;
+    s2.onerror = () => showToast('❌ Error al cargar plugin de tablas');
+    document.head.appendChild(s2);
+  };
+  s.onerror = () => showToast('❌ Error al cargar jsPDF');
+  document.head.appendChild(s);
+}
+
+function generateMonthlyDetailPDF(monthIndex) {
+  const data = _accMonthlyDetail && _accMonthlyDetail[monthIndex];
+  if (!data) { showToast('⚠️ No hay datos'); return; }
+
+  _loadPdfLibs(() => {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    const settings = typeof getSchoolSettings === 'function' ? getSchoolSettings() : {};
+    const pc = [13, 148, 136];
+
+  doc.setFillColor(...pc);
+  doc.rect(0, 0, 210, 40, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(16);
+  doc.setFont(undefined, 'bold');
+  doc.text(`Detalle Mensual: ${data.label}`, 105, 18, { align: 'center' });
+  doc.setFontSize(9);
+  doc.setFont(undefined, 'normal');
+  doc.text(settings.name || 'MI CLUB', 105, 28, { align: 'center' });
+
+  doc.setTextColor(31, 41, 55);
+  doc.setFontSize(8);
+  doc.text(`Generado: ${formatDateText(getCurrentDate())}`, 15, 48);
+  doc.text(`Ingresos: ${formatCurrency(data.incomeTotal)}  |  Egresos: ${formatCurrency(data.expenseTotal)}  |  Neto: ${formatCurrency(data.incomeTotal - data.expenseTotal)}`, 15, 55);
+
+  const allIncomes = [...(data.payments || []), ...(data.thirdParty || [])].sort((a, b) => {
+    const na = getPlayerById(a.playerId)?.name || a.contributorName || '';
+    const nb = getPlayerById(b.playerId)?.name || b.contributorName || '';
+    return na.localeCompare(nb) || (a.paidDate || a.date || '').localeCompare(b.paidDate || b.date || '');
+  });
+
+  let startY = 62;
+  if (allIncomes.length > 0) {
+    const incomeRows = allIncomes.map(p => {
+      const isThirdParty = !p.playerId;
+      const player = isThirdParty ? null : getPlayerById(p.playerId);
+      return [
+        isThirdParty ? (p.contributorName || 'Otro ingreso') : (player?.name || 'Desconocido'),
+        p.invoiceNumber || '-',
+        (p.paidDate || p.date || '').substring(0, 10),
+        p.concept || p.type || '',
+        isThirdParty ? '-' : (extractBillingMonth(p) || '-'),
+        formatCurrency(_getAmt(p))
+      ];
+    });
+
+    doc.setFontSize(9);
+    doc.setFont(undefined, 'bold');
+    doc.text('INGRESOS', 15, startY);
+    startY += 4;
+
+    doc.autoTable({
+      startY,
+      head: [['Jugador / Origen', 'Factura', 'Fecha', 'Concepto', 'Mes Fact.', 'Monto']],
+      body: incomeRows,
+      headStyles: { fillColor: pc, fontSize: 7 },
+      bodyStyles: { fontSize: 6 },
+      styles: { cellPadding: 1.5 },
+      margin: { left: 15, right: 15 },
+      didDrawPage: () => {}
+    });
+    startY = doc.lastAutoTable.finalY + 8;
+  }
+
+  const expenses = data.expenses || [];
+  if (expenses.length > 0) {
+    const expenseRows = expenses.map(e => [
+      e.beneficiaryName || '',
+      e.invoiceNumber || '-',
+      (e.date || '').substring(0, 10),
+      e.concept || e.description || '',
+      formatCurrency(e.amount || 0)
+    ]);
+
+    doc.setFontSize(9);
+    doc.setFont(undefined, 'bold');
+    doc.text('EGRESOS', 15, startY);
+    startY += 4;
+
+    doc.autoTable({
+      startY,
+      head: [['Beneficiario', 'Factura', 'Fecha', 'Concepto', 'Monto']],
+      body: expenseRows,
+      headStyles: { fillColor: [220, 38, 38], fontSize: 7 },
+      bodyStyles: { fontSize: 6 },
+      styles: { cellPadding: 1.5 },
+      margin: { left: 15, right: 15 }
+    });
+  }
+
+  doc.save(`detalle-mensual-${data.label.replace(/\s+/g, '-')}.pdf`);
+  showToast('✅ PDF descargado');
+  });
+}
+
+// ========================================
+// ⏰ JUGADORES CON PAGOS VENCIDOS
+// ========================================
+
+function renderOverduePlayers() {
+  const container = document.getElementById('overduePlayersList');
+  if (!container) return;
+
+  const players = getPlayers();
+  const payments = _accPayments();
+  const settings = typeof getSchoolSettings === 'function' ? getSchoolSettings() : {};
+  const defaultMonthlyFee = parseFloat(settings.monthlyFee) || 0;
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+
+  const overdue = [];
+
+  players.forEach(player => {
+    const playerPayments = payments.filter(p => p.playerId === player.id);
+
+    // 1) Pagos Pendiente explícitos con dueDate vencido
+    const explicitPending = playerPayments.filter(p => p.status === 'Pendiente' && p.dueDate);
+    explicitPending.forEach(p => {
+      const due = new Date(p.dueDate + 'T23:59:59');
+      const daysOverdue = Math.floor((now - due) / (1000 * 60 * 60 * 24));
+      if (daysOverdue >= 0) {
+        overdue.push({ player, payment: p, daysOverdue, amount: _getAmt(p) });
+      }
+    });
+
+    // 2) Meses faltantes (nunca se generó factura)
+    const missing = _accMissingMonthsForPlayer(player, playerPayments);
+    const monthlyTypeAmount = _getMonthlyTypeAmount(playerPayments) || defaultMonthlyFee;
+    missing.forEach(ms => {
+      const [y, m] = ms.split('-').map(Number);
+      const due = new Date(y, m, 0, 23, 59, 59);
+      const daysOverdue = Math.floor((now - due) / (1000 * 60 * 60 * 24));
+      if (daysOverdue >= 0) {
+        overdue.push({
+          player,
+          payment: { concept: `Mensualidad ${ms}`, dueDate: `${ms}-01`, amount: monthlyTypeAmount, type: 'Mensualidad' },
+          daysOverdue,
+          amount: monthlyTypeAmount
+        });
+      }
+    });
+  });
+
+  overdue.sort((a, b) => b.daysOverdue - a.daysOverdue);
+
+  const badge = document.getElementById('overdueCountBadge');
+  const uniquePlayers = new Set(overdue.map(o => o.player.id));
+  if (badge) badge.textContent = `${uniquePlayers.size} jugador(es) vencido(s)`;
+
+  if (overdue.length === 0) {
+    if (!container.querySelector('table')) {
+      container.innerHTML = `<div class="hidden md:block overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-gray-200 dark:border-gray-700">
+              <th class="text-left py-1 px-1.5 text-gray-500 dark:text-gray-400 text-[10px] font-medium uppercase">Jugador</th>
+              <th class="text-left py-1 px-1.5 text-gray-500 dark:text-gray-400 text-[10px] font-medium uppercase hidden md:table-cell">Acudiente</th>
+              <th class="text-left py-1 px-1.5 text-gray-500 dark:text-gray-400 text-[10px] font-medium uppercase hidden md:table-cell">Meses</th>
+              <th class="text-right py-1 px-1.5 text-gray-500 dark:text-gray-400 text-[10px] font-medium uppercase">Deuda</th>
+              <th class="text-center py-1 px-1.5 text-gray-500 dark:text-gray-400 text-[10px] font-medium uppercase">Días</th>
+              <th class="text-center py-1 px-1.5 text-gray-500 dark:text-gray-400 text-[10px] font-medium uppercase"></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div id="overduePlayersCards" class="md:hidden space-y-2"></div>`;
+    }
+    const tbody = container.querySelector('table tbody');
+    if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-gray-400 dark:text-gray-500 text-xs">
+      <i data-lucide="check-circle" class="w-6 h-6 text-green-400 mb-1 inline-block"></i><br>
+      No hay jugadores con pagos vencidos
+    </td></tr>`;
+    const cards = container.querySelector('#overduePlayersCards');
+    if (cards) cards.innerHTML = `<div class="text-center py-4 text-gray-400 dark:text-gray-500 text-xs">Sin jugadores vencidos</div>`;
+    window._overdueData = [];
+    if (typeof lucide !== 'undefined' && lucide.createIcons) {
+      setTimeout(() => { try { lucide.createIcons(); } catch(e) { /* noop */ } }, 50);
+    }
+    return;
+  }
+
+  const grouped = {};
+  overdue.forEach(o => {
+    if (!grouped[o.player.id]) {
+      grouped[o.player.id] = { player: o.player, totalDue: 0, items: [], maxDays: 0 };
+    }
+    grouped[o.player.id].totalDue += o.amount;
+    grouped[o.player.id].items.push(o);
+    if (o.daysOverdue > grouped[o.player.id].maxDays) grouped[o.player.id].maxDays = o.daysOverdue;
+  });
+
+  const sortedPlayers = Object.values(grouped).sort((a, b) => b.maxDays - a.maxDays);
+  window._overdueData = sortedPlayers;
+
+  // Recrea estructura HTML si fue reemplazada por el mensaje "sin datos"
+  if (!container.querySelector('table')) {
+    container.innerHTML = `<div class="hidden md:block overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-gray-200 dark:border-gray-700">
+            <th class="text-left py-1 px-1.5 text-gray-500 dark:text-gray-400 text-[10px] font-medium uppercase">Jugador</th>
+            <th class="text-left py-1 px-1.5 text-gray-500 dark:text-gray-400 text-[10px] font-medium uppercase hidden md:table-cell">Acudiente</th>
+            <th class="text-left py-1 px-1.5 text-gray-500 dark:text-gray-400 text-[10px] font-medium uppercase hidden md:table-cell">Meses</th>
+            <th class="text-right py-1 px-1.5 text-gray-500 dark:text-gray-400 text-[10px] font-medium uppercase">Deuda</th>
+            <th class="text-center py-1 px-1.5 text-gray-500 dark:text-gray-400 text-[10px] font-medium uppercase">Días</th>
+            <th class="text-center py-1 px-1.5 text-gray-500 dark:text-gray-400 text-[10px] font-medium uppercase"></th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div id="overduePlayersCards" class="md:hidden space-y-2"></div>`;
+  }
+
+  const tbody = container.querySelector('table tbody');
+  if (tbody) {
+    tbody.innerHTML = sortedPlayers.map(g => {
+      const monthsStr = _getOverdueMonths(g.items);
+      const guardian = g.player.guardianName || g.player.parentName || g.player.phone || '';
+      return `<tr class="border-b border-gray-100 dark:border-gray-700/50">
+        <td class="py-0.5 px-1.5">
+          <div class="text-xs font-medium text-gray-800 dark:text-white leading-tight">${_accEscapeHtml(g.player.name)}</div>
+          ${guardian ? `<div class="text-[9px] text-gray-400 leading-tight">${_accEscapeHtml(guardian)}</div>` : ''}
+          ${monthsStr ? `<div class="text-[9px] text-gray-500 leading-tight mt-0.5">${_accEscapeHtml(monthsStr)}</div>` : ''}
+        </td>
+        <td class="py-0.5 px-1.5 text-gray-500 dark:text-gray-400 text-[10px] hidden md:table-cell">${guardian ? _accEscapeHtml(guardian) : '-'}</td>
+        <td class="py-0.5 px-1.5 text-[10px] text-gray-600 dark:text-gray-400 hidden md:table-cell truncate max-w-[130px]" title="${_accEscapeHtml(monthsStr)}">${_accEscapeHtml(monthsStr)}</td>
+        <td class="py-0.5 px-1.5 text-right font-semibold text-gray-900 dark:text-gray-100 text-xs">${formatCurrency(g.totalDue)}</td>
+        <td class="py-0.5 px-1.5 text-center text-xs font-medium text-red-600">${g.maxDays}d</td>
+        <td class="py-0.5 px-1.5 text-center">
+          <button onclick="sendPendingReminderWA('${g.player.id}')" class="text-green-600 hover:text-green-700 p-0 align-middle" title="WA">
+            <i data-lucide="message-circle" class="w-3.5 h-3.5"></i>
+          </button>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+
+  const cards = container.querySelector('#overduePlayersCards');
+  if (cards) {
+    cards.innerHTML = sortedPlayers.map(g => {
+      const monthsStr = _getOverdueMonths(g.items);
+      const guardian = g.player.guardianName || g.player.parentName || g.player.phone || '';
+      return `<div class="py-1 border-b border-gray-100 dark:border-gray-700/50 last:border-0">
+        <div class="flex items-center gap-1 text-xs leading-tight">
+          <div class="flex-1 min-w-0">
+            <span class="font-medium text-gray-800 dark:text-white">${_accEscapeHtml(g.player.name)}</span>
+            ${guardian ? `<div class="text-[9px] text-gray-400">${_accEscapeHtml(guardian)}</div>` : ''}
+            ${monthsStr ? `<div class="text-[9px] text-gray-500">${_accEscapeHtml(monthsStr)}</div>` : ''}
+          </div>
+          <span class="text-gray-900 dark:text-gray-100 font-semibold shrink-0">${formatCurrency(g.totalDue)}</span>
+          <span class="text-red-600 font-medium shrink-0 w-8 text-right">${g.maxDays}d</span>
+          <button onclick="sendPendingReminderWA('${g.player.id}')" class="text-green-600 hover:text-green-700 shrink-0 p-0" title="WA">
+            <i data-lucide="message-circle" class="w-3 h-3"></i>
+          </button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  if (typeof lucide !== 'undefined' && lucide.createIcons) {
+    setTimeout(() => { try { lucide.createIcons(); } catch(e) { /* noop */ } }, 50);
+  }
+}
+
+function _getMonthlyTypeAmount(playerPayments) {
+  const paid = playerPayments.filter(p => (p.type === 'Mensualidad' || p.concept === 'Mensualidad') && p.status === 'Pagado' && p.amount);
+  if (paid.length === 0) return 0;
+  const total = paid.reduce((s, p) => s + _getAmt(p), 0);
+  return Math.round(total / paid.length);
+}
+
+function _getOverdueMonths(items) {
+  const months = new Set();
+  items.forEach(item => {
+    const p = item.payment;
+    const bm = extractBillingMonth(p);
+    if (bm) { months.add(bm); return; }
+    if (p.concept && p.concept.startsWith('Mensualidad ')) {
+      const parts = p.concept.split(' ');
+      if (parts[1] && /^\d{4}-\d{2}$/.test(parts[1])) { months.add(parts[1]); return; }
+    }
+    if (p.dueDate && /^\d{4}-\d{2}/.test(p.dueDate)) months.add(p.dueDate.substring(0, 7));
+  });
+  return Array.from(months).sort().map(m => _accFormatBillingMonth(m)).join(', ');
+}
+
+function generateOverduePDF() {
+  const data = window._overdueData || [];
+  if (data.length === 0) { showToast('⚠️ No hay jugadores vencidos'); return; }
+
+  _loadPdfLibs(() => {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    const settings = getSchoolSettings();
+    const primaryColor = [13, 148, 136];
+
+    doc.setFillColor(...primaryColor);
+    doc.rect(0, 0, 210, 40, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(18);
+    doc.setFont(undefined, 'bold');
+    doc.text('JUGADORES CON PAGOS VENCIDOS', 105, 20, { align: 'center' });
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'normal');
+    doc.text(settings.name || 'MI CLUB', 105, 30, { align: 'center' });
+
+    doc.setTextColor(31, 41, 55);
+    doc.setFontSize(8);
+    doc.text(`Generado: ${formatDateText(getCurrentDate())}`, 15, 48);
+
+    const sorted = [...data].sort((a, b) => (a.player.name || '').localeCompare(b.player.name || ''));
+    const rows = sorted.map(g => [
+      g.player.name || '',
+      g.player.guardianName || g.player.parentName || g.player.phone || '-',
+      formatCurrency(g.totalDue),
+      `${g.maxDays} día(s)`,
+      g.player.phone || ''
+    ]);
+
+    doc.autoTable({
+      startY: 55,
+      head: [['Jugador', 'Acudiente', 'Monto Adeudado', 'Días Vencido', 'Teléfono']],
+      body: rows,
+      headStyles: { fillColor: primaryColor, fontSize: 8 },
+      bodyStyles: { fontSize: 7 },
+      styles: { cellPadding: 2 },
+      margin: { top: 55 }
+    });
+
+    doc.save(`jugadores-vencidos-${getCurrentDate()}.pdf`);
+    showToast('✅ PDF descargado');
+  });
+}
+
+function toggleMorososSection() {
+  const content = document.getElementById('morososContent');
+  const btnText = document.getElementById('morososBtnText');
+  const chevron = document.getElementById('morososBtnChevron');
+  if (!content) return;
+  const isNowHidden = content.classList.toggle('hidden');
+  if (!isNowHidden) {
+    renderOverduePlayers();
+    renderAccountingPlayersTable();
+    if (btnText) btnText.textContent = 'Morosos';
+    if (chevron) chevron.style.transform = 'rotate(0deg)';
+  } else {
+    if (btnText) btnText.textContent = 'Ver Morosos';
+    if (chevron) chevron.style.transform = '';
+  }
+}
+window.toggleMorososSection = toggleMorososSection;
+
+window.showMonthlyDetail = showMonthlyDetail;
+window.closeMonthlyDetailModal = closeMonthlyDetailModal;
+window.exportMonthlyDetailCSV = exportMonthlyDetailCSV;
+window.generateOverduePDF = generateOverduePDF;
+window.generateMonthlyDetailPDF = generateMonthlyDetailPDF;

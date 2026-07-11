@@ -524,15 +524,18 @@ function mapRowToPlayer(headers, row) {
     headers.forEach((header, index) => {
         const value = String(row[index] || '').trim();
         
-        // Normalizar el nombre de la columna
-        const normalizedHeader = header.toLowerCase().replace(/[^\w]/g, '');
+        // Normalizar: limpiar acentos antes de quitar no-alfanuméricos
+        // "Teléfono" → "telefono" (no "telfono")
+        const normalizedHeader = header.toLowerCase()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9]/g, '');
         
         // NOMBRE COMPLETO (compatibilidad con plantillas antiguas)
-        if (['nombre', 'name', 'nombrecompleto'].includes(normalizedHeader)) {
+        if (['nombre', 'name', 'nombrecompleto', 'nombresyapellidos'].includes(normalizedHeader)) {
             player.name = value;
         }
         // PRIMER NOMBRE
-        else if (['primernombre', 'firstname', 'nombre1'].includes(normalizedHeader)) {
+        else if (['primernombre', 'firstname', 'nombre1', 'nombres'].includes(normalizedHeader)) {
             player._primerNombre = value;
         }
         // SEGUNDO NOMBRE
@@ -540,7 +543,7 @@ function mapRowToPlayer(headers, row) {
             player._segundoNombre = value;
         }
         // PRIMER APELLIDO
-        else if (['primerapellido', 'lastname', 'apellido', 'apellido1'].includes(normalizedHeader)) {
+        else if (['primerapellido', 'lastname', 'apellido', 'apellido1', 'apellidos'].includes(normalizedHeader)) {
             player._primerApellido = value;
         }
         // SEGUNDO APELLIDO
@@ -548,7 +551,7 @@ function mapRowToPlayer(headers, row) {
             player._segundoApellido = value;
         }
         // FECHA NACIMIENTO
-        else if (['fechanacimiento', 'birthdate', 'birthdate', 'nacimiento', 'fecha'].includes(normalizedHeader)) {
+        else if (['fechanacimiento', 'fechadenacimiento', 'birthdate', 'nacimiento', 'fecha'].includes(normalizedHeader)) {
             player.birthDate = formatImportDate(value);
         }
         // CATEGORÍA
@@ -560,7 +563,7 @@ function mapRowToPlayer(headers, row) {
             player.guardianName = value;
         }
         // TELÉFONO PADRE (PRINCIPAL)
-        else if (['telefonopadre', 'phone', 'celular', 'tel'].includes(normalizedHeader)) {
+        else if (['telefonopadre', 'telefono', 'phone', 'celular', 'tel'].includes(normalizedHeader)) {
             player.phone = normalizePhoneImport(value);
         }
         // NOMBRE MADRE / SEGUNDO ACUDIENTE
@@ -568,7 +571,7 @@ function mapRowToPlayer(headers, row) {
             player.guardianName2 = value;
         }
         // TELÉFONO MADRE (SEGUNDO CONTACTO)
-        else if (['telefonmadre', 'telefonomother', 'contactoemergencia', 'emergencia'].includes(normalizedHeader)) {
+        else if (['telefonmadre', 'telefonomother', 'telefonomama', 'telefonomadre', 'contactoemergencia', 'emergencia'].includes(normalizedHeader)) {
             player.phoneParent2 = normalizePhoneImport(value);
         }
         // TELÉFONO EMERGENCIA

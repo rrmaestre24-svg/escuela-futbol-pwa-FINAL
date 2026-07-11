@@ -1521,6 +1521,71 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
             </div>
 
             <!-- ========================================
+                MOROSOS - BOTÓN PRINCIPAL
+            ========================================= -->
+            <button onclick="toggleMorososSection()"
+                class="w-full bg-gradient-to-r from-red-600 to-orange-600 text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 hover:shadow-xl transition-all transform hover:scale-105">
+                <i data-lucide="alert-triangle" class="w-6 h-6"></i>
+                <span id="morososBtnText">Ver Morosos</span>
+                <i id="morososBtnChevron" data-lucide="chevron-down" class="w-5 h-5 transition-transform duration-200"></i>
+            </button>
+
+            <!-- Contenido Morosos (colapsable) -->
+            <div id="morososContent" class="hidden space-y-4">
+
+            <!-- ========================================
+                JUGADORES CON PAGOS VENCIDOS
+            ========================================= -->
+            <div class="glass-card rounded-xl shadow-sm overflow-hidden">
+                <button onclick="toggleOverdueSection()"
+                    class="w-full flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors">
+                    <h3 class="font-bold text-gray-700 dark:text-gray-200 flex items-center gap-2 text-sm">
+                        <i data-lucide="alert-triangle" class="w-4 h-4 text-red-500"></i>
+                        Jugadores Vencidos
+                    </h3>
+                    <div class="flex items-center gap-2">
+                        <span id="overdueCountBadge" class="text-xs text-gray-500 dark:text-gray-400 font-medium"></span>
+                        <i id="overdueChevron" data-lucide="chevron-down" class="w-4 h-4 text-gray-400 transition-transform duration-200" style="transform:rotate(-90deg)"></i>
+                    </div>
+                </button>
+                <div id="overdueSectionBody" class="hidden">
+                <div id="overduePlayersList" class="p-2 sm:p-4">
+                    <div class="hidden md:block overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="border-b border-gray-200 dark:border-gray-700">
+                                    <th class="text-left py-1 px-1.5 text-gray-500 dark:text-gray-400 text-[10px] font-medium uppercase">Jugador</th>
+                                    <th class="text-left py-1 px-1.5 text-gray-500 dark:text-gray-400 text-[10px] font-medium uppercase hidden md:table-cell">Acudiente</th>
+                                    <th class="text-left py-1 px-1.5 text-gray-500 dark:text-gray-400 text-[10px] font-medium uppercase hidden md:table-cell">Meses</th>
+                                    <th class="text-right py-1 px-1.5 text-gray-500 dark:text-gray-400 text-[10px] font-medium uppercase">Deuda</th>
+                                    <th class="text-center py-1 px-1.5 text-gray-500 dark:text-gray-400 text-[10px] font-medium uppercase">Días</th>
+                                    <th class="text-center py-1 px-1.5 text-gray-500 dark:text-gray-400 text-[10px] font-medium uppercase"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="6" class="text-center py-4 text-gray-500 dark:text-gray-400 text-xs">
+                                        Cargando...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="overduePlayersCards" class="md:hidden space-y-2">
+                        <p class="text-gray-500 text-sm text-center py-4">Cargando...</p>
+                    </div>
+                </div>
+                <div class="px-2 sm:px-4 pb-3">
+                    <button onclick="generateOverduePDF()"
+                        class="w-full py-2 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-all">
+                        <i data-lucide="file-text" class="w-4 h-4"></i>
+                        Descargar PDF de Vencidos
+                    </button>
+                </div>
+                </div>
+            </div>
+
+            <!-- ========================================
                 TABLA DE JUGADORES
             ========================================= -->
             <div class="glass-card rounded-xl shadow-sm overflow-hidden">
@@ -1529,10 +1594,10 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
                     class="w-full flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                     <h4 class="font-bold text-gray-800 dark:text-white">📋 Estado por Jugador</h4>
                     <i id="accountingTableChevron" data-lucide="chevron-down"
-                        class="w-5 h-5 text-gray-500 dark:text-gray-400 transition-transform duration-200"></i>
+                        class="w-5 h-5 text-gray-500 dark:text-gray-400 transition-transform duration-200" style="transform:rotate(-90deg)"></i>
                 </button>
                 <!-- Contenido colapsable -->
-                <div id="accountingTableBody" class="sm:overflow-x-auto p-2 sm:p-4">
+                <div id="accountingTableBody" class="sm:overflow-x-auto p-2 sm:p-4 hidden">
                     <table class="w-full text-sm table-fixed sm:table-auto">
                         <thead>
                             <tr class="border-b border-gray-200 dark:border-gray-700">
@@ -1555,21 +1620,28 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
                 </div>
             </div>
 
+            </div><!-- fin morososContent -->
+
             <!-- ========================================
                 FACTURAS ANULADAS
             ========================================= -->
             <div class="glass-card rounded-xl shadow-sm overflow-hidden">
-                <div
-                    class="flex items-center justify-between px-4 py-3 border-b border-red-100 dark:border-red-900/30 bg-red-50 dark:bg-red-900/10">
-                    <h3 class="font-bold text-red-700 dark:text-red-400 flex items-center gap-2">
+                <button onclick="toggleVoidedSection()"
+                    class="w-full flex items-center justify-between px-4 py-3 border-b border-red-100 dark:border-red-900/30 bg-red-50 dark:bg-red-900/10 hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors">
+                    <h3 class="font-bold text-red-700 dark:text-red-400 flex items-center gap-2 text-sm">
                         <i data-lucide="ban" class="w-4 h-4"></i>
                         Facturas Anuladas
                     </h3>
-                    <span id="voidedCountBadge" class="text-xs text-red-600 dark:text-red-400 font-medium"></span>
-                </div>
+                    <div class="flex items-center gap-2">
+                        <span id="voidedCountBadge" class="text-xs text-red-600 dark:text-red-400 font-medium"></span>
+                        <i id="voidedChevron" data-lucide="chevron-down" class="w-4 h-4 text-red-400 transition-transform duration-200" style="transform:rotate(-90deg)"></i>
+                    </div>
+                </button>
+                <div id="voidedSectionBody" class="hidden">
                 <div id="voidedPaymentsList"
                     class="divide-y divide-gray-100 dark:divide-gray-700/50 max-h-72 overflow-y-auto">
                     <p class="text-gray-400 text-sm text-center py-6">Cargando...</p>
+                </div>
                 </div>
             </div>
 
