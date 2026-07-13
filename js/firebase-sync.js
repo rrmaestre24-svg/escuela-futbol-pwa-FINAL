@@ -1690,6 +1690,18 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false } = {}) {
     }
   } catch (e) { console.warn('[sync] ensureJwt pre-download falló (sigue con anon):', e?.message || e); }
 
+  // ⛔ GUARD CRÍTICO: sin JWT de Supabase NO se descarga. Firebase ya no existe para
+  //    re-mintear, así que una descarga sin sesión iría con la anon key → RLS cerrado
+  //    devuelve 0 filas → SOBREESCRIBIRÍA la caché local (jugadores/pagos) con vacío.
+  //    Se conserva la caché y se pide re-login. (Este era el bug del "todo en 0".)
+  const _jwtFinal = (window.SupaAuthV2 && typeof window.SupaAuthV2.getToken === 'function' && window.SupaAuthV2.getToken())
+                 || (window.SupaAuth && typeof window.SupaAuth.getToken === 'function' && window.SupaAuth.getToken());
+  if (!_jwtFinal) {
+    console.warn('[sync] ⛔ Sin sesión Supabase — descarga OMITIDA para no borrar la caché local. Vuelve a iniciar sesión.');
+    if (typeof showToast === 'function') showToast('⚠️ Sesión expirada — vuelve a iniciar sesión para sincronizar.');
+    return false;
+  }
+
   // LOCAL-FIRST GUARD: reutilizar caché si está fresca (mismo comportamiento que Firebase)
   // Nota: _FULL_DOWNLOAD_TTL_MS es const en auth.js (no global), usamos el mismo valor literal.
   const _SUPA_TTL_MS = 15 * 60 * 1000; // 15 minutos
