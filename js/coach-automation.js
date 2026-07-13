@@ -76,13 +76,6 @@ async function loadCoachAccessStatus() {
           loadedCoaches = coachAccessData.coaches;
         }
       }
-    } else {
-      if (!window.firebase?.db) return;
-      const coachesRef = window.firebase.collection(window.firebase.db, `clubs/${clubId}/coaches`);
-      const coachesSnapshot = await window.firebase.getDocs(coachesRef);
-      coachesSnapshot.forEach(doc => {
-        loadedCoaches.push({ id: doc.id, ...doc.data() });
-      });
     }
 
     coachAccessData.coaches = loadedCoaches;
@@ -229,69 +222,16 @@ async function saveCoachPWA() {
     btn.innerHTML = '<i class="lucide-loader w-5 h-5 animate-spin"></i> Guardando...';
     btn.disabled = true;
 
-    try {
-        const { db, collection, doc, addDoc, updateDoc } = window.firebase;
-        
-        if (id) {
-            // Update
-            const coachRef = doc(db, `clubs/${clubId}/coaches`, id);
-            await updateDoc(coachRef, {
-                name,
-                categories,
-                updatedAt: new Date().toISOString()
-            });
-            showToast('✅ Profesor actualizado');
-        } else {
-            // Generate 6 digit uppercase alphanum code
-            const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-            
-            // Create
-            await addDoc(collection(db, `clubs/${clubId}/coaches`), {
-                name,
-                categories,
-                code,
-                active: true,
-                createdAt: new Date().toISOString()
-            });
-            showToast(`✅ Profesor creado con código: ${code}`);
-        }
-        
-        closeCoachFormModal();
-        await loadCoachAccessStatus();
-        renderCoachAccessList();
-    } catch (err) {
-        console.error(err);
-        showToast('❌ Error al guardar el profesor');
-    } finally {
-        btn.innerHTML = originalText;
-        btn.disabled = false;
-    }
+    showToast('⏳ Módulo en migración — usa la app de asistencias directamente');
+    btn.innerHTML = originalText;
+    btn.disabled = false;
 }
 
 /**
  * Delete Coach
  */
 async function deleteCoachPWA(coachId) {
-    const confirmed = await showAppConfirm('¿Estás seguro de eliminar a este profesor? No perderás los registros de asistencia previos elaborados por él.', {
-        type: 'danger',
-        title: 'Eliminar profesor',
-        confirmText: 'Sí, eliminar'
-    });
-    if (!confirmed) return;
-    
-    try {
-        const clubId = localStorage.getItem('clubId');
-        const { db, doc, deleteDoc } = window.firebase;
-        
-        await deleteDoc(doc(db, `clubs/${clubId}/coaches`, coachId));
-        showToast('🗑️ Profesor eliminado');
-        
-        await loadCoachAccessStatus();
-        renderCoachAccessList();
-    } catch (e) {
-        console.error(e);
-        showToast('❌ Error al eliminar');
-    }
+    showToast('⏳ Función en migración');
 }
 
 /**
@@ -350,28 +290,7 @@ async function goToAttendanceAdminPanel() {
     const clubId = localStorage.getItem('clubId');
     if (!clubId) return showToast('Error: No se encontró ID de club activo');
     
-    let autoLoginQuery = '';
-    try {
-        if (window.firebase?.db) {
-            const { db, doc, getDoc } = window.firebase;
-            const settingsDoc = await getDoc(doc(db, `clubs/${clubId}/settings`, 'attendance'));
-            if (settingsDoc.exists()) {
-                const attendanceData = settingsDoc.data() || {};
-                const accessCode = attendanceData.adminCode || attendanceData.coachCode;
-                if (accessCode) {
-                    autoLoginQuery = `&autoLogin=${accessCode}`;
-                } else {
-                    autoLoginQuery = `&autoLogin=admin123`;
-                }
-            } else {
-                autoLoginQuery = `&autoLogin=admin123`;
-            }
-        }
-    } catch (e) {
-        console.error('Error fetching admin code config:', e);
-    }
-
-    const targetUrl = `https://asistencia.appmyclub.com/admin.html?clubId=${clubId}${autoLoginQuery}`;
+    const targetUrl = `https://asistencia.appmyclub.com/admin.html?clubId=${clubId}`;
     window.open(targetUrl, '_blank');
 }
 

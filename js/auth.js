@@ -96,12 +96,12 @@ function updateSchoolSettings(updates) {
     const updated = { ...current, ...(updates || {}) };
     localStorage.setItem('schoolSettings', JSON.stringify(updated));
 
-    // Solo sincronizar a la nube si updates trae claves reales del club
-    // (evita PATCH innecesarios cuando notifications.js o descartes triviales llaman updateSchoolSettings).
+    // Persistir en la nube (PATCH a clubs en Supabase vía saveSchoolSettingsToFirebase,
+    // que está en firebase-sync.js). Sin esto, cambiar config/logo NO se guarda en la BD.
+    // Solo si el update trae claves REALES del club (evita PATCH triviales).
     const CLUB_KEYS = ['name','phone','email','address','city','country','coachCode','monthlyFee','monthlyDueDay','monthlyGraceDays','currency','primaryColor','logo'];
     const tocaClub = Object.keys(updates || {}).some(k => CLUB_KEYS.includes(k));
-    if (tocaClub && typeof saveSchoolSettingsToFirebase === 'function' &&
-        (window.MODO_SUPABASE || (window.APP_STATE?.firebaseReady && window.firebase?.db))) {
+    if (tocaClub && typeof saveSchoolSettingsToFirebase === 'function') {
       saveSchoolSettingsToFirebase(updated).catch(err =>
         console.warn('⚠️ No se pudo sincronizar configuración:', err));
     }
@@ -201,34 +201,7 @@ async function checkClubIdExists(clubId) {
     return false;
   }
 
-  if (!window.firebase?.db) {
-    console.warn('⚠️ Firebase no disponible para verificar Club ID');
-    return false;
-  }
-
-  try {
-    const settingsRef = window.firebase.doc(
-      window.firebase.db, `clubs/${clubId}/settings`, 'main'
-    );
-    const settingsSnap = await window.firebase.getDoc(settingsRef);
-    if (settingsSnap.exists()) {
-      console.log('❌ Club ID ya existe (settings):', clubId);
-      return true;
-    }
-
-    const licenseRef = window.firebase.doc(window.firebase.db, 'licenses', clubId);
-    const licenseSnap = await window.firebase.getDoc(licenseRef);
-    if (licenseSnap.exists()) {
-      console.log('❌ Club ID ya existe (licenses):', clubId);
-      return true;
-    }
-
-    console.log('✅ Club ID disponible:', clubId);
-    return false;
-  } catch (error) {
-    console.error('❌ Error al verificar Club ID:', error);
-    return false;
-  }
+  return false;
 }
 
 // Inicializar app
@@ -255,20 +228,6 @@ function initApp() {
 // CÓDIGO ORIGINAL DE AUTH.JS
 // ========================================
 
-// ✅ FUNCIÓN AUXILIAR: Esperar a que Firebase esté listo
-async function waitForFirebase(maxAttempts = 10) {
-  for (let i = 0; i < maxAttempts; i++) {
-    if (window.APP_STATE?.firebaseReady && window.firebase?.auth) {
-      console.log('✅ Firebase está listo');
-      return true;
-    }
-    console.log(`⏳ Esperando Firebase... intento ${i + 1}/${maxAttempts}`);
-    await new Promise(resolve => setTimeout(resolve, 500));
-  }
-  console.error('❌ Firebase no se inicializó después de esperar');
-  return false;
-}
-
 function normalizeUserEmail(email) {
   return (email || '').trim().toLowerCase();
 }
@@ -282,36 +241,8 @@ async function saveUserClubMapping(email, clubId, uid) {
     return true;
   }
 
-  if (!window.firebase?.db) {
-    console.warn('⚠️ Firebase no disponible para guardar mapeo');
-    return false;
-  }
-  
-  try {
-    const normalizedEmail = normalizeUserEmail(email);
-    if (!normalizedEmail) {
-      console.warn('⚠️ Email inválido para guardar mapeo');
-      return false;
-    }
-    
-    console.log('💾 Guardando mapeo:', normalizedEmail, '→', clubId);
-    
-    await window.firebase.setDoc(
-      window.firebase.doc(window.firebase.db, 'userClubMapping', normalizedEmail),
-      {
-        email: normalizedEmail,
-        clubId: clubId,
-        uid: uid,
-        updatedAt: new Date().toISOString()
-      }
-    );
-    
-    console.log('✅ Mapeo guardado exitosamente');
-    return true;
-  } catch (error) {
-    console.error('❌ Error al guardar mapeo:', error);
-    return false;
-  }
+  console.log('ℹ️ saveUserClubMapping omitido — modo legacy sin Firebase');
+  return false;
 }
 
 // ✅ FUNCIÓN MEJORADA: Obtener clubId desde múltiples fuentes
@@ -366,42 +297,6 @@ async function getClubIdForUser(email) {
       } catch (e) {
         console.warn('⚠️ Error buscando clubId en Supabase:', e.message);
       }
-    } else if (window.firebase?.db) {
-      console.log('🔥 Buscando clubId en Firebase...');
-      const candidateEmails = [...new Set([
-        normalizedEmail,
-        (email || '').trim(),
-        (window.firebase?.auth?.currentUser?.email || '').trim()
-      ].filter(Boolean))];
-      let mappingSnap = null;
-      let mappingDocId = null;
-
-      for (const candidateEmail of candidateEmails) {
-        const userMappingRef = window.firebase.doc(
-          window.firebase.db,
-          'userClubMapping',
-          candidateEmail
-        );
-        const candidateSnap = await window.firebase.getDoc(userMappingRef);
-        if (candidateSnap.exists()) {
-          mappingSnap = candidateSnap;
-          mappingDocId = candidateEmail;
-          break;
-        }
-      }
-
-      if (mappingSnap && mappingSnap.exists()) {
-        const data = mappingSnap.data();
-        const clubId = data.clubId;
-        localStorage.setItem('clubId', clubId);
-        if (mappingDocId !== normalizedEmail) {
-          console.warn('ℹ️ Mapeo encontrado con formato legacy:', mappingDocId);
-        }
-        console.log('✅ clubId encontrado en Firebase:', clubId);
-        return clubId;
-      } else {
-        console.log('⚠️ No existe mapeo en Firebase para:', normalizedEmail);
-      }
     }
 
     console.warn('❌ No se encontró clubId en ninguna fuente');
@@ -438,202 +333,9 @@ async function downloadAllClubData(clubId, { force = false } = {}) {
     return downloadAllClubDataFromSupabase(clubId, { force });
   }
 
-  if (!window.APP_STATE?.firebaseReady || !window.firebase?.auth?.currentUser) {
-    console.warn('⚠️ Firebase no está listo o no hay usuario autenticado');
-    return false;
-  }
-
-  // ⚡ LOCAL-FIRST GUARD: si los datos clave ya están frescos, no re-descargar
-  if (!force) {
-    const canReuseLocal = typeof shouldReuseLocalSnapshot === 'function'
-      ? shouldReuseLocalSnapshot(clubId, 'players', { ttlMs: _FULL_DOWNLOAD_TTL_MS }) &&
-        shouldReuseLocalSnapshot(clubId, 'payments', { ttlMs: _FULL_DOWNLOAD_TTL_MS }) &&
-        shouldReuseLocalSnapshot(clubId, 'settings', { ttlMs: _FULL_DOWNLOAD_TTL_MS })
-      : false;
-
-    if (canReuseLocal) {
-      console.log('⚡ [LOCAL-FIRST] Datos del club frescos en localStorage — omitiendo descarga de Firebase');
-      showToast('⚡ Datos cargados desde caché local');
-      return true;
-    }
-  }
-
-  try {
-    console.log('🔥 Descargando datos del club:', clubId);
-    showToast('🔥 Sincronizando datos...');
-
-    // 1️⃣ Configuración del club
-    const settingsRef = window.firebase.doc(
-      window.firebase.db, 
-      `clubs/${clubId}/settings`, 
-      "main"
-    );
-    const settingsSnap = await window.firebase.getDoc(settingsRef);
-    
-    if (!settingsSnap.exists()) {
-      console.log('⚠️ No hay configuración en Firebase para este club');
-      showToast('⚠️ No se encontraron datos del club');
-      return false;
-    }
-
-    const clubSettings = settingsSnap.data();
-    saveSchoolSettings(clubSettings);
-    console.log('✅ Configuración descargada');
-
-    // 2️⃣ Jugadores
-    const playersSnapshot = await window.firebase.getDocs(
-      window.firebase.collection(window.firebase.db, `clubs/${clubId}/players`)
-    );
-    
-    const players = [];
-    playersSnapshot.forEach(doc => {
-      players.push({ id: doc.id, ...doc.data() });
-    });
-    
-    saveAllPlayers(players);
-    console.log(`✅ ${players.length} jugadores descargados`);
-
-    // 3️⃣ Pagos — filtro 12 meses para evitar lecturas masivas
-    const _paymentCutoff = new Date();
-    _paymentCutoff.setFullYear(_paymentCutoff.getFullYear() - 1);
-    const _paymentCutoffStr = _paymentCutoff.toISOString().split('T')[0];
-    const paymentsSnapshot = await window.firebase.getDocs(
-      window.firebase.query(
-        window.firebase.collection(window.firebase.db, `clubs/${clubId}/payments`),
-        window.firebase.where('dueDate', '>=', _paymentCutoffStr)
-      )
-    );
-    
-    const payments = [];
-    paymentsSnapshot.forEach(doc => {
-      payments.push({ id: doc.id, ...doc.data() });
-    });
-    
-    // ✅ Resetear flag de historial completo para no dejar listeners sin límite
-    localStorage.removeItem('paymentsFullHistory');
-    // 🆕 IDB PRIMERO — recibe TODOS los pagos sin importar la cuota de localStorage
-    if (window.idb && window.idb.syncPaymentsToIDB) {
-      window.idb.syncPaymentsToIDB(payments).catch(e => console.warn('[idb] sync (post-login) falló:', e));
-    }
-    // localStorage con fallback si supera la cuota (clientes grandes)
-    try {
-      localStorage.setItem('payments', JSON.stringify(payments));
-    } catch (quotaErr) {
-      const sorted = [...payments].sort((a, b) =>
-        (b.paidDate || b.dueDate || '').localeCompare(a.paidDate || a.dueDate || '')
-      );
-      let saved = false;
-      for (const limit of [500, 300, 200, 100]) {
-        try {
-          localStorage.setItem('payments', JSON.stringify(sorted.slice(0, limit)));
-          console.warn(`⚠️ Cuota localStorage — guardados ${limit} pagos más recientes (de ${payments.length}). Resto disponible en IndexedDB.`);
-          saved = true;
-          break;
-        } catch (_) { /* probar tamaño más chico */ }
-      }
-      if (!saved) {
-        console.error('⚠️ Cuota localStorage crítica — pagos solo en IndexedDB');
-        try { localStorage.setItem('payments', '[]'); } catch (_) {}
-      }
-    }
-    console.log(`✅ ${payments.length} pagos descargados (últimos 12 meses desde ${_paymentCutoffStr})`);
-
-    // 4️⃣ Eventos
-    const eventsSnapshot = await window.firebase.getDocs(
-      window.firebase.collection(window.firebase.db, `clubs/${clubId}/events`)
-    );
-    
-    const events = [];
-    eventsSnapshot.forEach(doc => {
-      events.push({ id: doc.id, ...doc.data() });
-    });
-    
-    // IDB primero
-    if (window.idb && window.idb.syncStore) {
-      window.idb.syncStore('events', events).catch(e => console.warn('[idb] sync events (post-login) falló:', e));
-    }
-    safeSetItem('calendarEvents', JSON.stringify(events));
-    console.log(`✅ ${events.length} eventos descargados`);
-
-    // 5️⃣ Usuarios del club
-    const usersRef = window.firebase.collection(
-      window.firebase.db, 
-      `clubs/${clubId}/users`
-    );
-    const usersSnapshot = await window.firebase.getDocs(usersRef);
-    
-    const clubUsers = [];
-    usersSnapshot.forEach(doc => {
-      const user = doc.data();
-      clubUsers.push({
-        id: user.id,
-        schoolId: clubId,
-        email: user.email,
-        name: user.name,
-        isMainAdmin: user.isMainAdmin || false,
-        role: user.role || 'admin',
-        avatar: user.avatar || '',
-        phone: user.phone || '',
-        birthDate: user.birthDate || '',
-        password: 'encrypted',
-        createdAt: user.createdAt || user.joinedAt || new Date().toISOString()
-      });
-    });
-    
-    safeSetItem('users', JSON.stringify(clubUsers));
-    console.log(`✅ ${clubUsers.length} usuarios descargados`);
-
-    // 6️⃣ Egresos
-    const expensesSnapshot = await window.firebase.getDocs(
-      window.firebase.collection(window.firebase.db, `clubs/${clubId}/expenses`)
-    );
-
-    const expenses = [];
-    expensesSnapshot.forEach(doc => {
-      expenses.push({ id: doc.id, ...doc.data() });
-    });
-
-    // IDB primero
-    if (window.idb && window.idb.syncStore) {
-      window.idb.syncStore('expenses', expenses).catch(e => console.warn('[idb] sync expenses (post-login) falló:', e));
-    }
-    safeSetItem('expenses', JSON.stringify(expenses));
-    console.log(`✅ ${expenses.length} egresos descargados`);
-
-    // 7️⃣ Otros ingresos (terceros)
-    const thirdPartySnapshot = await window.firebase.getDocs(
-      window.firebase.collection(window.firebase.db, `clubs/${clubId}/thirdPartyIncomes`)
-    );
-
-    const thirdPartyIncomes = [];
-    thirdPartySnapshot.forEach(doc => {
-      thirdPartyIncomes.push({ id: doc.id, ...doc.data() });
-    });
-
-    // IDB primero
-    if (window.idb && window.idb.syncStore) {
-      window.idb.syncStore('thirdPartyIncomes', thirdPartyIncomes).catch(e => console.warn('[idb] sync thirdPartyIncomes (post-login) falló:', e));
-    }
-    safeSetItem('thirdPartyIncomes', JSON.stringify(thirdPartyIncomes));
-    console.log(`✅ ${thirdPartyIncomes.length} otros ingresos descargados`);
-
-    // Marca el momento de la descarga para que realtime-sync no vuelva a bajar los mismos datos
-    localStorage.setItem('_lastFullDownload', JSON.stringify({ clubId, ts: Date.now() }));
-
-    // ⚡ LOCAL-FIRST: marcar cada colección como sincronizada para el próximo acceso
-    if (typeof markLocalSnapshotSynced === 'function') {
-      const syncedScopes = ['settings', 'players', 'payments', 'events', 'expenses', 'users', 'thirdPartyIncomes'];
-      syncedScopes.forEach(scope => markLocalSnapshotSynced(clubId, scope, { source: 'firebase' }));
-      console.log('⚡ [LOCAL-FIRST] Marcas de caché actualizadas para:', syncedScopes.length, 'colecciones');
-    }
-
-    showToast('✅ Datos sincronizados correctamente');
-    return true;
-  } catch (error) {
-    console.error('❌ Error al descargar datos:', error);
-    showToast('⚠️ Error al descargar datos: ' + error.message);
-    return false;
-  }
+  console.warn('⚠️ No hay método de descarga disponible');
+  showToast('⚠️ No se pudo sincronizar datos');
+  return false;
 }
 
 // Mostrar tab de login
@@ -716,13 +418,7 @@ document.getElementById('loginForm')?.addEventListener('submit', async function(
     console.log('🔍 Club ID no proporcionado, se buscará automáticamente');
   }
   
-  // Esperar a que Firebase esté listo (solo necesario para el fallback legacy).
-  const firebaseReady = await waitForFirebase();
-
-  // El login PRIMARIO es SupaAuthV2 (Supabase Auth, no requiere Firebase). Solo
-  // bloquear si NO hay ninguna forma de autenticar (ni Supabase Auth ni Firebase).
-  // Con Firebase presente el comportamiento es idéntico al anterior.
-  if (!window.SupaAuthV2 && (!firebaseReady || !window.firebase?.auth)) {
+  if (!window.SupaAuthV2) {
     showToast('❌ No se pudo conectar. Recarga la página.');
     return;
   }
@@ -730,8 +426,7 @@ document.getElementById('loginForm')?.addEventListener('submit', async function(
   try {
     showToast('🔐 Verificando credenciales...');
 
-    // 1️⃣ DUAL AUTH: intentar Supabase primero (camino principal post-cutover).
-    //    Si falla, fallback Firebase (legacy, será removido el 26/06).
+    // 1️⃣ Autenticar con Supabase
     let firebaseUid = null;
     let authMethod = null;
 
@@ -765,28 +460,9 @@ document.getElementById('loginForm')?.addEventListener('submit', async function(
           getIdToken: async () => null,
         };
       } catch (supaErr) {
-        console.log('[DUAL AUTH] Supabase falló, intentando Firebase:', supaErr?.message || supaErr);
-      }
-    }
-
-    // Fallback Firebase (camino legacy)
-    if (!authMethod) {
-      const userCredential = await window.firebase.signInWithEmailAndPassword(
-        window.firebase.auth, email, password
-      );
-      authMethod = 'firebase';
-      console.log('✅ Autenticado en Firebase (fallback)');
-      window.APP_STATE.currentUser = userCredential.user;
-      firebaseUid = userCredential.user.uid;
-
-      // Mint JWT Supabase a partir del Firebase ID Token
-      if (window.SupaAuth) {
-        try {
-          const idToken = await userCredential.user.getIdToken();
-          await window.SupaAuth.mintFirebase(idToken);
-        } catch (e) {
-          console.warn('[SupaAuth] mint falló (sigue con anon):', e?.message || e);
-        }
+        console.error('[LOGIN] Supabase falló:', supaErr?.message || supaErr);
+        showToast('❌ ' + (supaErr?.message || 'Error al iniciar sesión'));
+        return;
       }
     }
 
@@ -802,30 +478,13 @@ document.getElementById('loginForm')?.addEventListener('submit', async function(
       console.log('⚡ Intentando login directo con clubId:', clubIdInput);
 
       try {
-        if (window.MODO_SUPABASE) {
-          const res = await fetch(
-            `${window.SUPA_URL}/rest/v1/users?id=eq.${encodeURIComponent(firebaseUid)}&club_id=eq.${encodeURIComponent(clubIdInput)}&deleted=eq.false&select=id`,
-            { headers: { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}` } }
-          );
-          if (res.ok) {
-            const rows = await res.json();
-            if (rows.length > 0) {
-              clubId = clubIdInput;
-              console.log('✅ Usuario encontrado en club:', clubId);
-              showToast('✅ Acceso rápido exitoso');
-            } else {
-              console.warn('⚠️ Usuario no encontrado en el club proporcionado');
-              showToast('⚠️ Club ID incorrecto, buscando automáticamente...');
-            }
-          }
-        } else {
-          const userInClubRef = window.firebase.doc(
-            window.firebase.db,
-            `clubs/${clubIdInput}/users`,
-            firebaseUid
-          );
-          const userInClubSnap = await window.firebase.getDoc(userInClubRef);
-          if (userInClubSnap.exists()) {
+        const res = await fetch(
+          `${window.SUPA_URL}/rest/v1/users?id=eq.${encodeURIComponent(firebaseUid)}&club_id=eq.${encodeURIComponent(clubIdInput)}&deleted=eq.false&select=id`,
+          { headers: { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}` } }
+        );
+        if (res.ok) {
+          const rows = await res.json();
+          if (rows.length > 0) {
             clubId = clubIdInput;
             console.log('✅ Usuario encontrado en club:', clubId);
             showToast('✅ Acceso rápido exitoso');
@@ -849,7 +508,6 @@ document.getElementById('loginForm')?.addEventListener('submit', async function(
     
     if (!clubId) {
       showToast('❌ No se encontró tu club. Verifica el ID o contacta al administrador.');
-      await window.firebase.signOut(window.firebase.auth);
       return;
     }
 
@@ -867,59 +525,31 @@ document.getElementById('loginForm')?.addEventListener('submit', async function(
     console.log('🔍 Verificando si usuario está registrado en users...');
 
     try {
-      if (window.MODO_SUPABASE) {
-        const checkRes = await fetch(
-          `${window.SUPA_URL}/rest/v1/users?id=eq.${encodeURIComponent(firebaseUid)}&club_id=eq.${encodeURIComponent(clubId)}&select=id`,
-          { headers: { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}` } }
-        );
-        if (checkRes.ok) {
-          const rows = await checkRes.json();
-          if (rows.length === 0) {
-            console.log('⚠️ Usuario NO está en Supabase users, registrando...');
-            showToast('🔧 Configurando acceso...');
-            await fetch(`${window.SUPA_URL}/rest/v1/users`, {
-              method: 'POST',
-              headers: { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
-              body: JSON.stringify({
-                id: firebaseUid,
-                club_id: clubId,
-                email: email,
-                name: window.APP_STATE.currentUser?.displayName || email.split('@')[0],
-                is_main_admin: false,
-                role: 'admin',
-                deleted: false,
-                created_at: new Date().toISOString()
-              })
-            });
-            console.log('✅ Usuario registrado en Supabase');
-          } else {
-            console.log('✅ Usuario ya existe en Supabase');
-          }
-        }
-      } else {
-        const userInClubRef = window.firebase.doc(
-          window.firebase.db,
-          `clubs/${clubId}/users`,
-          firebaseUid
-        );
-        const userInClubDoc = await window.firebase.getDoc(userInClubRef);
-        if (!userInClubDoc.exists()) {
-          console.log('⚠️ Usuario NO está en club/users, registrando...');
+      const checkRes = await fetch(
+        `${window.SUPA_URL}/rest/v1/users?id=eq.${encodeURIComponent(firebaseUid)}&club_id=eq.${encodeURIComponent(clubId)}&select=id`,
+        { headers: { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}` } }
+      );
+      if (checkRes.ok) {
+        const rows = await checkRes.json();
+        if (rows.length === 0) {
+          console.log('⚠️ Usuario NO está en Supabase users, registrando...');
           showToast('🔧 Configurando acceso...');
-          await window.firebase.setDoc(userInClubRef, {
-            id: firebaseUid,
-            email: email,
-            name: window.APP_STATE.currentUser?.displayName || email.split('@')[0],
-            isMainAdmin: false,
-            role: 'admin',
-            avatar: '',
-            phone: '',
-            birthDate: '',
-            joinedAt: new Date().toISOString()
+          await fetch(`${window.SUPA_URL}/rest/v1/users`, {
+            method: 'POST',
+            headers: { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+            body: JSON.stringify({
+              id: firebaseUid,
+              club_id: clubId,
+              email: email,
+              name: window.APP_STATE.currentUser?.displayName || email.split('@')[0],
+              is_main_admin: false,
+              deleted: false,
+              created_at: new Date().toISOString()
+            })
           });
-          console.log('✅ Usuario registrado en club/users');
+          console.log('✅ Usuario registrado en Supabase');
         } else {
-          console.log('✅ Usuario ya existe en club/users');
+          console.log('✅ Usuario ya existe en Supabase');
         }
       }
     } catch (registerError) {
@@ -976,23 +606,11 @@ document.getElementById('loginForm')?.addEventListener('submit', async function(
       
     } else {
       showToast('❌ Error al descargar datos del club');
-      await window.firebase.signOut(window.firebase.auth);
     }
     
-  } catch (authError) {
-    console.error('❌ Error de autenticación:', authError);
-    
-    if (authError.code === 'auth/invalid-credential' || authError.code === 'auth/wrong-password') {
-      showToast('❌ Email o contraseña incorrectos');
-    } else if (authError.code === 'auth/user-not-found') {
-      showToast('❌ Usuario no encontrado');
-    } else if (authError.code === 'auth/too-many-requests') {
-      showToast('❌ Demasiados intentos. Intenta más tarde.');
-    } else if (authError.code === 'auth/network-request-failed') {
-      showToast('❌ Error de conexión. Verifica tu internet.');
-    } else {
-      showToast('❌ Error: ' + authError.message);
-    }
+  } catch (error) {
+    console.error('❌ Error en login:', error);
+    showToast('❌ Error: ' + (error.message || 'Intenta de nuevo'));
   }
 });
 
@@ -1085,382 +703,6 @@ document.getElementById('registerForm')?.addEventListener('submit', async functi
   // ========================================
   // FUNCIÓN PRINCIPAL DE REGISTRO
   // ========================================
-const completeRegistration = async (clubLogoFile, adminAvatarFile) => {
-    // ✅ OBTENER CLUB ID PERSONALIZADO DEL USUARIO
-    const customClubIdInput = document.getElementById('regClubId')?.value.trim() || '';
-    let clubId;
-    
-    if (customClubIdInput) {
-      // Formatear el ID personalizado
-      clubId = formatClubId(customClubIdInput);
-      
-      if (!clubId || clubId.length < 3) {
-        showToast('❌ El ID del club debe tener al menos 3 caracteres válidos');
-        return;
-      }
-      
-      if (clubId.length > 30) {
-        showToast('❌ El ID del club no puede tener más de 30 caracteres');
-        return;
-      }
-      
-      // Verificar que no exista
-      showToast('🔍 Verificando disponibilidad del ID...');
-      const exists = await checkClubIdExists(clubId);
-      
-      if (exists) {
-        showToast('❌ Este ID de club ya está en uso. Elige otro.');
-        return;
-      }
-      
-    console.log('✅ Club ID personalizado disponible:', clubId);
-    } else {
-      // Si no proporcionó ID, generar uno automático (fallback)
-      clubId = 'club_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 6);
-      console.log('🆔 Club ID generado automáticamente:', clubId);
-    }
-    
-    // ✅ OBTENER VALORES DE CONFIGURACIÓN ADICIONALES
-    const monthlyFee = document.getElementById('regMonthlyFee')?.value.trim() || '50000';
-    const clubCurrency = document.getElementById('regClubCurrency')?.value || 'COP';
-    const clubColor = document.getElementById('regClubColor')?.value || '#0d9488';
-    
-    console.log('🆔 Club ID final:', clubId);
-    
-    // Configuración del club (usando email del admin)
-    const clubSettings = {
-      schoolId: clubId,
-      name: clubName,
-      clubId: clubId,
-      logo: '', // Se actualizará tras subida
-      email: adminEmail,
-      phone: clubPhone,
-      address: clubAddress,
-      city: clubCity,
-      country: clubCountry,
-      website: clubWebsite,
-      socialMedia: clubSocial,
-      foundedYear: clubFoundedYear,
-      monthlyFee: monthlyFee,
-      currency: clubCurrency,
-      primaryColor: clubColor
-    };
-    
-    console.log('⏳ Verificando disponibilidad de Firebase...');
-    showToast('⏳ Conectando con Firebase...');
-    
-    const firebaseReady = await waitForFirebase();
-    
-    if (!firebaseReady || !window.firebase?.auth) {
-      showToast('❌ Firebase no disponible. Recarga la página.');
-      return;
-    }
-    
-    let firebaseUid = null;
-    let userCreatedInAuth = false;
-    
-    try {
-      console.log('🔥 Creando club:', clubId);
-      showToast('🔥 Creando tu club...');
-      
-      // ======================================================
-      // 🚀 NUBE: SUBIR IMÁGENES A SUPABASE STORAGE AHORA QUE HAY CLUB_ID
-      // ======================================================
-      let finalClubLogo = getDefaultLogo();
-      let finalAdminAvatar = getDefaultAvatar();
-
-      showToast('⏳ Preparando imágenes...');
-      try {
-        if (clubLogoFile && typeof uploadAvatarToStorage === 'function') {
-           const res = await uploadAvatarToStorage(clubLogoFile, 'logo', clubId, 'logo');
-           finalClubLogo = res.url;
-        }
-      } catch (err) {
-        console.warn('⚠️ Falló subida de Logo a Supabase. Usando Base64 local', err);
-        finalClubLogo = await new Promise(resolve => {
-          imageToBase64(clubLogoFile, base64 => {
-             compressImageForFirestore(base64, 800, compressed => resolve(compressed));
-          });
-        });
-      }
-
-      try {
-        if (adminAvatarFile && typeof uploadAvatarToStorage === 'function') {
-           const tempAdminId = 'admin_' + Date.now();
-           const res = await uploadAvatarToStorage(adminAvatarFile, tempAdminId, clubId, 'admin');
-           finalAdminAvatar = res.url;
-        }
-      } catch (err) {
-        console.warn('⚠️ Falló subida de Avatar a Supabase. Usando Base64 local', err);
-        finalAdminAvatar = await new Promise(resolve => {
-          imageToBase64(adminAvatarFile, base64 => {
-             compressImageForFirestore(base64, 800, compressed => resolve(compressed));
-          });
-        });
-      }
-      
-      // Actualizar logo en settings
-      clubSettings.logo = finalClubLogo;
-
-      // ========================================
-      // PASO 1: CREAR USUARIO EN AUTHENTICATION
-      // ========================================
-      console.log('🔐 Paso 1/6: Creando usuario en Authentication...');
-      showToast('🔐 Creando administrador...');
-      
-      try {
-        const userCredential = await window.firebase.createUserWithEmailAndPassword(
-          window.firebase.auth,
-          adminEmail,
-          adminPassword
-        );
-        
-        window.APP_STATE.currentUser = userCredential.user;
-        firebaseUid = userCredential.user.uid;
-        userCreatedInAuth = true;
-        
-        console.log('✅ Usuario creado en Auth con UID:', firebaseUid);
-        console.log('📧 Email usado:', adminEmail);
-        console.log('🔒 Contraseña configurada correctamente');
-        
-      } catch (authError) {
-        console.error('❌ ERROR en Authentication:', authError);
-        
-        if (authError.code === 'auth/email-already-in-use') {
-          showToast('❌ Este email ya está registrado');
-          return;
-        } else if (authError.code === 'auth/weak-password') {
-          showToast('❌ Contraseña muy débil (mínimo 6 caracteres)');
-          return;
-        } else if (authError.code === 'auth/invalid-email') {
-          showToast('❌ Email inválido');
-          return;
-        } else {
-          showToast('❌ Error: ' + authError.message);
-          return;
-        }
-      }
-      
-      // Validar que se creó el usuario
-      if (!userCreatedInAuth || !firebaseUid) {
-        console.error('❌ REGISTRO ABORTADO: No se pudo crear usuario');
-        showToast('❌ No se pudo crear el usuario. Intenta de nuevo.');
-        return;
-      }
-      
-      console.log('✅ Usuario confirmado, continuando con registro...');
-      
-      // ========================================
-      // PASO 2: GUARDAR USUARIO LOCALMENTE
-      // ========================================
-      console.log('💾 Paso 2/6: Guardando usuario localmente...');
-      
-      const newUser = {
-        id: firebaseUid,
-        schoolId: clubId,
-        email: adminEmail,
-        password: adminPassword,
-        name: adminName,
-        birthDate: adminBirthDate,
-        phone: adminPhone, // ⭐ YA NORMALIZADO
-        avatar: finalAdminAvatar,
-        role: 'admin',
-        isMainAdmin: true,
-        createdAt: getCurrentDateTime()
-      };
-      
-      saveUser(newUser);
-      console.log('✅ Usuario guardado localmente');
-      
-      // ========================================
-      // PASO 3: GUARDAR USUARIO EN NUBE
-      // ========================================
-      console.log('💾 Paso 3/6: Guardando usuario...');
-      showToast('💾 Guardando perfil...');
-
-      if (window.MODO_SUPABASE) {
-        const userRes = await fetch(`${window.SUPA_URL}/rest/v1/users`, {
-          method: 'POST',
-          headers: { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
-          body: JSON.stringify({
-            id: firebaseUid,
-            club_id: clubId,
-            email: adminEmail,
-            name: adminName,
-            is_main_admin: true,
-            role: 'admin',
-            phone: adminPhone || '',
-            deleted: false,
-            created_at: new Date().toISOString()
-          })
-        });
-        if (!userRes.ok) throw new Error('Supabase POST users: ' + await userRes.text());
-        console.log('✅ Usuario guardado en Supabase');
-      } else {
-        await window.firebase.setDoc(
-          window.firebase.doc(window.firebase.db, `clubs/${clubId}/users`, firebaseUid),
-          {
-            id: firebaseUid,
-            email: adminEmail,
-            name: adminName,
-            isMainAdmin: true,
-            role: 'admin',
-            avatar: finalAdminAvatar || '',
-            phone: adminPhone || '',
-            birthDate: adminBirthDate || '',
-            createdAt: new Date().toISOString()
-          }
-        );
-        console.log('✅ Usuario guardado en Firestore');
-      }
-
-      // ========================================
-      console.log('⚙️ Paso 4/6: Guardando configuración del club...');
-      showToast('⚙️ Configurando club...');
-
-      if (window.MODO_SUPABASE) {
-        const clubRes = await fetch(
-          `${window.SUPA_URL}/rest/v1/clubs?id=eq.${encodeURIComponent(clubId)}`,
-          {
-            method: 'PATCH',
-            headers: { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
-            body: JSON.stringify({
-              name: clubSettings.name || '',
-              phone: clubSettings.phone || '',
-              email: clubSettings.email || '',
-              address: clubSettings.address || '',
-              city: clubSettings.city || '',
-              country: clubSettings.country || '',
-              currency: clubSettings.currency || 'COP',
-              primary_color: clubSettings.primaryColor || '#14b8a6',
-              monthly_fee: clubSettings.monthlyFee || 0,
-              updated_at: new Date().toISOString()
-            })
-          }
-        );
-        if (!clubRes.ok) console.warn('⚠️ No se pudo actualizar settings del club en Supabase');
-        else console.log('✅ Configuración del club guardada en Supabase');
-      } else {
-        await window.firebase.setDoc(
-          window.firebase.doc(window.firebase.db, `clubs/${clubId}/settings`, "main"),
-          {
-            ...clubSettings,
-            createdAt: new Date().toISOString(),
-            createdBy: firebaseUid,
-            isInitialized: true
-          }
-        );
-        console.log('✅ Configuración del club guardada');
-      }
-
-      // ========================================
-      // PASO 5: GUARDAR MAPEO EMAIL → CLUBID
-      // ========================================
-      console.log('🗺️ Paso 5/6: Guardando mapeo para login multi-dispositivo...');
-      showToast('🔗 Configurando acceso...');
-
-      const mappingSaved = await saveUserClubMapping(adminEmail, clubId, firebaseUid);
-
-      if (!mappingSaved) {
-        console.warn('⚠️ Mapeo no guardado - puede afectar login multi-dispositivo');
-      } else {
-        console.log('✅ Mapeo guardado correctamente');
-      }
-      
-      // ========================================
-      // 🔐 ACTIVAR LICENCIA
-      // ========================================
-      console.log('🔐 Activando licencia...');
-      showToast('🔐 Activando licencia...');
-      
-      if (typeof activateLicense === 'function') {
-        const licenseActivated = await activateLicense(
-          activationCode,
-          clubId,
-          clubName,
-          clubPhone,
-          activationPlan,
-          codeValidation.source
-        );
-        
-        if (licenseActivated) {
-          console.log('✅ Licencia activada');
-        }
-      }
-      // ========================================
-      
-      console.log('🎉 Paso 6/6: Finalizando registro...');
-      showToast('✅ Club creado exitosamente');
-      
-      // Guardar configuración localmente
-      localStorage.setItem('clubId', clubId);
-      saveSchoolSettings(clubSettings); // ✅ CAMBIO AQUÍ
-      
-      console.log('💾 Configuración guardada:');
-      console.log('   • Logo:', clubSettings.logo ? `✅ ${clubSettings.logo.substring(0, 50)}...` : '❌ NO guardado');
-      console.log('   • Nombre:', clubSettings.name);
-      console.log('   • Club ID:', clubSettings.clubId);
-      
-      // ✅ CRÍTICO: Establecer sesión ANTES de mostrar el modal
-      const { password: _, ...userWithoutPassword } = newUser;
-      setCurrentUser(userWithoutPassword);
-      
-      console.log('✅ Sesión establecida para:', userWithoutPassword.email);
-      console.log('✅ Usuario guardado en localStorage');
-      
-      // Generar iconos PWA con el logo del club
-      if (typeof generatePWAIcons === 'function') {
-        console.log('🎨 Generando iconos PWA con logo del club...');
-        generatePWAIcons();
-      }
-
-      // Mostrar modal con Club ID
-      showClubIdToUser(clubId, clubName);
-      
-      // ========================================
-      // RESUMEN EN CONSOLA
-      // ========================================
-      console.log('✅ ========================================');
-      console.log('✅ REGISTRO COMPLETADO EXITOSAMENTE');
-      console.log('✅ ========================================');
-      console.log('📋 Resumen del registro:');
-      console.log('   • UID:', firebaseUid);
-      console.log('   • Email:', adminEmail);
-      console.log('   • Club ID:', clubId);
-      console.log('   • Teléfono Admin:', adminPhone);
-      console.log('   • Teléfono Club:', clubPhone);
-      console.log('   • Usuario en Auth: ✅');
-      console.log('   • Usuario en Firestore: ✅');
-      console.log('   • Configuración guardada: ✅');
-      console.log('   • Mapeo guardado:', mappingSaved ? '✅' : '⚠️');
-      console.log('   • Sesión activa: ✅');
-      console.log('========================================');
-    } catch (error) {
-      console.error('❌ ========================================');
-      console.error('❌ ERROR DURANTE EL REGISTRO');
-      console.error('❌ ========================================');
-      console.error('Error completo:', error);
-      console.error('Código:', error.code);
-      console.error('Mensaje:', error.message);
-      console.error('Usuario creado en Auth:', userCreatedInAuth);
-      console.error('UID:', firebaseUid);
-      console.error('========================================');
-      
-      showToast('❌ Error: ' + error.message);
-      
-      // Si el usuario se creó en Auth pero hubo error después
-      if (userCreatedInAuth && firebaseUid) {
-        console.log('⚠️ El usuario fue creado en Authentication.');
-        console.log('💡 Puedes intentar hacer login con:');
-        console.log('   Email:', adminEmail);
-        showToast('⚠️ El usuario fue creado. Intenta hacer login.');
-      }
-    }
-  };
-
-  // ⚠️ completeRegistration (arriba) quedó DEPRECADO: dependía de Firebase Auth +
-  // escrituras con la anon key (rotas al cerrar RLS). El registro real ahora usa la
-  // Edge Function register-club (server-side, service role) → todo vinculado a la BD.
   const completeRegistrationV2 = async (clubLogoFile, adminAvatarFile) => {
     // 1) Resolver club_id (personalizado o automático)
     const customClubIdInput = document.getElementById('regClubId')?.value.trim() || '';
@@ -1779,7 +1021,7 @@ async function logout() {
       if (window.SupaAuth)   window.SupaAuth.clear();
       if (window.SupaAuthV2) { try { await window.SupaAuthV2.logout(); } catch (_) {} }
 
-      // Cancelar listeners de Firebase antes de salir
+      // Cancelar listeners antes de salir
       if (typeof window.userDeletionUnsubscribe === 'function') {
         window.userDeletionUnsubscribe();
         window.userDeletionUnsubscribe = null;
@@ -1789,12 +1031,7 @@ async function logout() {
         window.licenseUnsubscribe = null;
       }
 
-      // Primero cerrar Firebase Auth
-      if (window.firebase?.auth) {
-        await window.firebase.signOut(window.firebase.auth);
-      }
-
-      // Luego limpiar TODA la sesión local
+      // Limpiar TODA la sesión local
       clearCurrentUser();
       localStorage.removeItem('clubId');
       localStorage.removeItem('players');
@@ -1873,186 +1110,30 @@ window.addEventListener('DOMContentLoaded', async function() {
     return;
   }
   
-  console.log('[AUTH] No hay sesion local, esperando Firebase Auth...');
+  console.log('[AUTH] No hay sesion local, verificando Supabase...');
   showLoading();
-  
-  // 2. Esperar a que Firebase esté listo (hasta 15 segundos para móviles)
-  let attempts = 0;
-  const maxAttempts = 30; // 15 segundos máximo
-  
-  const checkAuth = setInterval(async () => {
-    attempts++;
 
-    // Si no estamos en el dashboard (login.html no tiene appContainer), salir
-    if (!document.getElementById('appContainer') && !document.getElementById('loginScreen')) {
-      clearInterval(checkAuth);
-      return;
-    }
-    
-    // Verificar si localStorage fue restaurado
-    const restoredUser = getCurrentUser();
-    if (restoredUser && restoredUser.email) {
-      clearInterval(checkAuth);
-      console.log('[AUTH] Sesion restaurada:', restoredUser.email);
+  // 2. Verificar sesión en Supabase Auth
+  if (window.SupaAuthV2 && window.SupaAuthV2.isLogged()) {
+    console.log('[AUTH] Supabase tiene sesión activa');
+    const storedUser = getCurrentUser();
+    if (storedUser && storedUser.email && storedUser.schoolId) {
       showApp();
       return;
     }
-    
-    // Verificar si Firebase Auth tiene usuario activo
-    if (window.firebase?.auth?.currentUser) {
-      clearInterval(checkAuth);
-      const user = window.firebase.auth.currentUser;
-      console.log('[AUTH] Firebase Auth tiene usuario:', user.email);
+    showLogin();
+    return;
+  }
 
-      let clubId = localStorage.getItem('clubId');
-
-      if (window.MODO_SUPABASE) {
-        // Restaurar sesión desde Supabase users
-        try {
-          const email = (user.email || '').trim().toLowerCase();
-          if (!clubId) {
-            // Edge Function: solo devuelve club_id, no expone toda la tabla users
-            const cRes = await fetch(
-              `${window.SUPA_URL}/functions/v1/lookup-club-by-email`,
-              {
-                method: 'POST',
-                headers: { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email })
-              }
-            );
-            if (cRes.ok) {
-              const cData = await cRes.json();
-              if (cData?.club_id) clubId = cData.club_id;
-            }
-          }
-          if (clubId) {
-            // Edge Function full: devuelve id/name/is_main_admin/phone sin
-            // exponer toda la tabla users
-            const uRes = await fetch(
-              `${window.SUPA_URL}/functions/v1/lookup-club-by-email`,
-              {
-                method: 'POST',
-                headers: { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, full: true })
-              }
-            );
-            if (uRes.ok) {
-              const uData = await uRes.json();
-              const u = uData?.user;
-              if (u && u.club_id === clubId) {
-                const sessionData = {
-                  id: u.id || user.uid,
-                  email: user.email,
-                  name: u.name || email.split('@')[0],
-                  schoolId: clubId,
-                  isMainAdmin: u.is_main_admin || false,
-                  role: 'admin',
-                  avatar: '',
-                  phone: u.phone || ''
-                };
-                localStorage.setItem('clubId', clubId);
-                setCurrentUser(sessionData);
-                console.log('[AUTH] Sesion restaurada desde Supabase');
-                if (typeof downloadAllClubData === 'function') await downloadAllClubData(clubId);
-                showApp();
-                return;
-              }
-            }
-          }
-        } catch (err) {
-          console.warn('[AUTH] Error restaurando sesion desde Supabase:', err);
-        }
-        console.log('[AUTH] No se pudo restaurar sesion completa');
-        showLogin();
-        return;
-      }
-
-      // Firebase mode: buscar clubId en userClubMapping
-      if (!clubId) {
-        console.log('[AUTH] ClubId no encontrado en localStorage, buscando en Firebase...');
-        try {
-          const mappingEmail = normalizeUserEmail(user.email);
-          const candidateEmails = [...new Set([mappingEmail, (user.email || '').trim()].filter(Boolean))];
-          let mappingSnap = null;
-          for (const candidateEmail of candidateEmails) {
-            const mappingRef = window.firebase.doc(window.firebase.db, 'userClubMapping', candidateEmail);
-            const candidateSnap = await window.firebase.getDoc(mappingRef);
-            if (candidateSnap.exists()) {
-              mappingSnap = candidateSnap;
-              break;
-            }
-          }
-          if (mappingSnap && mappingSnap.exists()) {
-            clubId = mappingSnap.data().clubId;
-            localStorage.setItem('clubId', clubId);
-            console.log('[AUTH] ClubId recuperado de Firebase:', clubId);
-          }
-        } catch (err) {
-          console.warn('[AUTH] Error buscando clubId:', err);
-        }
-      }
-
-      if (clubId) {
-        try {
-          const userRef = window.firebase.doc(window.firebase.db, 'clubs/' + clubId + '/users', user.uid);
-          const userSnap = await window.firebase.getDoc(userRef);
-
-          if (userSnap.exists()) {
-            const userData = userSnap.data();
-            const sessionData = {
-              id: user.uid,
-              email: user.email,
-              name: userData.name || user.email.split('@')[0],
-              schoolId: clubId,
-              isMainAdmin: userData.isMainAdmin || false,
-              role: userData.role || 'admin',
-              avatar: userData.avatar || '',
-              phone: userData.phone || ''
-            };
-
-            setCurrentUser(sessionData);
-            console.log('[AUTH] Sesion restaurada completamente desde Firebase');
-
-            if (typeof downloadAllClubData === 'function') {
-              await downloadAllClubData(clubId);
-            }
-
-            showApp();
-            return;
-          }
-        } catch (err) {
-          console.warn('[AUTH] Error restaurando sesion:', err);
-        }
-      }
-
-      // Si llegamos aquí, hay usuario en Firebase pero no pudimos restaurar
-      console.log('[AUTH] No se pudo restaurar sesion completa');
-      showLogin();
-      return;
-    }
-    
-    // Verificar si Firebase ya terminó de verificar (authRestored)
-    if (window.APP_STATE?.authRestored && !window.firebase?.auth?.currentUser) {
-      clearInterval(checkAuth);
-      console.log('[AUTH] Firebase confirmó que no hay sesión');
-      showLogin();
-      return;
-    }
-    
-    // Timeout
-    if (attempts >= maxAttempts) {
-      clearInterval(checkAuth);
-      console.log('[AUTH] Timeout esperando Firebase');
-      showLogin();
-    }
-  }, 500);
+  // 3. No hay sesión
+  showLogin();
 });
 
 // ========================================
-// RECUPERACIÓN DE CONTRASEÑA CON FIREBASE
+// RECUPERACIÓN DE CONTRASEÑA
 // ========================================
 
-// ✅ FUNCIÓN MEJORADA: Recuperar contraseña con email de Firebase
+// ✅ FUNCIÓN MEJORADA: Recuperar contraseña con email
 async function forgotPassword() {
   const modal = document.createElement('div');
   modal.id = 'resetPasswordModal';
@@ -2185,27 +1266,10 @@ setTimeout(() => {
   closeResetModal();
 }, 5000);
 } catch (error) {
-let errorMessage = '❌ Error al enviar el email. ';switch (error.code) {
-  case 'auth/user-not-found':
-    errorMessage += 'No existe una cuenta con ese email.';
-    break;
-  case 'auth/invalid-email':
-    errorMessage += 'Email no válido.';
-    break;
-  case 'auth/too-many-requests':
-    errorMessage += 'Demasiados intentos. Intenta más tarde.';
-    break;
-  case 'auth/network-request-failed':
-    errorMessage += 'Error de conexión. Verifica tu internet.';
-    break;
-  default:
-    errorMessage += error.message;
-}
-
-showResetMessage(errorMessage, 'error');
-
-submitBtn.disabled = false;
-submitBtn.textContent = 'Enviar Enlace';}
+  showResetMessage('❌ Error al enviar el email: ' + (error.message || 'Intenta de nuevo'), 'error');
+  submitBtn.disabled = false;
+  submitBtn.textContent = 'Enviar Enlace';
+  }
 }
 function showResetMessage(message, type) {
 const messageDiv = document.getElementById('resetMessage');
@@ -2230,214 +1294,5 @@ closeResetModal();
 }
 });
 
-// ========================================
-// LOGIN CON GOOGLE
-// ========================================
 
-// Detectar si el usuario está en un dispositivo móvil
-function isMobileDevice() {
-  return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-}
-
-// Esperar a que Firebase Auth tenga un usuario autenticado (máximo 6 segundos)
-function waitForAuthUser() {
-  return new Promise((resolve) => {
-    const timeout = setTimeout(() => resolve(null), 6000);
-    const unsub = window.firebase.onAuthStateChanged(window.firebase.auth, (user) => {
-      if (user) {
-        clearTimeout(timeout);
-        unsub();
-        resolve(user);
-      }
-    });
-  });
-}
-
-// Procesar el resultado del redirect de Google (se llama al cargar la página)
-async function handleGoogleRedirectResult() {
-  // Solo actuar si venimos de un redirect de Google
-  if (!sessionStorage.getItem('googleRedirectPending')) return;
-
-  const firebaseReady = await waitForFirebase();
-  if (!firebaseReady || !window.firebase?.auth) return;
-
-  try {
-    // Intentar getRedirectResult primero
-    const result = await window.firebase.getRedirectResult(window.firebase.auth);
-    if (result?.user) {
-      sessionStorage.removeItem('googleRedirectPending');
-      await processGoogleUser(result.user);
-      return;
-    }
-  } catch (err) {
-    console.warn('[Google] getRedirectResult falló:', err.code);
-  }
-
-  // Fallback: esperar a que onAuthStateChanged detecte al usuario
-  showToast('⏳ Verificando cuenta de Google...');
-  const user = await waitForAuthUser();
-
-  if (user) {
-    sessionStorage.removeItem('googleRedirectPending');
-    await processGoogleUser(user);
-  } else {
-    sessionStorage.removeItem('googleRedirectPending');
-    showToast('❌ No se pudo completar el inicio con Google. Intenta de nuevo.');
-  }
-}
-
-// Procesar usuario autenticado con Google (compartido entre popup y redirect)
-async function processGoogleUser(firebaseUser) {
-  const email = firebaseUser.email;
-  const firebaseUid = firebaseUser.uid;
-
-  showToast('🔍 Buscando tu club...');
-
-  const clubId = await getClubIdForUser(email);
-
-  if (!clubId) {
-    await window.firebase.signOut(window.firebase.auth);
-    showToast('⚠️ No tienes un club registrado. Ve a "Registrarse" y usa tu código de activación.');
-    if (typeof showRegisterTab === 'function') showRegisterTab();
-    return;
-  }
-
-  localStorage.setItem('clubId', clubId);
-
-  // 🆕 Garantizar JWT Supabase (app_role=admin + club_id) BLOQUEANTE antes de leer/escribir
-  //    users — el login con Google no minteaba; así estas queries van con JWT (no anon).
-  if (window.SupaAuth && typeof window.SupaAuth.mintFirebase === 'function') {
-    try {
-      await window.SupaAuth.mintFirebase(await firebaseUser.getIdToken());
-    } catch (e) {
-      console.warn('[Google] mintFirebase falló (sigue con anon):', e?.message || e);
-    }
-  }
-
-  try {
-    if (window.MODO_SUPABASE) {
-      const checkRes = await fetch(
-        `${window.SUPA_URL}/rest/v1/users?id=eq.${encodeURIComponent(firebaseUid)}&club_id=eq.${encodeURIComponent(clubId)}&select=id`,
-        { headers: { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}` } }
-      );
-      if (checkRes.ok) {
-        const rows = await checkRes.json();
-        if (rows.length === 0) {
-          await fetch(`${window.SUPA_URL}/rest/v1/users`, {
-            method: 'POST',
-            headers: { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
-            body: JSON.stringify({
-              id: firebaseUid,
-              club_id: clubId,
-              email: email,
-              name: firebaseUser.displayName || email.split('@')[0],
-              is_main_admin: false,
-              role: 'admin',
-              deleted: false,
-              created_at: new Date().toISOString()
-            })
-          });
-        }
-      }
-    } else {
-      const userInClubRef = window.firebase.doc(window.firebase.db, `clubs/${clubId}/users`, firebaseUid);
-      const userInClubSnap = await window.firebase.getDoc(userInClubRef);
-      if (!userInClubSnap.exists()) {
-        await window.firebase.setDoc(userInClubRef, {
-          id: firebaseUid,
-          email: email,
-          name: firebaseUser.displayName || email.split('@')[0],
-          isMainAdmin: false,
-          role: 'admin',
-          avatar: firebaseUser.photoURL || '',
-          phone: '',
-          birthDate: '',
-          joinedAt: new Date().toISOString()
-        });
-      }
-    }
-  } catch (e) {
-    console.warn('[Google Login] No se pudo verificar usuario en users:', e.message);
-  }
-
-  // force:true → igual que el login normal: rebajar users/clubs frescos con el JWT
-  // (evita la misma regresión de logo/perfil/usuarios por caché LOCAL-FIRST).
-  const downloaded = await downloadAllClubData(clubId, { force: true });
-
-  if (!downloaded) {
-    showToast('❌ Error al descargar datos del club');
-    await window.firebase.signOut(window.firebase.auth);
-    return;
-  }
-
-  const users = getUsers();
-  let user = users.find(u => u.email === email);
-
-  if (!user) {
-    user = {
-      id: firebaseUid,
-      email: email,
-      name: firebaseUser.displayName || email.split('@')[0],
-      schoolId: clubId,
-      role: 'admin',
-      isMainAdmin: false,
-      avatar: firebaseUser.photoURL || ''
-    };
-  }
-
-  setCurrentUser(user);
-
-  if (!window.MODO_SUPABASE) {
-    try {
-      window.firebase.addDoc(
-        window.firebase.collection(window.firebase.db, `clubs/${clubId}/audit_log`),
-        {
-          action: 'login_google',
-          userEmail: email,
-          userName: user.name || email,
-          role: user.role || 'admin',
-          date: new Date().toISOString().split('T')[0],
-          timestamp: new Date().toISOString()
-        }
-      );
-    } catch(e) {}
-  }
-
-  showToast('✅ Bienvenido ' + user.name);
-  setTimeout(() => { window.location.href = 'index.html'; }, 500);
-}
-
-async function loginWithGoogle() {
-  const firebaseReady = await waitForFirebase();
-
-  if (!firebaseReady || !window.firebase?.auth) {
-    showToast('❌ No se pudo conectar con Firebase. Recarga la página.');
-    return;
-  }
-
-  try {
-    const provider = new window.firebase.GoogleAuthProvider();
-
-    // Usar popup en todos los dispositivos
-    showToast('⏳ Abriendo Google...');
-    const userCredential = await window.firebase.signInWithPopup(window.firebase.auth, provider);
-    await processGoogleUser(userCredential.user);
-
-  } catch (err) {
-    if (err.code === 'auth/popup-closed-by-user') {
-      showToast('ℹ️ Inicio de sesión cancelado');
-    } else if (err.code === 'auth/network-request-failed') {
-      showToast('❌ Error de conexión. Verifica tu internet.');
-    } else {
-      showToast('❌ Error con Google: ' + err.message);
-    }
-  }
-}
-
-window.loginWithGoogle = loginWithGoogle;
-
-// Ejecutar al cargar la página para capturar resultado del redirect en móvil
-document.addEventListener('DOMContentLoaded', () => {
-  handleGoogleRedirectResult();
-});
 console.log('✅ auth.js cargado (CON NORMALIZACIÓN DE TELÉFONOS)');

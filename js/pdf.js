@@ -343,31 +343,8 @@ drawRow('Factura:', payment.invoiceNumber || 'N/A');
 // la URL en el registro del pago. Se llama fire-and-forget:
 // si falla, no afecta al usuario ni a la descarga.
 async function saveInvoicePDFToStorage(doc, payment) {
-  // En Supabase mode no guardamos copia en Storage — la descarga local ya ocurrió
-  if (window.MODO_SUPABASE) return;
-  try {
-    if (!window.firebase?.storage) return;
-
-    const { storage, ref, uploadBytes, getDownloadURL } = window.firebase;
-    const settings = getSchoolSettings();
-    const clubId = settings.clubId || localStorage.getItem('clubId') || 'default';
-
-    const pdfBlob = doc.output('blob');
-    const fileName = `${payment.invoiceNumber || payment.id}.pdf`;
-    const path = `invoices/${clubId}/${payment.id}/${fileName}`;
-
-    const storageRef = ref(storage, path);
-    const snapshot = await uploadBytes(storageRef, pdfBlob);
-    const url = await getDownloadURL(snapshot.ref);
-
-    if (typeof updatePayment === 'function') {
-      updatePayment(payment.id, { invoiceUrl: url });
-    }
-
-    console.log('[PDF] Factura guardada en Storage:', url);
-  } catch (err) {
-    console.warn('[PDF] No se pudo guardar copia en Storage:', err.message);
-  }
+  // Firebase Storage removed — now Supabase-only
+  return;
 }
 
 // ========================================

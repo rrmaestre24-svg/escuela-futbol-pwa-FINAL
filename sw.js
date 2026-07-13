@@ -1,4 +1,4 @@
-const CACHE_NAME = 'my-club-v1.6.0';
+const CACHE_NAME = 'my-club-v1.6.11';
 
 const urlsToCache = [
   '/',
@@ -27,10 +27,11 @@ const urlsToCache = [
   // JS CORE
   '/js/app.js',
   '/js/auth.js',
-  '/js/firebase-config.js',
+  '/js/supabase-config.js',
   '/js/supabase-auth.js',
   '/js/supabase-auth-v2.js',
   '/js/storage.js',
+  '/js/firebase-sync.js',
   '/js/db-indexed.js',
   '/js/sync-queue.js',
   '/js/utils.js',
@@ -44,7 +45,6 @@ const urlsToCache = [
   '/js/license-system.js',
 
   // JS SINCRONIZACIÓN
-  '/js/firebase-sync.js',
   '/js/realtime-sync.js',
 
   // JS FEATURES
@@ -132,10 +132,8 @@ self.addEventListener('fetch', event => {
   // 🆕 Supabase REST/AUTH/FUNCTIONS NO se cachean (datos en tiempo real).
   // Supabase Storage (avatars/logos) SÍ se cachea más abajo con Cache First.
   if (
-    event.request.url.includes('firebaseio.com') ||
     event.request.url.includes('googleapis.com') ||
     event.request.url.includes('gstatic.com') ||
-    event.request.url.includes('firebase') ||
     event.request.url.includes('cloudinary.com') ||
     event.request.url.includes('unpkg.com') ||
     event.request.url.includes('cdn.tailwindcss.com') ||

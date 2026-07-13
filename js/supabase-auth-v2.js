@@ -22,7 +22,9 @@
 // y sigue ofreciendo mintCoach / mintParent.
 
 (function () {
-  if (window.SupaAuthV2) return; // ya cargado
+  if (window.SupaAuthV2) return;
+
+  window.MODO_SUPABASE = true;
 
   const SUPA_URL = window.SUPA_URL;
   const ANON     = window.SUPA_ANON;

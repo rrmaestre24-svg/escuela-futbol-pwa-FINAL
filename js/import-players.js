@@ -1093,27 +1093,6 @@ async function createImportedPlayer(playerData) {
                         syncParentCodeToFirebase(playerId, parentCode).catch(() => {});
                     }
                     console.log(`✅ Jugador ${playerData.name} sincronizado con Supabase`);
-                } else if (window.APP_STATE?.firebaseReady && window.firebase?.db) {
-                    if (window.firebase.setDoc && window.firebase.doc) {
-                        await window.firebase.setDoc(
-                            window.firebase.doc(window.firebase.db, `clubs/${clubId}/players`, playerId),
-                            newPlayer
-                        );
-                    }
-                    if (window.firebase.addDoc && window.firebase.collection) {
-                        await window.firebase.addDoc(
-                            window.firebase.collection(window.firebase.db, `clubs/${clubId}/parentCodes`),
-                            {
-                                code: parentCode,
-                                playerId: playerId,
-                                playerName: playerData.name,
-                                phone: playerData.phone || '',
-                                createdAt: new Date().toISOString(),
-                                used: false
-                            }
-                        );
-                    }
-                    console.log(`✅ Jugador ${playerData.name} sincronizado con Firebase`);
                 }
             } catch (fbError) {
                 console.warn('⚠️ Error sincronizando jugador importado:', fbError);

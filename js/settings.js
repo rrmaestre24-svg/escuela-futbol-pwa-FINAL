@@ -1,6 +1,5 @@
 // ========================================
-// CONFIGURACIÓN - CON FIREBASE AUTHENTICATION PARA NUEVOS USUARIOS
-// VERSIÓN CORREGIDA CON MAPEO Y RESTAURACIÓN DE SESIÓN
+// CONFIGURACIÓN
 // ========================================
 
 // Cargar configuración al abrir vista
@@ -352,7 +351,7 @@ document.getElementById('userProfileForm')?.addEventListener('submit', async fun
   showToast('✅ Perfil actualizado');
 });
 
-// NUEVO: Cambiar contraseña - CON FIREBASE AUTHENTICATION
+// NUEVO: Cambiar contraseña
 document.getElementById('changePasswordForm')?.addEventListener('submit', async function(e) {
   e.preventDefault();
   
@@ -392,16 +391,13 @@ document.getElementById('changePasswordForm')?.addEventListener('submit', async 
     return;
   }
   
-  // 🔥 ACTUALIZAR EN AMBOS LADOS (DUAL AUTH)
-  //    - Supabase Auth es el principal (post-cutover)
-  //    - Firebase Auth es legacy (se quita el 26/06)
+  // Actualizar en Supabase Auth
   try {
     showToast('🔄 Cambiando contraseña...');
 
     let supaUpdated = false;
-    let firebaseUpdated = false;
 
-    // 1) Actualizar en SUPABASE AUTH (re-autenticar + PUT /auth/v1/user)
+    // 1) Re-autenticar y actualizar en Supabase Auth
     try {
       // Re-autenticar con la contraseña actual obtiene un access_token fresco
       const reAuthRes = await fetch(`${window.SUPA_URL}/auth/v1/token?grant_type=password`, {
@@ -437,26 +433,8 @@ document.getElementById('changePasswordForm')?.addEventListener('submit', async 
       console.warn('[Supabase] No se pudo actualizar password:', supaErr.message);
     }
 
-    // 2) Actualizar en FIREBASE AUTH (camino legacy, durante DUAL AUTH)
-    try {
-      const firebaseUser = window.firebase?.auth?.currentUser;
-      if (firebaseUser) {
-        const credential = window.firebase.EmailAuthProvider.credential(
-          firebaseUser.email, currentPassword
-        );
-        await window.firebase.reauthenticateWithCredential(firebaseUser, credential);
-        await window.firebase.updatePassword(firebaseUser, newPassword);
-        firebaseUpdated = true;
-        console.log('✅ Contraseña actualizada en Firebase Authentication');
-      } else {
-        console.log('ℹ️ Sin sesión Firebase activa — solo se actualizó Supabase');
-      }
-    } catch (fbErr) {
-      console.warn('[Firebase] No se pudo actualizar password:', fbErr.message);
-    }
-
-    // Si NINGUNO se actualizó, asumir que la password actual es incorrecta
-    if (!supaUpdated && !firebaseUpdated) {
+    // Si no se pudo actualizar, asumir que la password actual es incorrecta
+    if (!supaUpdated) {
       showToast('❌ La contraseña actual es incorrecta');
       currentPasswordInput.classList.add('border-red-500');
       return;
@@ -480,12 +458,6 @@ document.getElementById('changePasswordForm')?.addEventListener('submit', async 
             }
           );
           console.log('✅ Timestamp actualizado en Supabase');
-        } else if (window.firebase?.db) {
-          await window.firebase.updateDoc(
-            window.firebase.doc(window.firebase.db, `clubs/${clubId}/users`, currentUser.id),
-            { passwordUpdatedAt: new Date().toISOString() }
-          );
-          console.log('✅ Timestamp actualizado en Firestore');
         }
       } catch (tsError) {
         console.log('ℹ️ No se pudo actualizar timestamp:', tsError.message);
@@ -498,33 +470,15 @@ document.getElementById('changePasswordForm')?.addEventListener('submit', async 
     
     showToast('✅ Contraseña cambiada correctamente');
     
-    console.log('🔐 ========================================');
-    console.log('🔐 CONTRASEÑA ACTUALIZADA EXITOSAMENTE');
-    console.log('🔐 ========================================');
-    console.log('   • Usuario:', currentUser.email);
-    console.log('   • Supabase Auth:', supaUpdated ? '✅' : '❌');
-    console.log('   • Firebase Auth:', firebaseUpdated ? '✅' : '❌');
-    console.log('   • localStorage: ✅');
-    console.log('========================================');
+    console.log('✅ Contraseña actualizada exitosamente para:', currentUser.email);
     
   } catch (error) {
     console.error('❌ Error al cambiar contraseña:', error);
     
-    // Remover clases de error previas
-    currentPasswordInput.classList.remove('border-red-500');
-    confirmPasswordInput.classList.remove('border-red-500');
-    
-    if (error.code === 'auth/wrong-password') {
-      showToast('❌ La contraseña actual es incorrecta');
-      currentPasswordInput.classList.add('border-red-500');
-    } else if (error.code === 'auth/weak-password') {
-      showToast('❌ La contraseña es muy débil');
-      newPasswordInput.classList.add('border-red-500');
-    } else if (error.code === 'auth/requires-recent-login') {
-      showToast('❌ Por seguridad, cierra sesión y vuelve a entrar antes de cambiar tu contraseña');
-    } else {
+      currentPasswordInput.classList.remove('border-red-500');
+      confirmPasswordInput.classList.remove('border-red-500');
+      
       showToast('❌ Error: ' + error.message);
-    }
   }
 });
 // NUEVO: Mostrar/Ocultar contraseña
@@ -802,7 +756,7 @@ function closeAddSchoolUserModal() {
   if (addSchoolUserModal) addSchoolUserModal.classList.add('hidden');
 }
 
-// 🔥 Guardar nuevo usuario de la escuela - CON INSTANCIA SECUNDARIA (CORREGIDO v3)
+// Guardar nuevo usuario de la escuela - usa Edge Function create-club-admin
 async function saveSchoolUser(userData) {
   const currentUser = getCurrentUser();
   if (!currentUser) return;
@@ -813,201 +767,49 @@ async function saveSchoolUser(userData) {
     return;
   }
   
-  // 🔥 VERIFICAR QUE FIREBASE ESTÉ LISTO
-  if (!window.APP_STATE?.firebaseReady || !window.firebase?.auth) {
-    showToast('❌ Firebase no disponible. Intenta más tarde.');
-    return;
-  }
-  
-  let secondaryApp = null;
-  let deleteApp = null; // ⭐ Variable para la función deleteApp
-  
   try {
-    console.log('🔥 Creando usuario en Firebase Authentication...');
-    showToast('🔥 Creando cuenta en Firebase...');
+    showToast('⏳ Creando administrador...');
+    const clubId = localStorage.getItem('clubId');
+    if (!clubId) { showToast('❌ No se encontró el club'); return; }
     
-    // ⭐ PASO 1: CREAR INSTANCIA SECUNDARIA
-    console.log('📱 Creando instancia secundaria de Firebase...');
+    const res = await fetch(`${window.SUPA_URL}/functions/v1/create-club-admin`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}` },
+      body: JSON.stringify({
+        club_id: clubId,
+        email: userData.email,
+        password: userData.password,
+        name: userData.name,
+        phone: userData.phone || '',
+        birth_date: userData.birthDate || null,
+        avatar: userData.avatar || null, // faltaba: sin esto la foto no se guarda en la BD
+      }),
+    });
     
-    // ⭐ Importar deleteApp también
-    const firebaseApp = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js');
-    const firebaseAuth = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');
-    
-    const { initializeApp } = firebaseApp;
-    deleteApp = firebaseApp.deleteApp; // ⭐ Guardar referencia a deleteApp
-    const { getAuth, createUserWithEmailAndPassword, signOut } = firebaseAuth;
-    
-    const firebaseConfig = {
-      apiKey: "AIzaSyBThVgzEsTLWSW7puKOVErZ_KOLDEq8v3A",
-      authDomain: "my-club-fae98.firebaseapp.com",
-      projectId: "my-club-fae98",
-      storageBucket: "my-club-fae98.firebasestorage.app",
-      messagingSenderId: "807792685568",
-      appId: "1:807792685568:web:06097faad391a9fd8c9ee5",
-      measurementId: "G-5HRKNKEYKY"
-    };
-    
-    secondaryApp = initializeApp(firebaseConfig, 'SecondaryApp-' + Date.now());
-    const secondaryAuth = getAuth(secondaryApp);
-    
-    console.log('✅ Instancia secundaria creada');
-    
-    // ⭐ PASO 2: CREAR USUARIO
-    console.log('👤 Creando usuario en instancia secundaria...');
-    
-    const userCredential = await createUserWithEmailAndPassword(
-      secondaryAuth,
-      userData.email,
-      userData.password
-    );
-    
-    const newUserUid = userCredential.user.uid;
-    console.log('✅ Usuario creado en Firebase Auth con UID:', newUserUid);
-    
-    // ⭐ PASO 3: CERRAR SESIÓN EN INSTANCIA SECUNDARIA
-    console.log('🔒 Cerrando sesión en instancia secundaria...');
-    await signOut(secondaryAuth);
-    console.log('✅ Sesión secundaria cerrada');
-    
-    // ⭐ PASO 4: ELIMINAR INSTANCIA SECUNDARIA (MÉTODO CORRECTO)
-    console.log('🗑️ Eliminando instancia secundaria...');
-    await deleteApp(secondaryApp); // ⭐ USO CORRECTO
-    secondaryApp = null;
-    console.log('✅ Instancia secundaria eliminada');
-    
-    // ⭐ PASO 5: GUARDAR EN FIRESTORE CON INSTANCIA PRINCIPAL
-    console.log('💾 Guardando datos usando instancia principal...');
+    const data = await res.json();
+    if (!res.ok || !data.ok) {
+      throw new Error(data.error || `Error HTTP ${res.status}`);
+    }
     
     const newUser = {
-      id: newUserUid,
-      schoolId: currentUser.schoolId,
+      id: data.user_id,
+      schoolId: currentUser.schoolId || clubId, // sin esto, renderSchoolUsers lo filtra fuera de la lista
       email: userData.email,
-      password: userData.password,
       name: userData.name,
-      birthDate: userData.birthDate || '',
       phone: userData.phone || '',
       avatar: userData.avatar || getDefaultAvatar(),
-      role: 'admin',
       isMainAdmin: false,
       createdAt: getCurrentDate(),
-      firebaseUid: newUserUid
     };
-    
     saveUser(newUser);
-    console.log('✅ Usuario guardado localmente');
     
-    const settings = getSchoolSettings();
-    const clubId = settings.clubId || currentUser.schoolId || 'default_club';
-    console.log('🏢 Club ID:', clubId);
-    
-    if (window.MODO_SUPABASE) {
-      console.log('📝 Escribiendo usuario en Supabase...');
-      const res = await fetch(
-        `${window.SUPA_URL}/rest/v1/users`,
-        {
-          method: 'POST',
-          headers: { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
-          body: JSON.stringify({
-            id: newUserUid,
-            club_id: clubId,
-            email: newUser.email,
-            name: newUser.name,
-            is_main_admin: false,
-            role: 'admin',
-            phone: newUser.phone || '',
-            deleted: false,
-            created_at: new Date().toISOString()
-          })
-        }
-      );
-      if (!res.ok) {
-        const errText = await res.text();
-        throw new Error('Supabase POST users: ' + errText);
-      }
-      console.log('✅ Usuario guardado en Supabase');
-    } else {
-      console.log('📝 Escribiendo en Firestore como admin principal...');
-      await window.firebase.setDoc(
-        window.firebase.doc(window.firebase.db, `clubs/${clubId}/users`, newUserUid),
-        {
-          id: newUserUid,
-          email: newUser.email,
-          name: newUser.name,
-          isMainAdmin: false,
-          role: 'admin',
-          avatar: newUser.avatar || '',
-          phone: newUser.phone || '',
-          birthDate: newUser.birthDate || '',
-          createdAt: new Date().toISOString()
-        }
-      );
-      console.log('✅ Usuario guardado en Firestore');
-
-      if (typeof saveUserClubMapping === 'function') {
-        console.log('🗺️ Guardando mapeo para login multi-dispositivo...');
-        const mappingSaved = await saveUserClubMapping(userData.email, clubId, newUserUid);
-        if (mappingSaved) {
-          console.log('✅ Mapeo guardado');
-        } else {
-          console.warn('⚠️ Mapeo no se pudo guardar');
-        }
-      }
-    }
-    
-    const adminStillConnected = window.firebase.auth.currentUser;
-    if (adminStillConnected) {
-      console.log('✅ Admin sigue conectado:', adminStillConnected.email);
-    } else {
-      console.warn('⚠️ Admin desconectado (esto NO debería pasar)');
-    }
-    
-    showToast('✅ Usuario creado correctamente');
-    
-    console.log('✅ ========================================');
-    console.log('✅ USUARIO CREADO EXITOSAMENTE');
-    console.log('✅ ========================================');
-    console.log('📋 Resumen:');
-    console.log('   • UID:', newUserUid);
-    console.log('   • Email:', userData.email);
-    console.log('   • Club ID:', clubId);
-    console.log('   • Usuario en Auth: ✅');
-    console.log('   • Usuario en Firestore: ✅');
-    console.log('   • Admin mantiene sesión: ✅');
-    console.log('========================================');
-    
+    showToast('✅ Administrador creado correctamente');
     closeAddSchoolUserModal();
     renderSchoolUsers();
     
   } catch (error) {
-    console.error('❌ ========================================');
-    console.error('❌ ERROR AL CREAR USUARIO');
-    console.error('❌ ========================================');
-    console.error('Error completo:', error);
-    console.error('Código:', error.code);
-    console.error('Mensaje:', error.message);
-    console.error('========================================');
-    
-    // Limpiar instancia secundaria si existe
-    if (secondaryApp && deleteApp) {
-      try {
-        await deleteApp(secondaryApp); // ⭐ USO CORRECTO
-        console.log('🗑️ Instancia secundaria limpiada después del error');
-      } catch (cleanupError) {
-        console.error('Error al limpiar instancia:', cleanupError);
-      }
-    }
-    
-    if (error.code === 'auth/email-already-in-use') {
-      showToast('❌ Este email ya está registrado en Firebase. Por favor usa otro email.');
-    } else if (error.code === 'auth/weak-password') {
-      showToast('❌ La contraseña debe tener al menos 6 caracteres');
-    } else if (error.code === 'auth/invalid-email') {
-      showToast('❌ Email inválido');
-    } else if (error.code === 'permission-denied') {
-      showToast('❌ Error de permisos. Verifica que seas el admin principal.');
-    } else {
-      showToast('❌ Error: ' + error.message);
-    }
+    console.error('❌ Error al crear administrador:', error);
+    showToast('❌ Error: ' + error.message);
   }
 }
 // ✅ FUNCIÓN MEJORADA: Eliminar usuario COMPLETAMENTE
@@ -1055,28 +857,35 @@ async function deleteSchoolUser(userId) {
       deleteAvatarFromStorage(userToDelete.avatar).catch(e => console.warn('⚠️ No se pudo borrar avatar:', e));
     }
 
-    // 1️⃣ Marcar usuario como eliminado en la nube
-    if (window.MODO_SUPABASE) {
-      const delRes = await fetch(
-        `${window.SUPA_URL}/rest/v1/users?id=eq.${encodeURIComponent(userId)}&club_id=eq.${encodeURIComponent(clubId)}`,
-        {
-          method: 'PATCH',
-          headers: { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
-          body: JSON.stringify({ deleted: true })
-        }
-      );
-      if (!delRes.ok) throw new Error('Supabase PATCH users: ' + delRes.status);
-      console.log('✅ Usuario marcado como eliminado en Supabase');
-    } else {
-      try {
-        await window.firebase.deleteDoc(
-          window.firebase.doc(window.firebase.db, `clubs/${clubId}/users`, userId)
-        );
-        console.log('✅ Usuario ELIMINADO completamente de Firestore (documento borrado)');
-      } catch (firestoreError) {
-        console.error('⚠️ Error al eliminar de Firestore:', firestoreError);
-        throw firestoreError;
+    // 1) Marcar usuario como eliminado en Supabase
+    const delRes = await fetch(
+      `${window.SUPA_URL}/rest/v1/users?id=eq.${encodeURIComponent(userId)}&club_id=eq.${encodeURIComponent(clubId)}`,
+      {
+        method: 'PATCH',
+        headers: { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+        body: JSON.stringify({ deleted: true })
       }
+    );
+    if (!delRes.ok) throw new Error('Supabase PATCH users: ' + delRes.status);
+    console.log('✅ Usuario marcado como eliminado en Supabase');
+
+    // 1.5) Eliminar la CUENTA DE AUTH (server-side, service_role) para que el usuario
+    //      borrado no pueda volver a autenticarse ni conservar un JWT del club.
+    //      El interceptor reemplaza la anon key por el JWT del admin principal.
+    try {
+      const authDel = await fetch(`${window.SUPA_URL}/functions/v1/delete-auth-user`, {
+        method: 'POST',
+        headers: { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uidToDelete: userId, clubId })
+      });
+      if (!authDel.ok) {
+        const e = await authDel.json().catch(() => ({}));
+        console.warn('⚠️ No se pudo eliminar la cuenta de Auth:', e.error || authDel.status);
+      } else {
+        console.log('✅ Cuenta de Auth eliminada');
+      }
+    } catch (e) {
+      console.warn('⚠️ Error llamando delete-auth-user:', e?.message || e);
     }
 
     // 2️⃣ Eliminar de localStorage
@@ -1086,44 +895,6 @@ async function deleteSchoolUser(userId) {
 
     // 3️⃣ Actualizar UI
     renderSchoolUsers();
-
-    // 4️⃣ Eliminar mapeo (solo Firebase — en Supabase no hay tabla de mapeo)
-    if (!window.MODO_SUPABASE && userToDelete.email) {
-      try {
-        const mappingEmail = typeof normalizeUserEmail === 'function'
-          ? normalizeUserEmail(userToDelete.email)
-          : (userToDelete.email || '').trim().toLowerCase();
-        const mappingCandidates = [...new Set([mappingEmail, (userToDelete.email || '').trim()].filter(Boolean))];
-        let deletedAnyMapping = false;
-        for (const candidateEmail of mappingCandidates) {
-          try {
-            await window.firebase.deleteDoc(
-              window.firebase.doc(window.firebase.db, 'userClubMapping', candidateEmail)
-            );
-            deletedAnyMapping = true;
-          } catch (candidateError) {
-            console.log('⚠️ No se pudo eliminar mapeo candidato:', candidateEmail, candidateError.code);
-          }
-        }
-        if (!deletedAnyMapping) {
-          throw new Error('No se pudo eliminar ningún mapeo de usuario');
-        }
-        console.log('✅ Mapeo eliminado - Usuario bloqueado completamente');
-      } catch (mappingError) {
-        console.log('⚠️ No se pudo eliminar el mapeo:', mappingError.code);
-      }
-    }
-
-    // 5️⃣ Eliminar la cuenta de Firebase Authentication vía Cloud Function (solo Firebase)
-    if (!window.MODO_SUPABASE && userToDelete.id && window.firebase?.functions && window.firebase?.httpsCallable) {
-      try {
-        const deleteAuthUser = window.firebase.httpsCallable(window.firebase.functions, 'deleteAuthUser');
-        await deleteAuthUser({ uidToDelete: userToDelete.id, clubId });
-        console.log('✅ Cuenta de Firebase Authentication eliminada');
-      } catch (authDeleteError) {
-        console.warn('⚠️ No se pudo eliminar la cuenta Auth (usuario ya bloqueado):', authDeleteError.message);
-      }
-    }
 
     showToast('✅ Usuario eliminado permanentemente');
     console.log('✅ Eliminación completada.');
@@ -1654,107 +1425,9 @@ async function executeClubDestruction(clubId, currentUser) {
       } catch (e) {
         console.warn('⚠️ No se pudieron limpiar todas las carpetas Storage del club:', e.message);
       }
-    } else if (window.firebase?.db) {
-      // 1️⃣ Eliminar Jugadores
-      try {
-        const playersSnapshot = await window.firebase.getDocs(
-          window.firebase.collection(window.firebase.db, `clubs/${clubId}/players`)
-        );
-        for (const doc of playersSnapshot.docs) {
-          await window.firebase.deleteDoc(doc.ref);
-        }
-        console.log(`✅ Jugadores eliminados de Firebase`);
-      } catch (error) {
-        console.error('❌ Error eliminando jugadores:', error);
-      }
-
-      // 2️⃣ Eliminar Pagos
-      try {
-        const paymentsSnapshot = await window.firebase.getDocs(
-          window.firebase.collection(window.firebase.db, `clubs/${clubId}/payments`)
-        );
-        for (const doc of paymentsSnapshot.docs) {
-          await window.firebase.deleteDoc(doc.ref);
-        }
-        console.log(`✅ Pagos eliminados de Firebase`);
-      } catch (error) {
-        console.error('❌ Error eliminando pagos:', error);
-      }
-
-      // 3️⃣ Eliminar Eventos
-      try {
-        const eventsSnapshot = await window.firebase.getDocs(
-          window.firebase.collection(window.firebase.db, `clubs/${clubId}/events`)
-        );
-        for (const doc of eventsSnapshot.docs) {
-          await window.firebase.deleteDoc(doc.ref);
-        }
-        console.log(`✅ Eventos eliminados de Firebase`);
-      } catch (error) {
-        console.error('❌ Error eliminando eventos:', error);
-      }
-
-      // 4️⃣ Eliminar Egresos
-      try {
-        const expensesSnapshot = await window.firebase.getDocs(
-          window.firebase.collection(window.firebase.db, `clubs/${clubId}/expenses`)
-        );
-        for (const doc of expensesSnapshot.docs) {
-          await window.firebase.deleteDoc(doc.ref);
-        }
-        console.log(`✅ Egresos eliminados de Firebase`);
-      } catch (error) {
-        console.error('❌ Error eliminando egresos:', error);
-      }
-
-      // 5️⃣ Eliminar Usuarios
-      try {
-        const usersSnapshot = await window.firebase.getDocs(
-          window.firebase.collection(window.firebase.db, `clubs/${clubId}/users`)
-        );
-        for (const doc of usersSnapshot.docs) {
-          await window.firebase.deleteDoc(doc.ref);
-        }
-        console.log(`✅ Usuarios eliminados de Firebase`);
-      } catch (error) {
-        console.error('❌ Error eliminando usuarios:', error);
-      }
-
-      // 6️⃣ Eliminar Configuración
-      try {
-        await window.firebase.deleteDoc(
-          window.firebase.doc(window.firebase.db, `clubs/${clubId}/settings`, "main")
-        );
-        console.log('✅ Configuración eliminada de Firebase');
-      } catch (error) {
-        console.error('❌ Error eliminando configuración:', error);
-      }
-
-      // 7️⃣ Eliminar Mapeo
-      try {
-        const mappingEmail = typeof normalizeUserEmail === 'function'
-          ? normalizeUserEmail(currentUser.email)
-          : (currentUser.email || '').trim().toLowerCase();
-        const mappingCandidates = [...new Set([mappingEmail, (currentUser.email || '').trim()].filter(Boolean))];
-        let deletedAnyMapping = false;
-        for (const candidateEmail of mappingCandidates) {
-          try {
-            await window.firebase.deleteDoc(
-              window.firebase.doc(window.firebase.db, 'userClubMapping', candidateEmail)
-            );
-            deletedAnyMapping = true;
-          } catch (candidateError) {
-            console.log('⚠️ No se pudo eliminar mapeo candidato:', candidateEmail, candidateError.code);
-          }
-        }
-        if (!deletedAnyMapping) throw new Error('No se pudo eliminar ningún mapeo');
-        console.log('✅ Mapeo eliminado');
-      } catch (error) {
-        console.log('ℹ️ No se pudo eliminar mapeo:', error.code);
-      }
     }
     
-    // 8️⃣ Limpiar localStorage
+    // 2) Limpiar localStorage
     showToast('🗑️ Limpiando datos locales...');
     
     localStorage.removeItem('currentUser');
@@ -1767,16 +1440,6 @@ async function executeClubDestruction(clubId, currentUser) {
     localStorage.removeItem('expenses');
     
     console.log('✅ localStorage limpiado');
-    
-    // 9️⃣ Cerrar sesión en Firebase
-    if (window.firebase?.auth) {
-      try {
-        await window.firebase.signOut(window.firebase.auth);
-        console.log('✅ Sesión de Firebase cerrada');
-      } catch (error) {
-        console.error('❌ Error al cerrar sesión:', error);
-      }
-    }
     
     console.log('🔥 ========================================');
     console.log('🔥 DESTRUCCIÓN COMPLETADA');

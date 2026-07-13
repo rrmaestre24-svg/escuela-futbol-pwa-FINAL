@@ -690,7 +690,7 @@ function updateSchoolSettings(settings) {
   localStorage.setItem('schoolSettings', JSON.stringify(updated));
   
   // ⭐ SINCRONIZACIÓN AUTOMÁTICA — delega a firebase-sync.js para consistencia
-  if (typeof saveSchoolSettingsToFirebase === 'function' && window.APP_STATE?.firebaseReady) {
+  if (typeof saveSchoolSettingsToFirebase === 'function') {
     saveSchoolSettingsToFirebase(updated).catch(err =>
       console.warn('⚠️ No se pudo sincronizar configuración:', err)
     );
@@ -944,44 +944,8 @@ async function exportDataExcel() {
 // Lee asistencias de los últimos 90 días desde Firestore
 async function _fetchAttendanceForExport(clubId) {
   // En Supabase, la asistencia es gestionada por la app separada (no disponible aquí)
-  if (!clubId || window.MODO_SUPABASE || !window.firebase?.db) return [];
-
-  try {
-    const { collection, query, where, getDocs, orderBy } = window.firebase;
-    const db = window.firebase.db;
-
-    // Fecha límite: hace 90 días
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - 90);
-    const cutoffStr = cutoff.toISOString().split('T')[0];
-
-    const attendanceRef = collection(db, `clubs/${clubId}/attendance`);
-    const q = query(attendanceRef, where('date', '>=', cutoffStr), orderBy('date', 'desc'));
-    const snap = await getDocs(q);
-
-    const rows = [];
-    snap.forEach(doc => {
-      const d = doc.data();
-      // Cada documento tiene records{} con un entry por jugador
-      const records = d.records || {};
-      Object.entries(records).forEach(([playerName, status]) => {
-        rows.push({
-          'Fecha':       d.date || '',
-          'Categoría':   d.category || '',
-          'Turno':       d.turn || '',
-          'Entrenador':  d.coachName || d.coachId || '',
-          'Jugador':     playerName,
-          'Estado':      typeof status === 'object' ? (status.status || '') : status,
-          'Motivo Excusa': typeof status === 'object' ? (status.excuseReason || '') : ''
-        });
-      });
-    });
-
-    return rows;
-  } catch (err) {
-    console.warn('[EXPORT] No se pudieron cargar asistencias:', err);
-    return [];
-  }
+  if (!clubId || window.MODO_SUPABASE) return [];
+  return [];
 }
 
 // ========================================
@@ -1265,15 +1229,7 @@ async function revokeParentCodeFromFirebase(playerId) {
     return;
   }
 
-  if (!window.APP_STATE?.firebaseReady || !window.firebase?.db || !window.firebase?.deleteDoc) return;
-  try {
-    await window.firebase.deleteDoc(
-      window.firebase.doc(window.firebase.db, `clubs/${clubId}/parentCodes`, playerId)
-    );
-    console.log('✅ Código de padre revocado en Firebase');
-  } catch (error) {
-    console.warn('⚠️ No se pudo revocar código de padre en Firebase:', error);
-  }
+  // Firebase removed — only Supabase path active
 }
 
 // Sincronizar código de padre con Firebase o Supabase
@@ -1304,19 +1260,7 @@ async function syncParentCodeToFirebase(playerId, code) {
     return;
   }
 
-  if (!window.APP_STATE?.firebaseReady || !window.firebase?.db) {
-    console.log('⚠️ Firebase no disponible para sincronizar código de padre');
-    return;
-  }
-  try {
-    await window.firebase.setDoc(
-      window.firebase.doc(window.firebase.db, `clubs/${clubId}/parentCodes`, playerId),
-      { playerId: playerId, code: code, createdAt: new Date().toISOString() }
-    );
-    console.log('✅ Código de padre sincronizado con Firebase');
-  } catch (error) {
-    console.warn('⚠️ No se pudo sincronizar código de padre:', error);
-  }
+  // Firebase removed — only Supabase path active
 }
 
 // Exportar funciones globalmente

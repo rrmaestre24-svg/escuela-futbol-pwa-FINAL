@@ -72,30 +72,8 @@ async function validateActivationCode(code) {
 
   const cleanCode = code.trim().toUpperCase();
 
-  // --- Intentar Firebase primero ---
-  if (window.firebase?.db) {
-    try {
-      console.log('🔍 Validando código en Firebase:', cleanCode);
-      const codeRef = window.firebase.doc(window.firebase.db, 'activation_codes', cleanCode);
-      const codeSnap = await window.firebase.getDoc(codeRef);
-
-      if (codeSnap.exists()) {
-        const codeData = codeSnap.data();
-        if (codeData.used === true) return { valid: false, error: 'Este código ya fue utilizado' };
-        const createdAt = codeData.createdAt?.toDate ? codeData.createdAt.toDate() : new Date(codeData.createdAt);
-        const expiresAt = new Date(createdAt);
-        expiresAt.setDate(expiresAt.getDate() + LICENSE_CONFIG.CODE_EXPIRY_DAYS);
-        if (new Date() > expiresAt) return { valid: false, error: 'Este código ha expirado. Solicita uno nuevo.' };
-        console.log('✅ Código válido (Firebase)');
-        return { valid: true, source: 'firebase', data: { code: cleanCode, plan: codeData.plan, createdAt, expiresAt } };
-      }
-    } catch (e) {
-      console.warn('Error Firebase al validar código:', e);
-    }
-  }
-
-  // --- Intentar Supabase (códigos nuevos) ---
-  console.log('🔍 Código no encontrado en Firebase, revisando Supabase...');
+  // --- Intentar Supabase ---
+  console.log('🔍 Validando código en Supabase...');
   const row = await _validateCodeSupabase(cleanCode);
 
   if (!row) return { valid: false, error: 'Código inválido o no existe' };
@@ -128,11 +106,6 @@ async function activateLicense(code, clubId, clubName, clubPhone, plan, codeSour
     console.log('📝 Marcando código como usado...');
     if (codeSource === 'supabase' || window.MODO_SUPABASE) {
       await _markCodeUsedSupabase(cleanCode, clubId);
-    } else if (window.firebase?.db) {
-      await window.firebase.updateDoc(
-        window.firebase.doc(window.firebase.db, 'activation_codes', cleanCode),
-        { used: true, usedBy: clubId, usedAt: now.toISOString() }
-      );
     }
 
     console.log('📝 Creando licencia...');
@@ -178,31 +151,6 @@ async function activateLicense(code, clubId, clubName, clubPhone, plan, codeSour
           });
         }
       }
-    } else if (window.firebase?.db) {
-      await window.firebase.setDoc(
-        window.firebase.doc(window.firebase.db, 'licenses', clubId),
-        {
-          clubId: clubId,
-          clubName: clubName,
-          clubPhone: clubPhone || '',
-          plan: plan,
-          activationCode: cleanCode,
-          startDate: now.toISOString(),
-          endDate: endDate.toISOString(),
-          status: 'activo',
-          totalPlayers: 0,
-          createdAt: now.toISOString(),
-          paymentHistory: [{
-            date: now.toISOString(),
-            plan: plan,
-            code: cleanCode,
-            action: 'activation'
-          }]
-        }
-      );
-    } else {
-      console.error('❌ Ni Supabase ni Firebase disponibles para crear licencia');
-      return false;
     }
 
     localStorage.setItem('licenseStatus', 'activo');
@@ -277,49 +225,10 @@ async function checkLicenseStatus() {
     }
   } catch (_) { /* continúa a Firebase */ }
 
-  // ── Intento 2: Firebase (fallback) ──────────────────────────────────────────
-  if (!window.firebase?.db) {
-    await new Promise(resolve => setTimeout(resolve, 1500));
-  }
-
-  if (!window.firebase?.db) {
-    const cachedEndDate = localStorage.getItem('licenseEndDate');
-    if (cachedEndDate) return calculateLicenseState(new Date(cachedEndDate));
-    return { status: 'error', daysRemaining: 0, message: 'Sin conexión' };
-  }
-
-  try {
-    console.log('🔍 [Firebase] Consultando licencia...');
-    const licenseRef = window.firebase.doc(window.firebase.db, 'licenses', clubId);
-    const licenseSnap = await window.firebase.getDoc(licenseRef);
-
-    if (!licenseSnap.exists()) {
-      return { status: 'sin_licencia', daysRemaining: 0, message: 'Licencia no encontrada' };
-    }
-
-    const licenseData = licenseSnap.data();
-
-    if (licenseData.status === 'inactivo') {
-      console.log('🔴 [Firebase] Licencia desactivada por administrador');
-      localStorage.setItem('licenseStatus', 'inactivo');
-      return { status: 'inactivo', daysRemaining: 0, endDate: new Date(licenseData.endDate), message: '🔴 Licencia desactivada - Contacta al administrador' };
-    }
-
-    const endDate = new Date(licenseData.endDate);
-    const result = calculateLicenseState(endDate);
-    _applyModuloButtons(licenseData.modulos);
-    localStorage.setItem('licenseStatus', result.status);
-    localStorage.setItem('licenseEndDate', licenseData.endDate);
-    localStorage.setItem('licensePlan', licenseData.plan);
-    console.log('📋 [Firebase] Estado de licencia:', result);
-    return result;
-
-  } catch (error) {
-    console.error('❌ Error al verificar licencia:', error);
-    const cachedEndDate = localStorage.getItem('licenseEndDate');
-    if (cachedEndDate) return calculateLicenseState(new Date(cachedEndDate));
-    return { status: 'error', daysRemaining: 0, message: 'Error de conexión' };
-  }
+  // ── Fallback a caché local ──
+  const cachedEndDate = localStorage.getItem('licenseEndDate');
+  if (cachedEndDate) return calculateLicenseState(new Date(cachedEndDate));
+  return { status: 'error', daysRemaining: 0, message: 'Sin conexión' };
 }
 
 /**
@@ -561,11 +470,6 @@ async function updatePlayerCount() {
           body: JSON.stringify({ total_players: totalPlayers })
         }
       );
-    } else if (window.firebase?.db) {
-      await window.firebase.updateDoc(
-        window.firebase.doc(window.firebase.db, 'licenses', clubId),
-        { totalPlayers: totalPlayers }
-      );
     }
 
     console.log('📊 Contador de jugadores actualizado:', totalPlayers);
@@ -583,7 +487,7 @@ function listenToLicenseChanges() {
   
   if (!clubId) return;
 
-  if (!window.MODO_SUPABASE && !window.firebase?.db) {
+  if (!window.MODO_SUPABASE) {
     // Máximo 5 intentos para no bloquear la app
     if (!window._licenseRetries) window._licenseRetries = 0;
     window._licenseRetries++;
@@ -598,9 +502,6 @@ function listenToLicenseChanges() {
 
   try {
     console.log('👂 Escuchando cambios en licencia:', clubId);
-
-    const licenseRef = !window.MODO_SUPABASE && window.firebase?.doc
-      ? window.firebase.doc(window.firebase.db, 'licenses', clubId) : null;
 
     // Cancelar polling anterior si existe (evita duplicados al reiniciar sesión)
     if (typeof window.licenseUnsubscribe === 'function') {
@@ -629,14 +530,6 @@ function listenToLicenseChanges() {
           }
         } catch (_) {}
 
-        // Firebase fallback (solo en modo no-Supabase)
-        if (!newStatus && !window.MODO_SUPABASE && window.firebase?.db) {
-          const doc = await window.firebase.getDoc(licenseRef);
-          if (!doc.exists()) { console.log('⚠️ Licencia no encontrada'); return; }
-          const d = doc.data();
-          newStatus = d.status;
-          newModulos = d.modulos;
-        }
         if (!newStatus) return; // sin datos disponibles
 
         const currentStatus = localStorage.getItem('licenseStatus');

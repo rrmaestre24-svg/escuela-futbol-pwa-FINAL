@@ -1067,11 +1067,6 @@ async function renderVoidedPayments() {
   container.innerHTML = '<p class="text-gray-400 text-sm text-center py-4">Cargando...</p>';
 
   try {
-    if (!window.firebase?.db) {
-      container.innerHTML = '<p class="text-gray-400 text-sm text-center py-4">Sin conexión</p>';
-      return;
-    }
-
     const clubId = localStorage.getItem('clubId');
     if (!clubId) return;
 
@@ -1092,14 +1087,6 @@ async function renderVoidedPayments() {
           ...(r.original_data || {}),
         }));
       }
-    } else {
-      const snap = await window.firebase.getDocs(
-        window.firebase.query(
-          window.firebase.collection(window.firebase.db, `clubs/${clubId}/voided_payments`),
-          window.firebase.orderBy('voidedAt', 'desc')
-        )
-      );
-      voidedRows = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     }
 
     if (voidedRows.length === 0) {
@@ -1849,6 +1836,10 @@ function renderOverduePlayers() {
   const overdue = [];
 
   players.forEach(player => {
+    // Solo jugadores ACTIVOS: los inactivos no cuentan como morosos
+    const _st = (player.status || 'Activo').toString().trim().toLowerCase();
+    if (_st === 'inactivo' || _st === 'inactive') return;
+
     const playerPayments = payments.filter(p => p.playerId === player.id);
 
     // 1) Pagos Pendiente explícitos con dueDate vencido
@@ -1886,31 +1877,13 @@ function renderOverduePlayers() {
   if (badge) badge.textContent = `${uniquePlayers.size} jugador(es) vencido(s)`;
 
   if (overdue.length === 0) {
-    if (!container.querySelector('table')) {
-      container.innerHTML = `<div class="hidden md:block overflow-x-auto">
-        <table class="w-full text-sm">
-          <thead>
-            <tr class="border-b border-gray-200 dark:border-gray-700">
-              <th class="text-left py-1 px-1.5 text-gray-500 dark:text-gray-400 text-[10px] font-medium uppercase">Jugador</th>
-              <th class="text-left py-1 px-1.5 text-gray-500 dark:text-gray-400 text-[10px] font-medium uppercase hidden md:table-cell">Acudiente</th>
-              <th class="text-left py-1 px-1.5 text-gray-500 dark:text-gray-400 text-[10px] font-medium uppercase hidden md:table-cell">Meses</th>
-              <th class="text-right py-1 px-1.5 text-gray-500 dark:text-gray-400 text-[10px] font-medium uppercase">Deuda</th>
-              <th class="text-center py-1 px-1.5 text-gray-500 dark:text-gray-400 text-[10px] font-medium uppercase">Días</th>
-              <th class="text-center py-1 px-1.5 text-gray-500 dark:text-gray-400 text-[10px] font-medium uppercase"></th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-      <div id="overduePlayersCards" class="md:hidden space-y-2"></div>`;
-    }
-    const tbody = container.querySelector('table tbody');
-    if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-gray-400 dark:text-gray-500 text-xs">
-      <i data-lucide="check-circle" class="w-6 h-6 text-green-400 mb-1 inline-block"></i><br>
-      No hay jugadores con pagos vencidos
-    </td></tr>`;
-    const cards = container.querySelector('#overduePlayersCards');
-    if (cards) cards.innerHTML = `<div class="text-center py-4 text-gray-400 dark:text-gray-500 text-xs">Sin jugadores vencidos</div>`;
+    container.innerHTML = `
+      <div class="flex flex-col items-center justify-center py-8 text-center">
+        <div class="w-12 h-12 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mb-2">
+          <i data-lucide="check-circle" class="w-6 h-6 text-green-500"></i>
+        </div>
+        <p class="text-sm text-gray-500 dark:text-gray-400">No hay jugadores activos con pagos vencidos</p>
+      </div>`;
     window._overdueData = [];
     if (typeof lucide !== 'undefined' && lucide.createIcons) {
       setTimeout(() => { try { lucide.createIcons(); } catch(e) { /* noop */ } }, 50);
@@ -1931,71 +1904,39 @@ function renderOverduePlayers() {
   const sortedPlayers = Object.values(grouped).sort((a, b) => b.maxDays - a.maxDays);
   window._overdueData = sortedPlayers;
 
-  // Recrea estructura HTML si fue reemplazada por el mensaje "sin datos"
-  if (!container.querySelector('table')) {
-    container.innerHTML = `<div class="hidden md:block overflow-x-auto">
-      <table class="w-full text-sm">
-        <thead>
-          <tr class="border-b border-gray-200 dark:border-gray-700">
-            <th class="text-left py-1 px-1.5 text-gray-500 dark:text-gray-400 text-[10px] font-medium uppercase">Jugador</th>
-            <th class="text-left py-1 px-1.5 text-gray-500 dark:text-gray-400 text-[10px] font-medium uppercase hidden md:table-cell">Acudiente</th>
-            <th class="text-left py-1 px-1.5 text-gray-500 dark:text-gray-400 text-[10px] font-medium uppercase hidden md:table-cell">Meses</th>
-            <th class="text-right py-1 px-1.5 text-gray-500 dark:text-gray-400 text-[10px] font-medium uppercase">Deuda</th>
-            <th class="text-center py-1 px-1.5 text-gray-500 dark:text-gray-400 text-[10px] font-medium uppercase">Días</th>
-            <th class="text-center py-1 px-1.5 text-gray-500 dark:text-gray-400 text-[10px] font-medium uppercase"></th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
-    <div id="overduePlayersCards" class="md:hidden space-y-2"></div>`;
-  }
+  // ── Render en TARJETAS (estilo glass-card de la app; foto real del jugador;
+  //    colores SÓLIDOS sin /opacidad porque el build de Tailwind no los compila) ──
+  const _daysBadge = (d) => d >= 60
+    ? 'bg-red-500 text-white'
+    : d >= 30
+      ? 'bg-orange-500 text-white'
+      : 'bg-amber-500 text-white';
+  const _defAv = (typeof getDefaultAvatar === 'function') ? getDefaultAvatar() : '';
 
-  const tbody = container.querySelector('table tbody');
-  if (tbody) {
-    tbody.innerHTML = sortedPlayers.map(g => {
-      const monthsStr = _getOverdueMonths(g.items);
-      const guardian = g.player.guardianName || g.player.parentName || g.player.phone || '';
-      return `<tr class="border-b border-gray-100 dark:border-gray-700/50">
-        <td class="py-0.5 px-1.5">
-          <div class="text-xs font-medium text-gray-800 dark:text-white leading-tight">${_accEscapeHtml(g.player.name)}</div>
-          ${guardian ? `<div class="text-[9px] text-gray-400 leading-tight">${_accEscapeHtml(guardian)}</div>` : ''}
-          ${monthsStr ? `<div class="text-[9px] text-gray-500 leading-tight mt-0.5">${_accEscapeHtml(monthsStr)}</div>` : ''}
-        </td>
-        <td class="py-0.5 px-1.5 text-gray-500 dark:text-gray-400 text-[10px] hidden md:table-cell">${guardian ? _accEscapeHtml(guardian) : '-'}</td>
-        <td class="py-0.5 px-1.5 text-[10px] text-gray-600 dark:text-gray-400 hidden md:table-cell truncate max-w-[130px]" title="${_accEscapeHtml(monthsStr)}">${_accEscapeHtml(monthsStr)}</td>
-        <td class="py-0.5 px-1.5 text-right font-semibold text-gray-900 dark:text-gray-100 text-xs">${formatCurrency(g.totalDue)}</td>
-        <td class="py-0.5 px-1.5 text-center text-xs font-medium text-red-600">${g.maxDays}d</td>
-        <td class="py-0.5 px-1.5 text-center">
-          <button onclick="sendPendingReminderWA('${g.player.id}')" class="text-green-600 hover:text-green-700 p-0 align-middle" title="WA">
-            <i data-lucide="message-circle" class="w-3.5 h-3.5"></i>
-          </button>
-        </td>
-      </tr>`;
-    }).join('');
-  }
-
-  const cards = container.querySelector('#overduePlayersCards');
-  if (cards) {
-    cards.innerHTML = sortedPlayers.map(g => {
-      const monthsStr = _getOverdueMonths(g.items);
-      const guardian = g.player.guardianName || g.player.parentName || g.player.phone || '';
-      return `<div class="py-1 border-b border-gray-100 dark:border-gray-700/50 last:border-0">
-        <div class="flex items-center gap-1 text-xs leading-tight">
-          <div class="flex-1 min-w-0">
-            <span class="font-medium text-gray-800 dark:text-white">${_accEscapeHtml(g.player.name)}</span>
-            ${guardian ? `<div class="text-[9px] text-gray-400">${_accEscapeHtml(guardian)}</div>` : ''}
-            ${monthsStr ? `<div class="text-[9px] text-gray-500">${_accEscapeHtml(monthsStr)}</div>` : ''}
-          </div>
-          <span class="text-gray-900 dark:text-gray-100 font-semibold shrink-0">${formatCurrency(g.totalDue)}</span>
-          <span class="text-red-600 font-medium shrink-0 w-8 text-right">${g.maxDays}d</span>
-          <button onclick="sendPendingReminderWA('${g.player.id}')" class="text-green-600 hover:text-green-700 shrink-0 p-0" title="WA">
-            <i data-lucide="message-circle" class="w-3 h-3"></i>
-          </button>
+  container.innerHTML = `<div class="space-y-2.5">` + sortedPlayers.map(g => {
+    const monthsStr = _getOverdueMonths(g.items);
+    const guardian = g.player.guardianName || g.player.parentName || g.player.phone || '';
+    const avatar = g.player.avatar || _defAv;
+    const monthChips = monthsStr
+      ? monthsStr.split(', ').map(m => `<span class="inline-block text-[9px] font-medium px-1.5 py-0.5 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">${_accEscapeHtml(m)}</span>`).join('')
+      : '';
+    return `
+      <div class="glass-card rounded-xl p-3 shadow-sm flex items-center gap-3">
+        <img src="${_accEscapeHtml(avatar)}" alt="" loading="lazy" class="w-11 h-11 rounded-full object-cover border-2 border-teal-500 shrink-0">
+        <div class="flex-1 min-w-0">
+          <div class="text-sm font-semibold text-gray-800 dark:text-white truncate">${_accEscapeHtml(g.player.name)}</div>
+          ${guardian ? `<div class="text-[11px] text-gray-500 dark:text-gray-400 truncate">${_accEscapeHtml(guardian)}</div>` : ''}
+          ${monthChips ? `<div class="flex flex-wrap gap-1 mt-1.5">${monthChips}</div>` : ''}
         </div>
+        <div class="text-right shrink-0">
+          <div class="text-sm font-bold text-gray-900 dark:text-white whitespace-nowrap">${formatCurrency(g.totalDue)}</div>
+          <span class="inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${_daysBadge(g.maxDays)}">${g.maxDays}d</span>
+        </div>
+        <button onclick="sendPendingReminderWA('${g.player.id}')" class="shrink-0 w-9 h-9 rounded-full bg-green-500 hover:bg-green-600 text-white flex items-center justify-center transition-colors shadow-sm" title="Recordar por WhatsApp">
+          <i data-lucide="message-circle" class="w-4 h-4"></i>
+        </button>
       </div>`;
-    }).join('');
-  }
+  }).join('') + `</div>`;
 
   if (typeof lucide !== 'undefined' && lucide.createIcons) {
     setTimeout(() => { try { lucide.createIcons(); } catch(e) { /* noop */ } }, 50);

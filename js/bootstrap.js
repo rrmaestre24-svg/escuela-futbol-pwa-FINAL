@@ -3,11 +3,6 @@
 // Se ejecuta después de que todos los scripts estén cargados
 // ========================================
 
-// Inicializar Firebase
-if (typeof initFirebase === 'function') {
-    initFirebase();
-}
-
 // Inicializar Lucide Icons
 try {
     if (typeof lucide !== 'undefined' && typeof lucide.createIcons === 'function') {

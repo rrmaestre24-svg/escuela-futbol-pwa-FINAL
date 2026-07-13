@@ -3,8 +3,7 @@
 // /rest/v1/ y /storage/v1/. Permite cerrar la RLS por club sin romper nada.
 //
 // Cómo se usa:
-//   - Después del login, llamar window.SupaAuth.mintFirebase(idToken)
-//     (admins), .mintCoach(code, clubId) o .mintParent(code, clubId).
+//   - .mintCoach(code, clubId) (admins), .mintParent(code, clubId) (parents).
 //   - El interceptor global de fetch hace el resto: reemplaza el Bearer
 //     anon por el del usuario en llamadas a Supabase.
 //   - Se persiste en localStorage para sobrevivir recargas. Se refresca solo.
@@ -143,7 +142,6 @@
 
   // ── API pública ──────────────────────────────────────────────────────────
   window.SupaAuth = {
-    mintFirebase: (firebaseIdToken) => _callMint({ type: 'firebase', firebase_id_token: firebaseIdToken }),
     mintCoach:    (code, clubId)     => _callMint({ type: 'coach',    code, club_id: clubId }),
     mintParent:   (code, clubId)     => _callMint({ type: 'parent',   code, club_id: clubId }),
     getToken:   () => _session?.access_token || null,

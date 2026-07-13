@@ -2719,18 +2719,6 @@ async function handlePaymentFormSubmit(e) {
                   }
                 });
               }
-            } else if (window.firebase?.db) {
-              const voidedSnap = await window.firebase.getDocs(
-                window.firebase.collection(window.firebase.db, `clubs/${clubId}/voided_payments`)
-              );
-              voidedSnap.forEach(doc => {
-                const v = doc.data();
-                if (v.playerId === playerId &&
-                    v.type === 'Mensualidad' &&
-                    (v.dueDate || '').slice(0, 7) === mesRef) {
-                  anuladoExiste = true;
-                }
-              });
             }
           }
         } catch (e) {

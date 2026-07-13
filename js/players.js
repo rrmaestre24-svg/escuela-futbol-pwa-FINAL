@@ -281,21 +281,6 @@ async function togglePlayerStatus(playerId) {
     } catch (error) {
       console.error('⚠️ Error al sincronizar estado con Supabase:', error);
     }
-  } else if (window.APP_STATE?.firebaseReady && window.firebase?.db) {
-    try {
-      const settings = getSchoolSettings();
-      const clubId = settings.clubId || localStorage.getItem('clubId');
-      if (clubId) {
-        await window.firebase.setDoc(
-          window.firebase.doc(window.firebase.db, `clubs/${clubId}/players`, playerId),
-          updateData,
-          { merge: true }
-        );
-        console.log('✅ Estado sincronizado con Firebase');
-      }
-    } catch (error) {
-      console.error('⚠️ Error al sincronizar estado:', error);
-    }
   }
 
   // Mensaje y re-renderizar
@@ -949,18 +934,6 @@ async function uploadPlayerDocument(playerId, input) {
       }
     } catch (_) { /* usar docs locales si falla */ }
     canUpdateDocsFieldDirectly = true;
-  } else if (window.firebase?.db && clubId && window.firebase.doc && window.firebase.getDoc && window.firebase.updateDoc) {
-    try {
-      playerRef = window.firebase.doc(window.firebase.db, `clubs/${clubId}/players`, playerId);
-      const playerSnap = await window.firebase.getDoc(playerRef);
-      if (playerSnap.exists()) {
-        const remotePlayer = playerSnap.data() || {};
-        docs = Array.isArray(remotePlayer.documents) ? remotePlayer.documents : docs;
-        canUpdateDocsFieldDirectly = true;
-      }
-    } catch (syncError) {
-      console.warn('⚠️ No se pudo leer jugador remoto antes de subir documento:', syncError?.message || syncError);
-    }
   }
 
   if (docs.length >= 5) {
@@ -1077,22 +1050,6 @@ async function deletePlayerDocument(playerId, docId) {
     showPlayerDetails(playerId);
     return;
   }
-  if (!window.MODO_SUPABASE && window.firebase?.db && clubId && window.firebase.doc && window.firebase.updateDoc) {
-    window.firebase.updateDoc(
-      window.firebase.doc(window.firebase.db, `clubs/${clubId}/players`, playerId),
-      { documents: docs }
-    ).then(() => {
-      showToast('🗑️ Documento eliminado');
-      showPlayerDetails(playerId);
-    }).catch((error) => {
-      console.warn('⚠️ No se pudo eliminar documento directo en Firebase:', error?.message || error);
-      updatePlayer(playerId, { documents: docs });
-      showToast('🗑️ Documento eliminado');
-      showPlayerDetails(playerId);
-    });
-    return;
-  }
-
   updatePlayer(playerId, { documents: docs });
   showToast('🗑️ Documento eliminado');
   showPlayerDetails(playerId); // Refrescar la vista

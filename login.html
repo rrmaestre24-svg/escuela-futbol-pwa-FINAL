@@ -670,16 +670,17 @@
     <script src="js/low-end-detector.js"></script>
     
     <script src="js/utils.js"></script>
-    <script src="js/firebase-config.js"></script>
+
+    <script src="js/supabase-config.js"></script>
     <script src="js/supabase-auth.js"></script>
     <script src="js/supabase-auth-v2.js"></script>
     <script src="js/storage.js"></script>
     <script src="js/db-indexed.js"></script>
     <script src="js/sync-queue.js"></script>
-    <script src="js/firebase-sync.js"></script>
     <script src="js/install.js"></script>
     <script src="js/phone-utils.js"></script>
     <script src="js/storage-service.js"></script>
+    <script src="js/firebase-sync.js"></script>
     <script src="js/auth.js"></script>
     <script src="js/pwa-icons.js"></script>
     <script src="js/license-system.js"></script>
@@ -744,10 +745,6 @@
 
         // ── Init ────────────────────────────────────
         lucide.createIcons();
-
-        if (typeof initFirebase === 'function') {
-            initFirebase();
-        }
 
         console.log('✅ MY CLUB Login cargado correctamente');
     </script>

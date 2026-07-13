@@ -182,11 +182,6 @@ async function startRealtimeSync(clubId) {
     return true;
   }
 
-  if (!window.firebase?.db || !window.firebase?.getDocs) {
-    console.error('❌ Firebase no está inicializado');
-    return false;
-  }
-
   // Si ya está activo con el mismo club, no hacer nada
   if (window.realtimeSyncState.isActive && window.realtimeSyncState.clubId === clubId) {
     console.log('ℹ️ Sincronización ya activa para este club');
@@ -1495,7 +1490,6 @@ async function refreshPaymentMovementLogOnDemand(options = {}) {
     }
   }
 
-  if (!window.firebase?.db) return false;
   try {
     const logSnapshot = await window.firebase.getDocs(
       window.firebase.query(
@@ -1712,9 +1706,23 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('🧹 Flag paymentsFullHistory limpiado al iniciar');
   }
   
+  // ✅ MODO_SUPABASE: iniciar la sincronización directo, sin esperar a Firebase
+  // (initFirebase fue eliminado, firebaseReady nunca se setea). Sin esto, al abrir
+  // la app con sesión persistida no se descargan datos frescos de Supabase.
+  if (window.MODO_SUPABASE) {
+    const _cu = typeof getCurrentUser === 'function'
+      ? getCurrentUser()
+      : JSON.parse(localStorage.getItem('currentUser') || 'null');
+    if (_cu?.schoolId && typeof startRealtimeSync === 'function') {
+      console.log('🔄 [Supabase] Sesión detectada, iniciando sincronización...');
+      setTimeout(() => { try { startRealtimeSync(_cu.schoolId); } catch (e) { console.warn('startRealtimeSync:', e); } }, 1000);
+    }
+    return; // no arrancar el poller de Firebase (dead-code)
+  }
+
   let attempts = 0;
   const maxAttempts = 30;
-  
+
   const checkFirebase = setInterval(() => {
     attempts++;
     

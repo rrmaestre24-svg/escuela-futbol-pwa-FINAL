@@ -7,7 +7,7 @@
     <meta name="theme-color" content="#0d9488">
     <meta name="description" content="Gestión completa de escuelas de fútbol infantil">
     <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://unpkg.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://www.gstatic.com https://www.googleapis.com https://apis.google.com https://accounts.google.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com; img-src 'self' data: blob: https:; font-src 'self' data: https://cdnjs.cloudflare.com https://fonts.gstatic.com; connect-src 'self' https://unpkg.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://*.googleapis.com https://www.googleapis.com https://*.gstatic.com https://*.firebaseio.com wss://*.firebaseio.com https://*.firebasedatabase.app https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com https://firebasestorage.googleapis.com https://*.cloudfunctions.net https://*.run.app https://ui-avatars.com https://*.supabase.co wss://*.supabase.co; manifest-src 'self'; worker-src 'self' blob:; frame-src 'self' https://*.google.com https://*.firebaseapp.com https://*.gstatic.com; form-action 'self'; upgrade-insecure-requests">
+        content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://unpkg.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://www.gstatic.com https://www.googleapis.com https://apis.google.com https://accounts.google.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com; img-src 'self' data: blob: https:; font-src 'self' data: https://cdnjs.cloudflare.com https://fonts.gstatic.com; connect-src 'self' https://unpkg.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://*.googleapis.com https://www.googleapis.com https://*.gstatic.com https://*.run.app https://ui-avatars.com https://*.supabase.co wss://*.supabase.co; manifest-src 'self'; worker-src 'self' blob:; frame-src 'self' https://*.google.com https://*.gstatic.com; form-action 'self'; upgrade-insecure-requests">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="MY CLUB">
@@ -2933,8 +2933,10 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
     <!-- 0️⃣ DETECCIÓN DE DISPOSITIVO GAMA BAJA (PRIMERO - antes de performance.js) -->
     <script src="js/low-end-detector.js"></script>
 
+    <!-- 1️⃣ CONFIGURACIÓN SUPABASE (ANTES que supabase-auth.js) -->
+    <script src="js/supabase-config.js"></script>
+
     <!-- 1️⃣ CONFIGURACIÓN Y UTILIDADES BASE -->
-    <script src="js/firebase-config.js"></script>
     <script src="js/supabase-auth.js"></script>
     <script src="js/supabase-auth-v2.js"></script>
     <script src="js/utils.js"></script>
@@ -2950,10 +2952,13 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
     <!-- 2️⃣.6 Cola de reintentos Supabase (outbox pattern) -->
     <script src="js/sync-queue.js"></script>
 
-    <!-- 3️⃣ SINCRONIZACIÓN FIREBASE (depende de storage) -->
+
+
+    <!-- Capa de datos Supabase (downloadAllClubDataFromSupabase, saveSchoolSettingsToFirebase,
+         numeración de facturas). El código Firebase interno es dead-code gateado por !MODO_SUPABASE. -->
     <script src="js/firebase-sync.js"></script>
 
-    <!-- 4️⃣ AUTENTICACIÓN (depende de storage y firebase) -->
+    <!-- 4️⃣ AUTENTICACIÓN -->
     <script src="js/auth.js"></script>
     <script src="js/license-system.js"></script>
 

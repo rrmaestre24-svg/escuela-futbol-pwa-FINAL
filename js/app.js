@@ -1,6 +1,5 @@
 // Estado global de la app
 window.APP_STATE = {
-  firebaseReady: false,
   currentUser: null,
   authRestored: false,
   version: '1.3.2' // Fallback de versión si no se puede leer sw.js
@@ -391,19 +390,6 @@ async function initApp() {
 
   }); // cierra showAdminWelcomeSplash
 
-  // Firebase carga EN PARALELO mientras se muestra el splash
-  if (typeof initFirebase === 'function') {
-    try {
-      const firebaseReady = await initFirebase();
-      if (firebaseReady) {
-        console.log('✅ Firebase listo para usar');
-        window.APP_STATE.firebaseReady = true;
-      }
-    } catch (error) {
-      console.log('⚠️ Firebase no disponible:', error);
-      if (typeof displayClubIdInDashboard === 'function') displayClubIdInDashboard();
-    }
-  }
 }
 
 // Cerrar modales al hacer click fuera
@@ -497,29 +483,9 @@ function setupUserDeletionListener() {
         return;
       }
 
-      if (!window.firebase?.db) return;
-      const userDocRef = window.firebase.doc(
-        window.firebase.db,
-        `clubs/${clubId}/users/${currentUser.id}`
-      );
-      const docSnapshot = await window.firebase.getDoc(userDocRef);
-      if (!docSnapshot.exists()) {
-        console.log('🚨 Usuario ELIMINADO de Firebase - Cerrando sesión...');
-        handleUserDeleted();
-        return;
-      }
-      const userData = docSnapshot.data();
-      if (userData?.deleted === true) {
-        console.log('🚨 Usuario MARCADO como eliminado - Cerrando sesión...');
-        handleUserDeleted();
-      }
+
     } catch (error) {
-      if (error.code === 'permission-denied') {
-        console.warn('⚠️ Sin permisos para verificar usuario (puede haber sido eliminado)');
-        handleUserDeleted();
-      } else {
-        console.error('❌ Error verificando usuario:', error);
-      }
+      console.error('❌ Error verificando usuario:', error);
     }
   }
 
@@ -541,11 +507,6 @@ function handleUserDeleted() {
 
   setTimeout(async () => {
     try {
-      // Cerrar sesión de Firebase
-      if (window.firebase?.auth) {
-        await window.firebase.signOut(window.firebase.auth);
-      }
-
       // Limpiar todo el almacenamiento local
       clearCurrentUser();
       localStorage.clear();

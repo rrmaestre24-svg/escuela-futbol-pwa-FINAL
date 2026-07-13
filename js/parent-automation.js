@@ -312,52 +312,6 @@ async function loadParentAccessStatus() {
         } catch (e) {
             console.warn('[parent-automation] No se pudo sincronizar sent_at desde Supabase:', e?.message || e);
         }
-    } else {
-        if (!window.firebase?.db) return;
-
-        const codesRef = window.firebase.collection(window.firebase.db, `clubs/${clubId}/parentCodes`);
-        const codesSnapshot = await window.firebase.getDocs(codesRef);
-
-        codesSnapshot.forEach(doc => {
-            const data = doc.data();
-            if (data.playerId) codesByPlayer[data.playerId] = { id: doc.id, ...data };
-        });
-
-        // === RECONCILIACIÓN LOCAL → FIRESTORE ===
-        const localByPlayer = {};
-        localCodes.forEach(lc => { if (lc.playerId && lc.code) localByPlayer[lc.playerId] = lc; });
-        const repairBatch = [];
-
-        codesSnapshot.forEach(snap => {
-            const data = snap.data();
-            if (data.playerId && !data.code && localByPlayer[data.playerId]) {
-                const code = localByPlayer[data.playerId].code;
-                codesByPlayer[data.playerId] = { ...codesByPlayer[data.playerId], code };
-                repairBatch.push(
-                    window.firebase.setDoc(
-                        window.firebase.doc(window.firebase.db, `clubs/${clubId}/parentCodes`, snap.id),
-                        { code }, { merge: true }
-                    )
-                );
-            }
-        });
-
-        Object.values(localByPlayer).forEach(lc => {
-            if (!codesByPlayer[lc.playerId]) {
-                codesByPlayer[lc.playerId] = { playerId: lc.playerId, code: lc.code, createdAt: lc.createdAt };
-                repairBatch.push(
-                    window.firebase.setDoc(
-                        window.firebase.doc(window.firebase.db, `clubs/${clubId}/parentCodes`, lc.playerId),
-                        { playerId: lc.playerId, code: lc.code, createdAt: lc.createdAt || new Date().toISOString() }
-                    )
-                );
-            }
-        });
-
-        if (repairBatch.length > 0) {
-            Promise.all(repairBatch).catch(e => console.warn('[parentCodes] Error en reconciliación:', e));
-            console.log(`[parentCodes] Reconciliación: ${repairBatch.length} doc(s) reparado(s)/sincronizado(s)`);
-        }
     }
 
     // Auto-revocar códigos vencidos (inactivos)
@@ -592,12 +546,6 @@ async function openWhatsAppForParent(player, access) {
                 if (typeof syncParentCodeToFirebase === 'function') {
                     syncParentCodeToFirebase(player.id, newCode).catch(() => {});
                 }
-            } else {
-                await window.firebase.setDoc(
-                    window.firebase.doc(window.firebase.db, `clubs/${clubId}/parentCodes`, player.id),
-                    { playerId: player.id, code: newCode, createdAt: new Date().toISOString() },
-                    { merge: true }
-                );
             }
         } catch (e) {
             console.warn('No se pudo guardar código regenerado:', e);
@@ -650,13 +598,6 @@ async function openWhatsAppForParent(player, access) {
                     }
                 ).catch(e => console.warn('[parent-automation] Persist sent_at falló (LS sigue OK):', e?.message || e));
             } catch (e) { /* defensivo */ }
-        } else {
-            const updateRef = window.firebase.doc(window.firebase.db, `clubs/${clubId}/parentCodes`, player.id);
-            await window.firebase.setDoc(updateRef, {
-                playerId: player.id,
-                code: access.code,
-                sentAt
-            }, { merge: true });
         }
         if (parentAccessData.codes[player.id]) {
             parentAccessData.codes[player.id].sentAt = sentAt;
@@ -894,14 +835,6 @@ async function confirmResetAllParentAccess() {
                     }
                 ).catch(e => console.warn('[parent-automation] Reset sent_at en BD falló (LS sigue OK):', e?.message || e));
             } catch (e) { /* defensivo */ }
-        } else {
-            const { db, getDocs, collection, doc, updateDoc, deleteField } = window.firebase;
-            const snapshot = await getDocs(collection(db, `clubs/${clubId}/parentCodes`));
-            await Promise.all(
-                snapshot.docs.map(d =>
-                    updateDoc(doc(db, `clubs/${clubId}/parentCodes`, d.id), { sentAt: deleteField() })
-                )
-            );
         }
 
         showToast('✅ Historial reiniciado correctamente');
