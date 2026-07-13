@@ -304,36 +304,43 @@
                         class="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white">
                     <i data-lucide="search" class="w-5 h-5 text-gray-400 absolute left-3 top-2.5"></i>
                 </div>
-                <!-- Botones: en móvil segunda fila con ancho distribuido, en desktop en línea -->
-                <div class="flex gap-2">
+                <!-- Botones: en móvil grilla de 3 columnas (ícono + etiqueta), en desktop en línea -->
+                <div class="grid grid-cols-3 sm:flex sm:flex-wrap gap-2">
+                    <button onclick="showAddPlayerModal()"
+                        class="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 px-2 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs sm:text-sm font-medium transition-colors"
+                        title="Agregar jugador">
+                        <i data-lucide="user-plus" class="w-5 h-5"></i>
+                        <span>Agregar</span>
+                    </button>
+                    <button onclick="navigateTo('documentsCenter')"
+                        class="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 px-2 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-medium transition-colors"
+                        title="Centro de Documentos">
+                        <i data-lucide="folder-open" class="w-5 h-5"></i>
+                        <span>Documentos</span>
+                    </button>
                     <button onclick="showImportModal()"
-                        class="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1"
+                        class="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 px-2 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-medium transition-colors"
                         title="Importar desde Excel">
                         <i data-lucide="upload" class="w-5 h-5"></i>
-                        <span class="hidden sm:inline">Importar</span>
-                    </button>
-                    <button onclick="showDuplicatesModal()"
-                        class="flex-1 sm:flex-none bg-orange-500 hover:bg-orange-600 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1"
-                        title="Buscar jugadores duplicados" id="duplicatesBtn">
-                        <i data-lucide="copy" class="w-5 h-5"></i>
-                        <span class="hidden sm:inline">Duplicados</span>
+                        <span>Importar</span>
                     </button>
                     <button onclick="exportPlayersExcel()"
-                        class="flex-1 sm:flex-none bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1"
-                        title="Exportar jugadores a Excel">
+                        class="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 px-2 py-2.5 rounded-xl bg-green-600 hover:bg-green-700 text-white text-xs sm:text-sm font-medium transition-colors"
+                        title="Exportar a Excel">
                         <i data-lucide="file-spreadsheet" class="w-5 h-5"></i>
-                        <span class="hidden sm:inline">Excel</span>
+                        <span>Excel</span>
                     </button>
                     <button onclick="exportPlayersPDF()"
-                        class="flex-1 sm:flex-none bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1"
-                        title="Exportar jugadores a PDF">
+                        class="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 px-2 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-medium transition-colors"
+                        title="Exportar a PDF">
                         <i data-lucide="file-text" class="w-5 h-5"></i>
-                        <span class="hidden sm:inline">PDF</span>
+                        <span>PDF</span>
                     </button>
-                    <button onclick="showAddPlayerModal()"
-                        class="flex-1 sm:flex-none bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-1">
-                        <i data-lucide="user-plus" class="w-5 h-5"></i>
-                        <span class="hidden sm:inline">Agregar</span>
+                    <button onclick="showDuplicatesModal()" id="duplicatesBtn"
+                        class="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 px-2 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs sm:text-sm font-medium transition-colors"
+                        title="Buscar duplicados">
+                        <i data-lucide="copy" class="w-5 h-5"></i>
+                        <span>Duplicados</span>
                     </button>
                 </div>
             </div>
@@ -370,6 +377,23 @@
 
             <!-- Lista de jugadores -->
             <div id="playersList" class="space-y-3"></div>
+        </div>
+
+        <!-- ========================================
+             VISTA: CENTRO DE DOCUMENTOS
+        ========================================= -->
+        <div id="documentsCenterView" class="hidden p-4 space-y-4">
+            <div class="flex items-center gap-3">
+                <button onclick="navigateTo('players')"
+                    class="p-2 rounded-lg glass-card shadow-sm hover:opacity-80" title="Volver a Jugadores">
+                    <i data-lucide="arrow-left" class="w-5 h-5 text-gray-600 dark:text-gray-300"></i>
+                </button>
+                <h2 class="text-lg font-bold text-gray-800 dark:text-white flex items-center gap-2">
+                    <i data-lucide="folder-open" class="w-5 h-5 text-indigo-600"></i>
+                    Centro de Documentos
+                </h2>
+            </div>
+            <div id="documentsCenterContent"></div>
         </div>
 
         <!-- ========================================
@@ -3039,6 +3063,7 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
 
     <!-- MÓDULOS FINALES (cargar al final para no bloquear inicio) -->
     <script defer src="js/import-players.js"></script>
+    <script defer src="js/documents-center.js"></script>
     <script defer src="js/coach-automation.js"></script>
     <script src="js/session-check.js"></script>
     <script defer src="js/vibration.js"></script>

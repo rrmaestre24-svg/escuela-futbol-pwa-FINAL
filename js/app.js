@@ -17,6 +17,7 @@ function navigateTo(view) {
   const allViews = [
     'dashboardView',
     'playersView',
+    'documentsCenterView',
     'paymentsView',
     'calendarView',
     'settingsView',
@@ -54,6 +55,7 @@ function navigateTo(view) {
   const titles = {
     'dashboard': 'Dashboard',
     'players': 'Jugadores',
+    'documentsCenter': 'Centro de Documentos',
     'payments': 'Pagos',
     'calendar': 'Calendario',
     'settings': 'Configuración',
@@ -78,6 +80,12 @@ function navigateTo(view) {
     case 'players':
       if (typeof renderPlayersList === 'function') {
         renderPlayersList();
+      }
+      break;
+
+    case 'documentsCenter':
+      if (typeof renderDocumentsCenter === 'function') {
+        renderDocumentsCenter();
       }
       break;
       
