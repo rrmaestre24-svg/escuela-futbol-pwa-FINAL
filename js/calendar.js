@@ -122,11 +122,15 @@ function renderCalendarGrid() {
     html += `
       <div class="${classes} ${dayColor}" onclick="showDayEvents('${dateStr}')">
         ${day}
+        <span class="calendar-weather" data-date="${dateStr}"></span>
       </div>
     `;
   }
-  
+
   grid.innerHTML = html;
+
+  // ☀️ Pintar el clima en los días con pronóstico (no bloquea el render)
+  if (window.MyWeather) { window.MyWeather.refresh(); }
 }
 
 // Mostrar eventos del día

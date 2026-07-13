@@ -353,6 +353,7 @@ body {
    CALENDARIO
 ======================================== */
 .calendar-day {
+  position: relative;
   aspect-ratio: 1;
   display: flex;
   align-items: center;
@@ -362,6 +363,20 @@ body {
   transition: all 0.2s;
   font-size: 14px;
   font-weight: 500;
+}
+
+/* Íconito del clima en la esquina de cada día (no mueve el número) */
+.calendar-weather {
+  position: absolute;
+  top: 2px;
+  right: 3px;
+  font-size: 11px;
+  line-height: 1;
+  pointer-events: none;
+  user-select: none;
+}
+@media (max-width: 640px) {
+  .calendar-weather { font-size: 9px; top: 1px; right: 2px; }
 }
 
 .calendar-day:hover {

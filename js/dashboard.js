@@ -9,6 +9,8 @@ function updateDashboard() {
   updateDashboardEvents();
   updateDashboardNotifications();
   updateDashboardSmsUsage();
+  // ☀️ Clima del club (Open-Meteo) — no bloquea, tolera fallos
+  if (window.MyWeather) { window.MyWeather.refresh(); }
 }
 
 // Actualizar estadísticas

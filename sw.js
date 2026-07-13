@@ -1,4 +1,4 @@
-const CACHE_NAME = 'my-club-v1.7.3';
+const CACHE_NAME = 'my-club-v1.7.4';
 
 const urlsToCache = [
   '/',
@@ -57,6 +57,7 @@ const urlsToCache = [
   '/js/accounting.js',
   '/js/modals.js',
   '/js/notifications.js',
+  '/js/weather.js',
   '/js/calendar.js',
   '/js/birthdays.js',
   '/js/dashboard.js',
@@ -141,6 +142,7 @@ self.addEventListener('fetch', event => {
     event.request.url.includes('cdn.jsdelivr.net') ||
     event.request.url.includes('cdnjs.cloudflare.com') ||
     event.request.url.includes('ui-avatars.com') ||
+    event.request.url.includes('open-meteo.com') ||
     event.request.url.includes('.supabase.co/rest/') ||
     event.request.url.includes('.supabase.co/auth/') ||
     event.request.url.includes('.supabase.co/functions/')

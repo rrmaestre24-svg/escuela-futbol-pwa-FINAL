@@ -7,7 +7,7 @@
     <meta name="theme-color" content="#0d9488">
     <meta name="description" content="Gestión completa de escuelas de fútbol infantil">
     <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://unpkg.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://www.gstatic.com https://www.googleapis.com https://apis.google.com https://accounts.google.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com; img-src 'self' data: blob: https:; font-src 'self' data: https://cdnjs.cloudflare.com https://fonts.gstatic.com; connect-src 'self' https://unpkg.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://*.googleapis.com https://www.googleapis.com https://*.gstatic.com https://*.run.app https://ui-avatars.com https://*.supabase.co wss://*.supabase.co; manifest-src 'self'; worker-src 'self' blob:; frame-src 'self' https://*.google.com https://*.gstatic.com; form-action 'self'; upgrade-insecure-requests">
+        content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://unpkg.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://www.gstatic.com https://www.googleapis.com https://apis.google.com https://accounts.google.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com; img-src 'self' data: blob: https:; font-src 'self' data: https://cdnjs.cloudflare.com https://fonts.gstatic.com; connect-src 'self' https://unpkg.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://*.googleapis.com https://www.googleapis.com https://*.gstatic.com https://*.run.app https://ui-avatars.com https://*.supabase.co wss://*.supabase.co https://api.open-meteo.com https://geocoding-api.open-meteo.com; manifest-src 'self'; worker-src 'self' blob:; frame-src 'self' https://*.google.com https://*.gstatic.com; form-action 'self'; upgrade-insecure-requests">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="MY CLUB">
@@ -155,6 +155,21 @@
                             <p id="statEvents" class="text-2xl font-bold text-gray-800 dark:text-white">0</p>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <!-- ☀️ Clima del club (Open-Meteo) — oculto hasta que carguen los datos -->
+            <div id="weatherWidget" class="glass-card rounded-xl p-4 shadow-sm hidden">
+                <div class="flex items-center gap-4">
+                    <span id="weatherEmoji" class="text-4xl leading-none">☀️</span>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-baseline gap-2">
+                            <span id="weatherTemp" class="text-2xl font-bold text-gray-800 dark:text-white">--°</span>
+                            <span id="weatherDesc" class="text-sm text-gray-500 dark:text-gray-400 truncate">—</span>
+                        </div>
+                        <p id="weatherCity" class="text-xs text-gray-400 dark:text-gray-500 truncate">📍 —</p>
+                    </div>
+                    <span class="text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500 self-start">Clima</span>
                 </div>
             </div>
 
@@ -2980,6 +2995,7 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
     <script defer src="js/parent-automation.js"></script>
 
     <!-- 7️⃣ MÓDULOS DE CALENDARIO Y FECHAS (CARGA DIFERIDA) -->
+    <script defer src="js/weather.js"></script>
     <script defer src="js/calendar.js"></script>
     <script defer src="js/birthdays.js"></script>
 
