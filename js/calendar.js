@@ -121,8 +121,9 @@ function renderCalendarGrid() {
     
     html += `
       <div class="${classes} ${dayColor}" onclick="showDayEvents('${dateStr}')">
-        ${day}
+        <span class="cd-num">${day}</span>
         <span class="calendar-weather" data-date="${dateStr}"></span>
+        <span class="calendar-temp" data-date="${dateStr}"></span>
       </div>
     `;
   }

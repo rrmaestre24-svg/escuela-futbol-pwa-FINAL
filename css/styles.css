@@ -355,28 +355,56 @@ body {
 .calendar-day {
   position: relative;
   aspect-ratio: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
-  font-size: 14px;
-  font-weight: 500;
 }
 
-/* Íconito del clima en la esquina de cada día (no mueve el número) */
+/* Número del día (esquina superior izquierda) */
+.cd-num {
+  position: absolute;
+  top: 5px;
+  left: 7px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
+  pointer-events: none;
+}
+
+/* Ícono del clima (esquina superior derecha) */
 .calendar-weather {
   position: absolute;
-  top: 2px;
-  right: 3px;
-  font-size: 11px;
+  top: 4px;
+  right: 5px;
+  font-size: 15px;
   line-height: 1;
   pointer-events: none;
   user-select: none;
 }
+
+/* Temperatura máxima del día (centrada abajo) */
+.calendar-temp {
+  position: absolute;
+  bottom: 5px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #64748b;
+  pointer-events: none;
+}
+.dark .calendar-temp { color: #94a3b8; }
+
+/* Día de hoy: número y temperatura en blanco para contraste sobre el teal */
+.calendar-day.today .cd-num { color: #fff; }
+.calendar-day.today .calendar-temp { color: rgba(255, 255, 255, 0.9); }
+
 @media (max-width: 640px) {
-  .calendar-weather { font-size: 9px; top: 1px; right: 2px; }
+  .cd-num { font-size: 12px; top: 3px; left: 4px; }
+  .calendar-weather { font-size: 12px; top: 2px; right: 3px; }
+  .calendar-temp { font-size: 9px; bottom: 3px; }
 }
 
 .calendar-day:hover {
@@ -399,11 +427,10 @@ body {
 .calendar-day.has-event::after {
   content: '';
   position: absolute;
-  bottom: 4px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 4px;
-  height: 4px;
+  bottom: 6px;
+  left: 6px;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
   background-color: currentColor;
 }

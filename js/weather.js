@@ -14,6 +14,7 @@
     const CACHE_KEY = 'myclub_weather_cache';
     const GEO_KEY   = 'myclub_weather_geo';
     const TTL_MS    = 3 * 60 * 60 * 1000; // 3 horas
+    const SCHEMA    = 2;  // subir este número al cambiar la forma de _data (invalida cachés viejas)
 
     let _data = null;      // { ts, city, country, current:{code,temp}, days:{ 'YYYY-MM-DD': {code,tmax,tmin} } }
     let _loading = false;  // evita llamadas concurrentes
@@ -36,7 +37,7 @@
             85: ['🌨️', 'Chubascos de nieve'], 86: ['🌨️', 'Chubascos de nieve'],
             95: ['⛈️', 'Tormenta'], 96: ['⛈️', 'Tormenta con granizo'], 99: ['⛈️', 'Tormenta con granizo']
         };
-        return map[code] || ['🌡️', '—'];
+        return Object.prototype.hasOwnProperty.call(map, code) ? map[code] : ['🌡️', '—'];
     }
 
     function _getCity() {
@@ -52,6 +53,7 @@
             if (!raw) return null;
             const obj = JSON.parse(raw);
             if (!obj || !obj.ts) return null;
+            if (obj.schema !== SCHEMA) return null; // formato viejo → pedir de nuevo
             if ((Date.now() - obj.ts) > TTL_MS) return null; // vencida
             // Descartar si la cache es de OTRA ciudad (cambió la config del club
             // o entró otro club en el mismo dispositivo) → se vuelve a pedir.
@@ -83,7 +85,7 @@
 
     async function _fetchForecast(lat, lon) {
         const url = FCAST_URL + '?latitude=' + lat + '&longitude=' + lon +
-            '&current=temperature_2m,weather_code' +
+            '&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m' +
             '&daily=weather_code,temperature_2m_max,temperature_2m_min' +
             '&timezone=auto&forecast_days=16';
         const res = await fetch(url);
@@ -108,27 +110,39 @@
             const f = await _fetchForecast(geo.lat, geo.lon);
 
             const days = {};
+            const forecast = [];   // primeros días ordenados (mini-pronóstico del Inicio)
             if (f.daily && Array.isArray(f.daily.time)
                 && Array.isArray(f.daily.weather_code)
                 && Array.isArray(f.daily.temperature_2m_max)
                 && Array.isArray(f.daily.temperature_2m_min)) {
+                const rnd = (v) => (typeof v === 'number') ? Math.round(v) : null;
                 f.daily.time.forEach((d, i) => {
-                    days[d] = {
+                    const entry = {
                         code: f.daily.weather_code[i],
-                        tmax: Math.round(f.daily.temperature_2m_max[i]),
-                        tmin: Math.round(f.daily.temperature_2m_min[i])
+                        tmax: rnd(f.daily.temperature_2m_max[i]),
+                        tmin: rnd(f.daily.temperature_2m_min[i])
                     };
+                    days[d] = entry;
+                    if (i < 4) forecast.push({ date: d, code: entry.code, tmax: entry.tmax });
                 });
             }
+            const cur = f.current;
             _data = {
                 ts: Date.now(),
+                schema: SCHEMA,
                 cityQuery: city,                 // ciudad consultada (para invalidar cache al cambiar)
                 city: geo.name || city,
                 country: geo.country || '',
-                current: (f.current && typeof f.current.temperature_2m === 'number')
-                    ? { code: f.current.weather_code, temp: Math.round(f.current.temperature_2m) }
+                current: (cur && typeof cur.temperature_2m === 'number')
+                    ? {
+                        code: cur.weather_code,
+                        temp: Math.round(cur.temperature_2m),
+                        humidity: (typeof cur.relative_humidity_2m === 'number') ? Math.round(cur.relative_humidity_2m) : null,
+                        wind: (typeof cur.wind_speed_10m === 'number') ? Math.round(cur.wind_speed_10m) : null
+                    }
                     : null,
-                days: days
+                days: days,
+                forecast: forecast
             };
             try { localStorage.setItem(CACHE_KEY, JSON.stringify(_data)); } catch (e) { /* cuota */ }
             return _data;
@@ -146,35 +160,55 @@
         return _data.days[dateStr] || null;
     }
 
-    // Pinta el widget del Inicio.
+    // Pinta el widget detallado del Inicio (temp grande + humedad + viento + mini-pronóstico).
     function paintDashboard() {
         const el = document.getElementById('weatherWidget');
         if (!el) return;
         if (!_data || !_data.current) { el.classList.add('hidden'); return; }
-        const [emoji, desc] = wmo(_data.current.code);
+        const c = _data.current;
+        const [emoji, desc] = wmo(c.code);
         const loc = _data.city + (_data.country ? ', ' + _data.country : '');
         const set = (id, val) => { const n = document.getElementById(id); if (n) n.textContent = val; };
         set('weatherEmoji', emoji);
-        set('weatherTemp', _data.current.temp + '°');
+        set('weatherTemp', c.temp + '°');
         set('weatherDesc', desc);
         set('weatherCity', '📍 ' + loc);
+        set('weatherHumidity', (c.humidity != null ? c.humidity : '--') + '%');
+        set('weatherWind', (c.wind != null ? c.wind : '--') + ' km/h');
+
+        // Mini-pronóstico de los próximos días. Contenido 100% del sistema
+        // (emojis + números + etiquetas fijas), sin datos de usuario → sin XSS.
+        const cont = document.getElementById('weatherForecast');
+        if (cont) {
+            const dias = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+            const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+            let html = '';
+            (_data.forecast || []).forEach(fc => {
+                const [em] = wmo(fc.code);
+                const dt = new Date(fc.date + 'T00:00:00');
+                const label = (dt.getTime() === hoy.getTime()) ? 'Hoy' : (dias[dt.getDay()] || '');
+                html += '<div class="text-center">' +
+                    '<p class="text-[11px] text-white/70">' + label + '</p>' +
+                    '<p class="text-lg leading-none my-1">' + em + '</p>' +
+                    '<p class="text-xs font-bold">' + (fc.tmax != null ? fc.tmax : '--') + '°</p>' +
+                    '</div>';
+            });
+            cont.innerHTML = html;
+            cont.style.display = html ? '' : 'none'; // sin pronóstico → sin línea suelta
+        }
         el.classList.remove('hidden');
     }
 
-    // Pinta los íconos del clima en las celdas del calendario (solo días con pronóstico).
+    // Pinta ícono + temperatura máxima en las celdas del calendario (días con pronóstico).
     function paintCalendar() {
         if (!_data || !_data.days) return;
-        const spans = document.querySelectorAll('.calendar-weather[data-date]');
-        spans.forEach(sp => {
+        document.querySelectorAll('.calendar-weather[data-date]').forEach(sp => {
             const d = _data.days[sp.getAttribute('data-date')];
-            if (d) {
-                const [emoji] = wmo(d.code);
-                sp.textContent = emoji;
-                sp.title = d.tmin + '° / ' + d.tmax + '°';
-            } else {
-                sp.textContent = '';
-                sp.removeAttribute('title');
-            }
+            sp.textContent = d ? wmo(d.code)[0] : '';
+        });
+        document.querySelectorAll('.calendar-temp[data-date]').forEach(tp => {
+            const d = _data.days[tp.getAttribute('data-date')];
+            tp.textContent = (d && d.tmax != null) ? (d.tmax + '°') : '';
         });
     }
 
