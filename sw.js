@@ -1,9 +1,10 @@
-const CACHE_NAME = 'my-club-v1.7.0';
+const CACHE_NAME = 'my-club-v1.7.1';
 
 const urlsToCache = [
   '/',
   '/index.html',
   '/login.html',
+  '/reset-password.html',
   '/offline.html',
   '/manifest.json',
 

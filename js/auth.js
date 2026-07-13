@@ -1240,7 +1240,11 @@ submitBtn.textContent = '⏳ Enviando...';
 try {
 // Reset vía SUPABASE Auth (camino post-cutover).
 // El email lo emite Supabase con el template configurado en el dashboard.
-const res = await fetch(`${window.SUPA_URL}/auth/v1/recover`, {
+// redirect_to → reset-password.html de ESTE mismo despliegue (sirve local y prod).
+// Debe estar en la lista de redirect URLs permitidas de Supabase.
+const _dir = window.location.origin + window.location.pathname.replace(/[^/]*$/, '');
+const _redirectTo = _dir + 'reset-password.html';
+const res = await fetch(`${window.SUPA_URL}/auth/v1/recover?redirect_to=${encodeURIComponent(_redirectTo)}`, {
   method: 'POST',
   headers: { apikey: window.SUPA_ANON, 'Content-Type': 'application/json' },
   body: JSON.stringify({ email })
