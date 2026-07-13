@@ -646,6 +646,22 @@ function mapRowToPlayer(headers, row) {
         delete player._segundoApellido;
     }
 
+    // 📞 COMPLETAR LOS DOS TELÉFONOS DEL JUGADOR (acudiente + emergencia)
+    // El jugador guarda DOS números reales: phone (acudiente principal) y
+    // emergencyContact (contacto de emergencia). Con los datos que traiga el
+    // Excel (telefono_padre / telefono_madre / telefono_emergencia) llenamos
+    // AMBAS casillas: si falta un número, se copia otro que YA exista del mismo
+    // jugador. Si trae padre y madre, cada uno queda en una casilla distinta.
+    // NO inventa datos: solo reutiliza números reales del propio jugador.
+    const _telPadre = player.phone;            // telefono_padre
+    const _telMadre = player.phoneParent2;     // telefono_madre (no se persiste solo)
+    const _telEmerg = player.emergencyContact; // telefono_emergencia
+
+    // Casilla 1 (Teléfono/acudiente): padre → madre → emergencia
+    player.phone = _telPadre || _telMadre || _telEmerg || '';
+    // Casilla 2 (Emergencia): emergencia explícita → el otro familiar → el mismo principal
+    player.emergencyContact = _telEmerg || _telMadre || _telPadre || player.phone || '';
+
     // ✅ VALIDACIONES MEJORADAS
 
     // Campo obligatorio: NOMBRE
@@ -711,79 +727,96 @@ function isValidEmail(email) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
-// Formatear fecha para input - MEJORADO PARA EXCEL
+// Ensambla YYYY-MM-DD validando rangos reales.
+// Descarta fechas imposibles (mes 13, día 40, año fuera de 1900-2100) → ''.
+function _isoFromDateParts(y, mo, d) {
+    const year  = parseInt(y, 10);
+    const month = parseInt(mo, 10);
+    const day   = parseInt(d, 10);
+    if (!year || !month || !day) return '';
+    if (month < 1 || month > 12)  return '';
+    if (day   < 1 || day   > 31)  return '';
+    if (year  < 1900 || year > 2100) return '';
+    // Validar día real del mes: rechaza 31/02, 31/04, 29/02 en año no bisiesto, etc.
+    const dt = new Date(year, month - 1, day);
+    if (dt.getFullYear() !== year || dt.getMonth() !== month - 1 || dt.getDate() !== day) return '';
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+// Formatear fecha para input - ORGANIZADOR TOLERANTE
+// Acepta: YYYY-MM-DD · DD/MM/YYYY · DD-MM-YYYY · DD.MM.YYYY · YYYY/MM/DD ·
+//         año de 2 dígitos (DD/MM/AA) · formato US (MM/DD/YYYY inequívoco) ·
+//         número de serie de Excel · objeto Date · texto con nombre de mes (es/en).
+// Siempre devuelve YYYY-MM-DD válido o '' (nunca una fecha imposible).
 function formatImportDate(dateStr) {
-    if (!dateStr) return '';
-    
+    if (dateStr === null || dateStr === undefined || dateStr === '') return '';
+
+    // 0️⃣ Objeto Date real (algunos parsers de Excel lo devuelven así)
+    if (dateStr instanceof Date) {
+        return isNaN(dateStr.getTime())
+            ? ''
+            : _isoFromDateParts(dateStr.getFullYear(), dateStr.getMonth() + 1, dateStr.getDate());
+    }
+
     const str = String(dateStr).trim();
-    
-    // 1️⃣ Si ya está en formato YYYY-MM-DD, devolverlo tal cual
-    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
-        return str;
+    if (!str) return '';
+
+    // 1️⃣ AAAA sep MM sep DD  (separador /, -, .)  → cubre ISO y variantes
+    let m = str.match(/^(\d{4})[\/\.\-](\d{1,2})[\/\.\-](\d{1,2})$/);
+    if (m) return _isoFromDateParts(m[1], m[2], m[3]);
+
+    // 2️⃣ DD sep MM sep AAAA  (o AA de 2 dígitos)  (separador /, -, .)
+    m = str.match(/^(\d{1,2})[\/\.\-](\d{1,2})[\/\.\-](\d{2,4})$/);
+    if (m) {
+        let day = parseInt(m[1], 10);
+        let month = parseInt(m[2], 10);
+        let year = m[3];
+        // Formato US (MM/DD): si el "mes" > 12 pero el "día" ≤ 12, están invertidos
+        if (month > 12 && day <= 12) { const t = day; day = month; month = t; }
+        // Año de 2 dígitos → pivote: si supera el año actual es 19AA, si no 20AA
+        // (evita que "98" se convierta en 2098, imposible para un nacimiento)
+        if (year.length === 2) {
+            const yy = parseInt(year, 10);
+            const currentYY = new Date().getFullYear() % 100;
+            year = String(yy > currentYY ? 1900 + yy : 2000 + yy);
+        }
+        return _isoFromDateParts(year, month, day);
     }
-    
-    // 2️⃣ Formato DD/MM/YYYY (muy común en Excel español)
-    const match1 = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
-    if (match1) {
-        const day = match1[1].padStart(2, '0');
-        const month = match1[2].padStart(2, '0');
-        const year = match1[3];
-        return `${year}-${month}-${day}`;
-    }
-    
-    // 3️⃣ Formato YYYY/MM/DD o YYYY-MM-DD (con guiones)
-    const match2 = str.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
-    if (match2) {
-        const year = match2[1];
-        const month = match2[2].padStart(2, '0');
-        const day = match2[3].padStart(2, '0');
-        return `${year}-${month}-${day}`;
-    }
-    
-    // 4️⃣ Número de Excel (días desde 1899-12-30)
-    const num = parseFloat(str);
-    if (!isNaN(num) && num > 0 && num < 100000) {
-        try {
-            // Fórmula de Excel: número de días desde 1899-12-30
-            const excelDate = new Date((num - 25569) * 86400 * 1000);
+
+    // 3️⃣ Número de serie de Excel (días desde 1899-12-30).
+    //     Umbral ≥ 3000 para no confundir un año suelto ("2015") con un serial.
+    if (/^\d+(\.\d+)?$/.test(str)) {
+        const num = parseFloat(str);
+        if (num >= 3000 && num < 100000) {
+            const excelDate = new Date(Math.round((num - 25569) * 86400 * 1000));
             if (!isNaN(excelDate.getTime())) {
-                const year = excelDate.getFullYear();
-                const month = String(excelDate.getMonth() + 1).padStart(2, '0');
-                const day = String(excelDate.getDate()).padStart(2, '0');
-                return `${year}-${month}-${day}`;
+                return _isoFromDateParts(
+                    excelDate.getUTCFullYear(),
+                    excelDate.getUTCMonth() + 1,
+                    excelDate.getUTCDate()
+                );
             }
-        } catch (e) {
-            console.error('Error parsing Excel date:', e);
         }
     }
-    
-    // 5️⃣ Formato de texto: "15 de marzo de 2015", "15 de Mar 2015", etc.
+
+    // 4️⃣ Texto con nombre de mes (es/en): "15 de marzo de 2015", "15 Mar 2015"
     const months = {
         enero: '01', febrero: '02', marzo: '03', abril: '04', mayo: '05', junio: '06',
-        julio: '07', agosto: '08', septiembre: '09', octubre: '10', noviembre: '11', diciembre: '12',
-        jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06',
-        jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12',
+        julio: '07', agosto: '08', septiembre: '09', setiembre: '09', octubre: '10',
+        noviembre: '11', diciembre: '12',
+        ene: '01', feb: '02', mar: '03', abr: '04', may: '05', jun: '06',
+        jul: '07', ago: '08', sep: '09', sept: '09', set: '09', oct: '10', nov: '11', dic: '12',
+        jan: '01', apr: '04', aug: '08', dec: '12',
         january: '01', february: '02', march: '03', april: '04', june: '06',
-        july: '07', august: '08', october: '10', december: '12'
+        july: '07', august: '08', september: '09', october: '10', november: '11', december: '12'
     };
-    
-    const monthMatch = str.match(/(\d{1,2})\s+(?:de\s+)?([a-záéíóúñ]+)\s+(?:de\s+)?(\d{4})/i);
+    const monthMatch = str.match(/(\d{1,2})\s+(?:de\s+)?([a-záéíóúñ]+)\.?\s+(?:de\s+)?(\d{4})/i);
     if (monthMatch) {
-        const day = monthMatch[1].padStart(2, '0');
-        const monthName = monthMatch[2].toLowerCase();
-        const year = monthMatch[3];
-        const month = months[monthName];
-        if (month) {
-            return `${year}-${month}-${day}`;
-        }
+        const month = months[monthMatch[2].toLowerCase()
+            .normalize('NFD').replace(/[̀-ͯ]/g, '')];
+        if (month) return _isoFromDateParts(monthMatch[3], month, monthMatch[1]);
     }
-    
-    // 6️⃣ Formato "2015/03/15" o "2015-03-15" (ISO alternativo)
-    const isoMatch = str.match(/^(\d{4})[\/\-](\d{2})[\/\-](\d{2})$/);
-    if (isoMatch) {
-        return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
-    }
-    
+
     console.warn('⚠️ No se pudo convertir la fecha:', str);
     return '';
 }
