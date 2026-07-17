@@ -7,6 +7,23 @@ if (typeof ADMIN_WHATSAPP === 'undefined') {
   var ADMIN_WHATSAPP = '573005452038';
 }
 
+// WhatsApp para adquirir/activar módulos de pago (escaparate de módulos).
+if (typeof MODULOS_WHATSAPP === 'undefined') {
+  var MODULOS_WHATSAPP = '573104532888';
+}
+
+// Helper GLOBAL: ¿el club tiene activo un módulo de pago? (inventario,
+// portal_padres, asistencias, convocatoria). Fuente: localStorage.licenseModulos
+// (lo setea checkLicenseStatus desde la licencia). Falla CERRADO (deniega) ante
+// cualquier problema. Lo usan el modal de documentos y el escaparate de módulos.
+function moduloActivo(nombre) {
+  try {
+    const m = JSON.parse(localStorage.getItem('licenseModulos') || '{}');
+    return !!(m && m[nombre] === true);
+  } catch (e) { return false; }
+}
+if (typeof window !== 'undefined') { window.moduloActivo = moduloActivo; }
+
 // ========================================
 // CONFIGURACIÓN
 // ========================================
@@ -173,12 +190,87 @@ async function activateLicense(code, clubId, clubName, clubPhone, plan, codeSour
 /**
  * Verificar estado de licencia del club actual
  */
-// Helper: activa botones de módulos en el DOM según el objeto modulos
+// ── Escaparate de módulos: metadata (qué hace cada uno) + acciones ──────────
+const MODULO_INFO = {
+  portal_padres: {
+    nombre: 'Portal de Padres', icon: 'users',
+    desc: 'Cada papá o mamá tiene su propio acceso para acompañar a su hijo/a desde el celular. Puede mantener sus datos al día, cambiar la foto de perfil y subir la documentación que haga falta (para torneos, inscripciones y más). Menos trabajo para el club, y las familias más cerca de la escuela.'
+  },
+  asistencias: {
+    nombre: 'Asistencias', icon: 'check-square',
+    desc: 'Tomá la lista de asistencia a los entrenamientos, como cuando pasan lista en el colegio. Cada profe marca quién vino y quién faltó desde el celular, y vos ves el resumen por jugador y por categoría.'
+  },
+  inventario: {
+    nombre: 'Inventario y Facturación', icon: 'boxes',
+    desc: 'Llevá el control de los uniformes y materiales del club, con las ventas y la facturación en un solo lugar.'
+  },
+  convocatoria: {
+    nombre: 'Convocatorias', icon: 'clipboard-list',
+    desc: 'Armá la lista de jugadores citados a cada partido y avisales con un clic quiénes juegan.'
+  }
+};
+// Nombre de la función global que abre cada módulo (solo se llama si está activo).
+const MODULO_ACCION = {
+  inventario: 'abrirInventario',
+  portal_padres: 'showParentAccessAutomation',
+  asistencias: 'abrirAsistencias',
+  convocatoria: 'abrirConvocatoria'
+};
+
+// Modal "módulo bloqueado": explica qué hace + botón de WhatsApp para adquirirlo.
+// Contenido 100% del sistema (MODULO_INFO hardcodeado). clubNombre solo se usa
+// dentro de la URL de WhatsApp (encodeURIComponent) — nunca en el innerHTML.
+function mostrarModuloBloqueado(key) {
+  const info = MODULO_INFO[key];
+  if (!info) return;
+  if (document.getElementById('moduloBloqueadoModal')) return;
+
+  const _s = (typeof getSchoolSettings === 'function') ? getSchoolSettings() : null;
+  const clubNombre = _s ? (_s.name || _s.schoolName || '') : '';
+  const waMsg = 'Hola, quiero activar el módulo ' + info.nombre + ' en MY CLUB.' + (clubNombre ? ' Mi club es ' + clubNombre + '.' : '');
+  const waUrl = 'https://wa.me/' + MODULOS_WHATSAPP + '?text=' + encodeURIComponent(waMsg);
+
+  const modal = document.createElement('div');
+  modal.id = 'moduloBloqueadoModal';
+  modal.style.cssText = 'position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;padding:1rem;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px)';
+  modal.innerHTML =
+    '<div style="background:#1f2937;border-radius:1.25rem;padding:1.75rem;max-width:360px;width:100%;text-align:center;box-shadow:0 25px 50px rgba(0,0,0,0.5)">' +
+      '<div style="width:64px;height:64px;border-radius:1rem;margin:0 auto 1rem;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#4f46e5,#7c3aed)">' +
+        '<i data-lucide="' + info.icon + '" style="width:32px;height:32px;color:#fff"></i>' +
+      '</div>' +
+      '<p style="font-size:1.15rem;font-weight:800;color:#fff;margin-bottom:.4rem">' + info.nombre + '</p>' +
+      '<div style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;color:#c7d2fe;background:rgba(79,70,229,0.25);padding:3px 10px;border-radius:999px;margin-bottom:.9rem">🔒 Módulo PRO</div>' +
+      '<p style="font-size:.85rem;color:#d1d5db;line-height:1.55;margin-bottom:1.1rem">' + info.desc + '</p>' +
+      '<div style="background:#111827;border-radius:.75rem;padding:.8rem;margin-bottom:1.1rem">' +
+        '<p style="font-size:.8rem;color:#9ca3af">Este módulo no está incluido en tu plan. Activalo para empezar a usarlo.</p>' +
+      '</div>' +
+      '<a href="' + waUrl + '" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:center;gap:.5rem;width:100%;padding:.8rem;border-radius:.75rem;background:linear-gradient(135deg,#25d366,#128c7e);color:#fff;font-weight:700;font-size:.9rem;text-decoration:none;margin-bottom:.6rem">' +
+        '<i data-lucide="message-circle" style="width:18px;height:18px"></i> Contactar para activarlo' +
+      '</a>' +
+      '<button type="button" onclick="document.getElementById(\'moduloBloqueadoModal\').remove()" style="width:100%;padding:.7rem;border-radius:.75rem;background:#374151;color:#d1d5db;font-weight:600;font-size:.85rem;border:none;cursor:pointer">Ahora no</button>' +
+    '</div>';
+  document.body.appendChild(modal);
+  modal.addEventListener('click', function (e) { if (e.target === modal) modal.remove(); });
+  if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+}
+if (typeof window !== 'undefined') { window.mostrarModuloBloqueado = mostrarModuloBloqueado; }
+
+// Muestra TODOS los botones de módulos; activa los del club y bloquea el resto.
+// Fail-closed: sin datos → todos bloqueados. Idempotente (se puede llamar varias veces).
 function _applyModuloButtons(modulos) {
-  if (modulos?.inventario === true)   document.getElementById('btnInventarioWrapper')?.classList.remove('hidden');
-  if (modulos?.portal_padres === true) document.getElementById('btnPortalPadresWrapper')?.classList.remove('hidden');
-  if (modulos?.asistencias === true)  document.getElementById('btnAsistenciasWrapper')?.classList.remove('hidden');
-  if (modulos?.convocatoria === true) document.getElementById('btnConvocatoriaWrapper')?.classList.remove('hidden');
+  Object.keys(MODULO_ACCION).forEach(function (key) {
+    const btn = document.querySelector('[data-modulo="' + key + '"]');
+    if (!btn) return;
+    const activo = !!(modulos && modulos[key] === true);
+    if (activo) {
+      btn.classList.remove('modulo-bloqueado');
+      btn.onclick = function () { const fn = window[MODULO_ACCION[key]]; if (typeof fn === 'function') fn(); };
+    } else {
+      btn.classList.add('modulo-bloqueado');
+      btn.onclick = function () { mostrarModuloBloqueado(key); };
+    }
+  });
+  if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
 }
 
 async function checkLicenseStatus() {
@@ -614,5 +706,19 @@ function abrirConvocatoria() {
   window.open('https://convocatoria.appmyclub.com?clubId=' + clubId, '_blank');
 }
 window.abrirConvocatoria = abrirConvocatoria;
+
+// Estado inicial de los botones de módulos con lo cacheado (funciona sin red).
+// checkLicenseStatus lo vuelve a aplicar cuando llega la licencia fresca.
+(function _initModuloButtons() {
+  function _run() {
+    try { _applyModuloButtons(JSON.parse(localStorage.getItem('licenseModulos') || '{}')); }
+    catch (e) { try { _applyModuloButtons({}); } catch (_) {} }
+  }
+  if (typeof document !== 'undefined' && document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _run);
+  } else {
+    _run();
+  }
+})();
 
 console.log('✅ license-system.js cargado correctamente');

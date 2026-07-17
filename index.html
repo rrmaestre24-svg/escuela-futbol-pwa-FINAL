@@ -251,39 +251,48 @@
                 Ver Contabilidad Completa
             </button>
 
-            <!-- Inventario: solo visible si modulos.inventario === true -->
-            <div id="btnInventarioWrapper" class="hidden mt-3">
-                <button onclick="abrirInventario()"
-                    class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 hover:shadow-xl transition-all transform hover:scale-105">
-                    <i data-lucide="boxes" class="w-6 h-6"></i>
-                    Ver Inventario y Facturación
-                </button>
-            </div>
+            <!-- ═══ MÓDULOS ═══ Siempre visibles. Los inactivos nacen BLOQUEADOS
+                 (fail-closed); license-system.js (_applyModuloButtons) desbloquea
+                 los que el club tenga activos. No usan onclick inline: el handler
+                 lo pone _applyModuloButtons según el estado (activo → abre; bloqueado
+                 → modal de "adquirir"). -->
+            <h3 class="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mt-5 mb-1 px-1">
+                Módulos
+            </h3>
 
-            <!-- Portal de Padres: solo visible si modulos.portal_padres === true -->
-            <div id="btnPortalPadresWrapper" class="hidden mt-3">
-                <button onclick="showParentAccessAutomation()"
-                    class="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 hover:shadow-xl transition-all transform hover:scale-105">
+            <div id="btnPortalPadresWrapper" class="mt-2">
+                <button data-modulo="portal_padres"
+                    class="modulo-btn modulo-bloqueado w-full relative bg-gradient-to-r from-purple-600 to-blue-600 text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 hover:shadow-xl transition-all transform hover:scale-105">
                     <i data-lucide="users" class="w-6 h-6"></i>
                     Gestión de Acceso a Padres
+                    <span class="modulo-pro-badge"><i data-lucide="lock" class="w-3 h-3"></i> PRO</span>
                 </button>
             </div>
 
-            <!-- Asistencias: solo visible si modulos.asistencias === true -->
-            <div id="btnAsistenciasWrapper" class="hidden mt-3">
-                <button onclick="abrirAsistencias()"
-                    class="w-full bg-gradient-to-r from-emerald-500 to-blue-600 text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 hover:shadow-xl transition-all transform hover:scale-105">
+            <div id="btnAsistenciasWrapper" class="mt-3">
+                <button data-modulo="asistencias"
+                    class="modulo-btn modulo-bloqueado w-full relative bg-gradient-to-r from-emerald-500 to-blue-600 text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 hover:shadow-xl transition-all transform hover:scale-105">
                     <i data-lucide="check-square" class="w-6 h-6"></i>
                     Panel de Asistencias y Profesores
+                    <span class="modulo-pro-badge"><i data-lucide="lock" class="w-3 h-3"></i> PRO</span>
                 </button>
             </div>
 
-            <!-- Convocatoria: solo visible si modulos.convocatoria === true -->
-            <div id="btnConvocatoriaWrapper" class="hidden mt-3">
-                <button onclick="abrirConvocatoria()"
-                    class="w-full bg-gradient-to-r from-orange-500 to-pink-600 text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 hover:shadow-xl transition-all transform hover:scale-105">
+            <div id="btnInventarioWrapper" class="mt-3">
+                <button data-modulo="inventario"
+                    class="modulo-btn modulo-bloqueado w-full relative bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 hover:shadow-xl transition-all transform hover:scale-105">
+                    <i data-lucide="boxes" class="w-6 h-6"></i>
+                    Ver Inventario y Facturación
+                    <span class="modulo-pro-badge"><i data-lucide="lock" class="w-3 h-3"></i> PRO</span>
+                </button>
+            </div>
+
+            <div id="btnConvocatoriaWrapper" class="mt-3">
+                <button data-modulo="convocatoria"
+                    class="modulo-btn modulo-bloqueado w-full relative bg-gradient-to-r from-orange-500 to-pink-600 text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 hover:shadow-xl transition-all transform hover:scale-105">
                     <i data-lucide="clipboard-list" class="w-6 h-6"></i>
                     Panel de Convocatorias
+                    <span class="modulo-pro-badge"><i data-lucide="lock" class="w-3 h-3"></i> PRO</span>
                 </button>
             </div>
 

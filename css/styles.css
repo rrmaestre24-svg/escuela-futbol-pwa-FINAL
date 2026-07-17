@@ -401,6 +401,34 @@ body {
 .calendar-day.today .cd-num { color: #fff; }
 .calendar-day.today .calendar-temp { color: rgba(255, 255, 255, 0.9); }
 
+/* ========================================
+   MÓDULOS — estado bloqueado (PRO / candado)
+======================================== */
+.modulo-pro-badge { display: none; }
+.modulo-btn.modulo-bloqueado {
+  filter: grayscale(0.85);
+  opacity: 0.68;
+}
+.modulo-btn.modulo-bloqueado:hover {
+  opacity: 0.82;
+  transform: none;
+}
+.modulo-btn.modulo-bloqueado .modulo-pro-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.4);
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
 @media (max-width: 640px) {
   .cd-num { font-size: 12px; top: 3px; left: 4px; }
   .calendar-weather { font-size: 12px; top: 2px; right: 3px; }

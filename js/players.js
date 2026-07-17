@@ -795,8 +795,18 @@ function renderDocumentsSection(player) {
         </div>
       `).join('');
 
-  // Formulario de carga con paso a paso (solo si hay espacio)
-  const uploadForm = docs.length < MAX_DOCS ? `
+  // Formulario de carga — gateado por el módulo Portal de Padres.
+  // Sin portal: solo lectura (ver/descargar); la subida muestra un candado.
+  const _portalOk = (typeof moduloActivo === 'function') && moduloActivo('portal_padres');
+  let uploadForm;
+  if (!_portalOk) {
+    uploadForm = `
+    <div class="mt-3 flex items-center gap-2 text-xs text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg px-3 py-2.5">
+      <i data-lucide="lock" class="w-4 h-4 flex-shrink-0"></i>
+      <span>Subir documentos requiere el <strong>Portal de Padres</strong>. Podés ver y descargar los existentes.</span>
+    </div>`;
+  } else if (docs.length < MAX_DOCS) {
+    uploadForm = `
     <div class="space-y-2 mt-3">
       <p class="text-xs text-gray-500 dark:text-gray-400">
         <strong class="text-blue-600 dark:text-blue-400">Paso 1:</strong> Escribí el nombre del documento
@@ -813,8 +823,10 @@ function renderDocumentsSection(player) {
         <input type="file" class="hidden" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx"
                onchange="uploadPlayerDocument('${player.id}', this)">
       </label>
-    </div>
-  ` : '<p class="text-xs text-center text-gray-500 mt-2">Límite de 5 documentos alcanzado</p>';
+    </div>`;
+  } else {
+    uploadForm = '<p class="text-xs text-center text-gray-500 mt-2">Límite de 5 documentos alcanzado</p>';
+  }
 
   return `
     <div id="docsSection_${player.id}" class="bg-gray-50 dark:bg-gray-700 rounded-xl p-4">
@@ -897,6 +909,12 @@ async function refreshPlayerFromSupabase(playerId) {
 
 // Sube un documento al perfil del jugador
 async function uploadPlayerDocument(playerId, input) {
+  // Doble candado: subir documentos requiere el módulo Portal de Padres.
+  if (!(typeof moduloActivo === 'function' && moduloActivo('portal_padres'))) {
+    if (typeof showToast === 'function') showToast('🔒 Subir documentos requiere el Portal de Padres');
+    if (input) input.value = '';
+    return;
+  }
   const file = input.files[0];
   if (!file) return;
 

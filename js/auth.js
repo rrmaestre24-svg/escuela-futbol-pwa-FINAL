@@ -1040,6 +1040,13 @@ async function logout() {
       localStorage.removeItem('users');
       localStorage.removeItem('schoolSettings');
       localStorage.removeItem('_lastFullDownload'); // ← forzar descarga limpia en próximo login
+      // Licencia/módulos del club anterior: limpiar para que otro club en el mismo
+      // dispositivo NO herede módulos (fail-closed en los candados de pago).
+      localStorage.removeItem('licenseModulos');
+      localStorage.removeItem('licenseStatus');
+      localStorage.removeItem('licensePlan');
+      localStorage.removeItem('licenseEndDate');
+      localStorage.removeItem('licenseGraceDays');
       sessionStorage.clear();
       
       showToast('👋 Sesión cerrada');

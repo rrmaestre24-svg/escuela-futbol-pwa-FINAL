@@ -45,6 +45,16 @@ function _dcDocIcon(t) {
   return t === 'pdf' ? '📄' : t === 'word' ? '📝' : '🖼️';
 }
 
+// ¿El club tiene activo el módulo "portal_padres"? (extra de pago, super-admin).
+// Si SÍ → se puede subir/gestionar. Si NO → vista previa de solo lectura.
+// Fuente: localStorage.licenseModulos (lo setea license-system.js desde la licencia).
+function _dcPortalActivo() {
+  try {
+    const m = JSON.parse(localStorage.getItem('licenseModulos') || '{}');
+    return !!(m && m.portal_padres === true);
+  } catch (e) { return false; }
+}
+
 // Carga base desde caché + refresca `documents` desde Supabase (best-effort).
 async function _dcLoad() {
   const base = (typeof getPlayers === 'function' ? getPlayers() : []) || [];
@@ -114,7 +124,22 @@ function _dcRenderShell() {
     return '<button onclick="dcSetFilter(\'' + key + '\')" class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ' +
       (active ? 'bg-teal-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300') + '">' + label + '</button>';
   };
+  // Banner de vista previa: si el club NO tiene el Portal de Padres, esto es
+  // solo lectura (puede ver/descargar, pero no subir). Sirve para mostrar la
+  // función y motivar a adquirir el módulo de pago.
+  const banner = !_dcPortalActivo()
+    ? '<div class="rounded-xl p-4 shadow-lg text-white" style="background:linear-gradient(135deg,#4f46e5,#7c3aed);">' +
+        '<div class="flex items-start gap-3">' +
+          '<i data-lucide="lock" class="w-5 h-5 flex-shrink-0 mt-0.5"></i>' +
+          '<div>' +
+            '<p class="font-bold text-sm">Vista previa · Portal de Padres</p>' +
+            '<p class="text-xs text-white/90 mt-1 leading-relaxed">Así se gestionan los documentos de cada jugador. Activá el <strong>Portal de Padres</strong> para que las familias suban los papeles (registro civil, EPS, fotos…) y los administres desde acá.</p>' +
+          '</div>' +
+        '</div>' +
+      '</div>'
+    : '';
   cont.innerHTML =
+    banner +
     '<div class="glass-card rounded-xl p-4 shadow-sm">' +
       '<div class="flex items-center justify-between mb-2">' +
         '<span class="text-sm text-gray-600 dark:text-gray-300"><strong>' + s.withDocs + '</strong> de <strong>' + s.total + '</strong> jugadores con documentos</span>' +
@@ -132,10 +157,13 @@ function _dcRenderShell() {
     '</div>' +
     '<div id="dcList" class="mt-3 space-y-3"></div>';
 
-  // Listener delegado en el #dcList recién creado (el nodo viejo y su listener
-  // se destruyen con el innerHTML anterior, así que no se duplican).
+  // Listeners delegados en el #dcList recién creado (el nodo viejo y sus
+  // listeners se destruyen con el innerHTML anterior, así que no se duplican).
   const list = document.getElementById('dcList');
-  if (list) { list.addEventListener('click', _dcListClick); }
+  if (list) {
+    list.addEventListener('click', _dcListClick);
+    list.addEventListener('change', _dcListChange); // inputs de archivo (subir)
+  }
 
   _dcRenderList();
   if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
@@ -198,13 +226,14 @@ function _dcPlayerRow(p) {
   const open = _dcOpenPlayers.has(p.id);
   const inactive = _dcIsInactive(p.status);
   const avatar = p.avatar || _dcDefaultAvatar(p.name);
+  const canUpload = _dcPortalActivo();   // solo con Portal de Padres activo
   const badge = has
     ? '<span class="text-xs font-semibold text-green-600 dark:text-green-400 whitespace-nowrap">✓ ' + docs.length + ' doc' + (docs.length > 1 ? 's' : '') + '</span>'
     : '<span class="text-xs font-semibold text-amber-600 dark:text-amber-400 whitespace-nowrap">⚠ Sin documentos</span>';
 
+  // Todos los jugadores son expandibles (para ver docs y/o el formulario de subida).
   const head =
-    '<div class="flex items-center justify-between gap-2 bg-white dark:bg-gray-700 rounded-lg p-2 ' + (has ? 'cursor-pointer' : '') + '" ' +
-      (has ? 'data-dc-action="toggle-player" data-id="' + _dcEsc(p.id) + '"' : '') + '>' +
+    '<div class="flex items-center justify-between gap-2 bg-white dark:bg-gray-700 rounded-lg p-2 cursor-pointer" data-dc-action="toggle-player" data-id="' + _dcEsc(p.id) + '">' +
       '<div class="flex items-center gap-2 min-w-0 pointer-events-none">' +
         '<img src="' + _dcEsc(avatar) + '" onerror="this.src=\'' + _dcDefaultAvatar(p.name) + '\'" class="w-12 h-12 rounded-full object-cover flex-shrink-0 border-2 border-teal-500/40 shadow-sm">' +
         '<div class="min-w-0">' +
@@ -212,11 +241,11 @@ function _dcPlayerRow(p) {
           badge +
         '</div>' +
       '</div>' +
-      (has ? '<i data-lucide="' + (open ? 'chevron-up' : 'chevron-down') + '" class="w-4 h-4 text-gray-400 flex-shrink-0 pointer-events-none"></i>' : '') +
+      '<i data-lucide="' + (open ? 'chevron-up' : 'chevron-down') + '" class="w-4 h-4 text-gray-400 flex-shrink-0 pointer-events-none"></i>' +
     '</div>';
 
   let body = '';
-  if (has && open) {
+  if (open) {
     const photoRow = p.avatar
       ? '<div class="flex items-center justify-between gap-2">' +
           '<span class="text-xs text-gray-600 dark:text-gray-300 truncate">🖼️ Foto de perfil</span>' +
@@ -229,7 +258,31 @@ function _dcPlayerRow(p) {
         '<button data-dc-action="download" data-url="' + _dcEsc(d.url) + '" class="px-2.5 py-1 rounded-md bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 text-xs font-semibold flex-shrink-0">Descargar</button>' +
       '</div>'
     ).join('');
-    body = '<div class="pl-16 pr-1 pt-1 pb-1 space-y-1.5">' + photoRow + docRows + '</div>';
+    const emptyNote = !has
+      ? '<p class="text-xs text-gray-400 dark:text-gray-500 italic">Sin documentos cargados todavía.</p>'
+      : '';
+
+    // Bloque de subida — gateado por el módulo Portal de Padres.
+    let uploadBlock;
+    if (!canUpload) {
+      uploadBlock = '<div class="mt-1 flex items-center gap-2 text-xs text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/30 rounded-md px-2.5 py-2">' +
+        '<i data-lucide="lock" class="w-3.5 h-3.5 flex-shrink-0"></i>' +
+        '<span>Subir documentos requiere el <strong>Portal de Padres</strong>.</span>' +
+        '</div>';
+    } else if (docs.length < 5) {
+      uploadBlock = '<div class="mt-1 pt-2 border-t border-gray-200 dark:border-gray-600 space-y-1.5">' +
+        '<input type="text" id="dcDocName_' + _dcEsc(p.id) + '" placeholder="Nombre del documento (ej: Registro Civil)" ' +
+          'class="w-full px-2.5 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white text-xs focus:ring-2 focus:ring-teal-500 focus:outline-none">' +
+        '<label class="w-full flex items-center justify-center gap-1.5 bg-teal-600 hover:bg-teal-700 text-white py-1.5 rounded-md cursor-pointer text-xs font-medium">' +
+          '<i data-lucide="upload" class="w-3.5 h-3.5"></i> Subir documento' +
+          '<input type="file" class="hidden" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx" data-dc-action="upload-file" data-id="' + _dcEsc(p.id) + '">' +
+        '</label>' +
+      '</div>';
+    } else {
+      uploadBlock = '<p class="text-xs text-center text-gray-400 mt-1">Límite de 5 documentos alcanzado</p>';
+    }
+
+    body = '<div class="pl-16 pr-1 pt-1 pb-1 space-y-1.5">' + photoRow + docRows + emptyNote + uploadBlock + '</div>';
   }
   return '<div>' + head + body + '</div>';
 }
@@ -253,6 +306,97 @@ function _dcListClick(e) {
     if (!url || !/^https:\/\//i.test(url)) return;
     if (typeof downloadDocument === 'function') downloadDocument(url);
     else window.open(url, '_blank');
+  }
+}
+
+// Handler delegado de 'change' — inputs de archivo (subir documento).
+function _dcListChange(e) {
+  const el = e.target.closest('[data-dc-action="upload-file"]');
+  if (!el) return;
+  const id = el.getAttribute('data-id');
+  if (id) dcUploadDocument(id, el);
+}
+
+// Sube un documento desde el Centro (mismo flujo que el modal de detalle):
+// valida nombre, hace merge con Supabase (no pisa lo del portal), sube al
+// Storage y persiste en localStorage + IndexedDB + Supabase. Luego refresca.
+async function dcUploadDocument(playerId, input) {
+  // Doble candado: la subida requiere Portal de Padres activo (la UI ya lo oculta).
+  if (!_dcPortalActivo()) return;
+  const file = input.files && input.files[0];
+  if (!file) return;
+
+  const nameInput = document.getElementById('dcDocName_' + playerId);
+  const docName = nameInput ? nameInput.value.trim() : '';
+  if (!docName) {
+    if (typeof showToast === 'function') showToast('⚠️ Escribe el nombre del documento primero');
+    input.value = '';
+    return;
+  }
+
+  const p = _dcData.find(x => x.id === playerId);
+  let docs = (p && p.documents) ? p.documents : [];
+  const clubId = localStorage.getItem('clubId');
+
+  // Merge con Supabase para no pisar documentos subidos por el padre.
+  if (window.MODO_SUPABASE && clubId && window.SUPA_URL && window.SUPA_ANON) {
+    try {
+      const r = await fetch(
+        window.SUPA_URL + '/rest/v1/players?id=eq.' + encodeURIComponent(playerId) + '&club_id=eq.' + encodeURIComponent(clubId) + '&select=documents&limit=1',
+        { headers: { apikey: window.SUPA_ANON, Authorization: 'Bearer ' + window.SUPA_ANON } }
+      );
+      if (r.ok) {
+        const rows = await r.json();
+        const supaDocs = (rows && rows[0] && Array.isArray(rows[0].documents)) ? rows[0].documents : [];
+        const supaIds = new Set(supaDocs.map(d => d.id).filter(Boolean));
+        const localOnly = docs.filter(d => d.id && !supaIds.has(d.id));
+        docs = supaDocs.concat(localOnly);
+      }
+    } catch (_) { /* usar docs locales si falla */ }
+  }
+
+  if (docs.length >= 5) {
+    if (typeof showToast === 'function') showToast('⚠️ Límite de 5 documentos alcanzado');
+    return;
+  }
+
+  const label = input.closest('label');
+  if (label) { label.style.opacity = '0.6'; label.style.pointerEvents = 'none'; }
+  if (typeof showToast === 'function') showToast('⏳ Subiendo documento...');
+
+  try {
+    const result = await uploadDocument(file, playerId); // storage-service.js (Supabase Storage)
+    const newDoc = {
+      id: (typeof generateId === 'function' ? generateId() : (Date.now().toString(36) + Math.random().toString(36).slice(2))),
+      name: docName,
+      url: result.url,
+      publicId: result.publicId,
+      fileType: result.fileType,
+      uploadedAt: new Date().toLocaleString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+    };
+    const updatedDocs = docs.concat([newDoc]);
+
+    // Persistir en la lista real de jugadores (localStorage + IndexedDB + Supabase).
+    const players = (typeof getPlayers === 'function' ? getPlayers() : []) || [];
+    const idx = players.findIndex(x => x.id === playerId);
+    if (idx !== -1) {
+      players[idx] = Object.assign({}, players[idx], { documents: updatedDocs });
+      try { localStorage.setItem('players', JSON.stringify(players)); } catch (_) {}
+      if (window.idb && window.idb.put) { window.idb.put('players', players[idx]).catch(function () {}); }
+      if (typeof savePlayerToFirebase === 'function') { savePlayerToFirebase(players[idx]).catch(function () {}); }
+    } else if (typeof updatePlayer === 'function') {
+      updatePlayer(playerId, { documents: updatedDocs });
+    }
+
+    // Actualizar el estado del Centro y re-render (mantener el jugador expandido).
+    if (p) p.documents = updatedDocs;
+    _dcOpenPlayers.add(playerId);
+    _dcRenderList();
+    if (typeof showToast === 'function') showToast('✅ Documento subido correctamente');
+  } catch (error) {
+    if (typeof showToast === 'function') showToast('❌ ' + (error && error.message ? error.message : 'Error al subir'));
+    input.value = '';
+    if (label) { label.style.opacity = ''; label.style.pointerEvents = ''; }
   }
 }
 
