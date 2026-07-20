@@ -461,7 +461,7 @@ document.getElementById('loginForm')?.addEventListener('submit', async function(
         };
       } catch (supaErr) {
         console.error('[LOGIN] Supabase falló:', supaErr?.message || supaErr);
-        showToast('❌ ' + (supaErr?.message || 'Error al iniciar sesión'));
+        showToast('❌ Correo o contraseña incorrectos');
         return;
       }
     }
@@ -584,12 +584,6 @@ document.getElementById('loginForm')?.addEventListener('submit', async function(
         };
       }
 
-      // Actualizar password local si existe en lista
-      const localUser = users.find(u => normalizeUserEmail(u.email) === email);
-      if (localUser) {
-        updateUser(localUser.id, { password: password });
-      }
-
       // Establecer sesión
       const { password: _, ...userWithoutPassword } = user;
       setCurrentUser(userWithoutPassword);
@@ -610,7 +604,7 @@ document.getElementById('loginForm')?.addEventListener('submit', async function(
     
   } catch (error) {
     console.error('❌ Error en login:', error);
-    showToast('❌ Error: ' + (error.message || 'Intenta de nuevo'));
+    showToast('❌ No se pudo iniciar sesión. Revisá tu conexión e intentá de nuevo.');
   }
 });
 
