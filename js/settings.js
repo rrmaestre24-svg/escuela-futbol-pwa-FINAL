@@ -375,8 +375,8 @@ document.getElementById('changePasswordForm')?.addEventListener('submit', async 
   const confirmPassword = confirmPasswordInput.value;
   
   // Validar nueva contraseña
-  if (newPassword.length < 6) {
-    showToast('❌ La nueva contraseña debe tener al menos 6 caracteres');
+  if (newPassword.length < 8) {
+    showToast('❌ La nueva contraseña debe tener al menos 8 caracteres');
     return;
   }
   
@@ -440,37 +440,13 @@ document.getElementById('changePasswordForm')?.addEventListener('submit', async 
       return;
     }
     
-    // 3. Actualizar en localStorage (mantener coherencia)
-    updateUser(currentUser.id, { password: newPassword });
-    console.log('✅ Contraseña actualizada en localStorage');
-    
-    // 4. Actualizar timestamp en la nube
-    const clubId = localStorage.getItem('clubId');
-    if (clubId) {
-      try {
-        if (window.MODO_SUPABASE) {
-          await fetch(
-            `${window.SUPA_URL}/rest/v1/users?id=eq.${encodeURIComponent(currentUser.id)}&club_id=eq.${encodeURIComponent(clubId)}`,
-            {
-              method: 'PATCH',
-              headers: { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
-              body: JSON.stringify({ password_updated_at: new Date().toISOString() })
-            }
-          );
-          console.log('✅ Timestamp actualizado en Supabase');
-        }
-      } catch (tsError) {
-        console.log('ℹ️ No se pudo actualizar timestamp:', tsError.message);
-      }
-    }
-    
     // Limpiar formulario
     const changePasswordForm = document.getElementById('changePasswordForm');
     if (changePasswordForm) changePasswordForm.reset();
     
     showToast('✅ Contraseña cambiada correctamente');
     
-    console.log('✅ Contraseña actualizada exitosamente para:', currentUser.email);
+    console.log('✅ Contraseña actualizada exitosamente para:', maskEmail(currentUser.email));
     
   } catch (error) {
     console.error('❌ Error al cambiar contraseña:', error);
@@ -966,11 +942,17 @@ document.getElementById('addSchoolUserForm')?.addEventListener('submit', async f
     finalAvatar = await compressImageForFirebase(finalAvatar, 300, 0.6);
   }
   
+  const password = schoolUserPassword ? schoolUserPassword.value : '';
+  if (password.length < 8) {
+    showToast('❌ La contraseña debe tener al menos 8 caracteres');
+    return;
+  }
+  
   const userData = {
     name: schoolUserName ? schoolUserName.value : '',
     email: schoolUserEmail ? schoolUserEmail.value : '',
     phone: schoolUserPhone ? schoolUserPhone.value : '',
-    password: schoolUserPassword ? schoolUserPassword.value : '',
+    password: password,
     birthDate: schoolUserBirthDate ? schoolUserBirthDate.value : '',
     avatar: finalAvatar  // ✅ USAR IMAGEN (NUBE O COMPRIMIDA)
   };

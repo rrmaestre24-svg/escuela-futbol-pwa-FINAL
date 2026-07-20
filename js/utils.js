@@ -724,3 +724,10 @@ function loadXLSX(callback) {
 }
 
 console.log('✅ Funciones de auditoría agregadas');
+
+function maskEmail(e) {
+  if (!e || typeof e !== 'string' || e.indexOf('@') === -1) return '***';
+  const [u, d] = e.split('@');
+  return (u.slice(0, 2) || '*') + '***@' + d;
+}
+window.maskEmail = maskEmail;

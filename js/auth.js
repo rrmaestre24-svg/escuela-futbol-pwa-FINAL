@@ -19,7 +19,7 @@ function setCurrentUser(user) {
     const userStr = JSON.stringify(user);
     localStorage.setItem('currentUser', userStr);
     sessionStorage.setItem('currentUser', userStr); // Backup
-    console.log('[SESSION] Usuario guardado:', user.email);
+    console.log('[SESSION] Usuario guardado:', maskEmail(user.email));
   } catch (error) {
     console.error('[SESSION] Error al guardar usuario actual:', error);
   }
@@ -411,7 +411,7 @@ document.getElementById('loginForm')?.addEventListener('submit', async function(
     return;
   }
   
-  console.log('🔐 Iniciando login para:', email);
+  console.log('🔐 Iniciando login para:', maskEmail(email));
   if (clubIdInput) {
     console.log('⚡ Club ID proporcionado:', clubIdInput, '(login rápido)');
   } else {
@@ -682,8 +682,8 @@ document.getElementById('registerForm')?.addEventListener('submit', async functi
     return;
   }
   
-  if (adminPassword.length < 6) {
-    showToast('❌ La contraseña debe tener al menos 6 caracteres');
+  if (adminPassword.length < 8) {
+    showToast('❌ La contraseña debe tener al menos 8 caracteres');
     return;
   }
   
@@ -940,7 +940,7 @@ function closeClubIdModal() {
   const currentUser = getCurrentUser();
   
   if (currentUser) {
-    console.log('✅ Usuario autenticado:', currentUser.email);
+    console.log('✅ Usuario autenticado:', maskEmail(currentUser.email));
     console.log('📋 Club ID:', localStorage.getItem('clubId'));
     
     showToast('✅ Redirigiendo al dashboard...');
@@ -1104,7 +1104,7 @@ window.addEventListener('DOMContentLoaded', async function() {
   const currentUser = getCurrentUser();
   
   if (currentUser && currentUser.email) {
-    console.log('[AUTH] Sesion local valida:', currentUser.email);
+    console.log('[AUTH] Sesion local valida:', maskEmail(currentUser.email));
     if (!appContainer) {
       // Si estamos en login.html pero hay sesión, redirigir al dashboard
       window.location.href = 'index.html';

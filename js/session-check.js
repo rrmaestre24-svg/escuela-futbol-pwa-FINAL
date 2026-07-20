@@ -25,7 +25,7 @@ window.addEventListener('DOMContentLoaded', async function () {
     const currentUser = getCurrentUser();
 
     if (currentUser && currentUser.email) {
-        console.log('[INDEX] Sesion local encontrada:', currentUser.email);
+        console.log('[INDEX] Sesion local encontrada:', maskEmail(currentUser.email));
         hideLoader();
         document.getElementById('appContainer').classList.remove('hidden');
         if (typeof initApp === 'function') {

@@ -175,7 +175,7 @@ async function syncAllToFirebase() {
   try {
     console.log('📤 Sincronizando todos los datos a Firebase...');
     console.log('📤 Club ID:', clubId);
-    console.log('👤 Usuario:', currentUser.email);
+    console.log('👤 Usuario:', maskEmail(currentUser.email));
     console.log('👑 Es admin principal:', currentUser.isMainAdmin);
     showToast('📤 Subiendo datos...');
 
@@ -414,7 +414,7 @@ async function downloadFromFirebase() {
     // ✅ VERIFICAR ADMIN PRINCIPAL
     const mainAdmin = users.find(u => u.isMainAdmin === true);
     if (mainAdmin) {
-      console.log('👑 Admin principal:', mainAdmin.email);
+      console.log('👑 Admin principal:', maskEmail(mainAdmin.email));
     } else {
       console.warn('⚠️ NO hay admin principal');
     }

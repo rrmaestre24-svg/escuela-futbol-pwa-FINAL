@@ -477,7 +477,7 @@ function setupUserDeletionListener() {
     return;
   }
 
-  console.log('👁️ Activando polling de eliminación para:', currentUser.email);
+  console.log('👁️ Activando polling de eliminación para:', maskEmail(currentUser.email));
 
   async function checkUserExists() {
     try {
