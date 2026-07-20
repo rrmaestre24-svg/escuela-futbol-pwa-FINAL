@@ -1,10 +1,11 @@
-const CACHE_NAME = 'my-club-v1.7.8';
+const CACHE_NAME = 'my-club-v1.7.9';
 
 const urlsToCache = [
   '/',
   '/index.html',
   '/login.html',
   '/reset-password.html',
+  '/terminos.html',
   '/offline.html',
   '/manifest.json',
 
@@ -67,6 +68,7 @@ const urlsToCache = [
   '/js/whatsapp.js',
   '/js/import-players.js',
   '/js/documents-center.js',
+  '/js/terms.js',
   '/js/coach-automation.js',
   '/js/parent-automation.js',
   '/js/manual-usuario.js',

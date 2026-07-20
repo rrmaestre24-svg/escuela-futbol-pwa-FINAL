@@ -392,6 +392,10 @@ async function initApp() {
     // 🔐 VERIFICAR LICENCIA
     if (typeof initLicenseSystem === 'function') initLicenseSystem();
 
+    // 📄 TÉRMINOS Y TRATAMIENTO DE DATOS — modal bloqueante si el club no
+    // aceptó la versión vigente. No bloquea si falla la red (se reintenta).
+    if (typeof checkTermsAcceptance === 'function') checkTermsAcceptance();
+
     console.log('✅ MY CLUB inicializado correctamente');
     console.log('👤 Usuario:', currentUser?.name);
     console.log('⚽ Club:', settings.name);

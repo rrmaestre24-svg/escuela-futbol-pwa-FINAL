@@ -1047,6 +1047,9 @@ async function logout() {
       localStorage.removeItem('licensePlan');
       localStorage.removeItem('licenseEndDate');
       localStorage.removeItem('licenseGraceDays');
+      // Aceptación de Términos: es POR CLUB. Si no se limpia, otro club en el
+      // mismo dispositivo se saltaría el modal y no quedaría su consentimiento.
+      localStorage.removeItem('termsAcceptedVersion');
       sessionStorage.clear();
       
       showToast('👋 Sesión cerrada');

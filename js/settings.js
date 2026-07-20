@@ -1438,7 +1438,16 @@ async function executeClubDestruction(clubId, currentUser) {
     localStorage.removeItem('schoolSettings');
     localStorage.removeItem('clubId');
     localStorage.removeItem('expenses');
-    
+    // Estado por club: si no se limpia, el próximo club en este dispositivo
+    // hereda módulos y/o se saltaría el modal de Términos (sin dejar su
+    // consentimiento registrado).
+    localStorage.removeItem('termsAcceptedVersion');
+    localStorage.removeItem('licenseModulos');
+    localStorage.removeItem('licenseStatus');
+    localStorage.removeItem('licensePlan');
+    localStorage.removeItem('licenseEndDate');
+    localStorage.removeItem('licenseGraceDays');
+
     console.log('✅ localStorage limpiado');
     
     console.log('🔥 ========================================');

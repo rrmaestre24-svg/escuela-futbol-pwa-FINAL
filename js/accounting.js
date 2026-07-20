@@ -1904,8 +1904,9 @@ function renderOverduePlayers() {
   const sortedPlayers = Object.values(grouped).sort((a, b) => b.maxDays - a.maxDays);
   window._overdueData = sortedPlayers;
 
-  // ── Render en TARJETAS (estilo glass-card de la app; foto real del jugador;
-  //    colores SÓLIDOS sin /opacidad porque el build de Tailwind no los compila) ──
+  // ── Render AGRUPADO POR CATEGORÍA ──
+  // Una lista plana de 23 morosos no dice nada; agrupada muestra de una qué
+  // categoría está más atrasada y cuánto debe cada una.
   const _daysBadge = (d) => d >= 60
     ? 'bg-red-500 text-white'
     : d >= 30
@@ -1913,7 +1914,25 @@ function renderOverduePlayers() {
       : 'bg-amber-500 text-white';
   const _defAv = (typeof getDefaultAvatar === 'function') ? getDefaultAvatar() : '';
 
-  container.innerHTML = `<div class="space-y-2.5">` + sortedPlayers.map(g => {
+  // Agrupar por categoría (los jugadores sin categoría van juntos al final)
+  const byCat = {};
+  sortedPlayers.forEach(g => {
+    const cat = (g.player.category || '').toString().trim() || 'Sin categoría';
+    if (!byCat[cat]) byCat[cat] = { cat, players: [], totalDue: 0, maxDays: 0 };
+    byCat[cat].players.push(g);
+    byCat[cat].totalDue += g.totalDue;
+    if (g.maxDays > byCat[cat].maxDays) byCat[cat].maxDays = g.maxDays;
+  });
+
+  // Orden natural por nombre de categoría ("Categoría 2014" antes que "2015"),
+  // pero "Sin categoría" siempre al final.
+  const cats = Object.values(byCat).sort((a, b) => {
+    if (a.cat === 'Sin categoría') return 1;
+    if (b.cat === 'Sin categoría') return -1;
+    return a.cat.localeCompare(b.cat, 'es', { numeric: true });
+  });
+
+  const _playerCard = (g) => {
     const monthsStr = _getOverdueMonths(g.items);
     const guardian = g.player.guardianName || g.player.parentName || g.player.phone || '';
     const avatar = g.player.avatar || _defAv;
@@ -1932,15 +1951,70 @@ function renderOverduePlayers() {
           <div class="text-sm font-bold text-gray-900 dark:text-white whitespace-nowrap">${formatCurrency(g.totalDue)}</div>
           <span class="inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${_daysBadge(g.maxDays)}">${g.maxDays}d</span>
         </div>
-        <button onclick="sendPendingReminderWA('${g.player.id}')" class="shrink-0 w-9 h-9 rounded-full bg-green-500 hover:bg-green-600 text-white flex items-center justify-center transition-colors shadow-sm" title="Recordar por WhatsApp">
+        <button type="button" data-ov-wa="${_accEscapeHtml(g.player.id)}" class="shrink-0 w-9 h-9 rounded-full bg-green-500 hover:bg-green-600 text-white flex items-center justify-center transition-colors shadow-sm" title="Recordar por WhatsApp">
           <i data-lucide="message-circle" class="w-4 h-4"></i>
         </button>
       </div>`;
+  };
+
+  container.innerHTML = `<div class="space-y-3">` + cats.map(c => {
+    const collapsed = _ovCollapsed.has(c.cat);
+    const n = c.players.length;
+    return `
+      <div class="rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700">
+        <button type="button" data-ov-cat="${_accEscapeHtml(c.cat)}"
+          class="w-full flex items-center justify-between gap-2 px-3 py-2.5 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700/70 transition-colors text-left">
+          <div class="flex items-center gap-2 min-w-0">
+            <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 shrink-0 transition-transform duration-200" style="${collapsed ? 'transform:rotate(-90deg)' : ''}"></i>
+            <span class="text-sm font-bold text-gray-800 dark:text-white truncate">${_accEscapeHtml(c.cat)}</span>
+            <span class="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-500 text-white">${n}</span>
+          </div>
+          <div class="text-right shrink-0">
+            <div class="text-sm font-bold text-red-600 dark:text-red-400 whitespace-nowrap">${formatCurrency(c.totalDue)}</div>
+            <div class="text-[10px] text-gray-500 dark:text-gray-400">${n} jugador${n === 1 ? '' : 'es'}</div>
+          </div>
+        </button>
+        <div class="p-2 space-y-2.5 bg-white/40 dark:bg-gray-900/30 ${collapsed ? 'hidden' : ''}">
+          ${c.players.map(_playerCard).join('')}
+        </div>
+      </div>`;
   }).join('') + `</div>`;
+
+  _ovWireCategories(container);
 
   if (typeof lucide !== 'undefined' && lucide.createIcons) {
     setTimeout(() => { try { lucide.createIcons(); } catch(e) { /* noop */ } }, 50);
   }
+}
+
+// Categorías plegadas por el usuario. Se guarda en memoria para que un
+// re-render (ej. al registrar un pago) no vuelva a abrir todo.
+const _ovCollapsed = new Set();
+
+// Listeners por delegación: el nombre de la categoría y el id del jugador van
+// en data-* y NUNCA interpolados en onclick (evita romper el HTML o inyectar
+// código si un dato trae comillas).
+function _ovWireCategories(container) {
+  if (!container || container._ovWired) return;
+  container._ovWired = true;
+
+  container.addEventListener('click', function (ev) {
+    const catBtn = ev.target.closest('[data-ov-cat]');
+    if (catBtn) {
+      const cat = catBtn.getAttribute('data-ov-cat');
+      if (_ovCollapsed.has(cat)) _ovCollapsed.delete(cat); else _ovCollapsed.add(cat);
+      const body = catBtn.nextElementSibling;
+      const chev = catBtn.querySelector('[data-lucide="chevron-down"], .lucide-chevron-down, svg');
+      if (body) body.classList.toggle('hidden', _ovCollapsed.has(cat));
+      if (chev) chev.style.transform = _ovCollapsed.has(cat) ? 'rotate(-90deg)' : '';
+      return;
+    }
+
+    const waBtn = ev.target.closest('[data-ov-wa]');
+    if (waBtn && typeof sendPendingReminderWA === 'function') {
+      sendPendingReminderWA(waBtn.getAttribute('data-ov-wa'));
+    }
+  });
 }
 
 function _getMonthlyTypeAmount(playerPayments) {
@@ -1989,8 +2063,16 @@ function generateOverduePDF() {
     doc.setFontSize(8);
     doc.text(`Generado: ${formatDateText(getCurrentDate())}`, 15, 48);
 
-    const sorted = [...data].sort((a, b) => (a.player.name || '').localeCompare(b.player.name || ''));
+    // Mismo criterio que la vista: agrupado por categoría, y dentro por nombre.
+    const sorted = [...data].sort((a, b) => {
+      const ca = (a.player.category || 'zzz').toString();
+      const cb = (b.player.category || 'zzz').toString();
+      const c = ca.localeCompare(cb, 'es', { numeric: true });
+      if (c !== 0) return c;
+      return (a.player.name || '').localeCompare(b.player.name || '');
+    });
     const rows = sorted.map(g => [
+      g.player.category || '—',
       g.player.name || '',
       g.player.guardianName || g.player.parentName || g.player.phone || '-',
       formatCurrency(g.totalDue),
@@ -2000,7 +2082,7 @@ function generateOverduePDF() {
 
     doc.autoTable({
       startY: 55,
-      head: [['Jugador', 'Acudiente', 'Monto Adeudado', 'Días Vencido', 'Teléfono']],
+      head: [['Categoría', 'Jugador', 'Acudiente', 'Monto Adeudado', 'Días Vencido', 'Teléfono']],
       body: rows,
       headStyles: { fillColor: primaryColor, fontSize: 8 },
       bodyStyles: { fontSize: 7 },
