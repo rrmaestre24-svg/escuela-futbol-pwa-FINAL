@@ -165,10 +165,43 @@ async function startRealtimeSync(clubId) {
     window.realtimeSyncState.lastSync = new Date().toISOString();
     window.realtimeSyncState.initialLoadComplete = true;
 
+    // 🩹 AUTO-CURA — "app vacía tras actualizar a una versión nueva".
+    // Los datos viven en IndexedDB y se copian a la cache RAM al arrancar
+    // (hidratación). Cuando una versión nueva fuerza un recargón, esa
+    // hidratación se puede interrumpir y la cache RAM queda vacía. Antes el
+    // código confiaba solo en el flag "_lastFullDownload" (descargué hace <10
+    // min → no hago nada) y NO reintentaba leer IndexedDB → la app se veía sin
+    // datos hasta cerrar sesión y entrar de nuevo.
+    //
+    // Solución en dos pasos, del más barato al más caro:
+    //  1) Si la cache RAM no está hidratada, re-hidratar desde IndexedDB. Es
+    //     local e instantáneo y recupera los datos que SIGUEN en IndexedDB, sin
+    //     tocar Supabase (respeta la optimización de costos).
+    //  2) Solo si tras eso la cache sigue vacía (IndexedDB también se perdió),
+    //     forzar una descarga real desde Supabase. downloadAll ya se auto-
+    //     protege: sin JWT NO descarga (para no pisar la caché con vacío).
+    if (window.idb && typeof window.idb.hydrateCache === 'function'
+        && !(window._cache && window._cache.hydrated)) {
+      try { await window.idb.hydrateCache(); }
+      catch (e) { console.warn('[sync] re-hidratación falló:', e?.message || e); }
+    }
+
     const _lastDL = JSON.parse(localStorage.getItem('_lastFullDownload') || 'null');
-    const dataFresh = _lastDL?.clubId === clubId && (Date.now() - _lastDL.ts) < 10 * 60 * 1000;
-    if (!dataFresh && typeof downloadAllClubDataFromSupabase === 'function') {
-      await downloadAllClubDataFromSupabase(clubId, { force: false });
+    const _recentDL = _lastDL?.clubId === clubId && (Date.now() - _lastDL.ts) < 10 * 60 * 1000;
+    const _cacheEmpty = !window._cache || (
+      (!Array.isArray(window._cache.players)  || window._cache.players.length  === 0) &&
+      (!Array.isArray(window._cache.payments) || window._cache.payments.length === 0)
+    );
+    if (_recentDL && _cacheEmpty) {
+      console.warn('[sync] ⚠️ Descarga reciente pero cache RAM vacía tras rehidratar '
+        + '(hidratación perdida al actualizar). Forzando re-descarga desde Supabase.');
+    }
+    // force SOLO en la firma exacta del bug: descarga reciente PERO cache vacía
+    // (hidratación perdida). Para un club nuevo/vacío con TTL vencido cae a
+    // force:false → el guard interno de 15 min decide (no fuerza descargas en
+    // cada apertura, respeta el local-first).
+    if (typeof downloadAllClubDataFromSupabase === 'function' && (!_recentDL || _cacheEmpty)) {
+      await downloadAllClubDataFromSupabase(clubId, { force: _recentDL && _cacheEmpty });
     }
 
     if (typeof updateDashboard === 'function') updateDashboard();
