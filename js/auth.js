@@ -433,7 +433,11 @@ document.getElementById('loginForm')?.addEventListener('submit', async function(
     // Intento Supabase v2
     if (window.SupaAuthV2) {
       try {
-        await window.SupaAuthV2.login(email, password);
+        // Token del CAPTCHA (Turnstile) si el widget lo produjo. Fail-open: si no
+        // hay widget/token, se manda vacío y Supabase lo ignora (hasta activarlo).
+        const _captchaToken = (window.turnstile && typeof window.turnstile.getResponse === 'function')
+          ? (window.turnstile.getResponse() || '') : '';
+        await window.SupaAuthV2.login(email, password, _captchaToken);
         authMethod = 'supabase';
         console.log('✅ Autenticado en Supabase (v2)');
 
@@ -461,6 +465,11 @@ document.getElementById('loginForm')?.addEventListener('submit', async function(
         };
       } catch (supaErr) {
         console.error('[LOGIN] Supabase falló:', supaErr?.message || supaErr);
+        // El token de Turnstile es de un solo uso: reiniciar el widget para el reintento
+        // y volver a mostrarlo (por si el reintento necesita interacción).
+        if (window.turnstile && typeof window.turnstile.reset === 'function') { try { window.turnstile.reset(); } catch (_) {} }
+        var _tw = document.getElementById('turnstileWrap');
+        if (_tw) { _tw.style.opacity = '1'; _tw.style.maxHeight = '90px'; _tw.style.margin = '6px 0'; }
         showToast('❌ Correo o contraseña incorrectos');
         return;
       }

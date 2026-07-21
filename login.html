@@ -24,6 +24,20 @@
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
 
+    <!-- Cloudflare Turnstile (CAPTCHA anti fuerza-bruta en el login) -->
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+    <script>
+      // Turnstile verificó OK → mostrar el ✓ verde ~1.5s y RECIÉN AHÍ colapsar suave
+      // (aparece → se ve "verificado" → desaparece).
+      window.onTurnstileVerified = function () {
+        var w = document.getElementById('turnstileWrap');
+        if (!w) return;
+        setTimeout(function () {
+          w.style.opacity = '0'; w.style.maxHeight = '0'; w.style.margin = '0';
+        }, 1500);
+      };
+    </script>
+
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -399,6 +413,11 @@
                             onmouseout="this.style.color='#0d9488'">
                         ¿Olvidaste tu contraseña?
                     </button>
+                </div>
+
+                <!-- CAPTCHA (Cloudflare Turnstile) — verifica que sea una persona, no un bot -->
+                <div id="turnstileWrap" style="display:flex;justify-content:center;overflow:hidden;max-height:90px;transition:max-height .45s ease,opacity .45s ease,margin .45s ease;margin:6px 0">
+                    <div class="cf-turnstile" data-sitekey="0x4AAAAAAD6O-vFleQZEjppC" data-action="login" data-theme="dark" data-callback="onTurnstileVerified"></div>
                 </div>
 
                 <!-- Botón ingresar -->

@@ -65,12 +65,16 @@
   }
 
   // ── Login con email/password (signInWithPassword nativo) ─────────────────
-  async function login(email, password) {
+  async function login(email, password, captchaToken) {
     if (!email || !password) throw new Error('email y password requeridos');
+    const _body = { email: email.trim().toLowerCase(), password };
+    // CAPTCHA (Turnstile): solo si hay token. Fail-open — sin token se manda igual
+    // (Supabase lo ignora hasta que se active CAPTCHA en su panel de Auth).
+    if (captchaToken) _body.gotrue_meta_security = { captcha_token: captchaToken };
     const res = await _origFetch(`${SUPA_URL}/auth/v1/token?grant_type=password`, {
       method: 'POST',
       headers: { apikey: ANON, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
+      body: JSON.stringify(_body),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data?.access_token) {
