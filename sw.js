@@ -1,10 +1,9 @@
-const CACHE_NAME = 'my-club-v1.8.2';
+const CACHE_NAME = 'my-club-v1.8.3';
 
 const urlsToCache = [
   '/',
   '/index.html',
   '/login.html',
-  '/reset-password.html',
   '/terminos.html',
   '/offline.html',
   '/manifest.json',
@@ -132,6 +131,12 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   // Ignorar peticiones que no son HTTP/HTTPS
   if (!event.request.url.startsWith('http')) return;
+
+  // Reset-password SIEMPRE a la red (nunca versión cacheadas).
+  if (event.request.url.indexOf('/reset-password.html') !== -1) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
 
   // Ignorar peticiones a Firebase, APIs externas, etc.
   // 🆕 Supabase REST/AUTH/FUNCTIONS NO se cachean (datos en tiempo real).
