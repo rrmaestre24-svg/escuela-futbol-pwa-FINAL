@@ -784,7 +784,11 @@ document.getElementById('registerForm')?.addEventListener('submit', async functi
     if (window.SupaAuthV2 && typeof window.SupaAuthV2.login === 'function') {
       try {
         console.log('[AUTH] Ejecutando auto-login en Supabase Auth...');
-        await window.SupaAuthV2.login(adminEmail, adminPassword);
+        // Token del CAPTCHA del registro (fail-open) para que el auto-login pase
+        // cuando CAPTCHA esté activo en Supabase.
+        const _regToken = (window.turnstile && typeof window.turnstile.getResponse === 'function' && document.getElementById('cfRegister'))
+          ? (window.turnstile.getResponse(document.getElementById('cfRegister')) || '') : '';
+        await window.SupaAuthV2.login(adminEmail, adminPassword, _regToken);
         console.log('[AUTH] Auto-login exitoso');
       }
       catch (e) {
@@ -1187,6 +1191,8 @@ async function forgotPassword() {
 
         <div id="resetMessage" class="hidden"></div>
 
+        <div id="cfReset" style="display:flex;justify-content:center;margin:4px 0"></div>
+
         <div class="flex gap-3">
           <button 
             type="button" 
@@ -1208,6 +1214,18 @@ async function forgotPassword() {
   `;
   
   document.body.appendChild(modal);
+
+  // Turnstile en el modal de reset (dinámico → render explícito). Fail-open:
+  // si el widget/script no está, no se renderiza y el reset sigue funcionando
+  // (Supabase lo ignora hasta que se active CAPTCHA en su panel).
+  window._cfResetId = null;
+  if (window.turnstile && typeof window.turnstile.render === 'function') {
+    try {
+      window._cfResetId = window.turnstile.render('#cfReset', {
+        sitekey: '0x4AAAAAAD6O-vFleQZEjppC', theme: 'dark', action: 'recover'
+      });
+    } catch (e) { console.warn('[reset] turnstile render:', e && e.message); }
+  }
 
   if (!document.getElementById('resetPasswordStyles')) {
     const style = document.createElement('style');
@@ -1257,10 +1275,15 @@ try {
 // Debe estar en la lista de redirect URLs permitidas de Supabase.
 const _dir = window.location.origin + window.location.pathname.replace(/[^/]*$/, '');
 const _redirectTo = _dir + 'reset-password.html';
+// CAPTCHA (Turnstile) del modal si lo hay. Fail-open: sin token se manda igual.
+const _captchaToken = (window.turnstile && window._cfResetId != null && typeof window.turnstile.getResponse === 'function')
+  ? (window.turnstile.getResponse(window._cfResetId) || '') : '';
+const _recoverBody = { email };
+if (_captchaToken) _recoverBody.gotrue_meta_security = { captcha_token: _captchaToken };
 const res = await fetch(`${window.SUPA_URL}/auth/v1/recover?redirect_to=${encodeURIComponent(_redirectTo)}`, {
   method: 'POST',
   headers: { apikey: window.SUPA_ANON, 'Content-Type': 'application/json' },
-  body: JSON.stringify({ email })
+  body: JSON.stringify(_recoverBody)
 });
 if (!res.ok) {
   const data = await res.json().catch(() => ({}));
