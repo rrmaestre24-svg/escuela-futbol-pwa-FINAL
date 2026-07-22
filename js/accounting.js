@@ -305,7 +305,7 @@ function renderIncomeVsExpensesChart() {
     
     // Ingresos del mes (pagos + otros ingresos)
     const monthPayments = payments.filter(p => {
-      const paymentDate = new Date(p.paidDate);
+      const paymentDate = parseLocalDate(p.paidDate);
       return paymentDate.getMonth() === date.getMonth() && 
              paymentDate.getFullYear() === date.getFullYear();
     });
@@ -314,7 +314,7 @@ function renderIncomeVsExpensesChart() {
     // 🆕 Otros ingresos del mes
     const monthThirdParty = thirdPartyIncomes.filter(i => {
       if (!i.date) return false;
-      const incomeDate = new Date(i.date);
+      const incomeDate = parseLocalDate(i.date);
       return incomeDate.getMonth() === date.getMonth() && 
              incomeDate.getFullYear() === date.getFullYear();
     });
@@ -325,7 +325,7 @@ function renderIncomeVsExpensesChart() {
     // Egresos del mes
     const monthExpenses = expenses.filter(e => {
       if (!e.date) return false;
-      const expenseDate = new Date(e.date);
+      const expenseDate = parseLocalDate(e.date);
       return expenseDate.getMonth() === date.getMonth() && 
              expenseDate.getFullYear() === date.getFullYear();
     });

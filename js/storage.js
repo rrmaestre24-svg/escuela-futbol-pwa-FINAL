@@ -359,6 +359,13 @@ function updatePayment(paymentId, paymentData) {
 }
 
 function deletePayment(paymentId) {
+  // Mutar la caché RAM in-place (getPayments devuelve ESA referencia) para que el
+  // borrado/anulado se refleje YA en Contabilidad/Dashboard, sin esperar la
+  // escritura asíncrona a IndexedDB.
+  if (window._cache && Array.isArray(window._cache.payments)) {
+    const _i = window._cache.payments.findIndex(p => p.id === paymentId);
+    if (_i !== -1) window._cache.payments.splice(_i, 1);
+  }
   let payments = getPayments();
   payments = payments.filter(p => p.id !== paymentId);
   safeSetItem('payments', JSON.stringify(payments));
@@ -457,6 +464,11 @@ function updateExpense(expenseId, expenseData) {
 }
 
 function deleteExpense(expenseId) {
+  // Mutar la caché RAM in-place (ver deletePayment) para reflejar el borrado YA.
+  if (window._cache && Array.isArray(window._cache.expenses)) {
+    const _i = window._cache.expenses.findIndex(e => e.id === expenseId);
+    if (_i !== -1) window._cache.expenses.splice(_i, 1);
+  }
   let expenses = getExpenses();
   expenses = expenses.filter(e => e.id !== expenseId);
   safeSetItem('expenses', JSON.stringify(expenses));
@@ -544,6 +556,11 @@ function updateThirdPartyIncome(incomeId, incomeData) {
 }
 
 function deleteThirdPartyIncome(incomeId) {
+  // Mutar la caché RAM in-place (ver deletePayment) para reflejar el borrado YA.
+  if (window._cache && Array.isArray(window._cache.thirdPartyIncomes)) {
+    const _i = window._cache.thirdPartyIncomes.findIndex(i => i.id === incomeId);
+    if (_i !== -1) window._cache.thirdPartyIncomes.splice(_i, 1);
+  }
   let incomes = getThirdPartyIncomes();
   incomes = incomes.filter(i => i.id !== incomeId);
   safeSetItem('thirdPartyIncomes', JSON.stringify(incomes));

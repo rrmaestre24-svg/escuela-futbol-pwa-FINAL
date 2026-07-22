@@ -2203,26 +2203,26 @@ console.log('✅ Sistema de edición COMPLETA de facturas cargado');
 // ========================================
 function repairFinalAmounts() {
   const payments = getPayments();
-  let fixed = 0;
-  const repaired = payments.map(p => {
-    // Si tiene finalAmount distinto a amount Y no es un descuento legítimo (no tiene p.discount), sincronizar
+  const toFix = [];
+  payments.forEach(p => {
+    // Si tiene finalAmount distinto a amount Y no es un descuento legítimo (no tiene p.discount), sincronizar.
     if (p.finalAmount !== undefined && p.finalAmount !== p.amount && !p.discount) {
-      fixed++;
-      return { ...p, finalAmount: p.amount };
+      p.finalAmount = p.amount;   // muta el objeto EN la caché RAM in-place (getPayments devuelve esa referencia)
+      toFix.push(p);
     }
-    return p;
   });
-  if (fixed > 0) {
-    localStorage.setItem('payments', JSON.stringify(repaired));
-    // Sincronizar con Firebase los reparados
-    if (typeof savePaymentToFirebase === 'function') {
-      repaired.filter(p => p.finalAmount !== undefined && p.finalAmount === p.amount && !p.discount).forEach(p => {
-        savePaymentToFirebase(p).catch(() => {});
-      });
-    }
-    showToast(`✅ Se repararon ${fixed} pago(s) con monto desactualizado`);
+  if (toFix.length > 0) {
+    // La caché ya quedó corregida (mutación in-place). Persistir cada reparado en
+    // Supabase e IndexedDB. localStorage está deny-listed para 'payments' (Fase 4),
+    // por eso NO alcanzaba con setItem: había que tocar la caché RAM directo.
+    toFix.forEach(p => {
+      if (typeof savePaymentToFirebase === 'function') savePaymentToFirebase(p).catch(() => {});
+      if (window.idb && window.idb.put) window.idb.put('payments', p).catch(() => {});
+    });
+    showToast(`✅ Se repararon ${toFix.length} pago(s) con monto desactualizado`);
     renderPayments();
     updateDashboard();
+    if (typeof renderAccountingSummary === 'function') renderAccountingSummary();
   } else {
     showToast('✅ Todos los pagos ya tienen el monto correcto');
   }
