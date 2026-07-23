@@ -662,6 +662,13 @@ async function savePaymentToFirebase(payment) {
       due_date: payment.dueDate || null, paid_date: payment.paidDate || null,
       method: payment.method || null, invoice_number: payment.invoiceNumber || null,
       notes: payment.notes || null, deleted: payment.deleted || false,
+      // 🆕 Descuentos/becas + mes facturado (antes solo vivían en la caché local
+      //    → se perdían al resync y la beca volvía al monto completo).
+      final_amount: payment.finalAmount != null ? payment.finalAmount : null,
+      discount: payment.discount != null ? payment.discount : null,
+      discount_type: payment.discountType || null,
+      discount_reason: payment.discountReason || null,
+      billing_month: payment.billingMonth || null,
       updated_at: new Date().toISOString(),
     });
   }
@@ -1784,6 +1791,13 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false } = {}) {
       status: p.status, amount: p.amount, dueDate: p.due_date, paidDate: p.paid_date,
       method: p.method, invoiceNumber: p.invoice_number, notes: p.notes,
       deleted: p.deleted, clubId: clubId,
+      // 🆕 Descuentos/becas + mes facturado (ahora persistidos en Supabase → no se
+      //    pierden al resync). undefined cuando no hay descuento (convención local).
+      finalAmount: p.final_amount != null ? p.final_amount : undefined,
+      discount: p.discount != null ? p.discount : undefined,
+      discountType: p.discount_type || undefined,
+      discountReason: p.discount_reason || undefined,
+      billingMonth: p.billing_month || undefined,
     }));
     localStorage.removeItem('paymentsFullHistory');
     // 🆕 IDB PRIMERO — recibe TODOS los pagos sin importar la cuota de localStorage.

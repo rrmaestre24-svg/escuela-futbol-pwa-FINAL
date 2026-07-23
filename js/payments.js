@@ -1311,6 +1311,12 @@ async function loadOlderPaymentsFromSupabase(opts = {}) {
       status: p.status, amount: p.amount, dueDate: p.due_date, paidDate: p.paid_date,
       method: p.method, invoiceNumber: p.invoice_number, notes: p.notes,
       deleted: p.deleted, clubId: clubId,
+      // 🆕 Descuentos/becas + mes facturado (persistidos en Supabase)
+      finalAmount: p.final_amount != null ? p.final_amount : undefined,
+      discount: p.discount != null ? p.discount : undefined,
+      discountType: p.discount_type || undefined,
+      discountReason: p.discount_reason || undefined,
+      billingMonth: p.billing_month || undefined,
     }));
 
     if (!silent) {
@@ -2228,6 +2234,36 @@ function repairFinalAmounts() {
   }
 }
 window.repairFinalAmounts = repairFinalAmounts;
+
+// ========================================
+// BACKFILL ÚNICO: sube a Supabase los descuentos/becas que hoy SOLO viven en la
+// caché local (las columnas nuevas de payments recién existen). Correr UNA vez en
+// la consola, en el dispositivo que tenga los descuentos, DESPUÉS de agregar las
+// columnas y desplegar el código. Sin esto, un resync podría perder becas viejas.
+//   → en la consola:  backfillDiscountsToSupabase()
+// ========================================
+async function backfillDiscountsToSupabase() {
+  const all = (typeof _getPaymentsAll === 'function') ? _getPaymentsAll() : getPayments();
+  // Solo pagos con descuento REAL (no todos): finalAmount distinto al amount, o discount seteado.
+  const withDiscount = all.filter(p =>
+    (p.finalAmount != null && p.finalAmount !== p.amount) ||
+    (p.discount != null && p.discount !== 0)
+  );
+  if (withDiscount.length === 0) {
+    if (typeof showToast === 'function') showToast('No hay descuentos/becas locales para subir');
+    console.log('[backfill] no hay descuentos locales');
+    return;
+  }
+  let ok = 0;
+  for (const p of withDiscount) {
+    try {
+      if (typeof savePaymentToFirebase === 'function') { await savePaymentToFirebase(p); ok++; }
+    } catch (e) { console.warn('[backfill] falló', p.id, e && e.message); }
+  }
+  if (typeof showToast === 'function') showToast(`✅ ${ok}/${withDiscount.length} descuentos subidos a Supabase`);
+  console.log(`[backfill] descuentos subidos: ${ok}/${withDiscount.length}`);
+}
+window.backfillDiscountsToSupabase = backfillDiscountsToSupabase;
 
 // ========================================
 // BUSCADOR DE FACTURAS - CÓDIGO COMPLETO
