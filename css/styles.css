@@ -45,6 +45,11 @@ body {
   color: var(--text-primary);
 }
 
+/* Avisos SMS — usa las variables del tema para respetar modo claro/oscuro */
+.sms-card { background: var(--bg-primary); }
+.sms-field { background: var(--bg-secondary); color: var(--text-primary); }
+.sms-card input[type="checkbox"] { accent-color: #0d9488; }
+
 
 
 /* ========================================

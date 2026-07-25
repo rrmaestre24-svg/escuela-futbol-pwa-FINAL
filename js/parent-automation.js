@@ -441,10 +441,15 @@ function renderParentAccessList() {
                 ${isNoAccess
                     ? `<div class="ml-2 shrink-0 text-[10px] font-bold text-red-600 dark:text-red-300 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded-lg border border-red-100 dark:border-red-800/40">Sin portal</div>`
                     : `<div class="flex items-center gap-1 ml-2 shrink-0 opacity-100 sm:opacity-80 sm:group-hover:opacity-100 transition-opacity">
-                        <button onclick="resendParentCode('${player.id}')" 
-                                title="${isSent ? 'Volver a enviar' : 'Enviar ahora'}"
+                        <button onclick="resendParentCode('${player.id}')"
+                                title="${isSent ? 'Reenviar por WhatsApp' : 'Enviar por WhatsApp'}"
                                 class="p-2 rounded-xl text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/40 transition-colors border border-transparent hover:border-emerald-200 dark:hover:border-emerald-800/40">
                             <i data-lucide="send" class="w-4 h-4"></i>
+                        </button>
+                        <button onclick="sendSmsToOneParent('${player.id}')"
+                                title="Enviar por SMS"
+                                class="p-2 rounded-xl text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-900/40 transition-colors border border-transparent hover:border-teal-200 dark:hover:border-teal-800/40">
+                            <i data-lucide="message-square" class="w-4 h-4"></i>
                         </button>
                         <button onclick="regenerateParentCodeBatch('${player.id}')"
                                 title="Regenerar nuevo código"
@@ -611,7 +616,9 @@ async function openWhatsAppForParent(player, access) {
 
     // 🆕 Enviar SMS con el código si el helper está disponible
     if (typeof window.callSendSms === 'function') {
-        const smsMessage = `Hola! Tu código de acceso al Portal de Padres de ${clubName} para ${player.name} es: ${access.code}. Ingresa en https://padres.appmyclub.com/ Club ID: ${clubId}`;
+        // SMS corto y GSM-7 (sin tildes agudas): el código y el Club ID van primero para que
+        // nunca queden fuera si el servidor recorta a 130. El nombre del club se acota a 25.
+        const smsMessage = `${String(clubName || '').slice(0, 18)}: tu codigo de acceso es ${access.code}. Club ID: ${clubId}. Entra a padres.appmyclub.com`;
         window.callSendSms({
             club_id: clubId,
             modulo: 'codigo_padres',
@@ -672,6 +679,81 @@ function _markParentCodeSent(playerId, code, clubId) {
  * (sentAt viene hidratado desde la BD parent_codes, así que es cross-device).
  * A los que ya tienen acceso NO se les reenvía. No abre WhatsApp.
  */
+// Envía el código de acceso por SMS a UN solo padre (botón 💬 de la fila).
+// Reutiliza la misma lógica que el envío masivo: valida teléfono, asegura código,
+// arma el mensaje GSM-7 y solo marca "Enviado" si el SMS salió de verdad.
+async function sendSmsToOneParent(playerId) {
+    if (typeof window.callSendSms !== 'function') {
+        showToast('❌ El envío de SMS no está disponible');
+        return;
+    }
+    const clubId = localStorage.getItem('clubId');
+    if (!clubId) { showToast('❌ No se pudo identificar el club'); return; }
+
+    const { players, codes } = parentAccessData;
+    const player = players.find(p => p.id === playerId);
+    if (!player) return;
+
+    const rawPhone = player.phone || player.emergencyContact || '';
+    const isValidPhone = (raw) => {
+        if (typeof window.normalizePhoneToE164 !== 'function') {
+            return String(raw || '').replace(/[^0-9]/g, '').length >= 10;
+        }
+        const tel = window.normalizePhoneToE164(raw);
+        return !!tel && tel.length >= 12;
+    };
+    if (!isValidPhone(rawPhone)) {
+        showToast(`❌ ${player.name} no tiene un teléfono válido para SMS`);
+        return;
+    }
+
+    const ok = await showFormalConfirmModal({
+        title: 'Enviar código por SMS',
+        message: `¿Enviar el código de acceso por SMS a ${player.name}?`,
+        confirmText: 'Enviar', cancelText: 'Cancelar', tone: 'primary'
+    });
+    if (!ok) return;
+
+    try {
+        const settings = JSON.parse(localStorage.getItem('schoolSettings') || '{}');
+        const clubName = settings.name || 'Mi Escuela de Fútbol';
+
+        let access = codes[playerId];
+        if (!access?.code) {
+            const newCode = window.generateParentAccessCode
+                ? window.generateParentAccessCode()
+                : Math.random().toString(36).substring(2, 8).toUpperCase();
+            if (window.saveParentCode) await window.saveParentCode(playerId, newCode);
+            access = { playerId, code: newCode, createdAt: new Date().toISOString() };
+            codes[playerId] = access;
+        }
+
+        const smsMessage = `${String(clubName || '').slice(0, 18)}: tu codigo de acceso es ${access.code}. Club ID: ${clubId}. Entra a padres.appmyclub.com`;
+        const res = await window.callSendSms({
+            club_id: clubId,
+            modulo: 'codigo_padres',
+            player_id: playerId,
+            phone: rawPhone,
+            message: smsMessage,
+        });
+
+        if (res?.status === 'sent') {
+            _markParentCodeSent(playerId, access.code, clubId);
+            showToast(`✅ Código enviado por SMS a ${player.name}`);
+            await loadParentAccessStatus();
+            renderParentAccessList();
+        } else if (res?.status === 'dry_run') {
+            showToast('🧪 SMS simulado (modo prueba). No se marcó como enviado.');
+        } else {
+            showToast(`❌ No se pudo enviar el SMS${res?.error ? ': ' + res.error : ''}`);
+        }
+    } catch (e) {
+        console.error('[parent-automation] Error enviando SMS individual:', e);
+        showToast('❌ Error al enviar el SMS');
+    }
+}
+window.sendSmsToOneParent = sendSmsToOneParent;
+
 async function sendSmsToPendingParents() {
     if (typeof window.callSendSms !== 'function') {
         showToast('❌ El envío de SMS no está disponible');
@@ -744,7 +826,9 @@ async function sendSmsToPendingParents() {
             }
 
             const rawPhone = player.phone || player.emergencyContact || '';
-            const smsMessage = `Hola! Tu código de acceso al Portal de Padres de ${clubName} para ${player.name} es: ${access.code}. Ingresa en https://padres.appmyclub.com/ Club ID: ${clubId}`;
+            // SMS corto y GSM-7 (sin tildes agudas): el código y el Club ID van primero para que
+        // nunca queden fuera si el servidor recorta a 130. El nombre del club se acota a 25.
+        const smsMessage = `${String(clubName || '').slice(0, 18)}: tu codigo de acceso es ${access.code}. Club ID: ${clubId}. Entra a padres.appmyclub.com`;
             const res = await window.callSendSms({
                 club_id: clubId,
                 modulo: 'codigo_padres',
@@ -768,7 +852,7 @@ async function sendSmsToPendingParents() {
 
         // Resumen honesto según lo que pasó realmente
         if (realSent > 0) showToast(`✅ Código enviado por SMS a ${realSent} padre(s)`);
-        if (simulados > 0) showToast(`🧪 ${simulados} SMS simulado(s): el envío real aún no está activo (falta Twilio). No se marcaron como enviados.`);
+        if (simulados > 0) showToast(`🧪 ${simulados} SMS simulado(s): el envío real aún no está activo para tu club (modo prueba). No se marcaron como enviados.`);
         if (realSent === 0 && simulados === 0 && fallidos > 0) showToast(`❌ No se pudo enviar ningún SMS (${fallidos} fallido/s)`);
 
         if (realSent > 0) {

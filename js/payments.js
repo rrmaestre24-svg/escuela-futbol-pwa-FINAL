@@ -2830,7 +2830,10 @@ async function handlePaymentFormSubmit(e) {
           const due = new Date(paymentData.dueDate || dueDate);
           const daysDiff = daysBetween(today, due);
           const modulo = daysDiff < 0 ? 'vencidos' : 'recordatorios_pago';
-          const smsMsg = `${settings.name}: ${modulo === 'vencidos' ? 'Pago vencido' : 'Recordatorio de pago'} para ${player.name}. Concepto: ${concept}. Monto: ${formatCurrency(amount)}. Vence: ${formatDate(dueDate)}. Comunícate con nosotros.`;
+          // SMS corto y GSM-7: sin tildes agudas, y el monto con Intl SIN style:currency
+          // (formatCurrency mete un NBSP U+00A0 que fuerza UCS-2 y duplica el costo).
+          const _montoGsm = '$' + new Intl.NumberFormat('es-CO').format(amount || 0);
+          const smsMsg = `${String(settings.name || '').slice(0, 18)}: ${modulo === 'vencidos' ? 'Pago vencido' : 'Recordatorio'} de ${String(player.name || '').slice(0, 20)} por ${_montoGsm}. Vence ${formatDate(dueDate)}. Comunicate con nosotros.`;
 
           window.callSendSms({
             club_id: clubId,

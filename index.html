@@ -39,7 +39,7 @@
     <!-- Manifest -->
 
     <!-- Manifest -->
-    <link rel="manifest" href="manifest.json">
+    <link rel="manifest" href="manifest.json">     
 
     <!-- Icons — iOS instalable: apple-touch-icon con tamaños reales -->
     <link rel="icon" type="image/png" sizes="32x32" href="assets/icons/icon-96x96.png">
@@ -869,7 +869,7 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
                     <span>💬 Mensajería y Notificaciones</span>
                     <i data-lucide="chevron-down" class="w-5 h-5 text-gray-500 dark:text-gray-400"></i>
                 </button>
-                <div id="messagingSection" class="p-4 border-t border-gray-200 dark:border-gray-700 hidden space-y-3">
+                <div id="messagingSection" class="p-4 border-t border-gray-200 dark:border-gray-700 hidden space-y-4">
                     <div
                         class="rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 px-3 py-2">
                         <p class="text-xs text-blue-700 dark:text-blue-300 font-medium">Guía rápida (Admin principal)
@@ -895,7 +895,108 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
                             </div>
                         </div>
                     </div>
-                    <div>
+
+                    <!-- Avisos automáticos por SMS (el club los configura; el super-admin los autoriza) -->
+                    <div class="rounded-xl border border-gray-200 dark:border-gray-700 p-3 space-y-3">
+                        <div>
+                            <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-200">🔔 Avisos automáticos por SMS</h4>
+                            <p class="text-[11px] text-gray-500 mt-0.5">Prende los que quieras. Cada mensaje va por SMS (máx 130 caracteres; la firma se agrega sola = 1 crédito). Dejalo vacío y se usa un texto recomendado.</p>
+                        </div>
+
+                        <!-- Recordatorio de pago -->
+                        <div class="sms-card rounded-lg border border-gray-200 dark:border-gray-700 p-2.5 space-y-2">
+                            <label class="flex items-center justify-between gap-2 cursor-pointer">
+                                <span class="text-xs font-medium text-gray-700 dark:text-gray-200">🗓️ Recordatorio de pago
+                                    <span class="text-[10px] uppercase font-bold text-amber-600 dark:text-amber-400 ml-1">Cobro</span></span>
+                                <input type="checkbox" id="smsAviso_recordatorio" class="w-5 h-5 accent-teal-600">
+                            </label>
+                            <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                                <span>Enviar</span>
+                                <input type="number" id="smsReminderDays" min="1" max="15" value="3"
+                                    class="sms-field w-16 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md text-center">
+                                <span>días antes del vencimiento</span>
+                            </div>
+                            <textarea id="smsTpl_recordatorio" data-aviso="recordatorio" maxlength="130" rows="2" oninput="smsCount(this)"
+                                class="sms-field w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg" placeholder="{club}: la mensualidad de {jugador} vence el {fecha}. Si ya pagaste, ignora este mensaje."></textarea>
+                            <div class="flex items-center justify-between text-[10px] text-gray-500">
+                                <span>Variables: {jugador} {fecha} {monto} {club}</span>
+                                <span id="cnt_recordatorio">0/130</span>
+                            </div>
+                        </div>
+
+                        <!-- Pago vencido -->
+                        <div class="sms-card rounded-lg border border-gray-200 dark:border-gray-700 p-2.5 space-y-2">
+                            <label class="flex items-center justify-between gap-2 cursor-pointer">
+                                <span class="text-xs font-medium text-gray-700 dark:text-gray-200">⚠️ Pago vencido
+                                    <span class="text-[10px] uppercase font-bold text-amber-600 dark:text-amber-400 ml-1">Cobro</span></span>
+                                <input type="checkbox" id="smsAviso_vencido" class="w-5 h-5 accent-teal-600">
+                            </label>
+                            <p class="text-[10px] text-gray-500">Se envía en los días 1, 7 y 15 de mora (máx 3 avisos por deuda).</p>
+                            <textarea id="smsTpl_vencido" data-aviso="vencido" maxlength="130" rows="2" oninput="smsCount(this)"
+                                class="sms-field w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg" placeholder="{club}: la mensualidad de {jugador} esta vencida. Regulariza el pago para evitar bloqueo."></textarea>
+                            <div class="flex items-center justify-between text-[10px] text-gray-500">
+                                <span>Variables: {jugador} {fecha} {monto} {club}</span>
+                                <span id="cnt_vencido">0/130</span>
+                            </div>
+                        </div>
+
+                        <!-- Cumpleaños -->
+                        <div class="sms-card rounded-lg border border-gray-200 dark:border-gray-700 p-2.5 space-y-2">
+                            <label class="flex items-center justify-between gap-2 cursor-pointer">
+                                <span class="text-xs font-medium text-gray-700 dark:text-gray-200">🎂 Cumpleaños
+                                    <span class="text-[10px] uppercase font-bold text-green-600 dark:text-green-400 ml-1">Cualquier día</span></span>
+                                <input type="checkbox" id="smsAviso_cumple" class="w-5 h-5 accent-teal-600">
+                            </label>
+                            <textarea id="smsTpl_cumple" data-aviso="cumple" maxlength="130" rows="2" oninput="smsCount(this)"
+                                class="sms-field w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg" placeholder="¡Feliz cumpleaños {jugador}, {edad} años! {club} te desea goles, triunfos y alegrias."></textarea>
+                            <div class="flex items-center justify-between text-[10px] text-gray-500">
+                                <span>Variables: {jugador} {edad} {club}</span>
+                                <span id="cnt_cumple">0/130</span>
+                            </div>
+                        </div>
+
+                        <!-- Recordatorio de evento -->
+                        <div class="sms-card rounded-lg border border-gray-200 dark:border-gray-700 p-2.5 space-y-2">
+                            <label class="flex items-center justify-between gap-2 cursor-pointer">
+                                <span class="text-xs font-medium text-gray-700 dark:text-gray-200">📣 Recordatorio de evento
+                                    <span class="text-[10px] uppercase font-bold text-amber-600 dark:text-amber-400 ml-1">Horario CRC</span></span>
+                                <input type="checkbox" id="smsAviso_evento" class="w-5 h-5 accent-teal-600">
+                            </label>
+                            <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                                <span>Avisar</span>
+                                <input type="number" id="smsEventDays" min="0" max="15" value="1"
+                                    class="sms-field w-16 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md text-center">
+                                <span>día(s) antes del evento (0 = el mismo día)</span>
+                            </div>
+                            <p class="text-[10px] text-gray-500">Le llega a los acudientes + profesores y admin del club.</p>
+                            <textarea id="smsTpl_evento" data-aviso="evento" maxlength="130" rows="2" oninput="smsCount(this)"
+                                class="sms-field w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg" placeholder="{club}: recorda {evento} el {fecha} a las {hora}. ¡Te esperamos!"></textarea>
+                            <div class="flex items-center justify-between text-[10px] text-gray-500">
+                                <span>Variables: {evento} {fecha} {hora} {club}</span>
+                                <span id="cnt_evento">0/130</span>
+                            </div>
+                        </div>
+
+                        <!-- Factura generada -->
+                        <div class="sms-card rounded-lg border border-gray-200 dark:border-gray-700 p-2.5 space-y-2">
+                            <label class="flex items-center justify-between gap-2 cursor-pointer">
+                                <span class="text-xs font-medium text-gray-700 dark:text-gray-200">🧾 Factura generada
+                                    <span class="text-[10px] uppercase font-bold text-amber-600 dark:text-amber-400 ml-1">Horario CRC</span></span>
+                                <input type="checkbox" id="smsAviso_factura" class="w-5 h-5 accent-teal-600">
+                            </label>
+                            <p class="text-[10px] text-gray-500">Al cierre del día le avisa al acudiente por las mensualidades que generaste, y un resumen al admin del club.</p>
+                            <textarea id="smsTpl_factura" data-aviso="factura" maxlength="130" rows="2" oninput="smsCount(this)"
+                                class="sms-field w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg" placeholder="{club}: se genero la factura de {jugador} ({mes}) por {monto}. Gracias."></textarea>
+                            <div class="flex items-center justify-between text-[10px] text-gray-500">
+                                <span>Variables: {club} {jugador} {mes} {monto}</span>
+                                <span id="cnt_factura">0/130</span>
+                            </div>
+                        </div>
+
+                        <p class="text-[10px] text-gray-500">⏰ Los recordatorios de pago, vencidos, eventos y facturas respetan el horario legal (L-V 7am-7pm, Sáb 8am-3pm; domingo no se envían). Los cumpleaños salen cualquier día. El super-admin debe tener habilitado el SMS para tu club.</p>
+                    </div>
+
+                    <div class="rounded-xl border border-gray-200 dark:border-gray-700 p-3">
                         <div class="flex items-center justify-between gap-2 mb-1">
                             <label class="block text-xs text-gray-500 dark:text-gray-400">1) Mensaje para enviar por
                                 WhatsApp (opcional)</label>
@@ -917,7 +1018,7 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
                                 {graceDays}, {category}, {phone}</p>
                         </details>
                     </div>
-                    <div>
+                    <div class="rounded-xl border border-gray-200 dark:border-gray-700 p-3">
                         <div class="flex items-center justify-between gap-2 mb-1">
                             <label class="block text-xs text-gray-500 dark:text-gray-400">2) Mensaje final para facturas
                                 y recibos PDF (opcional)</label>
@@ -931,6 +1032,34 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
                     <button type="button" onclick="document.getElementById('clubSettingsForm')?.requestSubmit()"
                         class="w-full bg-teal-600 hover:bg-teal-700 text-white py-2 rounded-lg">Guardar Mensajería y
                         Notificaciones</button>
+
+                    <!-- Historial de SMS (desplegable, dentro de Mensajería y Notificaciones) -->
+                    <div class="rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden mt-1">
+                        <button type="button" onclick="toggleSection('smsHistoryPanel'); loadSmsHistory()"
+                            class="w-full px-3 py-2 flex items-center justify-between bg-gray-50 dark:bg-gray-700/50 text-left text-sm font-semibold text-gray-700 dark:text-gray-200">
+                            <span>📨 Historial de mensajes SMS</span>
+                            <i data-lucide="chevron-down" class="w-4 h-4 text-gray-500 dark:text-gray-400"></i>
+                        </button>
+                        <div id="smsHistoryPanel" class="p-3 border-t border-gray-200 dark:border-gray-700 hidden">
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-left">
+                                    <thead>
+                                        <tr class="text-[10px] uppercase text-gray-500 border-b border-gray-700">
+                                            <th class="py-2 pr-2">Fecha</th>
+                                            <th class="py-2 pr-2">Jugador</th>
+                                            <th class="py-2 pr-2">Teléfono</th>
+                                            <th class="py-2 pr-2">Módulo</th>
+                                            <th class="py-2">Estado</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="smsHistoryList">
+                                        <tr><td colspan="5" class="text-center text-gray-500 text-sm py-4">Abre para cargar historial</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <p class="text-[10px] text-gray-500 mt-2">Últimos 30 mensajes</p>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -1014,34 +1143,6 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
                     </div>
 
 
-                </div>
-            </div>
-
-            <!-- Sección: Historial de SMS -->
-            <div class="glass-card rounded-xl shadow-sm overflow-hidden">
-                <button onclick="toggleSection('smsHistorySection'); loadSmsHistory()"
-                    class="w-full px-4 py-3 flex items-center justify-between bg-gray-50 dark:bg-gray-700 text-left font-medium">
-                    <span>📨 Historial de Mensajes SMS</span>
-                    <i data-lucide="chevron-down" class="w-5 h-5 text-gray-500 dark:text-gray-400"></i>
-                </button>
-                <div id="smsHistorySection" class="p-4 border-t border-gray-200 dark:border-gray-700 hidden">
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left">
-                            <thead>
-                                <tr class="text-[10px] uppercase text-gray-500 border-b border-gray-700">
-                                    <th class="py-2 pr-2">Fecha</th>
-                                    <th class="py-2 pr-2">Jugador</th>
-                                    <th class="py-2 pr-2">Teléfono</th>
-                                    <th class="py-2 pr-2">Módulo</th>
-                                    <th class="py-2">Estado</th>
-                                </tr>
-                            </thead>
-                            <tbody id="smsHistoryList">
-                                <tr><td colspan="5" class="text-center text-gray-500 text-sm py-4">Abre para cargar historial</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                    <p class="text-[10px] text-gray-500 mt-2">Últimos 30 mensajes</p>
                 </div>
             </div>
 

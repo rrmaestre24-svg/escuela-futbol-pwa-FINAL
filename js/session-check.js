@@ -21,6 +21,35 @@ window.addEventListener('DOMContentLoaded', async function () {
         }
     }
 
+    // 🩹 Evita la RACE entre el primer render (initApp → loadDashboard) y la
+    // hidratación de window._cache desde IndexedDB (db-indexed.js → boot() →
+    // hydrateCache(), disparada por este mismo evento DOMContentLoaded pero en
+    // un listener registrado antes que este). Sin esto, en dispositivos lentos
+    // el dashboard podía alcanzar a leer _cache todavía vacía (arrays === null)
+    // y mostrar 0 hasta el próximo re-render. hydrateCache() es idempotente y
+    // barata (lectura local a IndexedDB) — si ya terminó, esta espera es
+    // prácticamente instantánea.
+    const HYDRATE_TIMEOUT_MS = 5000;
+    async function ensureCacheHydrated() {
+        if (window._cache && window._cache.hydrated) return;
+        if (window.idb && typeof window.idb.hydrateCache === 'function') {
+            try {
+                // Timeout obligatorio: si IndexedDB falla de forma rara (open() que
+                // nunca dispara onsuccess/onerror), la promesa quedaría colgada y
+                // initApp() no se llamaría NUNCA → app en blanco para siempre.
+                // Arrancar con la caché vacía es recuperable (la revalidación la
+                // rehidrata); no arrancar, no.
+                await Promise.race([
+                    window.idb.hydrateCache(),
+                    new Promise(resolve => setTimeout(() => {
+                        console.warn(`[INDEX] hydrateCache tardó más de ${HYDRATE_TIMEOUT_MS}ms — se continúa sin esperar`);
+                        resolve();
+                    }, HYDRATE_TIMEOUT_MS)),
+                ]);
+            } catch (e) { console.warn('[INDEX] hydrateCache previo a initApp falló:', e?.message || e); }
+        }
+    }
+
     // 1. Verificar sesion local primero
     const currentUser = getCurrentUser();
 
@@ -28,6 +57,7 @@ window.addEventListener('DOMContentLoaded', async function () {
         console.log('[INDEX] Sesion local encontrada:', maskEmail(currentUser.email));
         hideLoader();
         document.getElementById('appContainer').classList.remove('hidden');
+        await ensureCacheHydrated();
         if (typeof initApp === 'function') {
             initApp();
         }
@@ -39,6 +69,7 @@ window.addEventListener('DOMContentLoaded', async function () {
         console.log('[INDEX] Supabase tiene sesión activa');
         hideLoader();
         document.getElementById('appContainer').classList.remove('hidden');
+        await ensureCacheHydrated();
         if (typeof initApp === 'function') {
             initApp();
         }

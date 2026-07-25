@@ -66,6 +66,11 @@ async function loadSmsHistory() {
       cumpleaños: 'Cumpleaños',
       eventos: 'Eventos',
       codigo_padres: 'Código Padres',
+      factura: 'Factura (padre)',
+      factura_admin: 'Factura (resumen)',
+      factura_generada: 'Factura del plan',
+      modulo_cambio: 'Cambio de módulo',
+      licencia_por_vencer: 'Licencia por vencer',
     };
 
     container.innerHTML = logs.map(log => {

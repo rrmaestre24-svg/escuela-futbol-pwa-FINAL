@@ -80,6 +80,30 @@ function loadSettings() {
   if (clubElements.pdfFooterMessage) {
     clubElements.pdfFooterMessage.value = settings.pdfFooterMessage || '';
   }
+
+  // SMS: cargar sms_config (avisos ON/OFF, días antes, plantillas)
+  const smsCfg = settings.sms_config || {};
+  const smsAvisos = smsCfg.avisos || {};
+  const smsTpls = smsCfg.plantillas || {};
+  ['recordatorio', 'vencido', 'cumple', 'evento', 'factura'].forEach(k => {
+    const toggle = document.getElementById('smsAviso_' + k);
+    if (toggle) toggle.checked = smsAvisos[k] === true;
+    const ta = document.getElementById('smsTpl_' + k);
+    if (ta) {
+      ta.value = smsTpls[k] || '';
+      if (typeof smsCount === 'function') smsCount(ta);
+    }
+  });
+  const smsRemDays = document.getElementById('smsReminderDays');
+  if (smsRemDays) {
+    const n = Number(smsCfg.reminderDaysBefore);
+    smsRemDays.value = Number.isFinite(n) ? Math.max(1, Math.min(15, n)) : 3;
+  }
+  const smsEvDays = document.getElementById('smsEventDays');
+  if (smsEvDays) {
+    const n = Number(smsCfg.eventReminderDays);
+    smsEvDays.value = Number.isFinite(n) ? Math.max(0, Math.min(15, n)) : 1;
+  }
   
   // ✅ Cargar clubId (solo lectura para todos)
   let clubId = settings.clubId;
@@ -579,7 +603,19 @@ document.getElementById('clubSettingsForm')?.addEventListener('submit', function
       return Number.isFinite(value) ? Math.max(0, Math.min(60, value)) : 5;
     })(),
     monthlyReminderTemplate: (monthlyReminderTemplate?.value || '').trim(),
-    pdfFooterMessage: (pdfFooterMessage?.value || '').trim()
+    pdfFooterMessage: (pdfFooterMessage?.value || '').trim(),
+    sms_config: (() => {
+      const avisos = {}, plantillas = {};
+      ['recordatorio', 'vencido', 'cumple', 'evento', 'factura'].forEach(k => {
+        avisos[k] = document.getElementById('smsAviso_' + k)?.checked === true;
+        plantillas[k] = (document.getElementById('smsTpl_' + k)?.value || '').trim();
+      });
+      const remRaw = Number(document.getElementById('smsReminderDays')?.value);
+      const reminderDaysBefore = Number.isFinite(remRaw) ? Math.max(1, Math.min(15, remRaw)) : 3;
+      const evRaw = Number(document.getElementById('smsEventDays')?.value);
+      const eventReminderDays = Number.isFinite(evRaw) ? Math.max(0, Math.min(15, evRaw)) : 1;
+      return { avisos, reminderDaysBefore, eventReminderDays, plantillas };
+    })()
   };
   
  // Preservar clubId y logo existentes
@@ -960,6 +996,35 @@ document.getElementById('addSchoolUserForm')?.addEventListener('submit', async f
   saveSchoolUser(userData);
 });
 // Toggle sección plegable
+// Actualiza el contador de caracteres de un mensaje SMS (tope 130 = 1 crédito con firma).
+// Alfabeto GSM-7: lo único que viaja en un SMS de 160 caracteres. Cualquier carácter
+// fuera de esta tabla (tildes agudas á í ó ú, emojis…) obliga a codificar en UCS-2 y
+// el límite baja de 160 a 70 → el mismo mensaje pasa a costar 2 créditos.
+// Ojo: la ñ, la é y los signos ¡ ¿ SÍ son válidos en GSM-7.
+const SMS_GSM7 = `@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !"#¤%&'()*+,-./0123456789:;<=>?¡ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÑÜ§¿abcdefghijklmnopqrstuvwxyzäöñüà^{}\\[~]|€`;
+
+/** Devuelve los caracteres del texto que NO son GSM-7 (sin repetir). */
+function smsCaracteresCaros(texto) {
+  return [...new Set([...texto].filter(ch => !SMS_GSM7.includes(ch)))];
+}
+
+function smsCount(ta) {
+  const c = document.getElementById('cnt_' + (ta.dataset.aviso || ''));
+  if (!c) return;
+
+  const caros = smsCaracteresCaros(ta.value);
+  c.textContent = ta.value.length + '/130';
+
+  if (caros.length) {
+    c.textContent += `  ·  ⚠ ${caros.join(' ')} → cuesta 2 créditos`;
+    c.style.color = '#f59e0b';
+    c.title = 'Estos caracteres no existen en el alfabeto de los SMS: obligan a partir el mensaje en dos. Reemplazalos (ej. "está" → "esta").';
+  } else {
+    c.style.color = '';
+    c.title = '';
+  }
+}
+
 function toggleSection(sectionId) {
 const section = document.getElementById(sectionId);
 if (!section) {

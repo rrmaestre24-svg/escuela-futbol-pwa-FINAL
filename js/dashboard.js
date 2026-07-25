@@ -325,23 +325,26 @@ async function updateDashboardSmsUsage() {
   if (!card || !text || !bar || !clubId) return;
 
   try {
-    // Obtener límite diario desde twilio_config
+    // Obtener límite diario desde onurix_config
     const licRes = await fetch(
-      `${window.SUPA_URL}/rest/v1/licenses?club_id=eq.${encodeURIComponent(clubId)}&select=twilio_config`,
+      `${window.SUPA_URL}/rest/v1/licenses?club_id=eq.${encodeURIComponent(clubId)}&select=onurix_config`,
       { headers: { 'apikey': window.SUPA_ANON, 'Authorization': `Bearer ${window.SUPA_ANON}` } }
     );
     if (!licRes.ok) return;
     const licData = await licRes.json();
-    const dailyLimit = licData?.[0]?.twilio_config?.limites?.diario || 0;
+    const dailyLimit = licData?.[0]?.onurix_config?.limites?.diario || 0;
     if (!dailyLimit) {
       card.classList.add('hidden');
       return;
     }
 
-    // Obtener conteo de hoy
-    const today = new Date().toISOString().split('T')[0];
+    // Conteo de hoy: SOLO 'sent' (los créditos reales) y desde la medianoche de Bogotá,
+    // igual que el tope real en send-sms. Antes contaba dry_run y usaba medianoche UTC,
+    // así que la barra no coincidía con el límite que de verdad se aplica.
+    const bogotaHoy = new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const desdeHoyISO = encodeURIComponent(`${bogotaHoy}T00:00:00-05:00`);
     const logRes = await fetch(
-      `${window.SUPA_URL}/rest/v1/message_log?club_id=eq.${encodeURIComponent(clubId)}&created_at=gte.${today}&status=in.(sent,dry_run)&select=id`,
+      `${window.SUPA_URL}/rest/v1/message_log?club_id=eq.${encodeURIComponent(clubId)}&created_at=gte.${desdeHoyISO}&status=eq.sent&select=id`,
       { headers: { 'apikey': window.SUPA_ANON, 'Authorization': `Bearer ${window.SUPA_ANON}` } }
     );
     if (!logRes.ok) return;

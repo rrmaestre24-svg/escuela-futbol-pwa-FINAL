@@ -603,6 +603,7 @@ async function saveSchoolSettingsToFirebase(settings) {
       if (settings.monthlyGraceDays != null) patch.monthly_grace_days = settings.monthlyGraceDays;
       if (settings.currency         != null) patch.currency           = settings.currency;
       if (settings.primaryColor     != null) patch.primary_color      = settings.primaryColor;
+      if (settings.sms_config       != null) patch.sms_config         = settings.sms_config;
       // Logo: usar el del objeto si viene, sino leer del localStorage (nunca se pasaba explícitamente)
       const _logoToSync = settings.logo ?? (() => { try { return JSON.parse(localStorage.getItem('schoolSettings') || '{}').logo || null; } catch(e) { return null; } })();
       if (_logoToSync) patch.logo = _logoToSync;
@@ -2051,6 +2052,7 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false } = {}) {
             currency:      c.currency || prevSettings.currency || 'COP',
             primaryColor:  c.primary_color || prevSettings.primaryColor || '#0000ff',
             coachCode:     c.coach_code || prevSettings.coachCode || null,
+            sms_config:    c.sms_config ?? prevSettings.sms_config ?? {},
             updatedAt:     c.updated_at || prevSettings.updatedAt || null,
           };
           safeSetItem('schoolSettings', JSON.stringify(schoolSettings));

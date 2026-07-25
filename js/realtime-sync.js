@@ -145,6 +145,122 @@ async function runUpdatedAtMigration(clubId) {
 }
 
 // ========================================
+// 🆔 Resolver el clubId de la sesión activa (mismo criterio en todo el archivo)
+// ========================================
+function getActiveSessionClubId() {
+  const _cu = typeof getCurrentUser === 'function'
+    ? getCurrentUser()
+    : JSON.parse(localStorage.getItem('currentUser') || 'null');
+  return _cu?.schoolId || null;
+}
+
+// ========================================
+// 🩹 REVALIDAR CACHE RAM + RE-RENDERIZAR (compartida)
+// ========================================
+/**
+ * ¿El usuario está viendo/usando la pantalla de Ajustes en este momento?
+ * Sirve para no recargar ese formulario por debajo mientras lo edita.
+ */
+function _ajustesEnUso() {
+  const vista = document.getElementById('settingsView');
+  if (!vista || vista.classList.contains('hidden')) return false;
+  return true; // visible → asumimos que puede estar editando
+}
+
+/** Lee el marcador de última descarga tolerando un localStorage corrupto. */
+function _leerUltimaDescarga() {
+  try { return JSON.parse(localStorage.getItem('_lastFullDownload') || 'null'); }
+  catch (_) { return null; }
+}
+
+// Extraída del flujo de startRealtimeSync para poder invocarla también cuando
+// la app vuelve a primer plano (visibilitychange/pageshow), no solo al cargar
+// la página. Antes, esta auto-cura ("app vacía tras actualizar a una versión
+// nueva") solo corría dentro de startRealtimeSync — y startRealtimeSync corta
+// camino con un early-return si ya estaba "activo" para el mismo club (ver
+// abajo), así que en una sesión larga donde el navegador congela/descarta la
+// pestaña en segundo plano y la cache RAM (window._cache) queda vacía al
+// volver, NADA la volvía a revisar. Resultado reportado: jugadores/pagos en
+// cero hasta cerrar sesión y volver a entrar (el login fuerza una descarga
+// fresca con force:true).
+//
+// Del más barato al más caro, igual que la auto-cura original:
+//  1) Si la cache RAM no está hidratada, re-hidratar desde IndexedDB. Local e
+//     instantáneo, no toca Supabase (respeta el local-first).
+//  2) Si tras eso la cache SIGUE vacía (jugadores Y pagos en 0), forzar una
+//     descarga real desde Supabase — sin importar cuánto hace de la última
+//     descarga exitosa, porque ese timestamp no garantiza que los datos
+//     sigan en cache/IndexedDB ahora. downloadAllClubDataFromSupabase ya se
+//     auto-protege: sin JWT válido NO descarga (preserva la cache tal cual).
+//  3) Re-renderizar las vistas que dependen de la cache RAM/local. Quedan
+//     afuera Centro de Documentos (hace su propio fetch a Supabase cada vez
+//     que se renderiza) y el tab de Pagos (su render depende de qué sub-tab
+//     eligió el usuario) para no disparar red ni pisar su estado.
+let _revalidatingLocalCache = false;
+async function revalidateLocalCacheAndRender(clubId, { reason = 'manual' } = {}) {
+  if (!clubId || !window.MODO_SUPABASE) return false;
+  if (_revalidatingLocalCache) return false; // evita solapes si dos eventos disparan casi juntos
+  _revalidatingLocalCache = true;
+  try {
+    if (window.idb && typeof window.idb.hydrateCache === 'function'
+        && !(window._cache && window._cache.hydrated)) {
+      try { await window.idb.hydrateCache(); }
+      catch (e) { console.warn('[sync] re-hidratación falló:', e?.message || e); }
+    }
+
+    const _lastDL = _leerUltimaDescarga();
+    const _recentDL = _lastDL?.clubId === clubId && (Date.now() - _lastDL.ts) < 10 * 60 * 1000;
+    const _cacheEmpty = !window._cache || (
+      (!Array.isArray(window._cache.players)  || window._cache.players.length  === 0) &&
+      (!Array.isArray(window._cache.payments) || window._cache.payments.length === 0)
+    );
+
+    // Un club legítimamente vacío (recién creado, todavía sin jugadores) tiene la
+    // cache vacía SIEMPRE. Sin este cooldown, cada visibilitychange forzaría una
+    // descarga completa de todas las tablas, para siempre: costo real en Supabase.
+    // El cooldown solo limita el FORCE; la revalidación local (rehidratar + render)
+    // sigue corriendo en cada retorno, que es lo que cura el bug de la pantalla vacía.
+    const _FORCE_COOLDOWN_MS = 5 * 60 * 1000;
+    const _lastForce = Number(localStorage.getItem('_lastEmptyCacheForce_' + clubId) || 0);
+    const _puedeForzar = (Date.now() - _lastForce) > _FORCE_COOLDOWN_MS;
+
+    if (_cacheEmpty) {
+      console.warn(`[sync] ⚠️ Cache RAM vacía tras rehidratar (motivo: ${reason}).`
+        + (_puedeForzar ? ' Forzando re-descarga desde Supabase.' : ' Descarga forzada en cooldown, se omite.'));
+    }
+
+    // force SOLO si la cache está realmente vacía Y no forzamos hace poco: el
+    // timestamp de "descarga reciente" no dice si los datos SIGUEN ahí, pero
+    // tampoco hay que reintentar sin freno. Si no está vacía, se respeta el TTL
+    // local-first normal (no descargar en cada apertura/retorno a la app).
+    const _forzar = _cacheEmpty && _puedeForzar;
+    if (_forzar) localStorage.setItem('_lastEmptyCacheForce_' + clubId, String(Date.now()));
+
+    if (typeof downloadAllClubDataFromSupabase === 'function' && (!_recentDL || _forzar)) {
+      await downloadAllClubDataFromSupabase(clubId, { force: _forzar });
+    }
+
+    if (typeof updateDashboard === 'function') updateDashboard();
+    if (typeof renderPlayersList === 'function') renderPlayersList();
+    if (typeof renderCalendar === 'function') renderCalendar();
+    if (typeof renderAccounting === 'function') renderAccounting();
+    if (typeof renderSchoolUsers === 'function') renderSchoolUsers();
+    if (typeof renderBirthdays === 'function') renderBirthdays();
+    if (typeof renderNotifications === 'function') renderNotifications();
+
+    // Ajustes NO se recarga si el usuario lo está usando: loadSettings() reescribe
+    // todos los campos del formulario, así que al volver de otra app (ej. copiar un
+    // teléfono de WhatsApp) le borraría lo que estaba escribiendo. Si la vista está
+    // oculta, recargarla es seguro y deja los datos frescos para cuando entre.
+    if (typeof loadSettings === 'function' && !_ajustesEnUso()) loadSettings();
+
+    return true;
+  } finally {
+    _revalidatingLocalCache = false;
+  }
+}
+
+// ========================================
 // 🎯 INICIAR SINCRONIZACIÓN EN TIEMPO REAL
 // ========================================
 async function startRealtimeSync(clubId) {
@@ -165,50 +281,10 @@ async function startRealtimeSync(clubId) {
     window.realtimeSyncState.lastSync = new Date().toISOString();
     window.realtimeSyncState.initialLoadComplete = true;
 
-    // 🩹 AUTO-CURA — "app vacía tras actualizar a una versión nueva".
-    // Los datos viven en IndexedDB y se copian a la cache RAM al arrancar
-    // (hidratación). Cuando una versión nueva fuerza un recargón, esa
-    // hidratación se puede interrumpir y la cache RAM queda vacía. Antes el
-    // código confiaba solo en el flag "_lastFullDownload" (descargué hace <10
-    // min → no hago nada) y NO reintentaba leer IndexedDB → la app se veía sin
-    // datos hasta cerrar sesión y entrar de nuevo.
-    //
-    // Solución en dos pasos, del más barato al más caro:
-    //  1) Si la cache RAM no está hidratada, re-hidratar desde IndexedDB. Es
-    //     local e instantáneo y recupera los datos que SIGUEN en IndexedDB, sin
-    //     tocar Supabase (respeta la optimización de costos).
-    //  2) Solo si tras eso la cache sigue vacía (IndexedDB también se perdió),
-    //     forzar una descarga real desde Supabase. downloadAll ya se auto-
-    //     protege: sin JWT NO descarga (para no pisar la caché con vacío).
-    if (window.idb && typeof window.idb.hydrateCache === 'function'
-        && !(window._cache && window._cache.hydrated)) {
-      try { await window.idb.hydrateCache(); }
-      catch (e) { console.warn('[sync] re-hidratación falló:', e?.message || e); }
-    }
-
-    const _lastDL = JSON.parse(localStorage.getItem('_lastFullDownload') || 'null');
-    const _recentDL = _lastDL?.clubId === clubId && (Date.now() - _lastDL.ts) < 10 * 60 * 1000;
-    const _cacheEmpty = !window._cache || (
-      (!Array.isArray(window._cache.players)  || window._cache.players.length  === 0) &&
-      (!Array.isArray(window._cache.payments) || window._cache.payments.length === 0)
-    );
-    if (_recentDL && _cacheEmpty) {
-      console.warn('[sync] ⚠️ Descarga reciente pero cache RAM vacía tras rehidratar '
-        + '(hidratación perdida al actualizar). Forzando re-descarga desde Supabase.');
-    }
-    // force SOLO en la firma exacta del bug: descarga reciente PERO cache vacía
-    // (hidratación perdida). Para un club nuevo/vacío con TTL vencido cae a
-    // force:false → el guard interno de 15 min decide (no fuerza descargas en
-    // cada apertura, respeta el local-first).
-    if (typeof downloadAllClubDataFromSupabase === 'function' && (!_recentDL || _cacheEmpty)) {
-      await downloadAllClubDataFromSupabase(clubId, { force: _recentDL && _cacheEmpty });
-    }
-
-    if (typeof updateDashboard === 'function') updateDashboard();
-    if (typeof renderPlayersList === 'function') renderPlayersList();
-    if (typeof renderCalendar === 'function') renderCalendar();
-    if (typeof renderAccounting === 'function') renderAccounting();
-    if (typeof renderSchoolUsers === 'function') renderSchoolUsers();
+    // 🩹 AUTO-CURA — ver revalidateLocalCacheAndRender() más arriba. Comparte
+    // la misma lógica que corre también al volver a primer plano (ver
+    // listeners de visibilitychange/pageshow al final del archivo).
+    await revalidateLocalCacheAndRender(clubId, { reason: 'startRealtimeSync' });
 
     showSyncIndicator(true);
     console.log('✅ [Supabase] Sincronización local activa (sin listeners)');
@@ -1743,12 +1819,10 @@ document.addEventListener('DOMContentLoaded', function() {
   // (initFirebase fue eliminado, firebaseReady nunca se setea). Sin esto, al abrir
   // la app con sesión persistida no se descargan datos frescos de Supabase.
   if (window.MODO_SUPABASE) {
-    const _cu = typeof getCurrentUser === 'function'
-      ? getCurrentUser()
-      : JSON.parse(localStorage.getItem('currentUser') || 'null');
-    if (_cu?.schoolId && typeof startRealtimeSync === 'function') {
+    const _clubId = getActiveSessionClubId();
+    if (_clubId && typeof startRealtimeSync === 'function') {
       console.log('🔄 [Supabase] Sesión detectada, iniciando sincronización...');
-      setTimeout(() => { try { startRealtimeSync(_cu.schoolId); } catch (e) { console.warn('startRealtimeSync:', e); } }, 1000);
+      setTimeout(() => { try { startRealtimeSync(_clubId); } catch (e) { console.warn('startRealtimeSync:', e); } }, 1000);
     }
     return; // no arrancar el poller de Firebase (dead-code)
   }
@@ -1801,9 +1875,46 @@ window.addEventListener('beforeunload', function() {
   stopRealtimeSync();
 });
 
+// ========================================
+// 👀 REVALIDAR CACHE AL VOLVER A PRIMER PLANO
+// ========================================
+// Bug real reportado: en móviles, tras un rato en segundo plano/idle, la
+// cache RAM (window._cache) puede quedar vacía cuando el usuario vuelve a la
+// app (el navegador la descarta de memoria y, al volver, recarga la página o
+// la restaura desde bfcache). startRealtimeSync() solo se dispara una vez al
+// cargar (DOMContentLoaded) y además corta camino si ya estaba activo para
+// el mismo club — nada volvía a revisar la cache al regresar. La única forma
+// de arreglarlo era cerrar sesión y volver a entrar (fuerza descarga fresca).
+//
+// Fix: en cuanto la pestaña vuelve a ser visible (o se restaura desde
+// bfcache), revalidar barato (re-hidratar desde IndexedDB) y, solo si hace
+// falta, forzar una descarga real — reutilizando exactamente la misma lógica
+// que ya protegía el arranque (revalidateLocalCacheAndRender), sin duplicarla
+// y sin pisar el guard de JWT que preserva la cache cuando la sesión expiró.
+document.addEventListener('visibilitychange', function () {
+  if (document.visibilityState !== 'visible') return;
+  if (!window.MODO_SUPABASE) return;
+  const clubId = getActiveSessionClubId();
+  if (!clubId) return;
+  revalidateLocalCacheAndRender(clubId, { reason: 'visibilitychange' })
+    .catch(e => console.warn('[sync] revalidación en visibilitychange falló:', e?.message || e));
+});
+
+window.addEventListener('pageshow', function (event) {
+  // event.persisted === true → la página se restauró desde bfcache (no hubo
+  // DOMContentLoaded ni boot() de nuevo, así que nada rehidrató la cache).
+  if (!event.persisted) return;
+  if (!window.MODO_SUPABASE) return;
+  const clubId = getActiveSessionClubId();
+  if (!clubId) return;
+  revalidateLocalCacheAndRender(clubId, { reason: 'pageshow-bfcache' })
+    .catch(e => console.warn('[sync] revalidación en pageshow falló:', e?.message || e));
+});
+
 // Exponer funciones globalmente
 window.startRealtimeSync = startRealtimeSync;
 window.stopRealtimeSync = stopRealtimeSync;
 window.refreshPaymentMovementLogOnDemand = refreshPaymentMovementLogOnDemand;
+window.revalidateLocalCacheAndRender = revalidateLocalCacheAndRender;
 
 console.log('✅ Módulo de sincronización en tiempo real listo');
