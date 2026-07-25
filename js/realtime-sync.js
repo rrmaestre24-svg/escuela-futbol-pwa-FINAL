@@ -202,9 +202,12 @@ async function revalidateLocalCacheAndRender(clubId, { reason = 'manual' } = {})
   if (_revalidatingLocalCache) return false; // evita solapes si dos eventos disparan casi juntos
   _revalidatingLocalCache = true;
   try {
-    if (window.idb && typeof window.idb.hydrateCache === 'function'
+    if (window.idb && typeof window.idb.hydrateCacheWithTimeout === 'function'
         && !(window._cache && window._cache.hydrated)) {
-      try { await window.idb.hydrateCache(); }
+      // Con techo de tiempo: si IndexedDB se cuelga, este await no puede quedar
+      // trabado (dejaría _revalidatingLocalCache en true y la auto-cura muerta
+      // por el resto de la sesión — justo el bug que esto viene a arreglar).
+      try { await window.idb.hydrateCacheWithTimeout(); }
       catch (e) { console.warn('[sync] re-hidratación falló:', e?.message || e); }
     }
 

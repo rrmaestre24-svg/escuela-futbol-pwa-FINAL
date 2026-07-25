@@ -335,7 +335,7 @@
   // 🚀 FASE 3 — Hidrata window._cache leyendo todas las stores de IDB.
   // Se llama una vez al boot. Después, los updates a IDB mantienen el cache
   // sincronizado automáticamente (vía put/del/clear/syncStore).
-  async function hydrateCache() {
+  async function _hydrateCacheReal() {
     try {
       const t0 = Date.now();
       for (const s of STORES) {
@@ -357,6 +357,41 @@
     } catch (err) {
       console.error('[idb] ❌ Error hidratando cache RAM:', err);
     }
+  }
+
+  // ── Hidratación: una sola corrida a la vez, y nunca deja a nadie colgado ────
+  // Hay 3 puntos que piden hidratar en el arranque (boot, session-check y la
+  // revalidación de realtime-sync). Sin deduplicar, competían por las mismas
+  // transacciones de IndexedDB y en un celular lento eso podía pasarse del
+  // techo de tiempo y mostrar ceros. Compartir la corrida en curso lo evita.
+  let _hydrateEnCurso = null;
+
+  function hydrateCache() {
+    if (_hydrateEnCurso) return _hydrateEnCurso;
+    _hydrateEnCurso = _hydrateCacheReal().finally(() => { _hydrateEnCurso = null; });
+    return _hydrateEnCurso;
+  }
+
+  const HYDRATE_TIMEOUT_MS = 5000;
+
+  /**
+   * Igual que hydrateCache(), pero con techo de tiempo: si IndexedDB se cuelga
+   * (open/getAll que nunca disparan callback), quien espera sigue de largo en vez
+   * de quedarse trabado para siempre. Arrancar con la caché a medias es
+   * recuperable — no arrancar, no. La hidratación real sigue corriendo por
+   * detrás y el cache se completa cuando termine.
+   */
+  function hydrateCacheWithTimeout(ms = HYDRATE_TIMEOUT_MS) {
+    let timer;
+    return Promise.race([
+      hydrateCache().finally(() => clearTimeout(timer)), // evita el warning tardío
+      new Promise((resolve) => {
+        timer = setTimeout(() => {
+          console.warn(`[idb] la hidratación superó ${ms}ms — se continúa sin esperarla`);
+          resolve();
+        }, ms);
+      }),
+    ]);
   }
 
   // Alias para mantener compat con el código del piloto inicial
@@ -435,6 +470,7 @@
     ensureClubIsolation,
     // Fase 3: hidratación de cache RAM (también re-llamable desde consola)
     hydrateCache,
+    hydrateCacheWithTimeout,
     // aliases retrocompat (NO eliminar — los usan los archivos antiguos)
     migratePaymentsFromLocalStorage,
     verifyPaymentsConsistency,
