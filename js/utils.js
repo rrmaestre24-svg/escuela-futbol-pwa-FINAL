@@ -157,6 +157,15 @@ function addMonths(dateStr, months) {
 function extractBillingMonth(payment) {
   if (payment.type !== 'Mensualidad') return null;
 
+  // 0. El dato ESTRUCTURADO manda: si la factura trae billing_month válido, ese es
+  //    el mes real. Antes se parseaba primero el texto del concepto, que es frágil
+  //    (si alguien lo edita y le saca el mes, o menciona dos meses, se deducía mal)
+  //    y hacía fallar el anti-duplicado. El texto queda solo como respaldo para las
+  //    facturas viejas que no tienen el campo.
+  if (payment.billingMonth && /^\d{4}-\d{2}$/.test(payment.billingMonth)) {
+    return payment.billingMonth;
+  }
+
   // 1. Intentar extraer mes y año del concepto (ej: "Mensualidad Mayo 2026")
   const c = (payment.concept || '').toLowerCase();
   const months = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];

@@ -56,9 +56,14 @@ function _mi_lastDayOfMonth(yyyyMm) {
 // Verifica si ya hay una factura activa para ese jugador + mes
 // ========================================
 function _mi_monthExists(playerId, billingMonth) {
-    return getPaymentsByPlayer(playerId).some(
-        p => p.type === 'Mensualidad' && 
-             extractBillingMonth(p) === billingMonth && 
+    // Busca en TODOS los pagos conocidos, no solo en los últimos 6 meses de la caché:
+    // el modal permite facturar meses vencidos que pueden caer fuera de esa ventana,
+    // y si el guard no ve la factura existente deja crear un duplicado.
+    const todos = typeof _getPaymentsAll === 'function' ? _getPaymentsAll() : getPayments();
+    return todos.some(
+        p => p.playerId === playerId &&
+             p.type === 'Mensualidad' &&
+             extractBillingMonth(p) === billingMonth &&
              p.status !== 'Anulado'
     );
 }

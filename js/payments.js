@@ -1299,13 +1299,27 @@ async function loadOlderPaymentsFromSupabase(opts = {}) {
     const supaAnon = window.SUPA_ANON;
     if (!supaUrl || !supaAnon) { if (!silent) showToast('⚠️ Sin conexión a Supabase'); return false; }
 
-    const res = await fetch(
-      `${supaUrl}/rest/v1/payments?club_id=eq.${encodeURIComponent(clubId)}&deleted=eq.false&due_date=lt.${paymentsLoadedFrom}&select=*`,
-      { headers: { apikey: supaAnon, Authorization: `Bearer ${supaAnon}` } }
-    );
-    if (!res.ok) throw new Error(await res.text());
-
-    const rows = await res.json();
+    // Paginado: PostgREST corta en 1000 filas. Sin esto, un club con más de 1000
+    // pagos históricos veía la contabilidad de 7-12 meses atrás incompleta.
+    // `order=id` hace la paginación determinista (sin orden estable se pueden
+    // saltar o repetir filas entre páginas).
+    const _PAGE = 1000, _MAX_PAGES = 50;
+    const rows = [];
+    for (let _p = 0; _p < _MAX_PAGES; _p++) {
+      const _desde = _p * _PAGE;
+      const res = await fetch(
+        `${supaUrl}/rest/v1/payments?club_id=eq.${encodeURIComponent(clubId)}&deleted=eq.false&due_date=lt.${paymentsLoadedFrom}&select=*&order=id`,
+        { headers: {
+            apikey: supaAnon, Authorization: `Bearer ${supaAnon}`,
+            Range: `${_desde}-${_desde + _PAGE - 1}`, 'Range-Unit': 'items',
+        } }
+      );
+      if (!res.ok) throw new Error(await res.text());
+      const _lote = await res.json();
+      rows.push(..._lote);
+      if (_lote.length < _PAGE) break;
+      if (_p === _MAX_PAGES - 1) throw new Error('Demasiados pagos históricos: descarga incompleta');
+    }
     _paymentsExtended = rows.map(p => ({
       id: p.id, playerId: p.player_id, concept: p.concept, type: p.type,
       status: p.status, amount: p.amount, dueDate: p.due_date, paidDate: p.paid_date,

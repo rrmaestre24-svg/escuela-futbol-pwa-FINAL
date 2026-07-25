@@ -1730,6 +1730,36 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false } = {}) {
     showToast('☁️ Sincronizando desde Supabase...');
     const h = { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}` };
     const base = `${window.SUPA_URL}/rest/v1`;
+
+    /**
+     * Descarga TODAS las filas de una query, paginando.
+     * PostgREST corta en 1000 filas por defecto: sin esto, un club con más de
+     * 1000 pagos recibía solo los primeros 1000 y la app quedaba con datos
+     * incompletos (contabilidad por debajo de lo real y el anti-duplicado de
+     * facturas sin ver las que faltaban). Paginar es obligatorio en cualquier
+     * tabla que pueda crecer.
+     */
+    const PAGE_SIZE = 1000;
+    const MAX_PAGES = 50; // 50.000 filas: techo de seguridad contra bucles infinitos
+    async function fetchAllRows(url, etiqueta) {
+      const filas = [];
+      for (let pagina = 0; pagina < MAX_PAGES; pagina++) {
+        const desde = pagina * PAGE_SIZE;
+        const res = await fetch(url, {
+          headers: { ...h, Range: `${desde}-${desde + PAGE_SIZE - 1}`, 'Range-Unit': 'items' },
+        });
+        if (!res.ok) throw new Error(`Error al leer ${etiqueta} de Supabase: ` + await res.text());
+        const lote = await res.json();
+        filas.push(...lote);
+        if (lote.length < PAGE_SIZE) return filas; // última página
+      }
+      // Superar el techo significaría datos incompletos: fallar fuerte en vez de
+      // seguir en silencio (fue justamente un fallo silencioso el que causó el bug
+      // de contabilidad incompleta y facturas duplicadas).
+      throw new Error(
+        `Descarga de ${etiqueta} incompleta: se superó el máximo de ${MAX_PAGES * PAGE_SIZE} filas`
+      );
+    }
     const enc = encodeURIComponent;
 
     // Limpiar datos previos del club para maximizar espacio disponible en localStorage
@@ -1738,9 +1768,10 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false } = {}) {
     });
 
     // 1️⃣ Jugadores
-    const pRes = await fetch(`${base}/players?club_id=eq.${enc(clubId)}&deleted=eq.false&select=*`, { headers: h });
-    if (!pRes.ok) throw new Error('Error al leer jugadores de Supabase: ' + await pRes.text());
-    const pRows = await pRes.json();
+    const pRows = await fetchAllRows(
+      `${base}/players?club_id=eq.${enc(clubId)}&deleted=eq.false&select=*&order=id`,
+      'jugadores'
+    );
     const players = pRows.map(p => ({
       id: p.id, name: p.name, status: p.status, category: p.category,
       birthDate: p.birth_date, jerseyNumber: p.jersey_number,
@@ -1780,12 +1811,10 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false } = {}) {
     const cutoff = new Date();
     cutoff.setMonth(cutoff.getMonth() - 6);
     const cutoffStr = cutoff.toISOString().split('T')[0];
-    const pmRes = await fetch(
-      `${base}/payments?club_id=eq.${enc(clubId)}&deleted=eq.false&due_date=gte.${cutoffStr}&select=*`,
-      { headers: h }
+    const pmRows = await fetchAllRows(
+      `${base}/payments?club_id=eq.${enc(clubId)}&deleted=eq.false&due_date=gte.${cutoffStr}&select=*&order=id`,
+      'pagos'
     );
-    if (!pmRes.ok) throw new Error('Error al leer pagos de Supabase: ' + await pmRes.text());
-    const pmRows = await pmRes.json();
     const payments = pmRows.map(p => ({
       id: p.id, playerId: p.player_id, concept: p.concept, type: p.type,
       status: p.status, amount: p.amount, dueDate: p.due_date, paidDate: p.paid_date,
