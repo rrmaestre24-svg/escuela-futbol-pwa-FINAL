@@ -150,7 +150,7 @@ if (expenseFormElement) {
       const beneficiaryType = beneficiaryTypeRadio.value;
       const category = document.getElementById('expenseCategory').value;
       const concept = document.getElementById('expenseConcept').value;
-      const amount = parseFloat(document.getElementById('expenseAmount').value);
+      const amount = parseMonto(document.getElementById('expenseAmount').value);
       const date = document.getElementById('expenseDate').value;
       const method = document.getElementById('expenseMethod').value;
       const notes = document.getElementById('expenseNotes').value || '';

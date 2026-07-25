@@ -66,7 +66,7 @@ function loadSettings() {
     clubElements.clubFoundedYear.max = String(effectiveMax);
     clubElements.clubFoundedYear.value = settings.foundedYear || '';
   }
-  if (clubElements.clubMonthlyFee) clubElements.clubMonthlyFee.value = settings.monthlyFee || '';
+  if (clubElements.clubMonthlyFee) clubElements.clubMonthlyFee.value = montoADisplay(settings.monthlyFee);
   if (clubElements.coachCode) clubElements.coachCode.value = settings.coachCode || '';
   const dueDayNum = Number(settings.monthlyDueDay);
   const graceDaysNum = Number(settings.monthlyGraceDays);
@@ -592,7 +592,7 @@ document.getElementById('clubSettingsForm')?.addEventListener('submit', function
       const normalized = Math.max(1900, Math.min(currentYear, Math.trunc(raw)));
       return String(normalized);
     })(),
-    monthlyFee: clubMonthlyFee ? parseFloat(clubMonthlyFee.value) : 0,
+    monthlyFee: clubMonthlyFee ? parseMonto(clubMonthlyFee.value) : 0,
     coachCode: coachCodeInput ? coachCodeInput.value : undefined,
     monthlyDueDay: (() => {
       const value = Number(monthlyDueDay?.value);

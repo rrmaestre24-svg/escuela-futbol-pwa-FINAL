@@ -333,6 +333,11 @@ function showMultiInvoiceModal(playerId) {
     `;
 
     document.body.appendChild(overlay);
+    // Separador de miles en vivo: el campo se crea recién ahora, así que hay que
+    // activarlo acá (activarFormatoMonto es idempotente).
+    if (typeof activarFormatoMonto === 'function') {
+        activarFormatoMonto(document.getElementById('_miAmount'));
+    }
 }
 
 function closeMultiInvoiceModal() {
@@ -516,7 +521,7 @@ function _mi_setDiscountType(type) {
 }
 
 function _mi_updateDiscountPreview() {
-    const amount      = parseFloat(document.getElementById('_miAmount')?.value) || 0;
+    const amount      = parseMonto(document.getElementById('_miAmount')?.value);
     const discVal     = parseFloat(document.getElementById('_miDiscount')?.value) || 0;
     const previewEl   = document.getElementById('_miDiscountPreview');
     if (!previewEl) return;
@@ -559,7 +564,7 @@ async function _mi_confirm() {
     }
 
     // Leer los valores ingresados por el admin
-    const amount         = parseFloat(document.getElementById('_miAmount')?.value) || 0;
+    const amount         = parseMonto(document.getElementById('_miAmount')?.value);
     const paidDate       = document.getElementById('_miPaidDate')?.value || getCurrentDate();
     const method         = document.getElementById('_miMethod')?.value || 'Efectivo';
     const discountAmount = _mi_calcDiscount(amount);

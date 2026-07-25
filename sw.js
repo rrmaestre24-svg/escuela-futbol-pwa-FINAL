@@ -1,4 +1,4 @@
-const CACHE_NAME = 'my-club-v1.8.10';
+const CACHE_NAME = 'my-club-v1.9.0';
 
 const urlsToCache = [
   '/',
@@ -52,6 +52,7 @@ const urlsToCache = [
   '/js/storage-service.js',
   '/js/players.js',
   '/js/payments.js',
+  '/js/multi-invoice.js',
   '/js/expenses.js',
   '/js/third-party-income.js',
   '/js/accounting.js',

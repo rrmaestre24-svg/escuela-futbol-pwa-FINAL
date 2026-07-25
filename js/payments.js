@@ -1757,7 +1757,13 @@ function showEditPaymentModal(paymentId) {
   document.getElementById('editPaymentId').value = payment.id;
   document.getElementById('editPaymentType').value = payment.type;
   document.getElementById('editPaymentConcept').value = payment.concept;
-  document.getElementById('editPaymentAmount').value = payment.amount;
+  // El modal se crea dinámicamente: hay que activar el separador de miles acá.
+  // (activarFormatoMonto es idempotente y convierte el campo a texto antes de
+  // asignarle el valor ya formateado.)
+  if (typeof activarFormatoMonto === 'function') {
+    activarFormatoMonto(document.getElementById('editPaymentAmount'));
+  }
+  document.getElementById('editPaymentAmount').value = montoADisplay(payment.amount);
   document.getElementById('editPaymentDueDate').value = payment.dueDate;
   document.getElementById('editPaymentStatus').value = payment.status;
   
@@ -2003,7 +2009,7 @@ async function saveEditedPayment() {
   const playerId = document.getElementById('editPaymentPlayer').value;
   const type = document.getElementById('editPaymentType').value;
   const conceptRaw = (document.getElementById('editPaymentConcept').value || '').trim();
-  const amount = parseFloat(document.getElementById('editPaymentAmount').value);
+  const amount = parseMonto(document.getElementById('editPaymentAmount').value);
   const dueDate = document.getElementById('editPaymentDueDate').value;
   const status = document.getElementById('editPaymentStatus').value;
   const paidDate = document.getElementById('editPaymentPaidDate').value;
@@ -2709,7 +2715,7 @@ async function handlePaymentFormSubmit(e) {
     const playerId = selectedPlayerId;
     const type = document.getElementById('paymentType').value;
     const conceptRaw = (document.getElementById('paymentConcept').value || '').trim();
-    const amount = parseFloat(document.getElementById('paymentAmount').value);
+    const amount = parseMonto(document.getElementById('paymentAmount').value);
     const dueDateInput = document.getElementById('paymentDueDate');
     const dueDate = dueDateInput?.value || '';
     const status = document.getElementById('paymentStatus').value;

@@ -172,7 +172,7 @@ async function saveThirdPartyIncomeFromForm() {
   
   const category = document.getElementById('thirdPartyIncomeCategory')?.value;
   const concept = document.getElementById('thirdPartyIncomeConcept')?.value;
-  const amount = parseFloat(document.getElementById('thirdPartyIncomeAmount')?.value);
+  const amount = parseMonto(document.getElementById('thirdPartyIncomeAmount')?.value);
   const date = document.getElementById('thirdPartyIncomeDate')?.value;
   const method = document.getElementById('thirdPartyIncomeMethod')?.value;
   const notes = document.getElementById('thirdPartyIncomeNotes')?.value || '';
@@ -253,7 +253,7 @@ function editThirdPartyIncome(incomeId) {
   document.getElementById('thirdPartyContributorAddress').value = income.contributorAddress || '';
   document.getElementById('thirdPartyIncomeCategory').value = income.category || '';
   document.getElementById('thirdPartyIncomeConcept').value = income.concept || '';
-  document.getElementById('thirdPartyIncomeAmount').value = income.amount || '';
+  document.getElementById('thirdPartyIncomeAmount').value = montoADisplay(income.amount);
   document.getElementById('thirdPartyIncomeDate').value = income.date || '';
   document.getElementById('thirdPartyIncomeMethod').value = income.method || '';
   document.getElementById('thirdPartyIncomeNotes').value = income.notes || '';

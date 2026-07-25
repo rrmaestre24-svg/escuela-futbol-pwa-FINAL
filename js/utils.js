@@ -740,3 +740,72 @@ function maskEmail(e) {
   return (u.slice(0, 2) || '*') + '***@' + d;
 }
 window.maskEmail = maskEmail;
+// ========================================
+// MONTOS: formato en vivo con separador de miles
+// Un campo type="number" no admite puntos, así que el usuario escribía "90000"
+// y veía "90000" — fácil de confundir con "90.000" o con "90". Al formatear
+// mientras teclea, ve "$ 90.000" y caza el error solo. NO se convierte ni se
+// bloquea nada: el monto es exactamente el que escribió.
+// ========================================
+
+/** "90000" → "90.000" · "90000,5" → "90.000,5" (formato colombiano) */
+function formatMontoInput(valor) {
+  const limpio = String(valor ?? '').replace(/[^\d,]/g, '');
+  if (!limpio) return '';
+  const [entero, ...resto] = limpio.split(',');
+  const conPuntos = entero.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return resto.length ? `${conPuntos},${resto.join('').slice(0, 2)}` : conPuntos;
+}
+
+/**
+ * Número de la BD → texto para mostrar en el campo. "45000.75" → "45.000,75".
+ * OJO: NO usar formatMontoInput() con un número: ahí el "." de JS se toma como
+ * separador de miles y 45000.75 se convertiría en "4.500.075" (100x el valor).
+ */
+function montoADisplay(n) {
+  if (n === null || n === undefined || n === '') return '';
+  const num = typeof n === 'number' ? n : parseFloat(String(n).replace(',', '.'));
+  if (!Number.isFinite(num)) return '';
+  const [entero, dec] = Math.abs(num).toFixed(2).split('.');
+  const conPuntos = entero.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return dec === '00' ? conPuntos : `${conPuntos},${dec.replace(/0$/, '')}`;
+}
+
+/** "90.000" → 90000 · "90.000,50" → 90000.5 · vacío → 0 */
+function parseMonto(valor) {
+  const n = parseFloat(String(valor ?? '').replace(/\./g, '').replace(',', '.'));
+  return Number.isFinite(n) ? n : 0;
+}
+
+/**
+ * Convierte un input de monto a texto con formato en vivo.
+ * Idempotente: llamarla dos veces sobre el mismo campo no duplica listeners.
+ */
+function activarFormatoMonto(input) {
+  if (!input || input.dataset.montoFmt) return;
+  input.dataset.montoFmt = '1';
+  input.type = 'text';
+  input.inputMode = 'numeric';
+  input.addEventListener('input', () => {
+    // Se conserva la posición del cursor contando desde el final, así los puntos
+    // que se agregan a la izquierda no lo hacen saltar.
+    const desdeElFinal = input.value.length - (input.selectionStart ?? input.value.length);
+    input.value = formatMontoInput(input.value);
+    const pos = Math.max(0, input.value.length - desdeElFinal);
+    try { input.setSelectionRange(pos, pos); } catch (_) {}
+  });
+  if (input.value) input.value = montoADisplay(input.value);
+}
+
+/** Aplica el formato a todos los campos de monto de la app. */
+function activarFormatoMontos() {
+  ['paymentAmount', 'expenseAmount', 'thirdPartyIncomeAmount', '_miAmount',
+   'clubMonthlyFee', 'editPaymentAmount']
+    .forEach((id) => activarFormatoMonto(document.getElementById(id)));
+}
+
+// Activa el separador de miles en los campos de monto fijos del HTML.
+// (_miAmount se crea dinámicamente y se activa desde multi-invoice.js)
+window.addEventListener('DOMContentLoaded', () => {
+  try { activarFormatoMontos(); } catch (e) { console.warn('[monto] formato:', e); }
+});
