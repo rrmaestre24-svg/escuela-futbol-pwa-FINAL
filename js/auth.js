@@ -319,16 +319,9 @@ async function downloadAllClubData(clubId, { force = false } = {}) {
     return false;
   }
 
-  // 🆕 AISLAMIENTO POR CLUB EN IndexedDB (corre antes de cualquier descarga)
-  // Si cambió el club desde el último login, limpia IDB y fuerza re-descarga.
-  if (window.idb && window.idb.ensureClubIsolation) {
-    try {
-      const r = await window.idb.ensureClubIsolation(clubId);
-      if (r && r.cleared) force = true;
-    } catch (e) { console.warn('[idb] ensureClubIsolation falló:', e); }
-  }
-
   // Cuando MODO_SUPABASE está activo, delegar completamente a Supabase
+  // Nota: downloadAllClubDataFromSupabase ejecuta su propio ensureClubIsolation
+  // DESPUÉS del guard de JWT, para no borrar datos locales sin poder reponerlos.
   if (window.MODO_SUPABASE && typeof downloadAllClubDataFromSupabase === 'function') {
     return downloadAllClubDataFromSupabase(clubId, { force });
   }

@@ -354,6 +354,13 @@
                 </button>
             </div>
 
+            <!-- Mensaje de sesión expirada (lo escribe session-check.js) -->
+            <div id="sessionExpiredMsg" class="mx-6 mb-4 hidden">
+                <div class="bg-red-500/20 border border-red-400/30 rounded-xl px-4 py-3 text-center">
+                    <p class="text-red-200 text-sm font-medium" id="sessionExpiredMsgText"></p>
+                </div>
+            </div>
+
             <!-- ══════════════════ FORM: LOGIN ══════════════════ -->
             <form id="loginForm" class="px-6 pb-8 space-y-4">
 
@@ -780,6 +787,21 @@
 
         // ── Init ────────────────────────────────────
         lucide.createIcons();
+
+        // Mostrar mensaje de sesión expirada si existe (lo deja session-check.js)
+        (function() {
+            var msg = null;
+            try { msg = localStorage.getItem('_session_expired_msg'); } catch(e) {}
+            if (msg) {
+                var el = document.getElementById('sessionExpiredMsg');
+                var text = document.getElementById('sessionExpiredMsgText');
+                if (el && text) {
+                    text.textContent = msg;
+                    el.classList.remove('hidden');
+                }
+                try { localStorage.removeItem('_session_expired_msg'); } catch(e) {}
+            }
+        })();
 
         console.log('✅ MY CLUB Login cargado correctamente');
     </script>

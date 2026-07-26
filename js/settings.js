@@ -1769,6 +1769,27 @@ function _formatBytes(bytes) {
  * Útil si algo se traba o el admin quiere "empezar de cero" localmente.
  */
 async function clearLocalCacheOnly() {
+  // Verificar sesión Supabase ACTIVA (no solo que exista un token) antes de limpiar.
+  // Sin sesión válida, limpiar la caché dejaría al usuario sin datos sin poder recargarlos.
+  // 1. Si hay token pero podría estar vencido, forzar refresh para confirmar.
+  let _sesionValida = (window.SupaAuthV2 && typeof window.SupaAuthV2.getToken === 'function' && window.SupaAuthV2.getToken())
+    || (window.SupaAuth && typeof window.SupaAuth.getToken === 'function' && window.SupaAuth.getToken());
+  if (_sesionValida && window.SupaAuthV2 && typeof window.SupaAuthV2.refreshToken === 'function') {
+    try {
+      const refreshed = await window.SupaAuthV2.refreshToken();
+      _sesionValida = !!(refreshed && refreshed.access_token);
+    } catch (_) { _sesionValida = false; }
+  }
+  if (!_sesionValida) {
+    await showAppAlert(
+      '⚠️ No tienes una sesión activa en este momento.\n\n' +
+      'Si limpias la caché ahora, perderás los datos locales y no podremos ' +
+      'descargarlos de nuevo hasta que inicies sesión.\n\n' +
+      '👉 Cancelá, iniciá sesión de nuevo, y volvé a intentarlo.',
+      { type: 'error', title: 'Sesión expirada' }
+    );
+    return;
+  }
   const confirmed = await showAppConfirm(
     '🧹 Esto borrará la copia local de tu club (IndexedDB).\n\n' +
     '✅ Tus datos están seguros en la nube y se descargarán de nuevo al recargar.\n' +
@@ -1779,6 +1800,15 @@ async function clearLocalCacheOnly() {
   if (!confirmed) return;
 
   showToast('🧹 Limpiando cache local...');
+
+  // Diagnóstico: registrar por qué se limpia la caché
+  try {
+    localStorage.setItem('_diag_ultimo_wipe', JSON.stringify({
+      ts: Date.now(), iso: new Date().toISOString(),
+      reason: 'clear_cache_manual',
+      source: 'clearLocalCacheOnly'
+    }));
+  } catch (_) {}
 
   try {
     // 1. Limpiar las 5 stores principales de IndexedDB + cola de reintentos

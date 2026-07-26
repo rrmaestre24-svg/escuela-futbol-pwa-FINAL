@@ -308,6 +308,9 @@ async function syncAllToFirebase() {
 
 /**
  * ✅ Descarga todos los datos (Firebase o Supabase según MODO_SUPABASE)
+ * 🔒 En MODO_SUPABASE delega a downloadAllClubDataFromSupabase (que tiene su propio
+ *     guard de JWT antes de ensureClubIsolation). El camino Firebase legacy (sin JWT
+ *     guard) fue eliminado para no reintroducir el bug del "todo en ceros".
  */
 async function downloadFromFirebase() {
   if (window.MODO_SUPABASE) {
@@ -320,12 +323,6 @@ async function downloadFromFirebase() {
   if (!clubId) {
     showToast('❌ No se puede descargar sin clubId');
     return;
-  }
-
-  // 🆕 AISLAMIENTO POR CLUB EN IndexedDB
-  if (window.idb && window.idb.ensureClubIsolation) {
-    try { await window.idb.ensureClubIsolation(clubId); }
-    catch (e) { console.warn('[idb] ensureClubIsolation (firebase) falló:', e); }
   }
 
   try {
@@ -1656,6 +1653,22 @@ async function syncAllToSupabase() {
   console.log('✅ syncAllToSupabase completado:', syncedItems.join(', '));
 }
 
+// Banner persistente de sesión expirada (no se desvanece como el toast).
+// Se muestra una sola vez; si ya está en el DOM, no se duplica.
+function _showSessionExpiredBanner() {
+  if (document.getElementById('sessionExpiredBanner')) return;
+  try {
+    const banner = document.createElement('div');
+    banner.id = 'sessionExpiredBanner';
+    banner.className = 'fixed top-0 left-0 right-0 z-[5000] bg-red-600 text-white text-center py-3 px-4 text-sm font-semibold shadow-lg flex items-center justify-center gap-3';
+    banner.innerHTML = '⚠️ Tu sesión expiró. '
+      + '<a href="login.html" class="underline font-bold hover:text-red-100">Iniciar sesión</a> '
+      + 'para sincronizar los datos. '
+      + '<button onclick="this.parentElement.remove()" class="ml-2 text-white/70 hover:text-white" aria-label="Cerrar">✕</button>';
+    document.body.prepend(banner);
+  } catch (_) {}
+}
+
 /**
  * ✅ Descarga todos los datos del club desde Supabase al localStorage.
  * Equivalente a downloadAllClubData() pero usando Supabase REST.
@@ -1668,9 +1681,25 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false } = {}) {
     return false;
   }
 
-  // 🆕 AISLAMIENTO POR CLUB EN IndexedDB
-  // Garantiza que esta función nunca sirva mezcla de clubes incluso si se
-  // invoca directamente (sin pasar por auth.js downloadAllClubData).
+  // ⛔ GUARD CRÍTICO: sin JWT de Supabase NO se descarga NI se limpia la caché.
+  //    Firebase ya no existe para re-mintear, así que una descarga sin sesión iría
+  //    con la anon key → RLS cerrado devuelve 0 filas → SOBREESCRIBIRÍA la caché local
+  //    (jugadores/pagos) con vacío.
+  //    Se conserva la caché y se pide re-login. (Este era el bug del "todo en 0".)
+  //    IMPORTANTE: este guard debe ejecutarse ANTES de ensureClubIsolation para no
+  //    borrar datos locales sin poder reponerlos.
+  const _jwtFinal = (window.SupaAuthV2 && typeof window.SupaAuthV2.getToken === 'function' && window.SupaAuthV2.getToken())
+                 || (window.SupaAuth && typeof window.SupaAuth.getToken === 'function' && window.SupaAuth.getToken());
+  if (!_jwtFinal) {
+    console.warn('[sync] ⛔ Sin sesión Supabase — descarga OMITIDA para no borrar la caché local. Vuelve a iniciar sesión.');
+    if (typeof showToast === 'function') showToast('⚠️ Sesión expirada — vuelve a iniciar sesión para sincronizar.');
+    _showSessionExpiredBanner();
+    return false;
+  }
+
+  // 🆕 AISLAMIENTO POR CLUB EN IndexedDB (solo después de confirmar JWT válido).
+  //    Se ejecuta DESPUÉS del guard de JWT para no borrar datos locales sin poder
+  //    reponerlos (Fix A — causa raíz del bug "todo en ceros").
   if (window.idb && window.idb.ensureClubIsolation) {
     try {
       const r = await window.idb.ensureClubIsolation(clubId);
@@ -1697,18 +1726,6 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false } = {}) {
       }
     }
   } catch (e) { console.warn('[sync] ensureJwt pre-download falló (sigue con anon):', e?.message || e); }
-
-  // ⛔ GUARD CRÍTICO: sin JWT de Supabase NO se descarga. Firebase ya no existe para
-  //    re-mintear, así que una descarga sin sesión iría con la anon key → RLS cerrado
-  //    devuelve 0 filas → SOBREESCRIBIRÍA la caché local (jugadores/pagos) con vacío.
-  //    Se conserva la caché y se pide re-login. (Este era el bug del "todo en 0".)
-  const _jwtFinal = (window.SupaAuthV2 && typeof window.SupaAuthV2.getToken === 'function' && window.SupaAuthV2.getToken())
-                 || (window.SupaAuth && typeof window.SupaAuth.getToken === 'function' && window.SupaAuth.getToken());
-  if (!_jwtFinal) {
-    console.warn('[sync] ⛔ Sin sesión Supabase — descarga OMITIDA para no borrar la caché local. Vuelve a iniciar sesión.');
-    if (typeof showToast === 'function') showToast('⚠️ Sesión expirada — vuelve a iniciar sesión para sincronizar.');
-    return false;
-  }
 
   // LOCAL-FIRST GUARD: reutilizar caché si está fresca (mismo comportamiento que Firebase)
   // Nota: _FULL_DOWNLOAD_TTL_MS es const en auth.js (no global), usamos el mismo valor literal.

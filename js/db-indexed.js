@@ -289,10 +289,30 @@
   }
 
   // Garantiza aislamiento de datos por club. Si el clubId cambió desde la
-  // última vez que IDB se pobló (o es la primera vez), limpia TODAS las
-  // stores y devuelve { cleared: true } para que el caller fuerce una
-  // re-descarga. Si es el mismo club, no toca nada y devuelve { cleared: false }.
+  // última vez que IDB se pobló, limpia TODAS las stores y devuelve
+  // { cleared: true } para que el caller fuerce una re-descarga. Si es el
+  // mismo club, no toca nada.
+  //
+  // 🛡️ REGLA DE SEGURIDAD: nunca borrar sin poder reponer.
+  //   - clubChanged (lastClubId existe y es distinto): borra y re-descarga.
+  //   - firstLogin (no existía idb_current_club): NO borra aunque localStorage
+  //     se haya perdido — si IDB tiene datos, los recupera poniendo el flag.
+  //     El borrado selectivo solo se hace ante cambio real de club (navegador
+  //     compartido entre dos clubes). Esto evita que una pérdida de localStorage
+  //     (borrado, iOS storage pressure) deje al usuario sin datos locales.
+  //   - mismo club: no toca nada.
   // El flag `idb_current_club` vive en localStorage por su persistencia simple.
+  function _diagWipe(reason, clubId, extra) {
+    try {
+      localStorage.setItem('_diag_ultimo_wipe', JSON.stringify({
+        ts: Date.now(),
+        iso: new Date().toISOString(),
+        reason,
+        clubId,
+        extra: extra || null
+      }));
+    } catch (_) {}
+  }
   async function ensureClubIsolation(clubId) {
     if (!clubId) return { cleared: false, reason: 'sin clubId' };
     const lastClubId = localStorage.getItem('idb_current_club');
@@ -301,12 +321,59 @@
     if (!clubChanged && !firstLogin) {
       return { cleared: false, reason: 'mismo club', clubId };
     }
+    if (firstLogin) {
+      // No sabemos de qué club son los datos actuales. Intentar verificar.
+      // Estrategia: recorrer stores hasta encontrar un registro y comparar
+      // su campo de club contra el clubId entrante.
+      // Los campos varían: players→schoolId, coaches→club_id, resto→clubId.
+      // Si el club no coincide o hay ambigüedad → fail-safe: limpiar (aislamiento > caché).
+      let _foundData = false;
+      let _clubOk = false;
+      try {
+        for (const s of STORES) {
+          const cnt = await count(s.name);
+          if (cnt === 0) continue;
+          _foundData = true;
+          const items = await getAll(s.name);
+          const sample = items.find(i => i && (i.id || i.playerId));
+          if (sample) {
+            const storedClub = sample.schoolId || sample.clubId || sample.club_id;
+            if (storedClub && String(storedClub) === String(clubId)) {
+              _clubOk = true;
+              break;
+            }
+            // Club no coincide — salir del loop, _foundData=true, _clubOk=false
+            break;
+          }
+        }
+      } catch (_) { _foundData = true; _clubOk = false; } // error → fail-safe
+
+      if (_clubOk) {
+        localStorage.setItem('idb_current_club', clubId);
+        _diagWipe('firstLogin_recovery', clubId, { lastClubId });
+        console.log(`[idb] ↩️ firstLogin con datos verificados — recuperado (club=${clubId})`);
+        return { cleared: false, reason: 'firstLogin verificado — recuperado', clubId };
+      }
+
+      if (!_foundData) {
+        localStorage.setItem('idb_current_club', clubId);
+        _diagWipe('firstLogin_vacio', clubId, { lastClubId });
+        console.log(`[idb] 🆕 firstLogin sin datos previos (club=${clubId})`);
+        return { cleared: false, reason: 'firstLogin sin datos previos', clubId };
+      }
+
+      // Hay datos pero no se pudo verificar que sean de este club — fail-safe
+      _diagWipe('firstLogin_mismatch', clubId, { lastClubId, action: 'clear' });
+      console.log(`[idb] ⚠️ firstLogin con datos no verificados — limpiando (club=${clubId})`);
+    }
+    // clubChanged: cambio real de club → limpiar todo (aislamiento multi-club)
     for (const s of STORES) {
       try { await clear(s.name); }
       catch (e) { console.warn(`[idb] ensureClubIsolation: falló clear de ${s.name}:`, e); }
     }
     localStorage.setItem('idb_current_club', clubId);
-    console.log(`[idb] 🧹 Aislamiento: stores limpiadas (${lastClubId || 'ninguno'} → ${clubId})`);
+    _diagWipe('club_changed', clubId, { lastClubId });
+    console.log(`[idb] 🧹 Aislamiento: stores limpiadas (${lastClubId} → ${clubId})`);
     return { cleared: true, previousClubId: lastClubId, newClubId: clubId };
   }
 

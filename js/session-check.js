@@ -41,10 +41,57 @@ window.addEventListener('DOMContentLoaded', async function () {
         }
     }
 
-    // 1. Verificar sesion local primero
+    // Helper: verificar que haya JWT de Supabase válido (no solo localStorage.currentUser).
+    // Si no hay pero existe refresh_token, intenta refrescar una vez.
+    async function _hasValidSession() {
+        if (window.SupaAuthV2 && typeof window.SupaAuthV2.getToken === 'function' && window.SupaAuthV2.getToken()) {
+            return true;
+        }
+        if (window.SupaAuth && typeof window.SupaAuth.getToken === 'function' && window.SupaAuth.getToken()) {
+            return true;
+        }
+        // Intentar refrescar — el refresh_token puede ser de Supabase v2
+        if (window.SupaAuthV2 && typeof window.SupaAuthV2.refreshToken === 'function') {
+            try {
+                await window.SupaAuthV2.refreshToken();
+                if (window.SupaAuthV2.getToken()) return true;
+            } catch (_) {}
+        }
+        return false;
+    }
+
+    // Muestra un banner no bloqueante de "sin conexión" en vez de bloquear la app
+    function _showOfflineBanner() {
+        try {
+            if (document.getElementById('offlineSessionBanner')) return;
+            const b = document.createElement('div');
+            b.id = 'offlineSessionBanner';
+            b.className = 'fixed top-0 left-0 right-0 z-[5000] bg-amber-500 text-white text-center py-2 px-4 text-xs font-semibold shadow-lg';
+            b.textContent = '📡 Sin conexión — algunos datos pueden no estar actualizados';
+            document.body.prepend(b);
+        } catch (_) {}
+    }
+
+    // 1. Verificar sesion local primero + JWT válido
     const currentUser = getCurrentUser();
 
     if (currentUser && currentUser.email) {
+        const tieneJwt = await _hasValidSession();
+        if (!tieneJwt) {
+            const _offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+            if (_offline) {
+                // Sin internet: dejar entrar con datos locales, mostrar aviso no bloqueante
+                console.warn('[INDEX] ⚠️ Sin conexión — no se pudo verificar la sesión. Se usan datos locales.');
+                _showOfflineBanner();
+            } else {
+                // Hay red y el servidor no validó la sesión → redirect al login
+                console.warn('[INDEX] ⛔ localStorage.currentUser existe pero no hay JWT de Supabase — sesión expirada. Redirigiendo al login.');
+                hideLoader();
+                try { localStorage.setItem('_session_expired_msg', 'Tu sesión expiró. Iniciá sesión de nuevo para continuar.'); } catch (_) {}
+                window.location.href = 'login.html';
+                return;
+            }
+        }
         console.log('[INDEX] Sesion local encontrada:', maskEmail(currentUser.email));
         hideLoader();
         document.getElementById('appContainer').classList.remove('hidden');
