@@ -37,6 +37,27 @@
         }, 1500);
       };
     </script>
+        <script>
+            (function () {
+                var path = window.location.pathname || '';
+                if (path.indexOf('/reset-password.html') !== -1) return;
+
+                var searchParams = new URLSearchParams(window.location.search || '');
+                var hashParams = new URLSearchParams((window.location.hash || '').replace(/^#/, ''));
+                var hasRecoveryParam =
+                    searchParams.has('token_hash') ||
+                    searchParams.get('type') === 'recovery' ||
+                    hashParams.has('access_token') ||
+                    hashParams.has('token_hash') ||
+                    hashParams.get('type') === 'recovery';
+
+                if (!hasRecoveryParam) return;
+
+                var target = new URL(window.location.href);
+                target.pathname = target.pathname.replace(/[^/]*$/, 'reset-password.html');
+                window.location.replace(target.toString());
+            })();
+        </script>
 
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
