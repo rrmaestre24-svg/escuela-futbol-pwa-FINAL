@@ -1091,25 +1091,28 @@ async function logout() {
 
 // Verificar sesión al cargar - VERSIÓN MEJORADA PARA MÓVILES
 window.addEventListener('DOMContentLoaded', async function() {
-  console.log('[AUTH] Verificando sesion al cargar...');
-  
-  const loginScreen = document.getElementById('loginScreen');
   const appContainer = document.getElementById('appContainer');
-  
-  // Función para mostrar loading
-  function showLoading() {
-    if (loginScreen) {
-      const existingLoader = document.getElementById('sessionLoader');
-      if (!existingLoader) {
-        const loader = document.createElement('div');
-        loader.id = 'sessionLoader';
-        loader.className = 'fixed inset-0 bg-white dark:bg-gray-900 flex items-center justify-center z-50';
-        loader.innerHTML = '<div class="text-center"><div class="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-500 mx-auto mb-4"></div><p class="text-gray-600 dark:text-gray-400">Verificando sesión...</p></div>';
-        document.body.appendChild(loader);
-      }
-    }
-  }
-  
+
+  // ── UN SOLO DUEÑO DE LA DECISIÓN ──────────────────────────────────────────
+  // En index.html (la única página con #appContainer) quien decide si se muestra
+  // la app es SOLO js/session-check.js, porque valida el JWT de verdad.
+  //
+  // Antes decidían los dos. Este listener se registra primero y su rama "hay
+  // currentUser" no tiene ningún `await`, así que ganaba siempre: destapaba el
+  // dashboard con datos cacheados mirando únicamente localStorage.currentUser
+  // —sin comprobar el token— y session-check.js llegaba después, como corrector
+  // tardío, pudiendo echar al usuario hasta 13,6 s más tarde. De paso, initApp()
+  // corría DOS veces por carga (duplicando términos, licencia, listeners y hasta
+  // la animación de bienvenida).
+  //
+  // session-check.js cubre los mismos casos y mejor: sesión válida, sin conexión
+  // (entra con caché local + aviso) y sin sesión (manda al login). Si por algo no
+  // llegara a correr, la red de seguridad de index.html destapa la pantalla igual.
+  if (appContainer) return;
+
+  // ── De acá para abajo: login.html (no tiene #appContainer) ────────────────
+  console.log('[AUTH] Verificando sesion al cargar...');
+
   // Función para ocultar loading
   // querySelectorAll y no getElementById: puede haber DOS elementos con id
   // 'sessionLoader' a la vez — el preloader estático de index.html y el que
@@ -1122,52 +1125,28 @@ window.addEventListener('DOMContentLoaded', async function() {
     document.querySelectorAll('#sessionLoader').forEach(l => l.remove());
   }
   
-  // Función para mostrar la app
-  function showApp() {
-    hideLoading();
-    if (loginScreen) loginScreen.classList.add('hidden');
-    if (appContainer) appContainer.classList.remove('hidden');
-    initApp();
-  }
-  
-  // Función para mostrar login
-  function showLogin() {
-    hideLoading();
-    if (loginScreen) loginScreen.classList.remove('hidden');
-    if (appContainer) appContainer.classList.add('hidden');
-  }
-  
-  // 1. Verificar sesión local INMEDIATAMENTE
+  // En login.html el único trabajo real es: si el usuario YA tiene sesión, no
+  // hacerle escribir la contraseña de nuevo — mandarlo al dashboard.
+  //
+  // Si no hay sesión no se hace nada: la página ya muestra su formulario sola.
+  // (Antes había un showApp()/showLogin() acá que manipulaban #loginScreen y
+  // #appContainer — elementos que NO existen en login.html — y que en un camino
+  // llegaban a llamar initApp(), el arranque del dashboard, dentro del login.)
+  //
+  // OJO con el rebote: si la sesión está vencida, session-check.js borra
+  // currentUser antes de mandarnos acá, y el bloque de "sesión expirada" de
+  // login.html lo vuelve a borrar por las dudas. Sin eso, este redirect y el de
+  // session-check.js se mandan al usuario en círculos y nunca ve el formulario.
   const currentUser = getCurrentUser();
-  
+
   if (currentUser && currentUser.email) {
     console.log('[AUTH] Sesion local valida:', maskEmail(currentUser.email));
-    if (!appContainer) {
-      // Si estamos en login.html pero hay sesión, redirigir al dashboard
-      window.location.href = 'index.html';
-      return;
-    }
-    showApp();
-    return;
-  }
-  
-  console.log('[AUTH] No hay sesion local, verificando Supabase...');
-  showLoading();
-
-  // 2. Verificar sesión en Supabase Auth
-  if (window.SupaAuthV2 && window.SupaAuthV2.isLogged()) {
-    console.log('[AUTH] Supabase tiene sesión activa');
-    const storedUser = getCurrentUser();
-    if (storedUser && storedUser.email && storedUser.schoolId) {
-      showApp();
-      return;
-    }
-    showLogin();
+    window.location.href = 'index.html';
     return;
   }
 
-  // 3. No hay sesión
-  showLogin();
+  console.log('[AUTH] No hay sesion local — se muestra el formulario de login');
+  hideLoading();
 });
 
 // ========================================

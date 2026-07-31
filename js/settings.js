@@ -1478,6 +1478,10 @@ async function executeClubDestruction(clubId, currentUser) {
     showToast('🗑️ Limpiando datos locales...');
     
     localStorage.removeItem('currentUser');
+    // También en sessionStorage: getCurrentUser() (storage.js) resucita el
+    // currentUser desde ahí a localStorage si el de localStorage falta. Si queda
+    // el fantasma, login.html rebota a index.html con una sesión que ya no existe.
+    try { sessionStorage.removeItem('currentUser'); } catch (_) {}
     localStorage.removeItem('users');
     localStorage.removeItem('players');
     localStorage.removeItem('payments');

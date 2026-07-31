@@ -821,6 +821,16 @@
                     el.classList.remove('hidden');
                 }
                 try { localStorage.removeItem('_session_expired_msg'); } catch(e) {}
+                // 🔁 Segunda barrera contra el bucle de redirecciones (la primera
+                // está en session-check.js). Si llegamos acá es porque la sesión
+                // expiró; auth.js, al arrancar, rebota a index.html si encuentra
+                // currentUser — y index.html rebota de vuelta acá. Este bloque
+                // corre ANTES que el DOMContentLoaded de auth.js, así que borrarlo
+                // ahora garantiza que el formulario de login se pueda ver.
+                try {
+                    localStorage.removeItem('currentUser');
+                    sessionStorage.removeItem('currentUser');
+                } catch(e) {}
             }
         })();
 

@@ -2,7 +2,38 @@
 // VERIFICACIÓN DE SESIÓN - MEJORADA PARA MÓVILES
 // ========================================
 
-window.addEventListener('DOMContentLoaded', async function () {
+// Este archivo es el ÚNICO que decide si se muestra la app en index.html
+// (js/auth.js se abstiene ahí a propósito). Por eso el arranque va envuelto:
+// si algo acá lanzara una excepción, sin red de contención nadie destaparía la
+// pantalla ni llamaría initApp(), y el usuario quedaría mirando el preloader.
+// La red de seguridad de 18 s de index.html lo destaparía igual, pero SIN
+// initApp() — o sea, un dashboard cáscara. Acá se resuelve al instante.
+window.addEventListener('DOMContentLoaded', function () {
+    _verificarSesionAlArrancar().catch(function (e) {
+        console.error('[INDEX] ❌ El arranque falló:', e);
+        try {
+            localStorage.setItem('_diag_arranque_fallo', JSON.stringify({
+                ts: Date.now(), iso: new Date().toISOString(),
+                msg: String(e && e.message || e)
+            }));
+        } catch (_) {}
+        // Sacar el preloader pase lo que pase.
+        try { document.querySelectorAll('#sessionLoader').forEach(l => l.remove()); } catch (_) {}
+        // Con sesión en el dispositivo: entrar igual. Un dashboard funcionando a
+        // medias es recuperable; una pantalla trabada, no. Sin sesión: al login,
+        // que es donde corresponde y no expone datos de nadie.
+        let _haySesion = false;
+        try { _haySesion = !!localStorage.getItem('currentUser'); } catch (_) {}
+        if (!_haySesion) { window.location.href = 'login.html'; return; }
+        try {
+            const cont = document.getElementById('appContainer');
+            if (cont) cont.classList.remove('hidden');
+            if (typeof initApp === 'function') initApp();
+        } catch (e2) { console.error('[INDEX] ❌ Falló también el arranque de emergencia:', e2); }
+    });
+});
+
+async function _verificarSesionAlArrancar() {
     console.log('[INDEX] Verificando sesion...');
 
     // Mostrar loading mientras verificamos
@@ -92,6 +123,21 @@ window.addEventListener('DOMContentLoaded', async function () {
                 // Hay red y el servidor no validó la sesión → redirect al login
                 console.warn('[INDEX] ⛔ localStorage.currentUser existe pero no hay JWT de Supabase — sesión expirada. Redirigiendo al login.');
                 hideLoader();
+                // 🔁 CORTA EL BUCLE DE REDIRECCIONES — no borrar esta línea.
+                // login.html carga auth.js, cuyo arranque hace `if (currentUser)
+                // → location.href = 'index.html'`. Si dejamos currentUser puesto,
+                // login.html rebota a index.html, index.html vuelve a no encontrar
+                // JWT y rebota al login: ciclo infinito, y el usuario NUNCA llega a
+                // ver el formulario para escribir su contraseña. Pasó en producción.
+                // Acá la sesión ya está confirmada como inválida (hay red y el
+                // servidor no la validó), así que este marcador es basura: se va.
+                // OJO: solo en esta rama. En la rama offline NO se toca, porque ahí
+                // no sabemos si la sesión sirve y la app debe seguir andando local.
+                try {
+                    if (typeof clearCurrentUser === 'function') clearCurrentUser();
+                    else localStorage.removeItem('currentUser');
+                    sessionStorage.removeItem('currentUser');
+                } catch (_) {}
                 try { localStorage.setItem('_session_expired_msg', 'Tu sesión expiró. Iniciá sesión de nuevo para continuar.'); } catch (_) {}
                 window.location.href = 'login.html';
                 return;
@@ -123,6 +169,6 @@ window.addEventListener('DOMContentLoaded', async function () {
     console.log('[INDEX] No hay sesion activa, redirigiendo a login');
     hideLoader();
     window.location.href = 'login.html';
-});
+}
 
 console.log('✅ session-check.js cargado');
