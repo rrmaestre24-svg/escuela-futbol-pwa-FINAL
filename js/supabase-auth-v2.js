@@ -136,8 +136,16 @@
   }
 
   // ── Refresh con refresh_token (resiliente) ───────────────────────────────
+  // Peor caso total: REFRESH_TIMEOUT_MS + BACKOFF[0] + REFRESH_TIMEOUT_MS
+  //                   + BACKOFF[1] + REFRESH_TIMEOUT_MS ≈ 13.6s
+  //
+  // ⚠️ ESTE PEOR CASO ESTÁ ATADO A index.html (LIMITE_MS de la red de seguridad
+  // del preloader, hoy 18 s). session-check.js espera este refresh ANTES de
+  // decidir si destapa la app o manda al login; si la red de seguridad saltara
+  // primero, mostraría datos cacheados sin saber todavía si la sesión sirve.
+  // Si tocás estos tiempos, revisá LIMITE_MS en index.html.
   // Estrategia:
-  //   1. Retry 2 veces ante 5xx / red caída / timeout con backoff (500ms, 1500ms).
+  //   1. Retry 2 veces ante 5xx / red caída / timeout con backoff (400ms, 1200ms).
   //   2. 400/401/403/invalid_grant → NO borra la sesión inmediatamente.
   //      Primero relee localStorage (otra pestaña pudo haber refrescado).
   //      Si tampoco hay sesión válida ahí, entonces borra.
@@ -149,9 +157,10 @@
     const _oldToken = _session.access_token;
     _refreshPromise = (async () => {
       try {
+        // Peor caso ≈ 4000 + 400 + 4000 + 1200 + 4000 = 13.6s
         const RETRIES = 2;
-        const BACKOFFS = [500, 1500];
-        const REFRESH_TIMEOUT_MS = 8000;
+        const BACKOFFS = [400, 1200];
+        const REFRESH_TIMEOUT_MS = 4000;
         for (let attempt = 0; attempt <= RETRIES; attempt++) {
           let res, data;
           try {

@@ -279,9 +279,14 @@ function showAdminWelcomeSplash(callback) {
   const settings = getSchoolSettings();
   const currentUser = getCurrentUser();
 
-  // Eliminar loader previo si existe
-  const loader = document.getElementById('sessionLoader');
-  if (loader) loader.remove();
+  // Eliminar loader previo si existe.
+  // querySelectorAll y no getElementById: puede haber DOS elementos con id
+  // 'sessionLoader' (el preloader estático de index.html y el que inserta
+  // session-check.js), y getElementById devuelve solo el primero. Hoy acá ya no
+  // debería quedar ninguno —los dos call-sites de initApp() limpian antes— pero
+  // se deja consistente con auth.js y session-check.js: si mañana aparece un
+  // tercer camino a initApp(), este punto no vuelve a fallar en silencio.
+  document.querySelectorAll('#sessionLoader').forEach(l => l.remove());
 
   const splash = document.createElement('div');
   splash.id = 'adminWelcomeSplash';
@@ -469,6 +474,16 @@ console.log('✅ app.js cargado (ACTUALIZADO)');
 // LISTENER: Detectar eliminación de usuario en tiempo real
 // ========================================
 function setupUserDeletionListener() {
+  // initApp() puede correr más de una vez en la misma carga (auth.js y
+  // session-check.js tienen cada uno su propio DOMContentLoaded). Sin esto, la
+  // segunda pasada pisaba window.userDeletionUnsubscribe y dejaba el setInterval
+  // anterior huérfano: nunca se cancelaba —ni en logout— y la consulta se hacía
+  // al doble de frecuencia por cada recarga.
+  if (typeof window.userDeletionUnsubscribe === 'function') {
+    try { window.userDeletionUnsubscribe(); } catch (_) {}
+    window.userDeletionUnsubscribe = null;
+  }
+
   const currentUser = getCurrentUser();
   const clubId = localStorage.getItem('clubId');
 

@@ -12,13 +12,18 @@ window.addEventListener('DOMContentLoaded', async function () {
         '<p class="text-gray-600 dark:text-gray-400">Cargando...</p></div></div>'
     );
 
+    // OJO: hay DOS elementos con id 'sessionLoader' — el preloader estático de
+    // index.html (fondo opaco, z-index 99999) y el que inserta este archivo.
+    // getElementById devuelve solo el primero del documento, así que la versión
+    // vieja ocultaba uno y dejaba el otro tapando la pantalla para siempre si
+    // initApp() no llegaba a showAdminWelcomeSplash() (que borra el que queda).
+    // querySelectorAll los saca a los dos, sin depender de quién corra después.
     function hideLoader() {
-        const loader = document.getElementById('sessionLoader');
-        if (loader) {
+        document.querySelectorAll('#sessionLoader').forEach(loader => {
             loader.style.transition = 'opacity 0.3s ease';
             loader.style.opacity = '0';
             setTimeout(() => loader.remove(), 300);
-        }
+        });
     }
 
     // 🩹 Evita la RACE entre el primer render (initApp → loadDashboard) y la

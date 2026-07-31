@@ -1703,7 +1703,18 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false } = {}) {
   if (window.idb && window.idb.ensureClubIsolation) {
     try {
       const r = await window.idb.ensureClubIsolation(clubId);
-      if (r && r.cleared) force = true;
+      if (r && r.cleared) {
+        force = true;
+        // El aislamiento limpia IndexedDB, pero varias colecciones tienen además
+        // un espejo en localStorage del que se lee cuando la caché RAM todavía no
+        // está hidratada. Si no se limpian acá, un cambio de club en el mismo
+        // dispositivo SIN logout de por medio (sesión vencida, otro admin) dejaría
+        // al club entrante leyendo datos del anterior.
+        ['players', 'payments', 'paymentsFullHistory', 'calendarEvents',
+         'users', 'expenses', 'parentCodes', 'thirdPartyIncomes']
+          .forEach(k => { try { localStorage.removeItem(k); } catch (_) {} });
+        console.log('[sync] 🧹 Espejos de localStorage limpiados por cambio de club');
+      }
     } catch (e) { console.warn('[idb] ensureClubIsolation (supabase) falló:', e); }
   }
 
@@ -1780,11 +1791,6 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false } = {}) {
     }
     const enc = encodeURIComponent;
 
-    // Limpiar datos previos del club para maximizar espacio disponible en localStorage
-    ['players', 'payments', 'paymentsFullHistory', 'calendarEvents', 'users', 'expenses', 'parentCodes', 'thirdPartyIncomes'].forEach(k => {
-      try { localStorage.removeItem(k); } catch(_) {}
-    });
-
     // 1️⃣ Jugadores
     const pRows = await fetchAllRows(
       `${base}/players?club_id=eq.${enc(clubId)}&deleted=eq.false&select=*&order=id`,
@@ -1804,6 +1810,7 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false } = {}) {
       notificationsStartDate: p.notifications_start_date || null,
       deleted: p.deleted, schoolId: clubId,
     }));
+    try { localStorage.removeItem('players'); } catch(_) {}
     try {
       localStorage.setItem('players', JSON.stringify(players));
     } catch (quotaErr) {

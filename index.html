@@ -69,6 +69,64 @@
         </div>
     </div>
 
+    <!-- RED DE SEGURIDAD DEL PRELOADER — no borrar.
+         El preloader de arriba es opaco y va en z-index 99999: si el arranque
+         se cae en cualquier punto antes de removerlo, el usuario queda mirando
+         "Cargando app..." para siempre, sin forma de salir. Pasó en producción.
+         Este script no depende de NINGÚN archivo js/ (corre aunque el resto
+         falle) y garantiza que a los 12 s la pantalla se libere pase lo que pase.
+         No reemplaza al removedor normal: es el último recurso. -->
+    <script>
+        (function () {
+            // ⚠️ ESTE NÚMERO ESTÁ ATADO A js/supabase-auth-v2.js.
+            // session-check.js recién saca el preloader DESPUÉS de await
+            // _hasValidSession(), que en el peor caso agota los reintentos del
+            // refresh de JWT (~13,6 s: ver el cálculo en supabase-auth-v2.js,
+            // constantes REFRESH_TIMEOUT_MS y BACKOFFS). Si este tope quedara
+            // por debajo de ese peor caso, la red de seguridad destaparía la app
+            // ANTES de saber si la sesión sirve. Debe mantenerse con margen por
+            // encima. Si tocás los tiempos del refresh, revisá este valor.
+            var LIMITE_MS = 18000;
+            setTimeout(function () {
+                var loaders = document.querySelectorAll('#sessionLoader');
+                if (!loaders.length) return;
+                console.warn('[ARRANQUE] El preloader seguía visible tras ' + (LIMITE_MS / 1000) +
+                             's — se libera por red de seguridad. Algo falló en el arranque.');
+                try {
+                    localStorage.setItem('_diag_preloader_forzado', JSON.stringify({
+                        ts: Date.now(), iso: new Date().toISOString(),
+                        url: location.pathname
+                    }));
+                } catch (_) {}
+
+                // ¿Hay algún rastro de sesión en este dispositivo? No se valida
+                // vigencia acá (no es el rol de esta red de seguridad, y sin red
+                // no se podría); solo se distingue "el arranque no terminó" de
+                // "acá no hay sesión de nadie". Sin ningún rastro NO se destapa la
+                // app: se manda al login. Destapar mostraría datos cacheados del
+                // último club que usó el dispositivo.
+                var hayRastroDeSesion = false;
+                try {
+                    hayRastroDeSesion = !!(localStorage.getItem('currentUser') ||
+                                           localStorage.getItem('supa_user_jwt_v2') ||
+                                           localStorage.getItem('supa_user_jwt'));
+                } catch (_) {}
+
+                for (var i = 0; i < loaders.length; i++) loaders[i].remove();
+
+                if (!hayRastroDeSesion) {
+                    location.replace('login.html');
+                    return;
+                }
+                // Con sesión en el dispositivo: preferible una app a medias —y
+                // usable— que una pantalla que no deja hacer nada. Si la sesión
+                // resulta inválida, session-check.js redirige igual al terminar.
+                var cont = document.getElementById('appContainer');
+                if (cont) cont.classList.remove('hidden');
+            }, LIMITE_MS);
+        })();
+    </script>
+
     <!-- ========================================
          APLICACIÓN PRINCIPAL (Después del login)
     ========================================= -->

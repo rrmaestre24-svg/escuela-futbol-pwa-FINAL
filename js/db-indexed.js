@@ -185,6 +185,36 @@
     });
   }
 
+  // Busca en una store el primer registro que traiga campo de club, recorriendo con
+  // cursor (sin cargar la store entera a memoria) hasta un tope de registros.
+  //
+  // Por qué recorre y no mira solo el primero: los registros creados SIN CONEXIÓN
+  // todavía no tienen campo de club — se inyecta recién al sincronizar contra
+  // Supabase. Si el primero por orden de clave resulta ser uno de esos, juzgar por
+  // él daría "no verificable" y dispararía un borrado innecesario de datos legítimos.
+  //
+  // Devuelve { encontrado, club }. `encontrado: false` significa que la store no
+  // aporta evidencia sobre a qué club pertenece (vacía, o todo sin sincronizar).
+  const CLUB_SCAN_LIMIT = 50;
+  async function findClubIdInStore(storeName, limite = CLUB_SCAN_LIMIT) {
+    const db = await open();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(storeName, 'readonly');
+      const req = tx.objectStore(storeName).openCursor();
+      let vistos = 0;
+      req.onsuccess = (e) => {
+        const cursor = e.target.result;
+        if (!cursor) return resolve({ encontrado: false, club: null });
+        const v = cursor.value || {};
+        const club = v.schoolId || v.clubId || v.club_id;
+        if (club) return resolve({ encontrado: true, club: String(club).trim() });
+        if (++vistos >= limite) return resolve({ encontrado: false, club: null });
+        cursor.continue();
+      };
+      req.onerror = () => reject(req.error);
+    });
+  }
+
   async function clear(storeName) {
     const db = await open();
     return new Promise((resolve, reject) => {
@@ -323,32 +353,32 @@
     }
     if (firstLogin) {
       // No sabemos de qué club son los datos actuales. Intentar verificar.
-      // Estrategia: recorrer stores hasta encontrar un registro y comparar
-      // su campo de club contra el clubId entrante.
-      // Los campos varían: players→schoolId, coaches→club_id, resto→clubId.
-      // Si el club no coincide o hay ambigüedad → fail-safe: limpiar (aislamiento > caché).
-      let _foundData = false;
-      let _clubOk = false;
+      // Estrategia: recorrer TODAS las stores no vacías y exigir que TODAS las que
+      // aporten evidencia coincidan con el clubId entrante. Los campos varían:
+      // players→schoolId, coaches→club_id, resto→clubId.
+      //
+      // Una store puede no aportar evidencia (todos sus registros creados sin
+      // conexión, todavía sin campo de club): esa NO se usa para decidir, pero
+      // tampoco alcanza para recuperar. Hace falta al menos UNA store que confirme
+      // el club. Si hay datos y ninguna lo confirma → fail-safe: limpiar
+      // (aislamiento > caché; los cambios sin sincronizar viven en pendingSyncQueue,
+      // que no está en STORES y por lo tanto sobrevive al borrado).
+      let _foundData = false;   // hay datos en IndexedDB
+      let _verificado = false;  // al menos una store confirmó que son de este club
+      let _allMatch = true;     // ninguna store contradijo
       try {
         for (const s of STORES) {
           const cnt = await count(s.name);
           if (cnt === 0) continue;
           _foundData = true;
-          const items = await getAll(s.name);
-          const sample = items.find(i => i && (i.id || i.playerId));
-          if (sample) {
-            const storedClub = sample.schoolId || sample.clubId || sample.club_id;
-            if (storedClub && String(storedClub) === String(clubId)) {
-              _clubOk = true;
-              break;
-            }
-            // Club no coincide — salir del loop, _foundData=true, _clubOk=false
-            break;
-          }
+          const r = await findClubIdInStore(s.name);
+          if (!r.encontrado) continue; // sin evidencia — no decide ni a favor ni en contra
+          if (r.club !== String(clubId).trim()) { _allMatch = false; break; }
+          _verificado = true;
         }
-      } catch (_) { _foundData = true; _clubOk = false; } // error → fail-safe
+      } catch (_) { _foundData = true; _allMatch = false; } // error → fail-safe
 
-      if (_clubOk) {
+      if (_foundData && _allMatch && _verificado) {
         localStorage.setItem('idb_current_club', clubId);
         _diagWipe('firstLogin_recovery', clubId, { lastClubId });
         console.log(`[idb] ↩️ firstLogin con datos verificados — recuperado (club=${clubId})`);
@@ -439,7 +469,7 @@
     return _hydrateEnCurso;
   }
 
-  const HYDRATE_TIMEOUT_MS = 5000;
+  const HYDRATE_TIMEOUT_MS = 15000;
 
   /**
    * Igual que hydrateCache(), pero con techo de tiempo: si IndexedDB se cuelga

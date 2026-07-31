@@ -1765,21 +1765,29 @@ function _formatBytes(bytes) {
 
 /**
  * Limpia SOLO el cache local (IndexedDB + flags) y recarga la app.
- * NO toca Supabase — los datos están seguros en la nube y se vuelven a descargar.
+ * NO toca Supabase — los datos se vuelven a descargar desde la nube.
  * Útil si algo se traba o el admin quiere "empezar de cero" localmente.
  */
 async function clearLocalCacheOnly() {
-  // Verificar sesión Supabase ACTIVA (no solo que exista un token) antes de limpiar.
-  // Sin sesión válida, limpiar la caché dejaría al usuario sin datos sin poder recargarlos.
-  // 1. Si hay token pero podría estar vencido, forzar refresh para confirmar.
-  let _sesionValida = (window.SupaAuthV2 && typeof window.SupaAuthV2.getToken === 'function' && window.SupaAuthV2.getToken())
-    || (window.SupaAuth && typeof window.SupaAuth.getToken === 'function' && window.SupaAuth.getToken());
-  if (_sesionValida && window.SupaAuthV2 && typeof window.SupaAuthV2.refreshToken === 'function') {
+  // Verificar sesión Supabase ACTIVA antes de limpiar.
+  // Rastrear qué versión de auth tiene el token para refrescar con la correcta.
+  let _sesionValida = false;
+  let _authSource = null;
+  if (window.SupaAuthV2 && typeof window.SupaAuthV2.getToken === 'function' && window.SupaAuthV2.getToken()) {
+    _sesionValida = true;
+    _authSource = 'v2';
+  } else if (window.SupaAuth && typeof window.SupaAuth.getToken === 'function' && window.SupaAuth.getToken()) {
+    _sesionValida = true;
+    _authSource = 'v1';
+  }
+  if (_sesionValida && _authSource === 'v2' && window.SupaAuthV2 && typeof window.SupaAuthV2.refreshToken === 'function') {
+    showToast('🔑 Verificando sesión...');
     try {
       const refreshed = await window.SupaAuthV2.refreshToken();
       _sesionValida = !!(refreshed && refreshed.access_token);
     } catch (_) { _sesionValida = false; }
   }
+  // Si la sesión venía de v1, no la refrescamos con v2 — el token v1 se acepta como válido
   if (!_sesionValida) {
     await showAppAlert(
       '⚠️ No tienes una sesión activa en este momento.\n\n' +
@@ -1790,6 +1798,105 @@ async function clearLocalCacheOnly() {
     );
     return;
   }
+
+  // Antes de limpiar, verificar que la cola de sincronización esté vacía.
+  // Si hay cambios offline sin subir, borrarlos sería pérdida de datos.
+  let queueSize = 0;
+  // Cuenta la cola contra IndexedDB DIRECTO, a propósito: syncQueue.getQueueSize()
+  // atrapa los errores de IndexedDB y devuelve 0, con lo cual "falló la lectura" y
+  // "la cola está vacía" quedan indistinguibles — y acá esa diferencia decide si se
+  // borran o no escrituras que todavía no llegaron a Supabase. idb.count() sí
+  // propaga el rechazo, así que un error se convierte en "no se pudo verificar"
+  // (y por lo tanto en NO borrar), que es la dirección segura.
+  const getQueueSizeSafely = async () => {
+    if (!window.idb || typeof window.idb.count !== 'function') {
+      throw new Error('idb.count no disponible');
+    }
+    return window.idb.count('pendingSyncQueue');
+  };
+  try {
+    queueSize = await getQueueSizeSafely();
+  } catch (_) {
+    await showAppAlert(
+      '⚠️ No se pudo verificar si hay cambios pendientes. Por seguridad no se limpió nada.',
+      { type: 'error', title: 'Verificación fallida' }
+    );
+    return;
+  }
+  if (queueSize > 0) {
+    const trySync = await showAppConfirm(
+      `📤 Tenés ${queueSize} cambio(s) sin subir a la nube (se guardaron sin internet).\n\n` +
+      'Vamos a intentar subirlos antes de limpiar.',
+      { type: 'warning', title: 'Cambios pendientes', confirmText: 'Intentar subir' }
+    );
+    if (trySync) {
+      showToast('📤 Subiendo cambios pendientes...');
+      let syncResult = null;
+      try {
+        if (!window.syncQueue || typeof window.syncQueue.processQueue !== 'function') {
+          throw new Error('syncQueue.processQueue no disponible');
+        }
+        syncResult = await window.syncQueue.processQueue();
+      } catch (_) {
+        await showAppAlert(
+          '⚠️ No se pudo procesar la cola de sincronización. Por seguridad no se limpió nada.',
+          { type: 'error', title: 'Sincronización fallida' }
+        );
+        return;
+      }
+      if (syncResult && syncResult.skipped) {
+        const skippedReason = syncResult.reason === 'offline'
+          ? 'No hay conexión en este momento.'
+          : 'Otro proceso ya estaba manejando la sincronización.';
+        await showAppAlert(
+          `⚠️ No se procesó la cola de sincronización. ${skippedReason}\n\n` +
+          'Por seguridad no se limpió nada.',
+          { type: 'error', title: 'Sincronización no ejecutada' }
+        );
+        return;
+      }
+      if (syncResult && syncResult.dropped > 0) {
+        await showAppAlert(
+          `⚠️ ${syncResult.dropped} cambio(s) no pudieron subirse tras varios intentos y fueron descartados por el sistema. NO limpies la caché: contactá a soporte antes de perder estos datos.`,
+          { type: 'error', title: 'Datos en riesgo' }
+        );
+        return;
+      }
+      if (syncResult && syncResult.failed > 0) {
+        await showAppAlert(
+          `⚠️ No se pudieron subir ${syncResult.failed} cambio(s). Quedaron en cola y se reintentarán solos después.\n\n` +
+          'Por seguridad no se limpió nada.',
+          { type: 'error', title: 'Sincronización fallida' }
+        );
+        return;
+      }
+      try {
+        queueSize = await getQueueSizeSafely();
+      } catch (_) {
+        await showAppAlert(
+          '⚠️ No se pudo verificar si quedaron cambios pendientes después de sincronizar. Por seguridad no se limpió nada.',
+          { type: 'error', title: 'Verificación fallida' }
+        );
+        return;
+      }
+    }
+    if (queueSize > 0) {
+      // `trySync` distingue los dos casos: el usuario canceló la subida, o la
+      // aceptó pero igual quedaron cambios en cola (se encoló algo mientras
+      // procesaba). Sin esta distinción el aviso acusaba de cancelar a alguien
+      // que no canceló.
+      await showAppAlert(
+        trySync
+          ? `⚠️ Quedaron ${queueSize} cambio(s) sin subir. No se limpió nada.\n\n` +
+            '👉 Esperá a que terminen de sincronizarse e intentá de nuevo.'
+          : `⚠️ Cancelaste la subida de ${queueSize} cambio(s). No se limpió nada.\n\n` +
+            '👉 Si querés limpiar la caché, primero subí esos cambios.',
+        { type: 'info', title: 'Limpieza cancelada' }
+      );
+      return;
+    }
+  }
+
   const confirmed = await showAppConfirm(
     '🧹 Esto borrará la copia local de tu club (IndexedDB).\n\n' +
     '✅ Tus datos están seguros en la nube y se descargarán de nuevo al recargar.\n' +
@@ -1811,18 +1918,53 @@ async function clearLocalCacheOnly() {
   } catch (_) {}
 
   try {
-    // 1. Limpiar las 5 stores principales de IndexedDB + cola de reintentos
+    // 1. Limpiar stores de IndexedDB. pendingSyncQueue va aparte, más abajo:
+    // se verificó arriba que estaba vacía, pero se vuelve a comprobar justo
+    // antes de borrarla — es la cola de escrituras que todavía no llegaron a
+    // Supabase y perderla es perder datos contables.
     if (window.idb && window.idb.clear) {
-      const stores = ['payments', 'players', 'expenses', 'events', 'thirdPartyIncomes', 'pendingSyncQueue'];
+      const stores = ['payments', 'players', 'expenses', 'events', 'thirdPartyIncomes', 'coaches'];
       for (const store of stores) {
         try { await window.idb.clear(store); } catch (_) {}
+      }
+      let pendingQueueStillHasItems = false;
+      let noSePudoVerificarCola = false;
+      try {
+        pendingQueueStillHasItems = (await getQueueSizeSafely()) > 0;
+      } catch (_) {
+        // Fail-safe: si no podemos confirmar que está vacía, la conservamos.
+        // OJO: NO cortar acá con `return`. Las stores de datos ya se borraron
+        // arriba; si salimos ahora quedan los flags (_lastFullDownload,
+        // idb_current_club) apuntando a una caché que ya no existe y sin
+        // recarga → al volver a entrar, el TTL de 15 min saltea la descarga y
+        // la app arranca en ceros. Hay que seguir al bloque de flags + reload.
+        noSePudoVerificarCola = true;
+        pendingQueueStillHasItems = true;
+      }
+      if (!pendingQueueStillHasItems) {
+        try { await window.idb.clear('pendingSyncQueue'); } catch (_) {}
+      } else {
+        // El try/catch no es decorativo: es el único await de este bloque que no
+        // estaba protegido, y si lanzara se saltearía la limpieza de flags y el
+        // reload de abajo — dejando la app exactamente en ceros, que es el bug
+        // que este cambio viene a cerrar.
+        try {
+          await showAppAlert(
+            noSePudoVerificarCola
+              ? '⚠️ No se pudo confirmar que la cola de sincronización esté vacía.\n\n' +
+                'Se limpiaron los demás datos locales, pero la cola se conservó para no perder información.'
+              : '⚠️ La cola de sincronización seguía teniendo cambios pendientes al final del proceso.\n\n' +
+                'Se limpiaron los demás datos locales, pero no se borró la cola para no perder información.',
+            { type: 'warning', title: 'Cola conservada' }
+          );
+        } catch (_) {}
       }
     }
 
     // 2. Limpiar flags que controlan migración inicial y cleanup (para que vuelvan a correr)
     [
       'idb_migrated_payments', 'idb_migrated_players', 'idb_migrated_expenses',
-      'idb_migrated_events', 'idb_migrated_thirdPartyIncomes',
+      'idb_migrated_events', 'idb_migrated_thirdPartyIncomes', 'idb_migrated_coaches',
       'idb_fase4_cleanup_v1', 'idb_current_club',
       '_lastFullDownload',
     ].forEach(k => { try { localStorage.removeItem(k); } catch (_) {} });

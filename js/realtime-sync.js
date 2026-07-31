@@ -1914,6 +1914,23 @@ window.addEventListener('pageshow', function (event) {
     .catch(e => console.warn('[sync] revalidación en pageshow falló:', e?.message || e));
 });
 
+// 🩹 Re-renderizar si la hidratación de IDB llegó tarde (timeout superado
+// pero luego completada). Sin esto, si hydrateCacheWithTimeout expiró y
+// initApp() corrió con la cache vacía, el dashboard queda en ceros aunque
+// los datos estén en IDB. El evento 'idb-cache-ready' se dispara al
+// finalizar la hidratación real (que sigue corriendo en background).
+window.addEventListener('idb-cache-ready', function _onCacheReady() {
+  window.removeEventListener('idb-cache-ready', _onCacheReady);
+  const _clubId = typeof getActiveSessionClubId === 'function' ? getActiveSessionClubId() : null;
+  if (_clubId && window.MODO_SUPABASE) {
+    console.log('[sync] ↩️ Cache lista con retraso — re-renderizando dashboard');
+    if (typeof updateDashboard === 'function') updateDashboard();
+    if (typeof renderPlayersList === 'function') renderPlayersList();
+    if (typeof renderCalendar === 'function') renderCalendar();
+    if (typeof renderAccounting === 'function') renderAccounting();
+  }
+});
+
 // Exponer funciones globalmente
 window.startRealtimeSync = startRealtimeSync;
 window.stopRealtimeSync = stopRealtimeSync;

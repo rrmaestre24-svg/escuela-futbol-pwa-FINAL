@@ -436,13 +436,28 @@ document.getElementById('loginForm')?.addEventListener('submit', async function(
 
         // Resolver el perfil del admin (id + name/avatar/phone/is_main_admin) por email,
         // con el JWT v2 (vía interceptor). Antes solo traía el id → faltaban perfil y rol.
+        //
+        // `ilike` y NO `eq`: Supabase Auth valida el correo sin distinguir mayúsculas,
+        // pero Postgres sí las distingue. Un admin guardado como `Fulano@gmail.com`
+        // autenticaba bien y después no aparecía acá (la app normaliza a minúsculas),
+        // con lo cual el login moría en "No se pudo identificar el usuario" y el club
+        // quedaba afuera. Caso real en producción. El email ya viene normalizado y
+        // escapado. Se pide `email` en el select y se vuelve a comparar en JS porque
+        // en SQL `_` es comodín de un carácter: sin esa verificación, un correo como
+        // `juan_perez@…` podría traer la fila de `juanXperez@…` y meter al admin en
+        // el club equivocado. La comparación final es exacta (ignorando mayúsculas).
         const lookup = await fetch(
-          `${window.SUPA_URL}/rest/v1/users?email=eq.${encodeURIComponent(email)}&deleted=eq.false&select=id,name,avatar,phone,is_main_admin&limit=1`
+          `${window.SUPA_URL}/rest/v1/users?email=ilike.${encodeURIComponent(email)}&deleted=eq.false&select=id,email,name,avatar,phone,is_main_admin&limit=1`
         );
         let _prof = {};
         if (lookup.ok) {
           const rows = await lookup.json();
-          if (rows[0]?.id) { firebaseUid = rows[0].id; _prof = rows[0]; }
+          const _row = rows[0];
+          const _coincide = _row?.email && normalizeUserEmail(_row.email) === email;
+          if (_row?.id && _coincide) { firebaseUid = _row.id; _prof = _row; }
+          else if (_row?.id) {
+            console.warn('[LOGIN] El correo devuelto no coincide exactamente — se descarta por seguridad');
+          }
         }
 
         // currentUser con el perfil real (name/avatar/phone/isMainAdmin) para el dashboard
@@ -1036,6 +1051,16 @@ async function logout() {
       localStorage.removeItem('clubId');
       localStorage.removeItem('players');
       localStorage.removeItem('payments');
+      // Estas cuatro faltaban. Hasta ahora las borraba, de rebote, un removeItem
+      // masivo al inicio de la descarga; ese bloque se sacó (borraba los datos
+      // locales aunque la descarga fallara después). Sin esto quedaban acá los
+      // egresos e ingresos del club anterior, y getExpenses()/getThirdPartyIncomes()
+      // caen a localStorage cuando la caché RAM no está hidratada → otro club en el
+      // mismo dispositivo podía llegar a verlos.
+      localStorage.removeItem('expenses');
+      localStorage.removeItem('thirdPartyIncomes');
+      localStorage.removeItem('parentCodes');
+      localStorage.removeItem('paymentsFullHistory');
       localStorage.removeItem('calendarEvents');
       localStorage.removeItem('users');
       localStorage.removeItem('schoolSettings');
@@ -1086,9 +1111,15 @@ window.addEventListener('DOMContentLoaded', async function() {
   }
   
   // Función para ocultar loading
+  // querySelectorAll y no getElementById: puede haber DOS elementos con id
+  // 'sessionLoader' a la vez — el preloader estático de index.html y el que
+  // inserta session-check.js. getElementById devuelve solo el primero y dejaba
+  // el otro (opaco, z-index 99999) tapando la pantalla para siempre.
+  // Hoy este camino corre antes que el de session-check.js y no llegan a
+  // coexistir, pero eso depende del orden de los <script>: si alguien los
+  // reordena o les pone defer, el bug vuelve. Esto lo cierra igual.
   function hideLoading() {
-    const loader = document.getElementById('sessionLoader');
-    if (loader) loader.remove();
+    document.querySelectorAll('#sessionLoader').forEach(l => l.remove());
   }
   
   // Función para mostrar la app

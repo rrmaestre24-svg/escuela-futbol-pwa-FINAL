@@ -1,4 +1,4 @@
-const CACHE_NAME = 'my-club-v1.9.4';
+const CACHE_NAME = 'my-club-v1.9.8';
 
 const urlsToCache = [
   '/',
@@ -6,6 +6,7 @@ const urlsToCache = [
   '/login.html',
   '/terminos.html',
   '/offline.html',
+  '/rescate.html',   // salida de emergencia: se cachea sólo como red de seguridad
   '/manifest.json',
 
   // ICONOS PWA
@@ -127,11 +128,73 @@ self.addEventListener('activate', event => {
 });
 
 /* ==============================
+   RED CON TOPE DE ESPERA
+============================== */
+/* Antes, HTML y JS eran "network first" sin límite: sólo se usaba la copia guardada
+   si el fetch FALLABA. Con una conexión lenta pero no caída (wifi de sede, datos
+   flojos) el fetch no falla — se queda esperando — y la app quedaba cargando para
+   siempre aunque tuviera todos los archivos guardados. Caso real en producción.
+
+   Ahora se sirve la copia guardada si la red no contestó en NETWORK_TIMEOUT_MS.
+   La petición NO se cancela: sigue en segundo plano y refresca la caché, así la
+   próxima apertura ya trae la versión nueva. Con red normal el comportamiento no
+   cambia (la red gana la carrera muy por debajo del tope). */
+const NETWORK_TIMEOUT_MS = 3000;
+
+function networkFirstConTope(request, { esNavegacion = false } = {}) {
+  return new Promise(resolve => {
+    let yaRespondio = false;
+    const responder = res => { if (!yaRespondio) { yaRespondio = true; resolve(res); } };
+
+    const temporizador = setTimeout(() => {
+      caches.match(request, { ignoreSearch: true }).then(cacheada => {
+        if (cacheada) {
+          console.log('⏱️ Red lenta — sirviendo copia guardada:', request.url);
+          responder(cacheada);
+        }
+        // Si no hay copia guardada no se responde acá: se sigue esperando a la red,
+        // que es la única fuente posible.
+      });
+    }, NETWORK_TIMEOUT_MS);
+
+    fetch(esNavegacion ? new Request(request, { cache: 'reload' }) : request)
+      .then(response => {
+        clearTimeout(temporizador);
+        if (response && response.status === 200) {
+          const copia = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(request, copia));
+        }
+        responder(response);
+      })
+      .catch(() => {
+        clearTimeout(temporizador);
+        caches.match(request, { ignoreSearch: true }).then(cacheada => {
+          if (cacheada) return responder(cacheada);
+          if (!esNavegacion) return responder(Response.error());
+          return caches.match('/index.html').then(idx => {
+            if (idx) return responder(idx);
+            return caches.match('/offline.html').then(off => responder(off || Response.error()));
+          });
+        });
+      });
+  });
+}
+
+/* ==============================
    FETCH
 ============================== */
 self.addEventListener('fetch', event => {
   // Ignorar peticiones que no son HTTP/HTTPS
   if (!event.request.url.startsWith('http')) return;
+
+  // Página de rescate: SIEMPRE la versión de la red, primero. Es la salida de
+  // emergencia cuando la app quedó rota, así que no puede servirse una copia
+  // vieja. Igual está precacheada (ver urlsToCache) y se usa como último recurso
+  // si justo no hay red en el momento en que se la necesita.
+  if (event.request.url.indexOf('/rescate.html') !== -1) {
+    event.respondWith(fetch(event.request).catch(() => caches.match(event.request)));
+    return;
+  }
 
   // Reset-password SIEMPRE a la red (nunca versión cacheadas).
   if (event.request.url.indexOf('/reset-password.html') !== -1) {
@@ -164,54 +227,18 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  /* 🟢 NAVEGACIÓN (HTML) */
+  /* 🟢 NAVEGACIÓN (HTML) → Red primero, con tope de espera */
   if (event.request.mode === 'navigate') {
-    event.respondWith(
-      fetch(new Request(event.request, { cache: 'reload' }))
-        .then(response => {
-          // Cachear la respuesta
-          if (response && response.status === 200) {
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then(cache => {
-              cache.put(event.request, clone);
-            });
-          }
-          return response;
-        })
-        .catch(() => {
-          // 1. Intentar archivo exacto ignorando parámetros (?homescreen=1 etc)
-          return caches.match(event.request, { ignoreSearch: true }).then(cached => {
-            if (cached) return cached;
-            // 2. Si es navegación y falló, intentar forzar el index.html
-            return caches.match('/index.html').then(idxCached => {
-              if (idxCached) return idxCached;
-              // 3. Fallback final al offline.html
-              return caches.match('/offline.html');
-            });
-          });
-        })
-    );
+    event.respondWith(networkFirstConTope(event.request, { esNavegacion: true }));
     return;
   }
 
-  /* 🟡 JS / CSS → Network First */
+  /* 🟡 JS / CSS → Red primero, con tope de espera */
   if (
     event.request.url.endsWith('.js') ||
     event.request.url.endsWith('.css')
   ) {
-    event.respondWith(
-      fetch(event.request)
-        .then(response => {
-          if (response && response.status === 200) {
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then(cache => {
-              cache.put(event.request, clone);
-            });
-          }
-          return response;
-        })
-        .catch(() => caches.match(event.request))
-    );
+    event.respondWith(networkFirstConTope(event.request));
     return;
   }
 

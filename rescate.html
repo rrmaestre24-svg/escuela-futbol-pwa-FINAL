@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Reparar MY CLUB</title>
+<!--
+  PÁGINA DE RESCATE — salida de emergencia cuando la app queda trabada cargando.
+
+  Reglas de esta página (no romperlas):
+  - CERO dependencias externas: nada de CDN, nada de js/*.js, nada de fuentes.
+    Se usa cuando el resto de la app NO funciona; si dependiera de algo más,
+    fallaría justo cuando se la necesita.
+  - Todo el CSS y el JS van acá adentro, en línea.
+  - El Service Worker le da SIEMPRE prioridad a la versión de la red (ver sw.js).
+    Igual está precacheada, pero solo como último recurso si justo no hay red.
+-->
+<style>
+  *{ box-sizing: border-box; }
+  body{
+    margin:0; min-height:100vh; padding:24px 18px;
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+    background:#0f172a; color:#e2e8f0;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .caja{ width:100%; max-width:420px; }
+  h1{ font-size:22px; margin:0 0 6px; color:#fff; }
+  .sub{ font-size:14px; color:#94a3b8; margin:0 0 22px; line-height:1.5; }
+  .tarjeta{ background:#1e293b; border:1px solid #334155; border-radius:14px; padding:18px; margin-bottom:16px; }
+  .tarjeta p{ margin:0 0 10px; font-size:14px; line-height:1.55; }
+  .tarjeta p:last-child{ margin-bottom:0; }
+  .aviso{ background:#422006; border-color:#854d0e; color:#fde68a; }
+  .peligro{ background:#450a0a; border-color:#991b1b; color:#fecaca; }
+  .ok{ background:#052e16; border-color:#166534; color:#bbf7d0; }
+  button{
+    width:100%; padding:15px; font-size:16px; font-weight:700; border:0; border-radius:12px;
+    background:#14b8a6; color:#042f2e; cursor:pointer; font-family:inherit;
+  }
+  button:disabled{ opacity:.5; cursor:default; }
+  button.secundario{ background:transparent; color:#94a3b8; border:1px solid #334155; margin-top:10px; font-weight:600; }
+  .paso{ font-size:13px; color:#94a3b8; margin:4px 0; }
+  .paso b{ color:#e2e8f0; }
+  .oculto{ display:none; }
+</style>
+</head>
+<body>
+<div class="caja">
+  <h1>🛟 Reparar MY CLUB</h1>
+  <p class="sub">Esta página borra los datos guardados en <b>este dispositivo</b> y vuelve a descargar todo desde la nube. Sirve cuando la app se queda cargando o no abre.</p>
+
+  <div id="estadoCola" class="tarjeta">
+    <p>⏳ Revisando si tenés cambios sin subir…</p>
+  </div>
+
+  <div class="tarjeta">
+    <p><b>Tu información NO se pierde.</b> Los jugadores, pagos y demás están guardados en la nube y se descargan de nuevo cuando vuelvas a entrar.</p>
+    <p>Vas a tener que <b>iniciar sesión otra vez</b>. Tené a mano tu correo y contraseña.</p>
+  </div>
+
+  <button id="btnReparar" disabled>Revisando…</button>
+  <button class="secundario" onclick="location.href='index.html'">Cancelar y volver a la app</button>
+
+  <div id="progreso" class="tarjeta oculto" style="margin-top:16px"></div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var DB_NAME = 'myclub_db';
+  var STORE_COLA = 'pendingSyncQueue';
+
+  var elEstado   = document.getElementById('estadoCola');
+  var elBoton    = document.getElementById('btnReparar');
+  var elProgreso = document.getElementById('progreso');
+
+  function log(txt) {
+    elProgreso.classList.remove('oculto');
+    var p = document.createElement('p');
+    p.className = 'paso';
+    p.innerHTML = txt;
+    elProgreso.appendChild(p);
+  }
+
+  // ── 1. Antes de ofrecer el borrado, avisar si hay escrituras sin subir ──────
+  // Son pagos/jugadores cargados SIN internet que todavía no llegaron a la nube.
+  // Si se borran, se pierden. Por eso se avisa fuerte en vez de borrar callado.
+  function contarPendientes() {
+    return new Promise(function (resolve) {
+      var terminado = false;
+      var fin = function (n) { if (!terminado) { terminado = true; resolve(n); } };
+      // Si IndexedDB está trabado (justo el caso que trae gente acá), no colgarse.
+      setTimeout(function () { fin(null); }, 4000);
+      try {
+        var req = indexedDB.open(DB_NAME);
+        req.onerror = function () { fin(null); };
+        req.onsuccess = function () {
+          var db = req.result;
+          try {
+            if (!db.objectStoreNames.contains(STORE_COLA)) { db.close(); return fin(0); }
+            var tx = db.transaction(STORE_COLA, 'readonly');
+            var c = tx.objectStore(STORE_COLA).count();
+            c.onsuccess = function () { var n = c.result; db.close(); fin(n); };
+            c.onerror   = function () { db.close(); fin(null); };
+          } catch (_) { try { db.close(); } catch (__) {} fin(null); }
+        };
+        // La BD no existe todavía → no hay nada pendiente.
+        req.onupgradeneeded = function () { fin(0); };
+      } catch (_) { fin(null); }
+    });
+  }
+
+  // Se guarda acá afuera para que el botón pueda pedir una segunda confirmación
+  // cuando hay (o puede haber) cambios sin subir. 0 = verificado y vacío.
+  var pendientes = 0;
+
+  contarPendientes().then(function (n) {
+    pendientes = n;
+    if (n === 0) {
+      elEstado.className = 'tarjeta ok';
+      elEstado.innerHTML = '<p>✅ No tenés cambios sin subir. Es seguro reparar.</p>';
+      elBoton.textContent = 'Reparar ahora';
+      elBoton.disabled = false;
+    } else if (n === null) {
+      elEstado.className = 'tarjeta aviso';
+      elEstado.innerHTML = '<p>⚠️ No se pudo verificar si tenés cambios sin subir.</p>' +
+        '<p>Si cargaste pagos <b>sin internet</b> y no se sincronizaron, avisale a soporte antes de continuar.</p>';
+      elBoton.textContent = 'Reparar de todos modos';
+      elBoton.disabled = false;
+    } else {
+      elEstado.className = 'tarjeta peligro';
+      elEstado.innerHTML = '<p>🛑 Tenés <b>' + n + ' cambio(s) sin subir</b> a la nube.</p>' +
+        '<p>Si reparás ahora, <b>se pierden</b>. Conectate a internet, abrí la app y esperá a que se sincronicen.</p>' +
+        '<p>Si no podés, contactá a soporte <b>antes</b> de continuar.</p>';
+      elBoton.textContent = 'Reparar y perder ' + n + ' cambio(s)';
+      elBoton.disabled = false;
+    }
+  });
+
+  // ── 2. El borrado en sí ─────────────────────────────────────────────────────
+  elBoton.addEventListener('click', function () {
+    // Segunda barrera SOLO cuando hay riesgo real de perder algo. La página se
+    // usa en momentos de apuro y con el club esperando: un único toque sobre un
+    // botón con texto largo es poca barrera si hay pagos sin subir. No se bloquea
+    // el rescate —sería un callejón sin salida, no puede entrar a la app rota ni
+    // repararla— pero se obliga a leer el número y confirmar.
+    if (pendientes === null) {
+      if (!confirm('No se pudo verificar si tenés cambios sin subir.\n\n' +
+                   'Si cargaste pagos sin internet y no se sincronizaron, se van a perder.\n\n' +
+                   '¿Reparar de todos modos?')) return;
+    } else if (pendientes > 0) {
+      if (!confirm('Vas a perder ' + pendientes + ' cambio(s) que todavía NO están en la nube.\n\n' +
+                   'Esta acción no se puede deshacer.\n\n' +
+                   '¿Reparar igual?')) return;
+    }
+
+    elBoton.disabled = true;
+    elBoton.textContent = 'Reparando…';
+
+    var pasos = [];
+
+    // a) Sacar el Service Worker: es el que puede estar sirviendo código viejo.
+    pasos.push(
+      (navigator.serviceWorker && navigator.serviceWorker.getRegistrations
+        ? navigator.serviceWorker.getRegistrations()
+        : Promise.resolve([])
+      ).then(function (regs) {
+        return Promise.all(regs.map(function (r) { return r.unregister(); }));
+      }).then(function () { log('✅ Service Worker desinstalado'); })
+        .catch(function () { log('⚠️ No se pudo desinstalar el Service Worker'); })
+    );
+
+    // b) Borrar todas las cachés (código y archivos viejos).
+    pasos.push(
+      (window.caches && caches.keys ? caches.keys() : Promise.resolve([]))
+        .then(function (ks) { return Promise.all(ks.map(function (k) { return caches.delete(k); })); })
+        .then(function () { log('✅ Archivos guardados borrados'); })
+        .catch(function () { log('⚠️ No se pudieron borrar los archivos guardados'); })
+    );
+
+    // c) Borrar la base local.
+    pasos.push(new Promise(function (resolve) {
+      var listo = false;
+      var fin = function (msg) { if (!listo) { listo = true; log(msg); resolve(); } };
+      // deleteDatabase se queda "bloqueado" si otra pestaña tiene la BD abierta.
+      setTimeout(function () { fin('⚠️ La base local no se pudo borrar (cerrá las otras pestañas)'); }, 5000);
+      try {
+        var del = indexedDB.deleteDatabase(DB_NAME);
+        del.onsuccess = function () { fin('✅ Base local borrada'); };
+        del.onerror   = function () { fin('⚠️ No se pudo borrar la base local'); };
+        del.onblocked = function () { fin('⚠️ La base local está en uso — cerrá las otras pestañas'); };
+      } catch (_) { fin('⚠️ No se pudo borrar la base local'); }
+    }));
+
+    // d) Limpiar el almacenamiento del navegador (sesión, ajustes, banderas).
+    try { localStorage.clear(); sessionStorage.clear(); log('✅ Sesión y ajustes borrados'); }
+    catch (_) { log('⚠️ No se pudo limpiar el almacenamiento'); }
+
+    Promise.all(pasos).then(function () {
+      log('<b>Listo. Abriendo la app…</b>');
+      // `reload=` con marca de tiempo para que ni el navegador ni ningún
+      // intermediario devuelvan una copia vieja del index.
+      setTimeout(function () {
+        location.replace('index.html?reparado=' + Date.now());
+      }, 1200);
+    });
+  });
+})();
+</script>
+</body>
+</html>
