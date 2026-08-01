@@ -2826,32 +2826,59 @@ async function handlePaymentFormSubmit(e) {
         setTimeout(() => mostrarOpcionWAPayment(newPayment.id), 500);
       }
 
-      // 🆕 Enviar SMS recordatorio si el pago está Pendiente
-      if (status !== 'Pagado' && typeof window.callSendSms === 'function') {
+      // 🆕 Aviso de factura al acudiente — AL INSTANTE (antes salía recién al día
+      // siguiente por el cron, y las facturas ya pagadas no avisaban nada).
+      if (typeof window.callSendSms === 'function') {
         const clubId = typeof getClubId === 'function' ? getClubId() : localStorage.getItem('clubId');
         const player = getPlayerById(playerId);
         const settings = getSchoolSettings();
-        // Candado: a un jugador inactivo no se le manda ningún aviso automático.
-        // Los selectores ya muestran solo activos, pero esto cubre el caso de que
-        // el pago se cree por otra vía (importación, edición, código futuro).
+
+        // Candado 1 — jugador inactivo: no recibe ningún aviso automático.
         // Sin `status` se asume activo, por compatibilidad con datos viejos.
         const _activo = !player?.status ||
           ['activo', 'active'].includes(String(player.status).toLowerCase().trim());
-        if (clubId && player && _activo) {
-          const today = new Date();
-          const due = new Date(paymentData.dueDate || dueDate);
-          const daysDiff = daysBetween(today, due);
-          const modulo = daysDiff < 0 ? 'vencidos' : 'recordatorios_pago';
-          // SMS corto y GSM-7: sin tildes agudas, y el monto con Intl SIN style:currency
+
+        // Candado 2 — el interruptor del CLUB. Antes no se consultaba: la app
+        // mandaba igual aunque el club tuviera el aviso apagado, y le cobraba
+        // SMS que no pidió. La llave del super-admin la valida send-sms aparte.
+        const _avisos = (settings.sms_config && settings.sms_config.avisos) || {};
+        const _clubQuiere = _avisos.factura === true;
+
+        // Destinatario: 👩 mamá primero (emergencyContact), 👨 papá/acudiente de
+        // respaldo (phone). Con esta prioridad la cobertura sigue siendo del 99,8%
+        // — hay 207 jugadores sin el teléfono de la madre cargado.
+        const _telAcudiente = player?.emergencyContact || player?.phone || '';
+
+        if (clubId && player && _activo && _clubQuiere && _telAcudiente) {
+          // GSM-7: sin tildes agudas, y el monto con Intl SIN style:currency
           // (formatCurrency mete un NBSP U+00A0 que fuerza UCS-2 y duplica el costo).
           const _montoGsm = '$' + new Intl.NumberFormat('es-CO').format(amount || 0);
-          const smsMsg = `${String(settings.name || '').slice(0, 18)}: ${modulo === 'vencidos' ? 'Pago vencido' : 'Recordatorio'} de ${String(player.name || '').slice(0, 20)} por ${_montoGsm}. Vence ${formatDate(dueDate)}. Comunicate con nosotros.`;
+          const _club = String(settings.name || '').slice(0, 18);
+          const _jug  = String(player.name || '').slice(0, 20);
+          const _conc = String(concept || '').slice(0, 28);
+
+          // El módulo NO es el mismo en los dos casos, y la diferencia es legal:
+          //
+          //  · Pago ya recibido → es un RECIBO, no un cobro. La Ley 2300 no lo
+          //    restringe, así que va como 'factura_generada' (transaccional en
+          //    send-sms) y sale a cualquier hora, incluso domingo.
+          //
+          //  · Factura pendiente → es un COBRO. Va como 'factura', que respeta la
+          //    ventana legal (L-V 7-19h, Sáb 8-15h, domingo nunca). Si se crea
+          //    fuera de ese horario, send-sms responde `skipped_horario` y el cron
+          //    lo reintenta a la mañana siguiente (con dedup, nunca dos veces).
+          //    Sin esto se perdía el 47% de los avisos: casi la mitad de las
+          //    facturas se cargan después de las 7pm, al terminar los entrenos.
+          const _pagado = status === 'Pagado';
+          const smsMsg = _pagado
+            ? `${_club}: recibimos tu pago de ${_montoGsm} por ${_conc} de ${_jug}. ¡Gracias!`
+            : `${_club}: se genero la factura de ${_jug} (${_conc}) por ${_montoGsm}. Vence ${formatDate(dueDate)}.`;
 
           window.callSendSms({
             club_id: clubId,
-            modulo,
+            modulo: _pagado ? 'factura_generada' : 'factura',
             player_id: playerId,
-            phone: player.phone,
+            phone: _telAcudiente,
             message: smsMsg,
           });
         }

@@ -635,6 +635,54 @@ async function _mi_confirm() {
         showToast(`⚠️ ${skippedList.length} mes(es) omitido(s) — ya tenían factura`);
     }
 
+    // 🆕 Aviso al acudiente — UN SOLO SMS para todas las mensualidades generadas.
+    // Antes acá no se avisaba nada, y el cron recién lo hacía al día siguiente y
+    // con un mensaje por mes. Si alguien genera 6 meses de una, eso eran 6 SMS
+    // (6 créditos y 6 notificaciones al mismo celular por una sola acción).
+    try {
+        const _settings = getSchoolSettings();
+        const _avisos = (_settings.sms_config && _settings.sms_config.avisos) || {};
+        // Candado 1: el interruptor del club. Candado 2: jugador activo.
+        const _activo = !player?.status ||
+            ['activo', 'active'].includes(String(player.status).toLowerCase().trim());
+        // 👩 mamá primero, 👨 papá/acudiente de respaldo.
+        const _tel = player?.emergencyContact || player?.phone || '';
+        const _clubId = typeof getClubId === 'function' ? getClubId() : localStorage.getItem('clubId');
+
+        if (_avisos.factura === true && _activo && _tel && _clubId && typeof window.callSendSms === 'function') {
+            const _n = createdIds.length;
+            // Total realmente cobrado = importe final (ya con descuento) por mes generado.
+            const _total = '$' + new Intl.NumberFormat('es-CO').format((finalAmount || 0) * _n);
+            const _club = String(_settings.name || '').slice(0, 18);
+            const _jug  = String(player.name || '').slice(0, 20);
+            // Con un mes se nombra el mes; con varios, la cantidad (no entra la lista
+            // completa en 130 caracteres y el mensaje se cortaria a la mitad).
+            const _detalle = _n === 1
+                ? `Mensualidad ${_mi_formatMonth(sortedMonths.find(m => !skippedList.includes(m)))}`
+                : `${_n} mensualidades`;
+
+            window.callSendSms({
+                club_id: _clubId,
+                // Acá SIEMPRE son pagos ya recibidos (este flujo crea las facturas
+                // con status 'Pagado'), así que es un RECIBO y no un cobro:
+                // 'factura_generada' es transaccional y no lo frena el horario de
+                // la Ley 2300. Si usara 'factura', casi la mitad de estos avisos
+                // no saldrían — se generan de noche, al terminar los entrenos.
+                modulo: 'factura_generada',
+                // `player.id` y NO `_mi_playerId`: para cuando corre este bloque ya
+                // se llamó a closeMultiInvoiceModal(), que deja _mi_playerId en null.
+                // El SMS salía igual, pero quedaba sin jugador en el historial.
+                player_id: player.id,
+                phone: _tel,
+                // Sin tildes agudas: fuerzan UCS-2 y bajan el limite de 160 a 70.
+                message: `${_club}: recibimos tu pago de ${_total} por ${_detalle} de ${_jug}. ¡Gracias!`,
+            });
+        }
+    } catch (e) {
+        // Que un fallo del aviso nunca tumbe la generacion de facturas, que ya ocurrio.
+        console.warn('[multi-invoice] no se pudo enviar el aviso al acudiente:', e?.message || e);
+    }
+
     // Mostrar modal de WA/PDF según cantidad generada
     setTimeout(() => {
         if (createdIds.length === 1) {
