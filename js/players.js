@@ -252,19 +252,32 @@ async function togglePlayerStatus(playerId) {
   updatePlayer(playerId, updateData);
   
   // Sincronizar estado con Supabase o Firebase según el feature flag
+  // `_guardadoEnLaNube` decide qué mensaje ve el admin al final. Antes se le
+  // decía "marcado como Inactivo" pasara lo que pasara, aunque no se hubiera
+  // guardado nada en la nube.
+  let _guardadoEnLaNube = true;
+
   if (window.MODO_SUPABASE) {
+    _guardadoEnLaNube = false;
     try {
       const clubId = getSchoolSettings().clubId || localStorage.getItem('clubId');
       if (clubId) {
         const res = await fetch(
-          `${window.SUPA_URL}/rest/v1/players?id=eq.${encodeURIComponent(playerId)}&club_id=eq.${encodeURIComponent(clubId)}`,
+          // `select=id` + `return=representation`: hacen que la respuesta traiga
+          // las filas realmente afectadas. Con `return=minimal` esto devolvía 204
+          // TANTO si actualizó como si no actualizó NINGUNA — y desde que se cerró
+          // el acceso anónimo (jun 2026), una sesión vencida hace que RLS filtre
+          // la fila y no actualice nada. El admin veía "✅ marcado como Inactivo",
+          // el jugador seguía Activo en la nube, y al re-sincronizar volvía a
+          // aparecer activo. Silencioso y desconcertante.
+          `${window.SUPA_URL}/rest/v1/players?id=eq.${encodeURIComponent(playerId)}&club_id=eq.${encodeURIComponent(clubId)}&select=id`,
           {
             method: 'PATCH',
             headers: {
               apikey: window.SUPA_ANON,
               Authorization: `Bearer ${window.SUPA_ANON}`,
               'Content-Type': 'application/json',
-              Prefer: 'return=minimal',
+              Prefer: 'return=representation',
             },
             body: JSON.stringify({
               status: updateData.status,
@@ -275,8 +288,14 @@ async function togglePlayerStatus(playerId) {
             }),
           }
         );
-        if (res.ok) console.log('✅ Estado sincronizado con Supabase');
-        else console.warn('⚠️ Supabase toggleStatus error:', await res.text());
+        if (res.ok) {
+          const filas = await res.json().catch(() => []);
+          _guardadoEnLaNube = Array.isArray(filas) && filas.length > 0;
+          if (_guardadoEnLaNube) console.log('✅ Estado sincronizado con Supabase');
+          else console.warn('⚠️ toggleStatus: la nube no actualizó ninguna fila (¿sesión vencida?)');
+        } else {
+          console.warn('⚠️ Supabase toggleStatus error:', await res.text());
+        }
       }
     } catch (error) {
       console.error('⚠️ Error al sincronizar estado con Supabase:', error);
@@ -285,7 +304,27 @@ async function togglePlayerStatus(playerId) {
 
   // Mensaje y re-renderizar
   const statusIcon = newStatus === 'Activo' ? '✅' : '⚠️';
-  showToast(`${statusIcon} ${player.name} marcado como ${newStatus}`);
+  if (_guardadoEnLaNube) {
+    showToast(`${statusIcon} ${player.name} marcado como ${newStatus}`);
+  } else {
+    // El cambio local ya se aplicó y se ve en pantalla, pero NO llegó a la nube.
+    // Hay que decirlo: este botón NO pasa por la cola de reintentos (hace su
+    // propio fetch), así que si nadie avisa, el cambio se pierde en silencio.
+    //
+    // Un solo toast, no dos: showToast escribe sobre un único elemento del DOM
+    // y el segundo pisa al primero — el admin no llegaría a ver de qué jugador
+    // se trata. Por eso no se llama a avisarSesionVencida() acá; además, ese
+    // helper avisa una sola vez por carga y conviene reservarlo para el resto
+    // de la app.
+    //
+    // Y se distingue la causa, como ya hace dashboard.js: culpar a la sesión
+    // ante cualquier falla (un 500, la red, un clubId vacío) manda al admin a
+    // re-loguearse sin motivo y esconde el problema real.
+    const _sinSesion = typeof haySesionSupabase === 'function' && !haySesionSupabase();
+    showToast(_sinSesion
+      ? `⚠️ ${player.name}: no se guardó. Tu sesión expiró — volvé a entrar e intentá de nuevo.`
+      : `⚠️ ${player.name}: no se guardó en la nube. Revisá tu conexión e intentá de nuevo.`);
+  }
   renderPlayersList();
   updateDashboard();
 }
