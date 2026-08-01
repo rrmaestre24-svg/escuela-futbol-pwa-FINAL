@@ -238,9 +238,13 @@ async function loadParentAccessStatus() {
     // 🆕 Usar getPlayers() (lee de window._cache.players, hidratado desde IndexedDB).
     //    Tras migración Fase 3 IndexedDB, localStorage.players quedó limpio para no
     //    duplicar storage — los datos están en RAM cache + IDB. Fallback a LS por compat.
-    const players = (typeof window.getPlayers === 'function')
-        ? window.getPlayers()
-        : JSON.parse(localStorage.getItem('players') || '[]');
+    //    Solo ACTIVOS: a un chico dado de baja no se le manda el acceso al portal
+    //    de padres ni aparece en la lista de envíos, hasta que se lo reactive.
+    const players = (typeof window.getActivePlayers === 'function')
+        ? window.getActivePlayers()
+        : (typeof window.getPlayers === 'function')
+            ? window.getPlayers()
+            : JSON.parse(localStorage.getItem('players') || '[]');
     const localCodes = JSON.parse(localStorage.getItem('parentCodes') || '[]');
     const codesByPlayer = {};
 
@@ -315,7 +319,19 @@ async function loadParentAccessStatus() {
     }
 
     // Auto-revocar códigos vencidos (inactivos)
-    players.forEach(player => {
+    //
+    // OJO: acá se recorren TODOS los jugadores a propósito, no `players`.
+    // `players` quedó filtrado a solo activos (para no ofrecer el envío del
+    // acceso a un chico dado de baja), y este bloque busca justamente lo
+    // contrario: los INACTIVOS a los que hay que revocarles el código. Con la
+    // lista filtrada, `isInactivePlayer()` nunca daba true y la revocación
+    // quedaba muerta — el código seguía vivo en `parent_codes` para siempre.
+    // (El portal bloquea igual al inactivo al entrar, así que no era un agujero
+    //  de acceso; lo que se perdía era la limpieza del registro.)
+    const _todosLosJugadores = (typeof window.getPlayers === 'function')
+        ? window.getPlayers()
+        : players;
+    _todosLosJugadores.forEach(player => {
         if (isInactivePlayer(player) && isNoAccessPlayer(player) && codesByPlayer[player.id]?.code) {
             if (typeof deleteParentCode === 'function') deleteParentCode(player.id);
             delete codesByPlayer[player.id];

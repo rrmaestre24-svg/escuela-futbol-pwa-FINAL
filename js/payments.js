@@ -2831,7 +2831,13 @@ async function handlePaymentFormSubmit(e) {
         const clubId = typeof getClubId === 'function' ? getClubId() : localStorage.getItem('clubId');
         const player = getPlayerById(playerId);
         const settings = getSchoolSettings();
-        if (clubId && player) {
+        // Candado: a un jugador inactivo no se le manda ningún aviso automático.
+        // Los selectores ya muestran solo activos, pero esto cubre el caso de que
+        // el pago se cree por otra vía (importación, edición, código futuro).
+        // Sin `status` se asume activo, por compatibilidad con datos viejos.
+        const _activo = !player?.status ||
+          ['activo', 'active'].includes(String(player.status).toLowerCase().trim());
+        if (clubId && player && _activo) {
           const today = new Date();
           const due = new Date(paymentData.dueDate || dueDate);
           const daysDiff = daysBetween(today, due);

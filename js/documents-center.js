@@ -57,7 +57,9 @@ function _dcPortalActivo() {
 
 // Carga base desde caché + refresca `documents` desde Supabase (best-effort).
 async function _dcLoad() {
-  const base = (typeof getPlayers === 'function' ? getPlayers() : []) || [];
+  // Solo activos: no tiene sentido reclamar documentos a un chico dado de baja.
+  const base = (typeof getActivePlayers === 'function' ? getActivePlayers()
+              : typeof getPlayers === 'function' ? getPlayers() : []) || [];
   let data = base
     .filter(p => p && !p.deleted)
     .map(p => ({

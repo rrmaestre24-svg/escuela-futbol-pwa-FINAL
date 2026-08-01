@@ -513,7 +513,11 @@ function renderAccountingPlayersTable() {
   const cards = document.getElementById('accountingPlayersCards');
   if (!tbody && !cards) return;
 
-  const players = getPlayers();
+  // Solo ACTIVOS: la contabilidad no debe tener en cuenta a los jugadores dados
+  // de baja. Sus pagos históricos siguen existiendo y se ven en los movimientos
+  // (ahí el nombre se resuelve por id, sin filtrar) — lo que desaparece es el
+  // jugador de los listados y totales, hasta que se lo vuelva a activar.
+  const players = typeof getActivePlayers === 'function' ? getActivePlayers() : getPlayers();
 
   // Limpiar estado anterior
   if (accountingObserver) {
@@ -906,7 +910,8 @@ function exportCSV() {
 
 // 🆕 Exportar resumen por jugador (función adicional) - CON DOCUMENTO
 function exportPlayersSummaryCSV() {
-  const players = getPlayers();
+  // Solo activos: el resumen es la foto de la escuela hoy, no un histórico.
+  const players = typeof getActivePlayers === 'function' ? getActivePlayers() : getPlayers();
   if (players.length === 0) {
     showToast('⚠️ No hay jugadores para exportar');
     return;
@@ -1826,7 +1831,9 @@ function renderOverduePlayers() {
   const container = document.getElementById('overduePlayersList');
   if (!container) return;
 
-  const players = getPlayers();
+  // Solo activos: a un jugador dado de baja no se le reclama deuda ni se le
+  // manda recordatorio (el cron de SMS aplica el mismo criterio en el servidor).
+  const players = typeof getActivePlayers === 'function' ? getActivePlayers() : getPlayers();
   const payments = _accPayments();
   const settings = typeof getSchoolSettings === 'function' ? getSchoolSettings() : {};
   const defaultMonthlyFee = parseFloat(settings.monthlyFee) || 0;

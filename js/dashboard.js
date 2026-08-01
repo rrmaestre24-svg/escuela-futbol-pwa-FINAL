@@ -332,6 +332,20 @@ async function updateDashboardSmsUsage() {
     );
     if (!licRes.ok) return;
     const licData = await licRes.json();
+
+    // La fila de licencia SIEMPRE existe para un club. Si vuelve vacía es porque
+    // RLS filtró todo — o sea, la consulta salió sin JWT válido. Ese es el único
+    // caso en que avisamos: un club con la licencia bien y sin tope configurado
+    // devuelve UNA fila con limites vacío, y ahí se esconde el panel como antes.
+    // (si el ayudante no estuviera cargado, se asume que HAY sesión: así el
+    //  comportamiento vuelve al de antes en vez de avisar de más)
+    const _sinSesion = typeof haySesionSupabase === 'function' && !haySesionSupabase();
+    if (Array.isArray(licData) && licData.length === 0 && _sinSesion) {
+      if (typeof avisarSesionVencida === 'function') avisarSesionVencida('panel de SMS');
+      card.classList.add('hidden');
+      return;
+    }
+
     const dailyLimit = licData?.[0]?.onurix_config?.limites?.diario || 0;
     if (!dailyLimit) {
       card.classList.add('hidden');

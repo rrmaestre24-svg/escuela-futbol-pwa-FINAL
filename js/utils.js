@@ -809,3 +809,41 @@ function activarFormatoMontos() {
 window.addEventListener('DOMContentLoaded', () => {
   try { activarFormatoMontos(); } catch (e) { console.warn('[monto] formato:', e); }
 });
+
+// ── Sesión: distinguir "no hay datos" de "no tenés permiso" ──────────────────
+//
+// Desde que se cerró el acceso anónimo (jun 2026), una consulta sin sesión
+// válida ya NO falla: devuelve una lista VACÍA. Todo el código con forma
+// `if (!ok) return` o `|| 0` quedó ciego y trata ese vacío como "no hay nada",
+// escondiendo paneles o no haciendo nada, sin un solo mensaje. El usuario ve
+// que la función "no hace nada" y solo se arregla cerrando sesión y volviendo
+// a entrar. Caso real en producción (panel de SMS y subida de documentos).
+//
+// Esta función NO valida el token contra el servidor: solo dice si hay un JWT
+// guardado en el dispositivo. Alcanza para el propósito, que es no confundir
+// un club sin datos con una sesión vencida.
+function haySesionSupabase() {
+  try {
+    if (window.SupaAuthV2 && typeof window.SupaAuthV2.getToken === 'function'
+        && window.SupaAuthV2.getToken()) return true;
+    if (window.SupaAuth && typeof window.SupaAuth.getToken === 'function'
+        && window.SupaAuth.getToken()) return true;
+  } catch (_) {}
+  return false;
+}
+window.haySesionSupabase = haySesionSupabase;
+
+// Aviso único de sesión vencida. Se muestra UNA sola vez por carga para no
+// molestar si varias pantallas detectan lo mismo a la vez.
+let _avisoSesionMostrado = false;
+function avisarSesionVencida(donde) {
+  // Sin internet no se avisa: ahí el vacío es esperable y la app es local-first.
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+  console.warn(`[sesión] Respuesta vacía y sin JWT${donde ? ' en ' + donde : ''} — probable sesión vencida.`);
+  if (_avisoSesionMostrado) return;
+  _avisoSesionMostrado = true;
+  if (typeof showToast === 'function') {
+    showToast('⚠️ Tu sesión expiró. Cerrá sesión y volvé a entrar para ver esta información.');
+  }
+}
+window.avisarSesionVencida = avisarSesionVencida;

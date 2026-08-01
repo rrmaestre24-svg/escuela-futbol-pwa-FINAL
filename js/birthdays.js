@@ -25,8 +25,9 @@ function showBirthdaysView() {
 function getAllBirthdays() {
   const birthdays = [];
   
-  // Jugadores
-  const players = getPlayers();
+  // Jugadores — solo los ACTIVOS. Un chico que se dio de baja no tiene por qué
+  // seguir apareciendo en los cumpleaños del club hasta que vuelva a estar activo.
+  const players = typeof getActivePlayers === 'function' ? getActivePlayers() : getPlayers();
   players.forEach(player => {
     if (player.birthDate) {
       // ✅ CORREGIDO: Usar parseLocalDate en lugar de new Date
