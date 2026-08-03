@@ -65,16 +65,37 @@
     }
   }
 
+  // Cuántas operaciones siguen esperando su turno. NO cuenta las marcadas como
+  // `descartado`: ésas ya no se reintentan solas y necesitan intervención, así que
+  // mezclarlas daría un "pendientes: 3" que nunca baja.
   async function getQueueSize() {
-    if (!window.idb || !window.idb.count) return 0;
-    try { return await window.idb.count(STORE); }
-    catch (_) { return 0; }
+    if (!window.idb || !window.idb.getAll) return 0;
+    try {
+      const items = await window.idb.getAll(STORE);
+      return (items || []).filter(i => i && !i.descartado).length;
+    } catch (_) { return 0; }
   }
 
+  // Devuelve TODO, descartados incluidos. Es a propósito: mergeWithPending()
+  // depende de esto para que la próxima descarga (que hace clear + bulkPut) no
+  // borre el registro local de una operación que nunca llegó a subir.
   async function getQueueItems() {
     if (!window.idb || !window.idb.getAll) return [];
     try { return await window.idb.getAll(STORE); }
     catch (_) { return []; }
+  }
+
+  // Los que agotaron los reintentos y quedaron sin subir: hay que resolverlos a
+  // mano. Los usa la UI de Almacenamiento para mostrarlos aparte.
+  // Filtra por club por la misma razón que mergeWithPending: la cola sobrevive
+  // al cambio de club, y el banner de un club no debe listar operaciones de otro.
+  async function getDescartados(clubId) {
+    if (!window.idb || !window.idb.getAll) return [];
+    const _club = clubId || (() => { try { return localStorage.getItem('clubId'); } catch (_) { return null; } })();
+    try {
+      const items = await window.idb.getAll(STORE);
+      return (items || []).filter(i => i && i.descartado && (!_club || i.clubId === _club));
+    } catch (_) { return []; }
   }
 
   // 🆕 Protege items locales aún en cola contra syncStore que clear+bulkPut.
@@ -83,8 +104,17 @@
   //   - Agrega/sobrescribe con upserts pendientes (el usuario los modificó localmente).
   // Si la cola está vacía o falla cualquier paso, devuelve remoteItems sin cambios.
   // Llamado desde firebase-sync.js antes de cada syncStore en downloadAllClubDataFromSupabase.
-  async function mergeWithPending(table, remoteItems) {
+  //
+  // 🔒 AISLAMIENTO POR CLUB — no quitar el filtro de abajo.
+  // `pendingSyncQueue` NO se limpia al cambiar de club (a propósito: ahí viven
+  // los cambios que todavía no subieron, ver ensureClubIsolation en
+  // db-indexed.js). Sin filtrar por clubId, un item que quedó del club A se
+  // reinyectaba en la lista del club B y aparecía en SU contabilidad. Antes eso
+  // se cerraba solo a los 10 intentos, cuando el item se borraba; desde que los
+  // descartados se conservan, la fuga sería permanente.
+  async function mergeWithPending(table, remoteItems, clubId) {
     if (!Array.isArray(remoteItems)) return remoteItems;
+    const _club = clubId || (() => { try { return localStorage.getItem('clubId'); } catch (_) { return null; } })();
     let items;
     try {
       items = await getQueueItems();
@@ -98,6 +128,9 @@
     const pendingDeleteIds = new Set();
     items.forEach(item => {
       if (!item || item.table !== table) return;
+      // Sin club conocido no se mergea nada: es preferible perder la protección
+      // local de un item huérfano antes que arriesgar mostrarlo en otro club.
+      if (!_club || item.clubId !== _club) return;
       if (item.operation === 'upsert' && item.payload && item.payload.id) {
         pendingUpsertsById[item.payload.id] = item.payload;
       } else if (item.operation === 'delete') {
@@ -146,11 +179,55 @@
     try {
       const items = await getQueueItems();
       if (!items.length) return { ok: 0, failed: 0 };
+
+      // 🔒 Club de la sesión actual. Se lee UNA vez, antes del bucle: si cambiara
+      // a mitad de la corrida, mejor terminar con el criterio con el que se
+      // empezó que mezclar.
+      const _clubActivo = (() => {
+        try { return (typeof getClubId === 'function' ? getClubId() : null) || localStorage.getItem('clubId'); }
+        catch (_) { return null; }
+      })();
+
       console.log(`[syncQueue] 🔄 Procesando ${items.length} operaciones pendientes...`);
       for (const item of items) {
+        // 🔒 AISLAMIENTO POR CLUB — no quitar.
+        // `pendingSyncQueue` sobrevive al cambio de club a propósito, para no
+        // perder lo que quedó sin subir. Pero las funciones que suben
+        // (savePaymentToFirebase y compañía) arman el registro con getClubId(),
+        // o sea con el club de la sesión ACTUAL, ignorando el club con el que se
+        // encoló. Sin este filtro pasaba esto: club A deja pagos pendientes →
+        // entra el club B → a los 2 minutos el reintento automático sube los
+        // pagos de A con el club_id de B. Un pago quedaba en la contabilidad de
+        // otro club, escrito así en la base.
+        // Los items de otro club NO se tocan: quedan en cola, intactos, hasta
+        // que ese club vuelva a entrar en este dispositivo.
+        if (_clubActivo && item.clubId && item.clubId !== _clubActivo) continue;
+
+        // Ya marcado como "requiere atención": no se reintenta más (si no, cada
+        // corrida volvería a fallar igual), pero TAMPOCO se borra.
+        if (item.descartado) continue;
+
         if (item.attempts >= MAX_ATTEMPTS) {
-          console.error(`[syncQueue] ❌ Descartando tras ${MAX_ATTEMPTS} intentos:`, item);
-          await window.idb.delete(STORE, item.id);
+          // ⚠️ Antes acá se hacía `idb.delete(STORE, item.id)`: el item se BORRABA
+          // sin haberse subido nunca, y sin más rastro que un console.error que en
+          // producción está silenciado. Si era un pago cargado sin internet, esa
+          // plata desaparecía y nadie se enteraba.
+          //
+          // Ahora se marca y se conserva. Al seguir en la store:
+          //   · mergeWithPending() lo sigue viendo → el registro local NO se pierde
+          //     cuando llega la próxima descarga (que hace clear + bulkPut).
+          //   · la UI de Almacenamiento lo muestra aparte para resolverlo a mano.
+          item.descartado = true;
+          item.descartadoAt = new Date().toISOString();
+          // try/catch propio: si marcar falla, no debe abortar toda la corrida y
+          // dejar sin procesar los items que sí podrían subir. Se reintentará
+          // marcarlo en la próxima pasada.
+          try {
+            await window.idb.put(STORE, item);
+          } catch (e) {
+            console.warn('[syncQueue] no se pudo marcar como descartado:', e?.message || e);
+          }
+          console.error(`[syncQueue] ❌ Sin subir tras ${MAX_ATTEMPTS} intentos, marcado para revisión:`, item);
           dropped++;
           continue;
         }
@@ -320,7 +397,7 @@
   // API pública
   window.syncQueue = {
     enqueue, processQueue, getQueueSize, getQueueItems, setupListeners,
-    mergeWithPending,
+    mergeWithPending, getDescartados,
   };
 
   // Auto-boot cuando el documento está listo

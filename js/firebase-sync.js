@@ -1824,7 +1824,7 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false } = {}) {
     let _finalPlayers = players;
     try {
       if (window.syncQueue && window.syncQueue.mergeWithPending) {
-        _finalPlayers = await window.syncQueue.mergeWithPending('players', players);
+        _finalPlayers = await window.syncQueue.mergeWithPending('players', players, clubId);
       }
     } catch (e) { console.warn('[syncQueue] mergeWithPending players falló:', e); }
     if (window.idb && window.idb.syncStore) {
@@ -1859,7 +1859,7 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false } = {}) {
     let _finalPayments = payments;
     try {
       if (window.syncQueue && window.syncQueue.mergeWithPending) {
-        _finalPayments = await window.syncQueue.mergeWithPending('payments', payments);
+        _finalPayments = await window.syncQueue.mergeWithPending('payments', payments, clubId);
       }
     } catch (e) { console.warn('[syncQueue] mergeWithPending payments falló:', e); }
     if (window.idb && window.idb.syncPaymentsToIDB) {
@@ -1902,7 +1902,7 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false } = {}) {
     let _finalEvents = events;
     try {
       if (window.syncQueue && window.syncQueue.mergeWithPending) {
-        _finalEvents = await window.syncQueue.mergeWithPending('events', events);
+        _finalEvents = await window.syncQueue.mergeWithPending('events', events, clubId);
       }
     } catch (e) { console.warn('[syncQueue] mergeWithPending events falló:', e); }
     if (window.idb && window.idb.syncStore) {
@@ -1958,7 +1958,7 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false } = {}) {
     let _finalExpenses = expenses;
     try {
       if (window.syncQueue && window.syncQueue.mergeWithPending) {
-        _finalExpenses = await window.syncQueue.mergeWithPending('expenses', expenses);
+        _finalExpenses = await window.syncQueue.mergeWithPending('expenses', expenses, clubId);
       }
     } catch (e) { console.warn('[syncQueue] mergeWithPending expenses falló:', e); }
     if (window.idb && window.idb.syncStore) {
@@ -2010,7 +2010,7 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false } = {}) {
       let _finalIncomes = thirdPartyIncomes;
       try {
         if (window.syncQueue && window.syncQueue.mergeWithPending) {
-          _finalIncomes = await window.syncQueue.mergeWithPending('thirdPartyIncomes', thirdPartyIncomes);
+          _finalIncomes = await window.syncQueue.mergeWithPending('thirdPartyIncomes', thirdPartyIncomes, clubId);
         }
       } catch (e) { console.warn('[syncQueue] mergeWithPending thirdPartyIncomes falló:', e); }
       if (window.idb && window.idb.syncStore) {

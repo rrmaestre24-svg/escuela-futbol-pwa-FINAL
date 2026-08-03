@@ -1242,6 +1242,23 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
                         </p>
                     </div>
 
+                    <!-- Operaciones que agotaron los reintentos y NO se subieron.
+                         Antes se borraban en silencio; ahora quedan guardadas y se
+                         muestran acá, porque pueden ser pagos cargados sin internet. -->
+                    <div id="syncFailedBanner" class="hidden mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-400 dark:border-red-700 rounded-lg">
+                        <p class="text-xs font-semibold text-red-800 dark:text-red-300 mb-1">
+                            🛑 <span id="syncFailedCount">0</span> cambio(s) NO se pudieron subir a la nube
+                        </p>
+                        <p class="text-[11px] text-red-700 dark:text-red-400 mb-2">
+                            Están guardados en este dispositivo, pero no llegaron al servidor.
+                            No borres la caché ni desinstales la app: se perderían.
+                        </p>
+                        <ul id="syncFailedList" class="text-[11px] text-red-700 dark:text-red-400 list-disc list-inside space-y-0.5"></ul>
+                        <p class="text-[11px] text-red-700 dark:text-red-400 mt-2">
+                            Contactá a soporte con esta información.
+                        </p>
+                    </div>
+
                     <!-- Botones de mantenimiento -->
                     <div class="space-y-2">
                         <button onclick="clearAppCache()"

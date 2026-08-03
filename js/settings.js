@@ -1756,6 +1756,43 @@ async function refreshStorageInfo() {
       if (count) count.textContent = String(size);
     }
   } catch (e) { /* silenciar */ }
+
+  // 4. Operaciones que agotaron los reintentos y NO llegaron a subir.
+  //    Antes se borraban en silencio — un pago cargado sin internet podía
+  //    desaparecer sin dejar rastro. Ahora quedan marcadas y se listan acá.
+  try {
+    if (window.syncQueue && window.syncQueue.getDescartados) {
+      const fallidos = await window.syncQueue.getDescartados();
+      const banner = document.getElementById('syncFailedBanner');
+      const count = document.getElementById('syncFailedCount');
+      const list = document.getElementById('syncFailedList');
+      if (banner) banner.classList.toggle('hidden', fallidos.length === 0);
+      if (count) count.textContent = String(fallidos.length);
+      if (list) {
+        const _tablas = {
+          payments: 'Pago', players: 'Jugador', expenses: 'Egreso',
+          events: 'Evento', thirdPartyIncomes: 'Otro ingreso',
+        };
+        const _ops = { upsert: 'guardar', delete: 'eliminar' };
+        list.innerHTML = '';
+        fallidos.slice(0, 20).forEach(f => {
+          // createElement + textContent en vez de innerHTML: los datos salen de
+          // la cola local, pero no se arma HTML con contenido no controlado.
+          const li = document.createElement('li');
+          const fecha = f.descartadoAt
+            ? new Date(f.descartadoAt).toLocaleString('es-CO')
+            : 'fecha desconocida';
+          li.textContent = `${_tablas[f.table] || f.table} — ${_ops[f.operation] || f.operation} (${fecha})`;
+          list.appendChild(li);
+        });
+        if (fallidos.length > 20) {
+          const li = document.createElement('li');
+          li.textContent = `…y ${fallidos.length - 20} más`;
+          list.appendChild(li);
+        }
+      }
+    }
+  } catch (e) { /* silenciar */ }
 }
 window.refreshStorageInfo = refreshStorageInfo;
 
@@ -1812,12 +1849,40 @@ async function clearLocalCacheOnly() {
   // borran o no escrituras que todavía no llegaron a Supabase. idb.count() sí
   // propaga el rechazo, así que un error se convierte en "no se pudo verificar"
   // (y por lo tanto en NO borrar), que es la dirección segura.
-  const getQueueSizeSafely = async () => {
-    if (!window.idb || typeof window.idb.count !== 'function') {
-      throw new Error('idb.count no disponible');
+  //
+  // ⚠️ SON DOS FUNCIONES A PROPÓSITO. No unificarlas.
+  //
+  // getQueueSizeSafely() — cuenta SOLO lo del club activo. Es para HABLARLE AL
+  // USUARIO ("tenés N cambios sin subir"). Antes usaba idb.count() crudo, que
+  // cuenta toda la store: un residuo de otro club (la cola sobrevive al cambio
+  // de club) le bloqueaba la limpieza a este admin para siempre, con un mensaje
+  // que lo mandaba a esperar algo que nunca iba a pasar.
+  //
+  // getQueueSizeTotalSafely() — cuenta TODO, de todos los clubes. Es la traba
+  // física previa a idb.clear('pendingSyncQueue'), que borra la store ENTERA:
+  // no existe un clear "solo lo mío". Con el conteo filtrado pasaba esto: club A
+  // deja pagos sin subir → entra club B en el mismo equipo → B ve su cola en 0 →
+  // limpia caché → se borran también los pagos de A, para siempre y sin aviso.
+  //
+  // Las dos usan getAll() en vez de count() porque propaga el rechazo: un error
+  // se convierte en "no se pudo verificar" y por lo tanto en NO borrar.
+  const _getQueueItemsSafely = async () => {
+    if (!window.idb || typeof window.idb.getAll !== 'function') {
+      throw new Error('idb.getAll no disponible');
     }
-    return window.idb.count('pendingSyncQueue');
+    return (await window.idb.getAll('pendingSyncQueue')) || [];
   };
+  const getQueueSizeSafely = async () => {
+    const items = await _getQueueItemsSafely();
+    const _club = (() => {
+      try { return (typeof getClubId === 'function' ? getClubId() : null) || localStorage.getItem('clubId'); }
+      catch (_) { return null; }
+    })();
+    // Sin club conocido se cuenta todo: ante la duda, NO borrar.
+    if (!_club) return items.length;
+    return items.filter(i => i && (!i.clubId || i.clubId === _club)).length;
+  };
+  const getQueueSizeTotalSafely = async () => (await _getQueueItemsSafely()).length;
   try {
     queueSize = await getQueueSizeSafely();
   } catch (_) {
@@ -1885,17 +1950,31 @@ async function clearLocalCacheOnly() {
       }
     }
     if (queueSize > 0) {
-      // `trySync` distingue los dos casos: el usuario canceló la subida, o la
-      // aceptó pero igual quedaron cambios en cola (se encoló algo mientras
-      // procesaba). Sin esta distinción el aviso acusaba de cancelar a alguien
-      // que no canceló.
+      // Tres casos distintos, tres mensajes. El que faltaba es el tercero: si en
+      // la cola SOLO quedan cambios ya descartados (agotaron los 10 reintentos y
+      // no se reintentan más), decirle al admin "esperá a que se sincronicen" lo
+      // deja esperando algo que no va a pasar nunca.
+      let _descartados = 0;
+      try {
+        if (window.syncQueue && typeof window.syncQueue.getDescartados === 'function') {
+          _descartados = (await window.syncQueue.getDescartados()).length;
+        }
+      } catch (_) {}
+      const _soloDescartados = _descartados > 0 && _descartados >= queueSize;
+
       await showAppAlert(
-        trySync
-          ? `⚠️ Quedaron ${queueSize} cambio(s) sin subir. No se limpió nada.\n\n` +
-            '👉 Esperá a que terminen de sincronizarse e intentá de nuevo.'
-          : `⚠️ Cancelaste la subida de ${queueSize} cambio(s). No se limpió nada.\n\n` +
-            '👉 Si querés limpiar la caché, primero subí esos cambios.',
-        { type: 'info', title: 'Limpieza cancelada' }
+        _soloDescartados
+          ? `🛑 Hay ${_descartados} cambio(s) que NO se pudieron subir a la nube tras varios intentos.\n\n` +
+            'No se van a subir solos, y si limpiás la caché se pierden.\n\n' +
+            '👉 Contactá a soporte con esta información antes de continuar.\n' +
+            'Podés ver el detalle en esta misma pantalla, en el aviso rojo.'
+          : trySync
+            ? `⚠️ Quedaron ${queueSize} cambio(s) sin subir. No se limpió nada.\n\n` +
+              '👉 Esperá a que terminen de sincronizarse e intentá de nuevo.'
+            : `⚠️ Cancelaste la subida de ${queueSize} cambio(s). No se limpió nada.\n\n` +
+              '👉 Si querés limpiar la caché, primero subí esos cambios.',
+        { type: _soloDescartados ? 'error' : 'info',
+          title: _soloDescartados ? 'Cambios sin subir' : 'Limpieza cancelada' }
       );
       return;
     }
@@ -1933,8 +2012,16 @@ async function clearLocalCacheOnly() {
       }
       let pendingQueueStillHasItems = false;
       let noSePudoVerificarCola = false;
+      let soloDeOtroClub = false;
       try {
-        pendingQueueStillHasItems = (await getQueueSizeSafely()) > 0;
+        // TOTAL, no el del club activo: idb.clear() borra la store entera, así
+        // que si adentro quedan pendientes de OTRO club también se los llevaría.
+        // Ver el comentario largo en getQueueSizeTotalSafely().
+        pendingQueueStillHasItems = (await getQueueSizeTotalSafely()) > 0;
+        // Si lo que sobra no es de este club, el aviso genérico ("seguía
+        // teniendo cambios pendientes") lo manda a buscar algo que en su cuenta
+        // no existe. Se le dice qué pasa realmente.
+        if (pendingQueueStillHasItems) soloDeOtroClub = (await getQueueSizeSafely()) === 0;
       } catch (_) {
         // Fail-safe: si no podemos confirmar que está vacía, la conservamos.
         // OJO: NO cortar acá con `return`. Las stores de datos ya se borraron
@@ -1957,9 +2044,13 @@ async function clearLocalCacheOnly() {
             noSePudoVerificarCola
               ? '⚠️ No se pudo confirmar que la cola de sincronización esté vacía.\n\n' +
                 'Se limpiaron los demás datos locales, pero la cola se conservó para no perder información.'
-              : '⚠️ La cola de sincronización seguía teniendo cambios pendientes al final del proceso.\n\n' +
-                'Se limpiaron los demás datos locales, pero no se borró la cola para no perder información.',
-            { type: 'warning', title: 'Cola conservada' }
+              : soloDeOtroClub
+                ? '✅ Se limpiaron tus datos locales.\n\n' +
+                  'En este equipo quedaron cambios sin subir de OTRO club que usó esta app. ' +
+                  'No se borraron: los va a subir ese club cuando vuelva a entrar.'
+                : '⚠️ La cola de sincronización seguía teniendo cambios pendientes al final del proceso.\n\n' +
+                  'Se limpiaron los demás datos locales, pero no se borró la cola para no perder información.',
+            { type: soloDeOtroClub ? 'info' : 'warning', title: soloDeOtroClub ? 'Limpieza completada' : 'Cola conservada' }
           );
         } catch (_) {}
       }
