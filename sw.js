@@ -1,4 +1,4 @@
-const CACHE_NAME = 'my-club-v1.10.1';
+const CACHE_NAME = 'my-club-v1.10.3';
 
 const urlsToCache = [
   '/',
@@ -141,10 +141,37 @@ self.addEventListener('activate', event => {
    cambia (la red gana la carrera muy por debajo del tope). */
 const NETWORK_TIMEOUT_MS = 3000;
 
+/* 🍎 Safari rechaza que un Service Worker responda una NAVEGACIÓN con una
+   respuesta que arrastre redirecciones, con el error:
+       "Response served by service worker has redirections"
+   y la página no abre. Es una restricción de WebKit; Chrome no la aplica, por eso
+   solo se veía en iPhone.
+
+   Acá pasa porque Vercel tiene `cleanUrls: true`: `/index.html` redirige a `/` y
+   `/login.html` a `/login`. Como el manifiesto arranca la PWA en `index.html`,
+   CADA apertura desde el ícono caía en esto.
+
+   La solución estándar (la misma de Workbox) es reconstruir la respuesta: mismo
+   cuerpo, mismo estado, mismas cabeceras, pero sin la marca de redirección. */
+function limpiarRedirecciones(response) {
+  if (!response || !response.redirected) return response;
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: response.headers,
+  });
+}
+
 function networkFirstConTope(request, { esNavegacion = false } = {}) {
   return new Promise(resolve => {
     let yaRespondio = false;
-    const responder = res => { if (!yaRespondio) { yaRespondio = true; resolve(res); } };
+    const responder = res => {
+      if (yaRespondio) return;
+      yaRespondio = true;
+      // Solo se limpia en navegaciones: es donde Safari lo exige, y reconstruir
+      // la respuesta de un JS/CSS sin necesidad sería trabajo de más.
+      resolve(esNavegacion ? limpiarRedirecciones(res) : res);
+    };
 
     const temporizador = setTimeout(() => {
       caches.match(request, { ignoreSearch: true }).then(cacheada => {
@@ -161,7 +188,9 @@ function networkFirstConTope(request, { esNavegacion = false } = {}) {
       .then(response => {
         clearTimeout(temporizador);
         if (response && response.status === 200) {
-          const copia = response.clone();
+          // Se guarda ya limpia: si se cacheara una respuesta con redirecciones,
+          // al servirla más tarde desde la caché volvería a romper en Safari.
+          const copia = limpiarRedirecciones(response.clone());
           caches.open(CACHE_NAME).then(cache => cache.put(request, copia));
         }
         responder(response);
@@ -191,14 +220,21 @@ self.addEventListener('fetch', event => {
   // emergencia cuando la app quedó rota, así que no puede servirse una copia
   // vieja. Igual está precacheada (ver urlsToCache) y se usa como último recurso
   // si justo no hay red en el momento en que se la necesita.
+  // limpiarRedirecciones: `cleanUrls` de Vercel redirige `/rescate.html` a
+  // `/rescate`, y Safari no acepta una navegación con redirecciones servida por
+  // el SW. Justo acá no puede fallar: es la salida de emergencia.
   if (event.request.url.indexOf('/rescate.html') !== -1) {
-    event.respondWith(fetch(event.request).catch(() => caches.match(event.request)));
+    event.respondWith(
+      fetch(event.request)
+        .then(limpiarRedirecciones)
+        .catch(() => caches.match(event.request))
+    );
     return;
   }
 
   // Reset-password SIEMPRE a la red (nunca versión cacheadas).
   if (event.request.url.indexOf('/reset-password.html') !== -1) {
-    event.respondWith(fetch(event.request));
+    event.respondWith(fetch(event.request).then(limpiarRedirecciones));
     return;
   }
 
