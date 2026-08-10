@@ -2,23 +2,14 @@
 // GESTIÓN DE CUMPLEAÑOS - CORREGIDO
 // ========================================
 
-// Mostrar vista de cumpleaños
+/**
+ * Abre la vista de Cumpleaños.
+ *
+ * Delega en navigateTo() — ver la nota en showAccountingView (js/accounting.js):
+ * tenía la misma copia de la navegación y el mismo problema con la barra.
+ */
 function showBirthdaysView() {
-  // Ocultar todas las vistas
-  document.querySelectorAll('#appContainer > main > div').forEach(div => {
-    div.classList.add('hidden');
-  });
-  
-  // Mostrar vista de cumpleaños
-  document.getElementById('birthdaysView').classList.remove('hidden');
-  document.getElementById('headerViewName').textContent = 'Cumpleaños';
-  
-  // Actualizar navegación
-  document.querySelectorAll('.nav-item').forEach(item => {
-    item.classList.remove('active');
-  });
-  
-  renderBirthdays();
+  navigateTo('birthdays');
 }
 
 // Obtener todos los cumpleaños (jugadores + staff)

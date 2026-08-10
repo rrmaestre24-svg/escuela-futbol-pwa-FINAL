@@ -3,6 +3,24 @@
 
 <head>
     <script>
+    // Tema ANTES de pintar nada. Va inline y primero en el <head> a propósito:
+    // si esto esperara a que carguen los .js, el navegador ya habría dibujado la
+    // página en claro y se vería un destello blanco de un cuadro antes de pasar
+    // a oscuro. Con esto la clase ya está puesta en el primer pintado.
+    //
+    // Un club que recién abre arranca en OSCURO (mismo valor por defecto que
+    // initStorage en js/storage.js — si cambiás uno, cambiá el otro).
+    (function () {
+      try {
+        var g = localStorage.getItem('darkMode');
+        if (g === null) g = 'true';
+        if (g === 'true') document.documentElement.classList.add('dark');
+      } catch (_) {
+        document.documentElement.classList.add('dark');
+      }
+    })();
+    </script>
+    <script>
     (function () {
       var h = location.hostname;
       if (h !== 'localhost' && h !== '127.0.0.1') {
@@ -133,10 +151,10 @@
     <div id="appContainer" class="">
 
         <!-- Top Bar -->
-        <header class="bg-white dark:bg-gray-800 shadow-sm fixed top-0 left-0 right-0 z-40">
+        <header class="cabecera fixed top-0 left-0 right-0 z-40">
             <div class="flex items-center justify-between px-4 py-3">
                 <div class="flex items-center gap-3">
-                    <img id="headerLogo" src="" alt="Logo" class="w-10 h-10 rounded-lg object-cover">
+                    <img id="headerLogo" src="" alt="Logo del club" class="logo-club w-10 h-10 rounded-lg">
                     <div>
                         <h1 id="headerClubName" class="font-bold text-gray-800 dark:text-white">MY CLUB</h1>
                         <p id="headerViewName" class="text-xs text-gray-500 dark:text-gray-400">Dashboard</p>
@@ -402,8 +420,12 @@
                         <i data-lucide="upload" class="w-5 h-5"></i>
                         <span>Importar</span>
                     </button>
+                    <!-- Excel oculto: se deja solo el PDF, que es el formato que usan
+                         las escuelas para imprimir y revisar. La función
+                         exportPlayersExcel() sigue existiendo en js/players.js por si
+                         hay que volver a mostrarlo — basta con sacar el `hidden`. -->
                     <button onclick="exportPlayersExcel()"
-                        class="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 px-2 py-2.5 rounded-xl bg-green-600 hover:bg-green-700 text-white text-xs sm:text-sm font-medium transition-colors"
+                        class="hidden flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 px-2 py-2.5 rounded-xl bg-green-600 hover:bg-green-700 text-white text-xs sm:text-sm font-medium transition-colors"
                         title="Exportar a Excel">
                         <i data-lucide="file-spreadsheet" class="w-5 h-5"></i>
                         <span>Excel</span>
@@ -838,8 +860,10 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
                 </button>
                 <div id="clubSection" class="p-4 border-t border-gray-200 dark:border-gray-700 hidden">
                     <div class="flex items-center gap-4 mb-4">
-                        <img id="clubLogo" src="" alt="Logo"
-                            class="w-20 h-20 rounded-lg object-cover border-2 border-gray-300">
+                        <!-- Mismo tratamiento que el logo de la cabecera: fondo
+                             blanco propio para que se vea sea cual sea el logo. -->
+                        <img id="clubLogo" src="" alt="Logo del club"
+                            class="logo-club w-20 h-20 rounded-lg">
                         <div>
                             <input type="file" id="changeClubLogo" accept="image/*" class="hidden">
                             <button onclick="document.getElementById('changeClubLogo').click()"
@@ -989,11 +1013,11 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
                                     <span class="text-[10px] uppercase font-bold text-amber-600 dark:text-amber-400 ml-1">Cobro</span></span>
                                 <input type="checkbox" id="smsAviso_vencido" class="w-5 h-5 accent-teal-600">
                             </label>
-                            <p class="text-[10px] text-gray-500">Se envía en los días 1, 7 y 15 de mora (máx 3 avisos por deuda).</p>
+                            <p class="text-[10px] text-gray-500">Se envía a los 3, 10 y 20 días de mora, contando desde el vencimiento de cada mes (ya descontados los días de gracia). Máximo 3 avisos por jugador al mes.</p>
                             <textarea id="smsTpl_vencido" data-aviso="vencido" maxlength="130" rows="2" oninput="smsCount(this)"
                                 class="sms-field w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg" placeholder="{club}: la mensualidad de {jugador} esta vencida. Regulariza el pago para evitar bloqueo."></textarea>
                             <div class="flex items-center justify-between text-[10px] text-gray-500">
-                                <span>Variables: {jugador} {fecha} {monto} {club}</span>
+                                <span>Variables: {jugador} {fecha} {monto} {club} — <b>{monto}</b> es la cuota del mes que indica {fecha}, no la deuda total</span>
                                 <span id="cnt_vencido">0/130</span>
                             </div>
                         </div>
@@ -1051,7 +1075,25 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
                             </div>
                         </div>
 
-                        <p class="text-[10px] text-gray-500">⏰ Los recordatorios de pago, vencidos, eventos y facturas respetan el horario legal (L-V 7am-7pm, Sáb 8am-3pm; domingo no se envían). Los cumpleaños salen cualquier día. El super-admin debe tener habilitado el SMS para tu club.</p>
+                        <!-- Resumen de morosos al admin -->
+                        <div class="sms-card rounded-lg border border-gray-200 dark:border-gray-700 p-2.5 space-y-2">
+                            <label class="flex items-center justify-between gap-2 cursor-pointer">
+                                <span class="text-xs font-medium text-gray-700 dark:text-gray-200">📋 Resumen de morosos
+                                    <span class="text-[10px] uppercase font-bold text-green-600 dark:text-green-400 ml-1">Al admin</span></span>
+                                <input type="checkbox" id="smsAviso_morosos_admin" class="w-5 h-5 accent-teal-600">
+                            </label>
+                            <p class="text-[10px] text-gray-500">Cada día a las 6:30 pm, un SMS al administrador con cuántos jugadores tienen mensualidad pendiente. <b>No le llega a ningún acudiente.</b> Si no hay morosos, no se envía.</p>
+                        </div>
+
+                        <!-- Fecha de activación de los avisos de mora -->
+                        <div class="sms-card rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 p-2.5 space-y-2">
+                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-200">⚠️ Avisar mora solo desde</label>
+                            <input type="date" id="smsMorososDesde"
+                                class="sms-field w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg">
+                            <p class="text-[10px] text-gray-600 dark:text-gray-300">Los avisos de <b>pago vencido</b> solo se envían por mensualidades que vencieron <b>después</b> de esta fecha. Sirve para no avisarle de golpe a las familias por deudas viejas al activar el servicio. <b>Si la dejás vacía no se envía ningún aviso de mora.</b></p>
+                        </div>
+
+                        <p class="text-[10px] text-gray-500">⏰ Los recordatorios de pago, vencidos, eventos y facturas respetan el horario legal (L-V 7am-7pm, Sáb 8am-3pm; domingo no se envían). Los cumpleaños y el resumen al admin salen cualquier día. El super-admin debe tener habilitado el SMS para tu club.</p>
                     </div>
 
                     <div class="rounded-xl border border-gray-200 dark:border-gray-700 p-3">
@@ -2062,9 +2104,17 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
     </div>
 
     <!-- Bottom Navigation -->
+    <!-- El fondo, el borde y la sombra los pinta .nav-barra::before, NO esta
+         etiqueta: al pseudo-elemento se le recorta un hueco circular donde entra
+         la burbuja. Si el fondo estuviera acá, la máscara también recortaría los
+         íconos y el texto. Ver css/styles.css → NAVEGACIÓN BOTTOM. -->
     <nav
-        class="bg-white dark:bg-gray-800 shadow-lg fixed bottom-0 left-0 right-0 z-40 border-t border-gray-200 dark:border-gray-700">
-        <div class="flex justify-around items-center py-2">
+        class="nav-barra fixed bottom-0 left-0 right-0 z-40">
+        <div class="nav-liquid flex justify-around items-center py-2">
+            <!-- Burbuja del ítem activo. La posiciona _moverBurbujaNav() en js/app.js
+                 midiendo el botón, no con un ancho fijo: los botones no miden lo
+                 mismo porque el texto cambia de largo. -->
+            <span class="nav-burbuja" aria-hidden="true"></span>
             <button onclick="navigateTo('dashboard')" data-nav="dashboard"
                 class="nav-item flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all">
                 <i data-lucide="home" class="w-5 h-5"></i>
@@ -3221,6 +3271,9 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
     <!-- 5️⃣ MÓDULOS PRINCIPALES (dependen de storage) -->
     <script src="js/storage-service.js"></script>
     <script src="js/players.js"></script>
+    <!-- Después de players.js: define exportPlayersPDF(), que reemplaza a la
+         versión vieja basada en jsPDF. -->
+    <script src="js/listado-pdf.js"></script>
     <script src="js/payments.js"></script>
     <script src="js/expenses.js"></script>
     <script src="js/third-party-income.js"></script>

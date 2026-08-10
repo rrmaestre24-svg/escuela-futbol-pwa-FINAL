@@ -889,6 +889,9 @@ window.sendSmsToPendingParents = sendSmsToPendingParents;
  * FIX 3: deleteField ya viene desestructurado — no necesita typeof
  */
 async function confirmResetAllParentAccess() {
+    // Se declara acá arriba porque el mensaje final está fuera del bloque que la
+    // asigna. Ver el comentario en ese punto: no se puede cortar con return.
+    let _falloEnLaNube = false;
     const firstConfirm = await showFormalConfirmModal({
         title: 'Reiniciar historial de envíos',
         message: 'Esto permitirá volver a enviar el código a TODOS los padres. Los códigos no cambian.',
@@ -918,26 +921,55 @@ async function confirmResetAllParentAccess() {
             localStorage.setItem('parentCodes', JSON.stringify(storedCodes));
 
             // 🆕 Borrar sent_at en Supabase para TODOS los códigos del club (un solo PATCH)
+            //
+            // Se ESPERA el resultado antes de avisar. Antes era fire-and-forget con
+            // `return=minimal`: el mensaje "Historial reiniciado correctamente" salía
+            // siempre, aunque el servidor no hubiera tocado una sola fila. Y desde
+            // que se cerró el acceso anónimo, una petición sin sesión no falla —
+            // simplemente no encuentra filas y responde 204 igual.
+            //
+            // El admin creía que podía volver a enviar los códigos, y en el otro
+            // dispositivo seguían figurando como ya enviados.
             try {
                 const supaUrl = window.SUPA_URL || window._SUPA_URL;
                 const supaAnon = window.SUPA_ANON || window._SUPA_ANON;
-                fetch(
-                    `${supaUrl}/rest/v1/parent_codes?club_id=eq.${encodeURIComponent(clubId)}&sent_at=not.is.null`,
+
+                // Sin sesión no se puede distinguir "no había nada que reiniciar"
+                // de "RLS me rechazó": los dos devuelven 200 con cero filas. Se
+                // exige el JWT antes de pedir, y así un 0 filas significa de
+                // verdad que no había nada. Mismo candado que en js/terms.js.
+                const _jwt = (window.SupaAuthV2 && typeof window.SupaAuthV2.getToken === 'function' && window.SupaAuthV2.getToken())
+                          || (window.SupaAuth && typeof window.SupaAuth.getToken === 'function' && window.SupaAuth.getToken());
+                if (!_jwt) throw new Error('sin sesión válida');
+
+                const _res = await fetch(
+                    `${supaUrl}/rest/v1/parent_codes?club_id=eq.${encodeURIComponent(clubId)}&sent_at=not.is.null&select=id`,
                     {
                         method: 'PATCH',
                         headers: {
                             apikey: supaAnon,
                             Authorization: `Bearer ${supaAnon}`,
                             'Content-Type': 'application/json',
-                            'Prefer': 'return=minimal'
+                            'Prefer': 'return=representation'
                         },
                         body: JSON.stringify({ sent_at: null })
                     }
-                ).catch(e => console.warn('[parent-automation] Reset sent_at en BD falló (LS sigue OK):', e?.message || e));
-            } catch (e) { /* defensivo */ }
+                );
+                // 0 filas es un resultado VÁLIDO acá: puede que ninguno estuviera
+                // marcado como enviado. Lo que no se acepta es un error HTTP.
+                if (!_res.ok) throw new Error(`HTTP ${_res.status}`);
+            } catch (e) {
+                console.warn('[parent-automation] Reset sent_at en BD falló:', e?.message || e);
+                _falloEnLaNube = true;
+            }
         }
 
-        showToast('✅ Historial reiniciado correctamente');
+        // OJO: acá NO se puede cortar con `return` aunque haya fallado la nube.
+        // El reinicio local YA se aplicó, y saltear el refresco dejaría la lista
+        // en pantalla mostrando el estado viejo. Se avisa y se sigue.
+        showToast(_falloEnLaNube
+            ? '⚠️ Se reinició en este equipo, pero no en la nube. Puede seguir marcado como enviado en otros dispositivos.'
+            : '✅ Historial reiniciado correctamente');
         await loadParentAccessStatus();
         renderParentAccessList();
     } catch (error) {

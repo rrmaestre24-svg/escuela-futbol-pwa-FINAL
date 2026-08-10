@@ -247,6 +247,11 @@
       if (ok > 0 || failed > 0 || dropped > 0) {
         console.log(`[syncQueue] ✅ ${ok} OK · ${failed} fallaron · ${dropped} descartadas. Pendientes restantes: ${await getQueueSize()}`);
       }
+      // Un pago que estuvo en cola y recién ahora llegó a Supabase cambia la deuda
+      // del jugador, pero la campana y el dashboard leen una deuda que el servidor
+      // calculó ANTES de esta subida. Sin esto, la alerta de un pago cobrado sin
+      // internet sigue en pantalla hasta la próxima operación manual o recarga.
+      if (ok > 0 && typeof invalidarDeudaNube === 'function') invalidarDeudaNube();
       _notifyQueueChange();
       return { ok, failed, dropped };
     } finally {

@@ -84,55 +84,19 @@ function _accFormatBillingMonth(ms) {
   return `${meses[m-1]} ${y}`;
 }
 
-// FUNCIÓN PRINCIPAL - Mostrar vista de contabilidad
+/**
+ * Abre la vista de Contabilidad.
+ *
+ * Antes tenía su propia copia de la navegación (ocultar vistas, cambiar el
+ * título, apagar la barra) y ahí estaba el problema: apagaba TODOS los botones
+ * de la barra a propósito, así que la burbuja se quedaba clavada en el botón
+ * anterior y la app decía "Inicio" estando en Contabilidad.
+ *
+ * Ahora delega en navigateTo(), que es el único lugar donde se navega. Si hay
+ * que cambiar algo de la navegación, se cambia allá y vale para toda la app.
+ */
 function showAccountingView() {
-  console.log('📊 Botón de contabilidad presionado');
-  
-  try {
-    // Ocultar todas las vistas
-    const allViews = document.querySelectorAll('#appContainer > main > div');
-    allViews.forEach(view => {
-      view.classList.add('hidden');
-    });
-    
-    // Mostrar vista de contabilidad
-    const accountingView = document.getElementById('accountingView');
-    
-    if (!accountingView) {
-      console.error('❌ ERROR: accountingView no existe en el HTML');
-      showAppAlert('No se encontró la vista de contabilidad en el HTML.', {
-        title: 'Error de interfaz',
-        type: 'danger',
-        confirmText: 'Cerrar'
-      });
-      return;
-    }
-    
-    accountingView.classList.remove('hidden');
-    console.log('✅ Vista de contabilidad mostrada');
-    
-    // Actualizar header
-    document.getElementById('headerViewName').textContent = 'Contabilidad';
-    
-    // Desactivar navegación
-    document.querySelectorAll('.nav-item').forEach(item => {
-      item.classList.remove('active');
-    });
-    
-    // Renderizar contenido
-    renderAccounting();
-    
-    // Scroll arriba
-    window.scrollTo(0, 0);
-    
-  } catch (error) {
-    console.error('❌ ERROR:', error);
-    showAppAlert('Error: ' + error.message, {
-      title: 'Error de contabilidad',
-      type: 'danger',
-      confirmText: 'Cerrar'
-    });
-  }
+  navigateTo('accounting');
 }
 
 // 🆕 Contabilidad debe calcular sobre TODOS los pagos, no solo la caché

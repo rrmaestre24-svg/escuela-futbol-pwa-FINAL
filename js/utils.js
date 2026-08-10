@@ -190,6 +190,101 @@ function extractBillingMonth(payment) {
 }
 window.extractBillingMonth = extractBillingMonth;
 
+// ========================================
+// NOMBRE DEL CLUB PARA SMS
+// ========================================
+//
+// Antes el nombre se recortaba a lo bruto con slice(): "Club Atlético Furia
+// Auriroja" le llegaba al padre como "Club Atlético Furia " —cortado y con un
+// espacio colgando— y "CD Generación Risaralda" como "CD Generación Risara".
+//
+// Y había un costo real: el emoji del club nuevo y la ó de "Generación" no
+// existen en el alfabeto GSM-7. Un solo carácter de esos obliga a codificar todo
+// el mensaje en UCS-2, que baja el límite de 160 a 70 caracteres y parte el SMS
+// en dos. Esos dos clubes pagaban DOBLE por cada aviso, para siempre.
+//
+// ⚠️ ESPEJO: la misma lógica está en supabase/functions/cron-daily-sms/index.ts
+// (los avisos automáticos se arman allá). Si tocás una, tocá la otra.
+//
+// Resultados con los nombres reales (max 20):
+//   ⚽ Club Atlético Independiente Dosquebradas → Independiente Dosqu.
+//   Club Atlético Furia Auriroja               → Furia Auriroja
+//   CD Generación Risaralda                    → Generacion Risaralda
+//   Talentos Diego Pérez                       → Talentos Diego Pérez  (sin cambios)
+
+const _SMS_PALABRAS_GENERICAS = [
+  'club atletico', 'club atlético', 'club deportivo', 'corporacion', 'corporación',
+  'escuela de futbol', 'escuela de fútbol', 'escuela', 'academia', 'club',
+  'deportivo', 'futbol club', 'fútbol club', 'c.d.', 'cd', 'ca', 'fc',
+];
+
+function nombreCortoSms(nombre, max = 20) {
+  let s = String(nombre ?? '').trim();
+
+  // 1) Emojis y símbolos fuera: fuerzan UCS-2 y duplican el costo del mensaje.
+  s = s.replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{20E3}]/gu, '').trim();
+
+  // 2) Tildes agudas fuera (á í ó ú). La ñ y la é SÍ están en GSM-7: se conservan
+  //    porque quitarlas empeoraría el nombre sin ahorrar nada.
+  s = s.normalize('NFD').replace(/([aiouAIOU])́/g, '$1').normalize('NFC');
+
+  s = s.replace(/\s+/g, ' ').trim();
+
+  // 3) Red de seguridad ANTES de cualquier return. Va acá y no al final porque
+  //    una cadena vacía tiene largo 0, y 0 siempre es <= max: el primer
+  //    `if (s.length <= max) return s` la devolvería tal cual y el resto de la
+  //    función nunca correría. Un club llamado solo "⚽" dejaría el SMS
+  //    arrancando con ": la mensualidad de..." — sin decir de quién es.
+  if (!s) {
+    const crudo = String(nombre ?? '').replace(/[^\p{L}\p{N} .,&-]/gu, '').trim();
+    s = crudo ? crudo.slice(0, max).trim() : 'Tu escuela';
+  }
+
+  if (s.length <= max) return s;
+
+  // 4) Sacar palabras genéricas del PRINCIPIO. Solo del principio: en el medio
+  //    suelen ser parte del nombre propio del club.
+  let cambio = true;
+  while (cambio && s.length > max) {
+    cambio = false;
+    for (const g of _SMS_PALABRAS_GENERICAS) {
+      if (s.toLowerCase().startsWith(g + ' ')) {
+        s = s.slice(g.length + 1).trim();
+        cambio = true;
+        break;
+      }
+    }
+  }
+  if (s.length <= max) return s;
+
+  // 5) Abreviar las palabras del MEDIO a su inicial. La primera y la última son
+  //    las que identifican al club, se conservan enteras mientras se pueda.
+  let p = s.split(' ');
+  for (let i = 1; i < p.length - 1 && p.join(' ').length > max; i++) {
+    if (p[i].length > 3) p[i] = p[i][0] + '.';
+  }
+  s = p.join(' ');
+  if (s.length <= max) return s;
+
+  // 6) Recortar la ÚLTIMA palabra con punto ANTES que tirarla. "Independiente
+  //    Dosquebradas" queda "Independiente Dosqu."; tirarla dejaría solo
+  //    "Independiente", que podría ser cualquier club.
+  p = s.split(' ');
+  if (p.length > 1) {
+    const resto = p.slice(0, -1).join(' ');
+    const libre = max - resto.length - 2; // el espacio y el punto
+    if (libre >= 3) return `${resto} ${p[p.length - 1].slice(0, libre)}.`;
+  }
+
+  // 7) Sacar palabras enteras. Nunca cortar a mitad de palabra.
+  while (p.length > 1 && p.join(' ').length > max) p.pop();
+  s = p.join(' ');
+  s = s.length <= max ? s : s.slice(0, max).trim();
+
+  return s;
+}
+window.nombreCortoSms = nombreCortoSms;
+
 // Formatear moneda COP
 function formatCurrency(amount) {
   const currency = getSchoolSettings().currency || 'COP';

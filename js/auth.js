@@ -1075,6 +1075,11 @@ async function logout() {
       // Aceptación de Términos: es POR CLUB. Si no se limpia, otro club en el
       // mismo dispositivo se saltaría el modal y no quedaría su consentimiento.
       localStorage.removeItem('termsAcceptedVersion');
+      // Descartes de notificaciones: la lista NO guarda a qué club pertenece cada
+      // uno. Sin esta línea el próximo club hereda los del anterior — y desde que
+      // se sincronizan con la nube, además los subiría a SU tabla con ids de
+      // jugadores ajenos. Ver js/notifications.js.
+      localStorage.removeItem('dismissedNotifications');
       sessionStorage.clear();
       
       showToast('👋 Sesión cerrada');

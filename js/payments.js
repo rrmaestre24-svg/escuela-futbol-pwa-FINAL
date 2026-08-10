@@ -745,6 +745,10 @@ async function markAsPaid(paymentId) {
   setTimeout(() => mostrarOpcionWAPayment(paymentId), 500);
   
   renderPayments();
+  // Antes de updateDashboard(): esa función ya repinta las notificaciones, y con
+  // la deuda vieja en memoria mostraría por un instante la alerta del pago que se
+  // acaba de tocar.
+  if (typeof invalidarDeudaNube === "function") invalidarDeudaNube();
   updateDashboard();
   updateNotifications();
 }
@@ -1460,6 +1464,10 @@ async function confirmVoidPayment() {
   deletePayment(paymentId);
   showToast('✅ Factura anulada y registrada');
   renderPayments();
+  // Antes de updateDashboard(): esa función ya repinta las notificaciones, y con
+  // la deuda vieja en memoria mostraría por un instante la alerta del pago que se
+  // acaba de tocar.
+  if (typeof invalidarDeudaNube === "function") invalidarDeudaNube();
   updateDashboard();
   updateNotifications();
 }
@@ -2079,6 +2087,10 @@ async function saveEditedPayment() {
   showToast('✅ Factura actualizada correctamente');
   closeEditPaymentModal();
   renderPayments();
+  // Antes de updateDashboard(): esa función ya repinta las notificaciones, y con
+  // la deuda vieja en memoria mostraría por un instante la alerta del pago que se
+  // acaba de tocar.
+  if (typeof invalidarDeudaNube === "function") invalidarDeudaNube();
   updateDashboard();
   updateNotifications();
   
@@ -2853,7 +2865,12 @@ async function handlePaymentFormSubmit(e) {
           // GSM-7: sin tildes agudas, y el monto con Intl SIN style:currency
           // (formatCurrency mete un NBSP U+00A0 que fuerza UCS-2 y duplica el costo).
           const _montoGsm = '$' + new Intl.NumberFormat('es-CO').format(amount || 0);
-          const _club = String(settings.name || '').slice(0, 18);
+          // Abrevia con sentido en vez de cortar a lo bruto: sin el emoji ni las
+          // tildes agudas que fuerzan UCS-2 (y duplican el costo), y sin dejar
+          // palabras partidas. Ver nombreCortoSms en js/utils.js.
+          const _club = typeof nombreCortoSms === 'function'
+            ? nombreCortoSms(settings.name, 18)
+            : String(settings.name || '').slice(0, 18);
           const _jug  = String(player.name || '').slice(0, 20);
           const _conc = String(concept || '').slice(0, 28);
 
@@ -2887,6 +2904,10 @@ async function handlePaymentFormSubmit(e) {
 
     closePaymentModal();
     renderPayments();
+    // Antes de updateDashboard(): esa función ya repinta las notificaciones, y con
+    // la deuda vieja en memoria mostraría por un instante la alerta del pago que se
+    // acaba de tocar.
+    if (typeof invalidarDeudaNube === "function") invalidarDeudaNube();
     updateDashboard();
     updateNotifications();
 

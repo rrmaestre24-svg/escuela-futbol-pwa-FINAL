@@ -85,7 +85,11 @@ function loadSettings() {
   const smsCfg = settings.sms_config || {};
   const smsAvisos = smsCfg.avisos || {};
   const smsTpls = smsCfg.plantillas || {};
-  ['recordatorio', 'vencido', 'cumple', 'evento', 'factura'].forEach(k => {
+  // ⚠️ ESTA LISTA Y LA DE GUARDADO (más abajo) TIENEN QUE COINCIDIR.
+  // El guardado reconstruye `avisos` desde cero: un aviso que esté acá pero no
+  // allá se borra en silencio la primera vez que el club toque Ajustes.
+  // `morosos_admin` no tiene plantilla editable: el texto es fijo.
+  ['recordatorio', 'vencido', 'cumple', 'evento', 'factura', 'morosos_admin'].forEach(k => {
     const toggle = document.getElementById('smsAviso_' + k);
     if (toggle) toggle.checked = smsAvisos[k] === true;
     const ta = document.getElementById('smsTpl_' + k);
@@ -94,6 +98,8 @@ function loadSettings() {
       if (typeof smsCount === 'function') smsCount(ta);
     }
   });
+  const smsDesde = document.getElementById('smsMorososDesde');
+  if (smsDesde) smsDesde.value = (smsCfg.morosos_desde || '').slice(0, 10);
   const smsRemDays = document.getElementById('smsReminderDays');
   if (smsRemDays) {
     const n = Number(smsCfg.reminderDaysBefore);
@@ -234,25 +240,46 @@ document.getElementById('changeAvatar')?.addEventListener('change', async functi
 
     // 🆕 Persistir URL en Supabase users.avatar (para que se vea en otros dispositivos)
     const _clubId = localStorage.getItem('clubId');
+    // Arranca en null = "no había que sincronizar". Solo pasa a false si se
+    // intentó y falló, para no mentir en el mensaje final.
+    let _sincronizado = null;
     if (window.MODO_SUPABASE && _clubId) {
       try {
-        await fetch(
-          `${window.SUPA_URL}/rest/v1/users?id=eq.${encodeURIComponent(currentUser.id)}&club_id=eq.${encodeURIComponent(_clubId)}`,
+        // `return=representation` + `select=id`, NO `return=minimal`.
+        //
+        // Con `minimal` el servidor responde 204 tanto si actualizó una fila como
+        // si no actualizó ninguna. Desde que se cerró el acceso anónimo, una
+        // petición sin sesión válida no falla: no encuentra filas y contesta 204
+        // igual. La app decía "Foto actualizada en la nube" sin haber actualizado
+        // nada, y el usuario se enteraba al abrir en otro dispositivo.
+        //
+        // Pidiendo la fila de vuelta se distingue una cosa de la otra.
+        const _res = await fetch(
+          `${window.SUPA_URL}/rest/v1/users?id=eq.${encodeURIComponent(currentUser.id)}&club_id=eq.${encodeURIComponent(_clubId)}&select=id`,
           {
             method: 'PATCH',
-            headers: { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+            headers: { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}`, 'Content-Type': 'application/json', Prefer: 'return=representation' },
             body: JSON.stringify({ avatar: newAvatarUrl }),
           }
         );
+        const _filas = _res.ok ? await _res.json().catch(() => []) : [];
+        if (!Array.isArray(_filas) || _filas.length === 0) {
+          throw new Error(`no se actualizó ninguna fila (HTTP ${_res.status})`);
+        }
+        _sincronizado = true;
         console.log('✅ Avatar sincronizado a Supabase');
       } catch (e) {
+        _sincronizado = false;
         console.warn('⚠️ No se pudo sincronizar avatar con Supabase:', e.message);
       }
     }
 
     updateUser(currentUser.id, { avatar: newAvatarUrl });
     setCurrentUser({ ...currentUser, avatar: newAvatarUrl });
-    showToast('✅ Foto actualizada en la nube');
+    // El mensaje dice la verdad: "en la nube" solo si de verdad llegó a la nube.
+    showToast(_sincronizado === false
+      ? '⚠️ La foto se cambió en este equipo, pero no se pudo guardar en la nube.'
+      : '✅ Foto actualizada en la nube');
   } catch (error) {
     console.error(error);
     showToast('⚠️ Usando almacenamiento local por falla de red');
@@ -606,15 +633,23 @@ document.getElementById('clubSettingsForm')?.addEventListener('submit', function
     pdfFooterMessage: (pdfFooterMessage?.value || '').trim(),
     sms_config: (() => {
       const avisos = {}, plantillas = {};
-      ['recordatorio', 'vencido', 'cumple', 'evento', 'factura'].forEach(k => {
+      // ⚠️ MISMA LISTA que la de carga. Ver el comentario allá arriba.
+      ['recordatorio', 'vencido', 'cumple', 'evento', 'factura', 'morosos_admin'].forEach(k => {
         avisos[k] = document.getElementById('smsAviso_' + k)?.checked === true;
-        plantillas[k] = (document.getElementById('smsTpl_' + k)?.value || '').trim();
+        // morosos_admin no tiene textarea: sin este guard quedaría '' y pisaría
+        // una plantilla que nunca existió. Solo se guarda lo que tiene campo.
+        const _ta = document.getElementById('smsTpl_' + k);
+        if (_ta) plantillas[k] = (_ta.value || '').trim();
       });
       const remRaw = Number(document.getElementById('smsReminderDays')?.value);
       const reminderDaysBefore = Number.isFinite(remRaw) ? Math.max(1, Math.min(15, remRaw)) : 3;
       const evRaw = Number(document.getElementById('smsEventDays')?.value);
       const eventReminderDays = Number.isFinite(evRaw) ? Math.max(0, Math.min(15, evRaw)) : 1;
-      return { avisos, reminderDaysBefore, eventReminderDays, plantillas };
+      // Fecha de activación de los avisos de mora. Vacía = no se envía nada:
+      // es el candado que impide dispararle a las familias por deuda vieja.
+      const _desde = (document.getElementById('smsMorososDesde')?.value || '').trim();
+      const morosos_desde = /^\d{4}-\d{2}-\d{2}$/.test(_desde) ? _desde : null;
+      return { avisos, reminderDaysBefore, eventReminderDays, plantillas, morosos_desde };
     })()
   };
   
@@ -1494,6 +1529,11 @@ async function executeClubDestruction(clubId, currentUser) {
     // consentimiento registrado).
     localStorage.removeItem('termsAcceptedVersion');
     localStorage.removeItem('licenseModulos');
+    // Los descartes de notificaciones NO guardan a qué club pertenecen. Sin esta
+    // línea, el próximo club de este dispositivo hereda los del anterior — y desde
+    // que se sincronizan con la nube, además los subiría a SU tabla con ids de
+    // jugadores ajenos. Ver js/notifications.js.
+    localStorage.removeItem('dismissedNotifications');
     localStorage.removeItem('licenseStatus');
     localStorage.removeItem('licensePlan');
     localStorage.removeItem('licenseEndDate');

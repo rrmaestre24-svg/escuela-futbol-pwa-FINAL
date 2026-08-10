@@ -2,7 +2,7 @@
 window.APP_STATE = {
   currentUser: null,
   authRestored: false,
-  version: '1.3.2' // Fallback de versión si no se puede leer sw.js
+  version: '2.0.5' // Fallback de versión si no se puede leer sw.js — mantener al día con sw.js:1
 };
 
 // ========================================
@@ -10,6 +10,97 @@ window.APP_STATE = {
 // ========================================
 
 // Navegación entre vistas
+
+/**
+ * A qué botón de la barra pertenece cada vista que NO tiene botón propio.
+ *
+ * La barra tiene cinco botones (dashboard, players, payments, calendar,
+ * settings) pero la app tiene nueve vistas. Las cuatro que faltan se entra desde
+ * adentro de otra pantalla, y sin este mapa la barra no marcaba ninguna: la
+ * persona estaba en Contabilidad y el botón encendido seguía siendo Inicio.
+ *
+ * El criterio es la sección a la que PERTENECE la vista, no desde dónde se
+ * entró. Contabilidad se abre desde el Inicio, pero es plata: marcarla en Inicio
+ * dejaría el mismo problema que se está arreglando.
+ *
+ * Si se agrega una vista nueva sin botón en la barra, va acá.
+ */
+const NAV_SECCION = {
+  accounting:      'payments',  // plata
+  documentsCenter: 'players',   // documentos DE los jugadores
+  birthdays:       'dashboard', // es una tarjeta del Inicio expandida
+  notifications:   'dashboard'  // se entra por la campana del encabezado
+};
+
+/**
+ * Desliza la burbuja de la barra inferior hasta el botón activo.
+ *
+ * Se MIDE el botón en vez de calcular `ancho / 5 * indice`: los cinco botones no
+ * miden lo mismo porque el texto cambia de largo ("Más" contra "Calendario"), y
+ * con un ancho fijo la burbuja queda descentrada en los extremos.
+ *
+ * Es puramente visual: si algo falla, la barra sigue funcionando igual.
+ */
+function _moverBurbujaNav() {
+  try {
+    const burbuja = document.querySelector('.nav-burbuja');
+    const activo = document.querySelector('.nav-item.active');
+    if (!burbuja || !activo) return;
+
+    const contenedor = burbuja.parentElement;
+    if (!contenedor) return;
+
+    const rc = contenedor.getBoundingClientRect();
+    const ra = activo.getBoundingClientRect();
+    // Si la barra todavía no está en pantalla (vista oculta, primer render), no
+    // hay medidas útiles: se reintenta en el próximo navigateTo.
+    if (!ra.width) return;
+
+    const barra = burbuja.closest('.nav-barra');
+
+    // PRIMERA COLOCACIÓN: sin animación.
+    //
+    // Al abrir la app la burbuja está en el borde izquierdo y el hueco en el
+    // centro (su valor inicial). Si se los deja animar, se ve a los dos venir
+    // de lugares distintos y juntarse — un movimiento que nadie pidió y que
+    // delata el truco. La primera vez se los ubica de una y recién ahí se
+    // habilita la transición, para que solo se anime al tocar un botón.
+    const primeraVez = !burbuja.classList.contains('lista');
+    if (primeraVez) {
+      burbuja.style.transition = 'none';
+      if (barra) barra.style.transition = 'none';
+    }
+
+    const centro = (ra.left - rc.left) + ra.width / 2;
+    burbuja.style.transform = `translateX(${centro - burbuja.offsetWidth / 2}px)`;
+
+    // El hueco recortado de la barra viaja con la burbuja. Se mide contra el
+    // <nav>, no contra el contenedor de los botones: la máscara vive en el
+    // ::before del <nav>, que ocupa todo el ancho de la pantalla.
+    if (barra) {
+      const rb = barra.getBoundingClientRect();
+      barra.style.setProperty('--notch-x', `${(ra.left - rb.left) + ra.width / 2}px`);
+    }
+
+    if (primeraVez) {
+      // Leer una medida obliga al navegador a aplicar lo de arriba ANTES de
+      // devolver la transición. Sin esto, las dos cosas se juntan en el mismo
+      // repintado y la animación ocurre igual.
+      void burbuja.offsetWidth;
+      burbuja.style.transition = '';
+      if (barra) barra.style.transition = '';
+    }
+    burbuja.classList.add('lista');
+    // El recorte se muestra recién ahora, ya en su lugar: si estuviera desde el
+    // arranque se vería un agujero en el medio de la barra durante la carga.
+    if (barra) barra.classList.add('notch-listo');
+  } catch (_) { /* la barra funciona igual sin la burbuja */ }
+}
+window._moverBurbujaNav = _moverBurbujaNav;
+
+// Al girar el teléfono o cambiar el tamaño, las posiciones cambian.
+window.addEventListener('resize', () => _moverBurbujaNav());
+
 function navigateTo(view) {
   console.log('🔄 Navegando a:', view);
   
@@ -45,11 +136,16 @@ function navigateTo(view) {
   document.querySelectorAll('.nav-item').forEach(item => {
     item.classList.remove('active');
   });
-  
-  const navItem = document.querySelector(`[data-nav="${view}"]`);
+
+  // Las vistas que NO tienen botón propio en la barra se marcan sobre la sección
+  // a la que pertenecen. Sin esto no se marcaba ninguna, y como la burbuja no
+  // tiene a dónde ir se quedaba clavada en el botón anterior: se entraba a
+  // Contabilidad y la barra seguía diciendo "Inicio".
+  const navItem = document.querySelector(`[data-nav="${NAV_SECCION[view] || view}"]`);
   if (navItem) {
     navItem.classList.add('active');
   }
+  _moverBurbujaNav();
   
   // Actualizar título del header
   const titles = {
@@ -237,7 +333,7 @@ function setHeaderAppVersion(versionLabel) {
 
 async function refreshHeaderAppVersion() {
   // 1. Mostrar la versión del estado global (rápido y funciona en local)
-  const appVersion = window.APP_STATE.version || '1.3.2';
+  const appVersion = window.APP_STATE.version || '2.0.5';
   setHeaderAppVersion(appVersion);
 
   // 2. Intentar leer del cache previo
@@ -390,6 +486,14 @@ async function initApp() {
 
     // Inicializar Lucide icons
     if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+
+    // La burbuja de la barra inferior se coloca DESPUÉS de dibujar los íconos:
+    // el navigateTo de arriba corre cuando los <i data-lucide> todavía no fueron
+    // reemplazados por <svg>, así que los botones aún no tienen su ancho final y
+    // la burbuja quedaría corrida. El rAF espera a que el navegador pinte.
+    requestAnimationFrame(() => {
+      if (typeof _moverBurbujaNav === 'function') _moverBurbujaNav();
+    });
 
     // ⭐ ACTIVAR LISTENER DE ELIMINACIÓN DE USUARIO
     if (typeof setupUserDeletionListener === 'function') setupUserDeletionListener();

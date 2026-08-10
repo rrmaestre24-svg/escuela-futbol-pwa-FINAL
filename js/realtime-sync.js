@@ -241,6 +241,14 @@ async function revalidateLocalCacheAndRender(clubId, { reason = 'manual' } = {})
 
     if (typeof downloadAllClubDataFromSupabase === 'function' && (!_recentDL || _forzar)) {
       await downloadAllClubDataFromSupabase(clubId, { force: _forzar });
+      // Se acaban de re-descargar los pagos: la deuda cacheada en memoria quedó
+      // vieja. Sin esto, un cobro hecho en OTRO dispositivo se ve reflejado en los
+      // pagos pero la alerta del jugador sigue en la campana de esta pestaña.
+      //
+      // Va DENTRO del if a propósito: esta función corre cada vez que se vuelve a
+      // la pestaña, y si la descarga se salteó por el cooldown no cambió ningún
+      // pago — invalidar igual sería una consulta al servidor por cada alt-tab.
+      if (typeof invalidarDeudaNube === 'function') invalidarDeudaNube();
     }
 
     if (typeof updateDashboard === 'function') updateDashboard();

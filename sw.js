@@ -1,4 +1,4 @@
-const CACHE_NAME = 'my-club-v1.10.4';
+const CACHE_NAME = 'my-club-v2.0.5';
 
 const urlsToCache = [
   '/',
@@ -52,6 +52,7 @@ const urlsToCache = [
   // JS FEATURES
   '/js/storage-service.js',
   '/js/players.js',
+  '/js/listado-pdf.js',
   '/js/payments.js',
   '/js/multi-invoice.js',
   '/js/expenses.js',
@@ -104,7 +105,16 @@ self.addEventListener('install', event => {
     })
   );
 
-  self.skipWaiting();
+  // NO se llama a skipWaiting() acá a propósito.
+  //
+  // Antes sí, y por eso la versión nueva tomaba el control de la página EN
+  // CALIENTE, sin avisar: el aviso de "nueva versión" no servía de nada porque
+  // la actualización ya había pasado, y el cambio a mitad de sesión es lo que
+  // dejaba la app vacía (interrumpe la hidratación de IndexedDB — v1.7.10).
+  //
+  // Ahora el worker nuevo queda EN ESPERA hasta que la persona toque
+  // "Actualizar" en el modal. Ahí js/bootstrap.js le manda SKIP_WAITING (ver el
+  // listener de mensajes más abajo) y recién entonces toma el control.
 });
 
 /* ==============================

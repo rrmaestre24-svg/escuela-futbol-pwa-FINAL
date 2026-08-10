@@ -168,6 +168,15 @@ async function acceptTerms() {
 
   try {
     if (!clubId) throw new Error('No hay club en sesión');
+
+    // Mismo candado que checkTermsAcceptance(): sin JWT el interceptor manda la
+    // llave pública, RLS rechaza el INSERT y el modal queda trabado mostrando
+    // "no se pudo guardar" sin decir por qué. Pasa cuando la sesión se cae entre
+    // que el modal aparece y que la persona acepta, o al abrir en local.
+    const _jwt = (window.SupaAuthV2 && typeof window.SupaAuthV2.getToken === 'function' && window.SupaAuthV2.getToken())
+              || (window.SupaAuth && typeof window.SupaAuth.getToken === 'function' && window.SupaAuth.getToken());
+    if (!_jwt) throw new Error('SIN_SESION');
+
     const res = await fetch(window.SUPA_URL + '/rest/v1/terms_acceptances', {
       method: 'POST',
       headers: {
@@ -187,7 +196,11 @@ async function acceptTerms() {
   } catch (e) {
     console.error('[terms] error al registrar la aceptación:', e);
     if (typeof showToast === 'function') {
-      showToast('❌ No se pudo guardar. Revisá tu conexión e intentá de nuevo.');
+      // Se distingue "falta sesión" de "falló la red": son dos problemas
+      // distintos y el usuario no puede resolver el primero reintentando.
+      showToast(e && e.message === 'SIN_SESION'
+        ? '⏳ Tu sesión aún no está lista. Recargá la página e intentá de nuevo.'
+        : '❌ No se pudo guardar. Revisá tu conexión e intentá de nuevo.');
     }
     if (btn) {
       btn.disabled = false;

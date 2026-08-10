@@ -73,8 +73,11 @@ function initStorage() {
       primaryColor: '#0d9488'
     }));
   }
+  // Un club que recién abre arranca en OSCURO. Es el tema en el que se diseñó la
+  // app y con el que se ve mejor; el claro queda como elección explícita.
+  // Solo aplica la primera vez: si la persona ya eligió, se respeta lo suyo.
   if (!localStorage.getItem('darkMode')) {
-    localStorage.setItem('darkMode', 'false');
+    localStorage.setItem('darkMode', 'true');
   }
   if (!localStorage.getItem('schoolUsers')) {
     localStorage.setItem('schoolUsers', JSON.stringify([]));

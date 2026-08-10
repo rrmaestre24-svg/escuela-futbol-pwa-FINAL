@@ -623,6 +623,10 @@ async function _mi_confirm() {
 
     closeMultiInvoiceModal();
     renderPayments();
+    // Antes de updateDashboard(): esa función ya repinta las notificaciones, y con
+    // la deuda vieja en memoria mostraría por un instante la alerta del pago que se
+    // acaba de tocar.
+    if (typeof invalidarDeudaNube === "function") invalidarDeudaNube();
     updateDashboard();
     updateNotifications();
 
@@ -653,7 +657,12 @@ async function _mi_confirm() {
             const _n = createdIds.length;
             // Total realmente cobrado = importe final (ya con descuento) por mes generado.
             const _total = '$' + new Intl.NumberFormat('es-CO').format((finalAmount || 0) * _n);
-            const _club = String(_settings.name || '').slice(0, 18);
+            // Abrevia con sentido en vez de cortar a lo bruto: sin el emoji ni
+            // las tildes agudas que fuerzan UCS-2 (y duplican el costo), y sin
+            // dejar palabras partidas. Ver nombreCortoSms en js/utils.js.
+            const _club = typeof nombreCortoSms === 'function'
+                ? nombreCortoSms(_settings.name, 18)
+                : String(_settings.name || '').slice(0, 18);
             const _jug  = String(player.name || '').slice(0, 20);
             // Con un mes se nombra el mes; con varios, la cantidad (no entra la lista
             // completa en 130 caracteres y el mensaje se cortaria a la mitad).

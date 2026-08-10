@@ -16,12 +16,21 @@ button, [role="button"], a, label, input[type="checkbox"], input[type="radio"] {
   transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
 }
 
-/* Modo claro (por defecto) */
+/* Modo claro.
+   El fondo NO es casi blanco a propósito. Antes era #f9fafb y las tarjetas
+   blancas encima quedaban invisibles: el ojo no distinguía dónde empezaba una y
+   terminaba la otra. Con un fondo un punto más profundo, la tarjeta blanca se
+   despega sola. */
 :root {
   --bg-primary: #ffffff;
-  --bg-secondary: #f9fafb;
-  --text-primary: #1f2937;
-  --text-secondary: #6b7280;
+  /* Ni blanco ni casi blanco: el fondo tiene que tener cuerpo para que el logo
+     del club se apoye en algo y no flote sobre una hoja en blanco. */
+  --bg-secondary: #e4e9f0;
+  --text-primary: #111827;
+  --text-secondary: #4b5563;
+  --borde-tarjeta: #cdd6e2;
+  --sombra-tarjeta: 0 1px 2px rgba(15, 23, 42, 0.05), 0 2px 8px rgba(15, 23, 42, 0.06);
+  --sombra-tarjeta-alta: 0 2px 4px rgba(15, 23, 42, 0.07), 0 8px 20px rgba(15, 23, 42, 0.10);
 }
 
 /* Modo oscuro */
@@ -32,6 +41,9 @@ html.dark,
   --bg-secondary: #111827;
   --text-primary: #f9fafb;
   --text-secondary: #d1d5db;
+  --borde-tarjeta: rgba(255, 255, 255, 0.08);
+  --sombra-tarjeta: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --sombra-tarjeta-alta: 0 8px 24px rgba(0, 0, 0, 0.45);
 }
 
 /* Aplicar colores base */
@@ -166,21 +178,219 @@ body {
   animation: pulse 2s infinite;
 }
 
+/* Cabecera: en claro llevaba `shadow-sm`, que sobre un fondo casi blanco no se
+   veía — la barra y la página parecían la misma superficie. Un borde inferior
+   real la separa mejor que cualquier sombra. */
+/* Translúcidas igual que las tarjetas, para que el fondo del club se vea parejo
+   de punta a punta y no quede cortado por dos franjas blancas. */
+.cabecera {
+  background: rgba(255, 255, 255, 0.80);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--borde-tarjeta);
+}
+
+.dark .cabecera {
+  background: rgba(31, 41, 55, 0.80);
+}
+
+/* El logo se muestra tal cual, sin recuadro ni borde: el marco blanco quedaba
+   pegoteado y desentonaba, sobre todo en modo oscuro.
+
+   `contain` en vez de `cover`: `cover` recorta para llenar el cuadro y a un logo
+   apaisado le come los costados. `contain` lo muestra entero. */
+.logo-club {
+  object-fit: contain;
+}
+
 /* ========================================
    NAVEGACIÓN BOTTOM
 ======================================== */
-.nav-item {
-  color: #9ca3af;
-  transition: all 0.3s;
+/* Barra inferior estilo "liquid": el ícono activo sube y queda dentro de un
+   círculo flotante que se desliza de una posición a otra.
+
+   La burbuja se posiciona por JS (_moverBurbujaNav en js/app.js) midiendo el
+   botón activo, NO con un cálculo del tipo `ancho / 5 * indice`: los botones no
+   miden lo mismo porque el texto cambia de largo, y con un ancho fijo la burbuja
+   queda descentrada en "Calendario" y en "Más". */
+
+/* Las variables CSS NO se animan salvo que se declaren con @property. Sin esto
+   la burbuja se desliza suave y el hueco salta de golpe al destino: se ve peor
+   que no tener hueco. Donde @property no esté soportado, el hueco salta pero
+   todo lo demás funciona igual. */
+@property --notch-x {
+  syntax: '<length-percentage>';
+  /* TIENE que heredar. El hueco lo dibuja .nav-barra::before, y un
+     pseudo-elemento hereda de su elemento; con `inherits: false` el ::before
+     recibía el valor inicial (50%) y el agujero quedaba clavado en el medio de
+     la barra mientras la burbuja se movía por otro lado. */
+  inherits: true;
+  initial-value: 50%;
 }
 
+/* El HUECO donde se apoya la burbuja.
+   ────────────────────────────────────
+   El fondo de la barra NO va en el <nav>: va en este pseudo-elemento, y se le
+   recorta un círculo con `mask`. Tiene que ser así porque una máscara aplicada
+   al <nav> recortaría también los íconos y el texto que están adentro — el
+   ícono activo, que sube justo hasta el hueco, sería el primero en desaparecer.
+
+   `--notch-x` la mueve _moverBurbujaNav() (js/app.js) al mismo lugar que la
+   burbuja, así el hueco la sigue. */
+.nav-barra {
+  --notch-x: 50%;
+  background: transparent;
+  /* La transición va ACÁ, en el elemento que define la variable — no en el
+     ::before que la consume: una variable se anima donde está declarada. */
+  transition: --notch-x 0.45s cubic-bezier(0.68, -0.25, 0.27, 1.25);
+}
+
+.nav-barra::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-top: 1px solid var(--borde-tarjeta);
+  box-shadow: 0 -4px 16px rgba(15, 23, 42, 0.06);
+  /* Radio 32 contra los 26 de la burbuja = 6px de aire alrededor, que es lo que
+     da el efecto de flotar. El centro va en y=0 (el borde superior de la barra)
+     para que se vea el arco completo y no una muesca chata. Los 33px del
+     segundo tramo suavizan el borde del recorte. */
+  -webkit-mask-image: radial-gradient(circle 32px at var(--notch-x) 0, transparent 0 32px, #000 33px);
+  mask-image: radial-gradient(circle 32px at var(--notch-x) 0, transparent 0 32px, #000 33px);
+  /* Se anima la variable, no la máscara: así el hueco viaja junto a la burbuja
+     con la misma curva y no llega antes ni después. */
+  pointer-events: none;
+}
+
+/* El recorte se aplica RECIÉN cuando el JS ubicó el hueco (clase `notch-listo`).
+   Sin esto, el CSS lo dibuja de entrada en su posición inicial —el centro de la
+   barra— y durante el arranque se ve un agujero en el medio, con el contenido de
+   atrás asomando, hasta que el JS lo corre a su lugar.
+
+   Radio 32 contra los 26 de la burbuja = 6px de aire alrededor, que es lo que da
+   el efecto de flotar. El centro va en y=0 (el borde superior de la barra) para
+   que se vea el arco completo y no una muesca chata. */
+.nav-barra.notch-listo::before {
+  -webkit-mask-image: radial-gradient(circle 32px at var(--notch-x) 0, transparent 0 32px, #000 33px);
+  mask-image: radial-gradient(circle 32px at var(--notch-x) 0, transparent 0 32px, #000 33px);
+}
+
+.dark .nav-barra::before {
+  background: rgba(31, 41, 55, 0.85);
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.35);
+}
+
+.nav-liquid {
+  position: relative;
+  /* La burbuja sobresale por encima de la barra: sin esto se recorta. */
+  overflow: visible;
+}
+
+.nav-burbuja {
+  position: absolute;
+  /* Centrada en el mismo punto que el hueco (y = 0, el borde superior de la
+     barra): hueco de radio 32 contra burbuja de radio 26 → 6px de aire parejo
+     alrededor. top = 0 - 26 */
+  top: -26px;
+  left: 0;
+  width: 52px;
+  height: 52px;
+  border-radius: 9999px;
+  /* Toma el color que el club eligió en Ajustes. applyPrimaryColor() (js/theme.js)
+     define --primary-color y --primary-rgb al arrancar; el teal es el respaldo
+     para el instante previo, o si el club nunca eligió color. */
+  background: var(--primary-color, #0d9488);
+  box-shadow: 0 6px 16px rgba(var(--primary-rgb, 13, 148, 136), 0.45);
+  transition: transform 0.45s cubic-bezier(0.68, -0.25, 0.27, 1.25);
+  pointer-events: none;
+  z-index: 0;
+  /* Arranca oculta: JS la muestra recién cuando midió el botón activo, así no
+     se ve saltar desde la esquina en la primera carga. */
+  opacity: 0;
+}
+
+.nav-burbuja.lista {
+  opacity: 1;
+}
+
+.nav-item {
+  color: #9ca3af;
+  position: relative;
+  z-index: 1;
+  transition: color 0.3s;
+}
+
+.nav-item i,
+.nav-item svg {
+  transition: transform 0.45s cubic-bezier(0.68, -0.25, 0.27, 1.25), color 0.3s;
+}
+
+.nav-item span {
+  transition: opacity 0.3s, transform 0.45s cubic-bezier(0.68, -0.25, 0.27, 1.25);
+}
+
+/* Activo: el ícono sube adentro de la burbuja y el texto ocupa su lugar. */
 .nav-item.active {
-  color: #0d9488;
-  background-color: rgba(13, 148, 136, 0.1);
+  color: var(--primary-color, #0d9488);
+}
+
+/* El ícono aterriza en el centro de la burbuja. Su centro natural está a ~26px
+   del borde superior de la barra (8 de padding de la barra + 8 del botón + 10 de
+   media altura del ícono) y tiene que llegar a 0. */
+.nav-item.active i,
+.nav-item.active svg {
+  transform: translateY(-26px);
+  color: #ffffff;
+  stroke: #ffffff;
+}
+
+/* El texto sube a ocupar el lugar que dejó el ícono. */
+.nav-item.active span {
+  transform: translateY(-10px);
+  font-weight: 600;
+}
+
+/* Inactivo: el texto se atenúa para que la atención quede en el activo. */
+.nav-item:not(.active) span {
+  opacity: 0.65;
 }
 
 .nav-item:active {
   transform: scale(0.95);
+}
+
+/* Accesibilidad: quien pidió menos movimiento en su sistema recibe el mismo
+   cambio de estado, pero sin desplazamientos ni animación. */
+@media (prefers-reduced-motion: reduce) {
+  .nav-barra,
+  .nav-burbuja,
+  .nav-item i,
+  .nav-item svg,
+  .nav-item span {
+    transition: none;
+  }
+  .nav-item.active i,
+  .nav-item.active svg,
+  .nav-item.active span {
+    transform: none;
+  }
+  .nav-item.active i,
+  .nav-item.active svg {
+    color: var(--primary-color, #0d9488);
+    stroke: var(--primary-color, #0d9488);
+  }
+  .nav-burbuja {
+    display: none;
+  }
+  /* Sin burbuja no puede quedar el hueco: sería un agujero en la barra sin nada
+     adentro. Se quita la máscara y la barra vuelve a ser un rectángulo. */
+  .nav-barra.notch-listo::before {
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
 }
 
 /* ========================================
@@ -732,12 +942,18 @@ select option:hover {
    En reposo: semi-transparente (se ve el escudo de fondo)
    Al tocar / hover: fondo sólido para leer bien
 ======================================== */
+/* Translúcidas, como en modo oscuro: dejan ver el logo del club por detrás.
+   Lo que antes las hacía desaparecer NO era la transparencia — era que el borde
+   también era BLANCO sobre fondo casi blanco. Con un borde gris real y una
+   sombra, la tarjeta se separa igual aunque deje pasar el fondo.
+   El desenfoque suaviza lo que pasa por detrás para que el texto se lea limpio. */
 .glass-card {
-    background: rgba(255, 255, 255, 0.72);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.45);
-    transition: background 0.25s ease, border-color 0.25s ease;
+    background: rgba(255, 255, 255, 0.80);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--borde-tarjeta);
+    box-shadow: var(--sombra-tarjeta);
+    transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
 }
 
 .dark .glass-card {
@@ -751,8 +967,8 @@ select option:hover {
 .glass-card:hover,
 .glass-card:active,
 .glass-card:focus-within {
-    background: rgba(255, 255, 255, 0.97);
-    border-color: rgba(255, 255, 255, 0.6);
+    background: rgba(255, 255, 255, 0.94);
+    box-shadow: var(--sombra-tarjeta-alta);
 }
 
 .dark .glass-card:hover,
@@ -765,6 +981,17 @@ select option:hover {
 /* ========================================
    MARCA DE AGUA DEL CLUB
 ======================================== */
+/* EL LOGO DEL CLUB SE TIENE QUE VER, y verse IGUAL en claro y en oscuro.
+   No es una marca de agua tímida: es la identidad del club de fondo.
+
+   La opacidad es la MISMA en los dos temas a propósito — antes cambiaba, y en
+   claro quedaba como una mancha desvaída que no se entendía qué era.
+
+   Funciona porque las tarjetas son TRANSLÚCIDAS: el logo se ve parejo por
+   detrás de todo, no cortado en bloques. Cuando las tarjetas eran opacas y se
+   subía la opacidad, el logo solo asomaba por los huecos y se leía como
+   rectángulos grises sueltos. Si algún día se vuelven opacas, hay que bajar
+   esta opacidad otra vez. */
 body.has-watermark::before {
     content: '';
     position: fixed;
@@ -772,8 +999,8 @@ body.has-watermark::before {
     background-image: var(--club-logo-url, none);
     background-repeat: no-repeat;
     background-position: center center;
-    background-size: contain;
-    opacity: 0.13;
+    background-size: auto min(62vh, 520px);
+    opacity: 0.38;
     pointer-events: none;
     z-index: 0;
     image-rendering: -webkit-optimize-contrast;
