@@ -331,13 +331,6 @@
                 <div id="dashboardNotificationsList" class="space-y-4"></div>
             </div>
 
-            <!-- Botón Contabilidad -->
-            <button onclick="navigateTo('accounting')"
-                class="w-full bg-gradient-to-r from-teal-600 to-blue-600 text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 hover:shadow-xl transition-all transform hover:scale-105">
-                <i data-lucide="trending-up" class="w-6 h-6"></i>
-                Ver Contabilidad Completa
-            </button>
-
             <!-- ═══ MÓDULOS ═══ Siempre visibles. Los inactivos nacen BLOQUEADOS
                  (fail-closed); license-system.js (_applyModuloButtons) desbloquea
                  los que el club tenga activos. No usan onclick inline: el handler
@@ -500,25 +493,60 @@
     VISTA: PAGOS (UNIFICADA)
 ========================================= -->
         <div id="paymentsView" class="hidden p-4 space-y-4">
-            <!-- Selector de Tab (Dropdown) -->
-            <div class="relative mb-3">
-                <select id="paymentTabSelect" onchange="showPaymentTab(this.value)"
-                    class="w-full px-4 py-3 rounded-lg bg-gradient-to-r from-teal-600 to-blue-600 text-white font-bold text-base appearance-none cursor-pointer shadow-lg focus:ring-2 focus:ring-teal-400 focus:outline-none">
-                    <optgroup label="Ingresos">
-                        <option value="monthly">📅 Mensualidades</option>
-                        <option value="extras">🎽 Otros Cobros</option>
-                        <option value="thirdParty">💰 Otros Ingresos</option>
-                    </optgroup>
-                    <optgroup label="Salidas">
-                        <option value="expenses">💸 Egresos</option>
-                    </optgroup>
-                    <optgroup label="Ver todo">
-                        <option value="history">📋 Historial</option>
-                    </optgroup>
-                </select>
-                <div class="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
-                    <i data-lucide="chevron-down" class="w-5 h-5 text-white"></i>
+            <!-- SELECTOR DE PESTAÑA + CONTABILIDAD, MITAD Y MITAD
+                 ═══════════════════════════════════════════════════
+                 Contabilidad vive en Pagos, no en Inicio: es plata, igual que esta
+                 vista. La barra inferior ya la marcaba acá (NAV_SECCION, js/app.js).
+                 Va en VERDE: el azul es "moverse dentro de Pagos", el verde es
+                 "salir a ver las cuentas".
+
+                 GRILLA, no flex. Con `flex-1` en los dos hijos las mitades NO salen
+                 iguales: el contenido del botón arrastra su ancho mínimo y se lleva
+                 24px de más (medido: 148 contra 172 en un teléfono de 360px).
+
+                 `text-xs` NO es una elección de gusto: es lo más grande que entra.
+                 Con la mitad del ancho, "📅 Mensualidades" mide 108px y a 320px solo
+                 hay 124px de caja. Si se agranda la letra, se corta — y es la opción
+                 que se ve por defecto al abrir Pagos.
+
+                 Medido en 320/360/390/428: mitades exactas y 6-33px de aire entre el
+                 texto y la flecha. Si se toca algo de acá, volver a medir. -->
+            <div class="grid grid-cols-2 gap-2 mb-3">
+                <div class="relative min-w-0">
+                    <select id="paymentTabSelect" onchange="showPaymentTab(this.value)"
+                        class="w-full pl-1 pr-4 py-3 rounded-lg bg-gradient-to-r from-teal-600 to-blue-600 text-white font-bold text-xs appearance-none cursor-pointer shadow-lg text-center truncate focus:ring-2 focus:ring-teal-400 focus:outline-none">
+                        <optgroup label="Ingresos">
+                            <option value="monthly">📅 Mensualidades</option>
+                            <option value="extras">🎽 Otros Cobros</option>
+                            <option value="thirdParty">💰 Otros Ingresos</option>
+                        </optgroup>
+                        <optgroup label="Salidas">
+                            <option value="expenses">💸 Egresos</option>
+                        </optgroup>
+                        <optgroup label="Ver todo">
+                            <option value="history">📋 Historial</option>
+                        </optgroup>
+                    </select>
+
+                    <!-- La flecha va ENCIMA de la caja del texto, no reservada aparte.
+                         Con el texto centrado, su borde derecho invadía esta zona aunque
+                         "cupiera": a 320px se pisaban 16px. Por eso el selector lleva
+                         margen asimétrico (pl-1 pr-4) y la flecha es chica y pegada al
+                         borde. Medido en 320/360/390/428: queda entre 6 y 33px de aire.
+
+                         OJO: el deploy NO compila Tailwind. Solo se pueden usar clases
+                         que ya existan en css/tailwind.out.css (pr-2, pr-5 y pr-6 NO están). -->
+                    <div class="absolute inset-y-0 right-0 flex items-center pr-1 pointer-events-none">
+                        <i data-lucide="chevron-down" class="w-3 h-3 text-white/80"></i>
+                    </div>
                 </div>
+
+                <button type="button" onclick="navigateTo('accounting')"
+                    class="min-w-0 px-3 py-3 rounded-lg bg-gradient-to-r from-emerald-600 to-green-600 text-white font-bold text-xs shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-transform focus:ring-2 focus:ring-teal-400 focus:outline-none"
+                    style="touch-action: manipulation;">
+                    <i data-lucide="trending-up" class="w-4 h-4 shrink-0"></i>
+                    <span class="truncate min-w-0">Contabilidad</span>
+                </button>
             </div>
 
             <!-- Buscador + Botón Registrar -->
