@@ -6,42 +6,42 @@
 /**
  * Arma el SMS de acceso al portal de padres.
  *
- * El código va DENTRO del enlace (`#c=…&k=…`) para que el padre solo tenga que
- * tocar: js/parent-portal.js (repo myclub-portal-padres) lo lee, completa el
- * formulario y entra solo. Antes tenía que leer seis letras, memorizarlas y
- * tipearlas en el navegador — y un error ahí lo dejaba afuera sin saber por qué.
+ * ⚠️ EL ENLACE VA PRIMERO. No es estético: `send-sms` RECORTA el mensaje a 130
+ * caracteres del lado del servidor (index.ts, "candado de longitud"), para que
+ * con la firma que agrega Onurix entre en un crédito. Con el enlace al final, el
+ * recorte se lo comía: llegaba `...&k=my_clu` y el padre no podía entrar. Pasó
+ * en producción, en un teléfono real.
  *
- * Lleva una advertencia: este enlace ES la llave del perfil del chico —fotos,
- * datos, pagos— y quien lo tenga entra. Vale los caracteres que ocupa.
+ * Poniéndolo al principio, lo que se pierde es el texto explicativo —que es
+ * prescindible— y nunca la parte que sirve. Además el aviso se acortó para que
+ * con los clubes reales el mensaje entre COMPLETO en 130 y no se corte a mitad
+ * de palabra.
  *
- * Dice "del jugador" y no "de tu hijo": en la base hay jugadoras, y a sus
- * familias el mensaje les llegaba mal.
+ * EL FORMATO DEL ENLACE:
  *
- * Ya no se repite el código al final entre paréntesis: se lee igual dentro del
- * enlace (`#c=SKS53L`), así que eran 16 caracteres para decir lo mismo dos
- * veces, y hacían falta para la advertencia.
+ *   padres.appmyclub.com/#SKS53Lmy_club
  *
- * ⚠️ Tiene que entrar en 160 caracteres GSM-7 o cuesta DOS créditos. Por eso el
- * nombre del club pasa por nombreCortoSms(), que además saca emojis y tildes
- * agudas (fuerzan UCS-2 y bajan el límite a 70). Con los nombres reales queda
- * entre 117 y 134.
+ * · '#' y no '?': el fragmento NO viaja en la petición HTTP, así que el service
+ *   worker del portal no puede guardarlo en la caché del dispositivo ni queda en
+ *   los registros del servidor. Con '?' el código quedaba escrito en el disco de
+ *   forma permanente.
+ * · Sin '&' ni '=': ahorra 5 caracteres, que a este presupuesto valen, y evita
+ *   que un detector de enlaces corte ahí.
+ * · Van pegados porque el código mide SIEMPRE 6 caracteres
+ *   (generateParentAccessCode, js/storage.js). El portal parte ahí. Si cambia
+ *   ese largo, hay que cambiar el corte en parent-portal.js.
+ *
+ * Dice "del jugador" y no "de tu hijo": en la base hay jugadoras.
  */
 function mensajeAccesoSms(clubName, codigo, clubId) {
   const club = (typeof nombreCortoSms === 'function')
     ? nombreCortoSms(clubName, 18)
     : String(clubName || '').slice(0, 18);
-  // Los ids de club se generan cortos, pero nada lo garantiza a futuro: uno largo
-  // empujaría el mensaje sobre los 160 y costaría el doble.
   const id = String(clubId || '').slice(0, 24);
-  // '#' y NO '?', a propósito. El fragmento NO viaja en la petición HTTP: el
-  // navegador lo recorta antes de enviarla. Con '?' el service worker del portal
-  // guardaba la URL COMPLETA en la caché del dispositivo —con el código adentro—
-  // antes de que corriera una sola línea de JavaScript, así que limpiar la barra
-  // de direcciones después llegaba tarde. Tampoco queda en los registros del
-  // servidor por el mismo motivo.
-  const url = `padres.appmyclub.com/#c=${encodeURIComponent(codigo)}&k=${encodeURIComponent(id)}`;
-  return `${club}: tu acceso al portal. No lo compartas: quien lo tenga entra al perfil del jugador. ${url}`;
+  const url = `padres.appmyclub.com/#${encodeURIComponent(codigo)}${encodeURIComponent(id)}`;
+  return `${url} - ${club}: no compartas este enlace, da acceso al perfil del jugador.`;
 }
+
 
 let parentAccessData = {
     players: [],
