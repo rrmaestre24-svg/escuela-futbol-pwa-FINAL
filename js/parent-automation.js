@@ -3,6 +3,40 @@
  * Handles generation, distribution, and management of access codes.
  */
 
+/**
+ * Arma el SMS de acceso al portal de padres.
+ *
+ * El código va DENTRO del enlace (`#c=…&k=…`) para que el padre solo tenga que
+ * tocar: js/parent-portal.js (repo myclub-portal-padres) lo lee, completa el
+ * formulario y entra solo. Antes tenía que leer seis letras, memorizarlas y
+ * tipearlas en el navegador — y un error ahí lo dejaba afuera sin saber por qué.
+ *
+ * El código se repite en texto A PROPÓSITO: si el padre reenvía el mensaje por
+ * WhatsApp, o su teléfono no convierte el enlace en algo tocable, igual puede
+ * entrar a mano.
+ *
+ * ⚠️ Tiene que entrar en 160 caracteres GSM-7 o cuesta DOS créditos. Por eso el
+ * nombre del club pasa por nombreCortoSms(), que además saca emojis y tildes
+ * agudas (fuerzan UCS-2 y bajan el límite a 70). Con los nombres reales queda
+ * entre 117 y 134.
+ */
+function mensajeAccesoSms(clubName, codigo, clubId) {
+  const club = (typeof nombreCortoSms === 'function')
+    ? nombreCortoSms(clubName, 18)
+    : String(clubName || '').slice(0, 18);
+  // Los ids de club se generan cortos, pero nada lo garantiza a futuro: uno largo
+  // empujaría el mensaje sobre los 160 y costaría el doble.
+  const id = String(clubId || '').slice(0, 24);
+  // '#' y NO '?', a propósito. El fragmento NO viaja en la petición HTTP: el
+  // navegador lo recorta antes de enviarla. Con '?' el service worker del portal
+  // guardaba la URL COMPLETA en la caché del dispositivo —con el código adentro—
+  // antes de que corriera una sola línea de JavaScript, así que limpiar la barra
+  // de direcciones después llegaba tarde. Tampoco queda en los registros del
+  // servidor por el mismo motivo.
+  const url = `padres.appmyclub.com/#c=${encodeURIComponent(codigo)}&k=${encodeURIComponent(id)}`;
+  return `${club}: entra al portal con este enlace, ya trae tu codigo. ${url} (codigo ${codigo})`;
+}
+
 let parentAccessData = {
     players: [],
     codes: {},
@@ -634,7 +668,7 @@ async function openWhatsAppForParent(player, access) {
     if (typeof window.callSendSms === 'function') {
         // SMS corto y GSM-7 (sin tildes agudas): el código y el Club ID van primero para que
         // nunca queden fuera si el servidor recorta a 130. El nombre del club se acota a 25.
-        const smsMessage = `${String(clubName || '').slice(0, 18)}: tu codigo de acceso es ${access.code}. Club ID: ${clubId}. Entra a padres.appmyclub.com`;
+        const smsMessage = mensajeAccesoSms(clubName, access.code, clubId);
         window.callSendSms({
             club_id: clubId,
             modulo: 'codigo_padres',
@@ -744,7 +778,7 @@ async function sendSmsToOneParent(playerId) {
             codes[playerId] = access;
         }
 
-        const smsMessage = `${String(clubName || '').slice(0, 18)}: tu codigo de acceso es ${access.code}. Club ID: ${clubId}. Entra a padres.appmyclub.com`;
+        const smsMessage = mensajeAccesoSms(clubName, access.code, clubId);
         const res = await window.callSendSms({
             club_id: clubId,
             modulo: 'codigo_padres',
@@ -844,7 +878,7 @@ async function sendSmsToPendingParents() {
             const rawPhone = player.phone || player.emergencyContact || '';
             // SMS corto y GSM-7 (sin tildes agudas): el código y el Club ID van primero para que
         // nunca queden fuera si el servidor recorta a 130. El nombre del club se acota a 25.
-        const smsMessage = `${String(clubName || '').slice(0, 18)}: tu codigo de acceso es ${access.code}. Club ID: ${clubId}. Entra a padres.appmyclub.com`;
+        const smsMessage = mensajeAccesoSms(clubName, access.code, clubId);
             const res = await window.callSendSms({
                 club_id: clubId,
                 modulo: 'codigo_padres',
