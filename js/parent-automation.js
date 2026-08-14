@@ -11,9 +11,15 @@
  * formulario y entra solo. Antes tenía que leer seis letras, memorizarlas y
  * tipearlas en el navegador — y un error ahí lo dejaba afuera sin saber por qué.
  *
- * El código se repite en texto A PROPÓSITO: si el padre reenvía el mensaje por
- * WhatsApp, o su teléfono no convierte el enlace en algo tocable, igual puede
- * entrar a mano.
+ * Lleva una advertencia: este enlace ES la llave del perfil del chico —fotos,
+ * datos, pagos— y quien lo tenga entra. Vale los caracteres que ocupa.
+ *
+ * Dice "del jugador" y no "de tu hijo": en la base hay jugadoras, y a sus
+ * familias el mensaje les llegaba mal.
+ *
+ * Ya no se repite el código al final entre paréntesis: se lee igual dentro del
+ * enlace (`#c=SKS53L`), así que eran 16 caracteres para decir lo mismo dos
+ * veces, y hacían falta para la advertencia.
  *
  * ⚠️ Tiene que entrar en 160 caracteres GSM-7 o cuesta DOS créditos. Por eso el
  * nombre del club pasa por nombreCortoSms(), que además saca emojis y tildes
@@ -34,7 +40,7 @@ function mensajeAccesoSms(clubName, codigo, clubId) {
   // de direcciones después llegaba tarde. Tampoco queda en los registros del
   // servidor por el mismo motivo.
   const url = `padres.appmyclub.com/#c=${encodeURIComponent(codigo)}&k=${encodeURIComponent(id)}`;
-  return `${club}: entra al portal con este enlace, ya trae tu codigo. ${url} (codigo ${codigo})`;
+  return `${club}: tu acceso al portal. No lo compartas: quien lo tenga entra al perfil del jugador. ${url}`;
 }
 
 let parentAccessData = {
