@@ -79,10 +79,45 @@
             <img src="assets/icons/icon-192x192.png"
                 style="width:140px;height:140px;border-radius:32px;box-shadow:0 12px 40px rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.1);object-fit:cover;margin-bottom:30px;">
 
-            <div style="opacity:0.6;">
-                <p
-                    style="color:white;font-family:sans-serif;font-size:11px;letter-spacing:0.3em;text-transform:uppercase;font-weight:600;margin:0;">
-                    Cargando app...</p>
+            <!-- Puntos que laten (adaptado de Uiverse.io / adamgiebl).
+                 Antes acá decía "Cargando app..." con tres puntos QUIETOS: si el
+                 arranque se demoraba, parecía que la app se habia colgado. Algo
+                 en movimiento dice "sigo trabajando".
+
+                 Los estilos van en un <style> acá adentro y NO en css/styles.css
+                 a propósito: el preloader tiene que verse aunque la hoja de
+                 estilos no llegue a cargar. Misma razón por la que el resto de
+                 esta pantalla usa estilos en línea. -->
+            <style>
+                .mc-puntos { display:flex; align-items:center; justify-content:center; gap:10px; }
+                .mc-punto {
+                    height:12px; width:12px; border-radius:50%;
+                    background:rgba(255,255,255,0.45);
+                    animation:mcLatido 1.5s infinite ease-in-out;
+                }
+                .mc-punto:nth-child(1) { animation-delay:-0.30s; }
+                .mc-punto:nth-child(2) { animation-delay:-0.15s; }
+                .mc-punto:nth-child(3) { animation-delay: 0s;    }
+                .mc-punto:nth-child(4) { animation-delay: 0.15s; }
+                .mc-punto:nth-child(5) { animation-delay: 0.30s; }
+                @keyframes mcLatido {
+                    0%,100% { transform:scale(0.8); background:rgba(255,255,255,0.45);
+                              box-shadow:0 0 0 0 rgba(255,255,255,0.5); }
+                    50%     { transform:scale(1.2); background:#ffffff;
+                              box-shadow:0 0 0 10px rgba(255,255,255,0); }
+                }
+                /* Quien pidió menos movimiento ve los puntos quietos, no nada:
+                   sin ellos la pantalla queda sin ninguna señal de vida. */
+                @media (prefers-reduced-motion: reduce) {
+                    .mc-punto { animation:none; background:rgba(255,255,255,0.6); }
+                }
+            </style>
+            <div class="mc-puntos" role="status" aria-label="Cargando">
+                <div class="mc-punto"></div>
+                <div class="mc-punto"></div>
+                <div class="mc-punto"></div>
+                <div class="mc-punto"></div>
+                <div class="mc-punto"></div>
             </div>
         </div>
     </div>
@@ -164,17 +199,70 @@
                     </div>
                 </div>
                 <div class="flex items-center gap-2">
-                    <!-- Botón de Instalación (solo visible si se puede instalar) -->
-                    <button id="installButton"
-                        class="hidden p-2 rounded-lg bg-teal-600 hover:bg-teal-700 text-white transition-colors animate-pulse"
-                        onclick="installPWA()" title="Instalar aplicación">
-                        <i data-lucide="download" class="w-5 h-5"></i>
+                    <!-- Botón de instalación (adaptado de Uiverse.io / satyamchaudharydev).
+                         Al pasar por encima, el texto sube y entra el ícono.
+                         Sin globito: el botón ya dice "Instalar".
+
+                         Solo se ve si el navegador ofrece instalar: installPWA() y la
+                         lógica de js/install.js no cambiaron.
+
+                         Prefijo `mc-` obligatorio: el original usa `.button`, `.text`
+                         y `.icon`, y `.text` sola aparece 774 veces en este archivo. -->
+                    <button id="installButton" class="hidden mc-boton"
+                        onclick="installPWA()" aria-label="Instalar aplicación">
+                        <span class="mc-boton-cara">
+                            <span class="mc-boton-texto">Instalar</span>
+                            <span class="mc-boton-icono">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path d="M6 21H18M12 3V17M12 17L17 12M12 17L7 12"
+                                          stroke="currentColor" stroke-width="2"
+                                          stroke-linecap="round" stroke-linejoin="round"></path>
+                                </svg>
+                            </span>
+                        </span>
                     </button>
 
-                    <button onclick="toggleDarkMode()"
-                        class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                        <i data-lucide="moon" class="w-5 h-5 text-gray-600 dark:text-gray-300"></i>
-                    </button>
+                    <!-- Interruptor de tema (adaptado de Uiverse.io / RiccardoRapelli).
+                         Etiqueta con casilla escondida: el CSS dibuja todo según esté
+                         marcada. El estado real del tema lo maneja toggleDarkMode()
+                         (js/app.js); esto es solo la piel, y _sincronizarCasillasTema()
+                         la deja contando lo mismo que la de Ajustes.
+
+                         Los identificadores llevan prefijo `mc-` a propósito: el
+                         original usa #input, #slider, #cloud-1, #star-1 — nombres que
+                         en un archivo de 3.300 líneas los vuelve a usar cualquiera
+                         sin darse cuenta. -->
+                    <label class="mc-switch" title="Cambiar tema">
+                        <input type="checkbox" id="toggle" onchange="toggleDarkMode()"
+                               aria-label="Cambiar entre modo claro y oscuro">
+                        <span class="mc-slider mc-round">
+                            <!-- Estrellas: aparecen de noche -->
+                            <span class="mc-stars">
+                                <svg class="mc-star" id="mc-star-1" viewBox="0 0 20 20"><path d="M10 0l2.4 7.6H20l-6.2 4.5 2.4 7.9L10 15.2 3.8 20l2.4-7.9L0 7.6h7.6z"/></svg>
+                                <svg class="mc-star" id="mc-star-2" viewBox="0 0 20 20"><path d="M10 0l2.4 7.6H20l-6.2 4.5 2.4 7.9L10 15.2 3.8 20l2.4-7.9L0 7.6h7.6z"/></svg>
+                                <svg class="mc-star" id="mc-star-3" viewBox="0 0 20 20"><path d="M10 0l2.4 7.6H20l-6.2 4.5 2.4 7.9L10 15.2 3.8 20l2.4-7.9L0 7.6h7.6z"/></svg>
+                                <svg class="mc-star" id="mc-star-4" viewBox="0 0 20 20"><path d="M10 0l2.4 7.6H20l-6.2 4.5 2.4 7.9L10 15.2 3.8 20l2.4-7.9L0 7.6h7.6z"/></svg>
+                            </span>
+
+                            <!-- Nubes: se mueven despacio de día -->
+                            <svg class="mc-cloud-dark"  id="mc-cloud-1" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50"/></svg>
+                            <svg class="mc-cloud-dark"  id="mc-cloud-2" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50"/></svg>
+                            <svg class="mc-cloud-dark"  id="mc-cloud-3" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50"/></svg>
+                            <svg class="mc-cloud-light" id="mc-cloud-4" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50"/></svg>
+                            <svg class="mc-cloud-light" id="mc-cloud-5" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50"/></svg>
+                            <svg class="mc-cloud-light" id="mc-cloud-6" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50"/></svg>
+
+                            <!-- El astro: sol amarillo de día, luna con cráteres de noche -->
+                            <span class="mc-sun-moon">
+                                <svg class="mc-moon-dot" id="mc-moon-dot-1" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50"/></svg>
+                                <svg class="mc-moon-dot" id="mc-moon-dot-2" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50"/></svg>
+                                <svg class="mc-moon-dot" id="mc-moon-dot-3" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50"/></svg>
+                                <svg class="mc-light-ray" id="mc-ray-1" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50"/></svg>
+                                <svg class="mc-light-ray" id="mc-ray-2" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50"/></svg>
+                                <svg class="mc-light-ray" id="mc-ray-3" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50"/></svg>
+                            </span>
+                        </span>
+                    </label>
 
                     <button onclick="showNotificationsView()"
                         class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors relative">

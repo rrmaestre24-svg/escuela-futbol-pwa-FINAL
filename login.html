@@ -22,7 +22,13 @@
     <link rel="stylesheet" href="css/tailwind.out.css">
 
     <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Lucide: copia LOCAL y con `defer`.
+         Antes venía de unpkg.com sin defer, en el <head>: la página no podía
+         dibujarse hasta que ese archivo de 350 KB terminara de bajar de un
+         servidor ajeno. Eso es lo que se sentía lento al abrir el login.
+         Local también sirve sin internet (el service worker lo tiene guardado)
+         y no depende de que unpkg esté en pie. -->
+    <script defer src="js/lucide.min.js"></script>
 
     <!-- Cloudflare Turnstile (CAPTCHA anti fuerza-bruta en el login) -->
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
@@ -64,6 +70,90 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 
     <style>
+/* ========================================
+   BOTÓN DE INSTALAR
+   Adaptado de Uiverse.io — satyamchaudharydev
+======================================== */
+/* Al pasar por encima el texto sube y entra el ícono.
+
+   SIN globito de ayuda: el botón ya dice "Instalar". Y arriba de todo en el
+   encabezado, cualquier cosa flotante termina peleando con el borde de la
+   pantalla o con las tarjetas de abajo.
+
+   Prefijo `mc-` obligatorio: el original usa `.button`, `.text` e `.icon`, y
+   `.text` sola aparece 774 veces en index.html.
+
+   Azul que vira a violeta: es el único botón del encabezado que invita a hacer
+   algo, y el teal se confundía con el resto del sistema. */
+.mc-boton {
+  /* Alto fijo y explícito. En index.html hay una regla global de accesibilidad
+     (button { min-height: 44px }) que lo inflaba a 44 en pantallas chicas,
+     mientras que en login.html —que no carga styles.css— medía 32. Quedaban de
+     distinto tamaño en cada página y desalineado con el interruptor de tema.
+     36px mantiene el área táctil cómoda sin romper la fila del encabezado. */
+  min-height: 36px !important;
+  --alto: 36px;
+  --color: #1163ff;
+  --color-encima: #6c18ff;
+
+  width: 92px;
+  height: var(--alto);
+  background: var(--color);
+  position: relative;
+  text-align: center;
+  border-radius: 0.45em;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  flex-shrink: 0;
+  box-shadow: 0 3px 12px rgba(17, 99, 255, 0.45);
+  transition: background 0.3s, box-shadow 0.3s;
+}
+
+/* La cara recorta lo que se sale: es lo que hace que el texto se vaya hacia
+   arriba y el ícono entre desde abajo. */
+.mc-boton-cara {
+  overflow: hidden;
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+.mc-boton-texto,
+.mc-boton-icono {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: top 0.5s;
+}
+
+.mc-boton-texto { top: 0; }
+.mc-boton-icono { top: 100%; }
+.mc-boton-icono svg { width: 20px; height: 20px; }
+
+.mc-boton:hover {
+  background: var(--color-encima);
+  box-shadow: 0 3px 16px rgba(108, 24, 255, 0.55);
+}
+.mc-boton:hover .mc-boton-texto { top: -100%; }
+.mc-boton:hover .mc-boton-icono { top: 0; }
+
+/* Con teclado se comporta igual que con el puntero. */
+.mc-boton:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.mc-boton:focus-visible .mc-boton-texto { top: -100%; }
+.mc-boton:focus-visible .mc-boton-icono { top: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .mc-boton, .mc-boton-texto, .mc-boton-icono { transition: none; }
+}
+
+
         * { font-family: 'Inter', sans-serif; }
 
         /* ── Mobile fluidity (cero cambio visual) ── */
@@ -101,6 +191,19 @@
             filter: blur(80px);
             opacity: 0.18;
             animation: orbFloat ease-in-out infinite;
+            /* Un desenfoque de 80px sobre algo que se mueve es de lo más caro
+               que hay: sin esto el navegador vuelve a calcularlo en CADA cuadro.
+               `will-change` lo manda a su propia capa, así el desenfoque se
+               calcula UNA vez y después solo se desplaza. Se ve exactamente
+               igual, pero deja de comerse el procesador mientras la persona
+               escribe su contraseña.
+               Van solo 3 elementos: `will-change` de más también cuesta. */
+            /* `will-change` es lo que manda el orbe a su propia capa, que es el
+               objetivo: el desenfoque se calcula UNA vez en vez de en cada
+               cuadro. NO se usa `contain: paint`: recorta todo el pintado al
+               borde de la caja, y un desenfoque de 80px se desvanece bastante
+               más allá — quedaría un canto duro alrededor en vez del fundido. */
+            will-change: transform;
         }
         /* Desactivar orbes en modo bajo */
         body.perf-low .orb {
@@ -321,6 +424,200 @@
         @keyframes ripple {
             to { width: 300px; height: 300px; opacity: 0; }
         }
+    
+
+/* ════════════════════════════════════════════════════════════════════════
+   LOGIN — FORMAS REDONDEADAS Y SOMBRAS SUAVES
+   Adaptado de Uiverse.io — jeel-sardhara
+   ════════════════════════════════════════════════════════════════════════
+   Campos con forma de píldora, brillo suave debajo, y el botón que se agranda
+   al pasar por encima y se achica al tocarlo.
+
+   ADAPTADO AL TEMA OSCURO, no copiado: el original es blanco con sombras
+   celestes. Acá el brillo es del teal del sistema, así combina con el resto de
+   la app en vez de ser una isla clara. El intento anterior con bordes negros
+   falló justo por eso — peleaba con el logo, el CAPTCHA y el autocompletado.
+
+   Es una capa que REDEFINE clases existentes, no HTML nuevo: el formulario de
+   registro, las pestañas y el CAPTCHA heredan el estilo solos y no se toca una
+   línea de la lógica de autenticación.
+   ════════════════════════════════════════════════════════════════════════ */
+:root {
+  --sf-brillo: rgba(13, 148, 136, 0.28);
+  --sf-borde:  rgba(255, 255, 255, 0.07);
+  --sf-campo:  rgba(255, 255, 255, 0.05);
+  --sf-foco:   #14b8a6;
+}
+
+.glass-card {
+  border-radius: 34px !important;
+  border: 1px solid var(--sf-borde) !important;
+  box-shadow: var(--sf-brillo) 0 30px 40px -24px !important;
+}
+
+.input-field {
+  border-radius: 18px !important;
+  background: var(--sf-campo) !important;
+  border: 1px solid var(--sf-borde) !important;
+  border-left: 2px solid transparent !important;
+  border-right: 2px solid transparent !important;
+  box-shadow: rgba(13, 148, 136, 0.18) 0 10px 14px -10px !important;
+  transition: border-color .2s, box-shadow .2s, background .2s !important;
+}
+
+/* Al escribir se encienden los COSTADOS, no un marco entero: es el gesto del
+   original. */
+.input-field:focus {
+  outline: none !important;
+  border-left-color: var(--sf-foco) !important;
+  border-right-color: var(--sf-foco) !important;
+  background: rgba(255, 255, 255, 0.07) !important;
+  box-shadow: rgba(20, 184, 166, 0.30) 0 12px 18px -10px !important;
+}
+
+.tab-btn {
+  border-radius: 16px !important;
+  transition: transform .2s ease-in-out, box-shadow .2s ease-in-out !important;
+}
+.tab-active { box-shadow: var(--sf-brillo) 0 16px 14px -12px !important; }
+
+.btn-primary {
+  border-radius: 18px !important;
+  box-shadow: var(--sf-brillo) 0 20px 14px -14px !important;
+  transition: transform .2s ease-in-out, box-shadow .2s ease-in-out !important;
+}
+.btn-primary:hover {
+  transform: scale(1.03) !important;
+  box-shadow: var(--sf-brillo) 0 24px 16px -16px !important;
+}
+.btn-primary:active {
+  transform: scale(0.96) !important;
+  box-shadow: var(--sf-brillo) 0 12px 10px -10px !important;
+}
+
+.glass-card img[src*="icon-"] {
+  box-shadow: var(--sf-brillo) 0 18px 22px -14px !important;
+}
+
+/* ── Autocompletado del navegador ─────────────────────────────────────────
+   Chrome pinta los campos autocompletados de blanco por su cuenta, y el texto
+   claro sobre blanco no se lee. Ya había una regla para esto más arriba, pero
+   los estilos de esta capa la pisaron por usar !important.
+
+   El truco es una sombra INTERIOR gigante: no se puede cambiar el fondo del
+   autocompletado, pero sí taparlo con una sombra del color que queremos. Se
+   suma el halo teal en la misma declaración para no perderlo.
+
+   `transition: background-color 9999s` es el complemento: retrasa tanto el
+   pintado del fondo que nunca llega a verse el destello blanco. */
+.input-field:-webkit-autofill,
+.input-field:-webkit-autofill:hover,
+.input-field:-webkit-autofill:focus,
+.input-field:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #0d1b26 inset,
+                      rgba(13, 148, 136, 0.18) 0 10px 14px -10px !important;
+  box-shadow: 0 0 0 1000px #0d1b26 inset,
+              rgba(13, 148, 136, 0.18) 0 10px 14px -10px !important;
+  -webkit-text-fill-color: #fff !important;
+  caret-color: #fff !important;
+  transition: background-color 9999s ease-in-out 0s !important;
+}
+
+/* Con el campo enfocado, los costados igual se encienden. */
+.input-field:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px #0f2229 inset,
+                      rgba(20, 184, 166, 0.30) 0 12px 18px -10px !important;
+  box-shadow: 0 0 0 1000px #0f2229 inset,
+              rgba(20, 184, 166, 0.30) 0 12px 18px -10px !important;
+}
+
+.mc-boton { border-radius: 16px !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-primary, .btn-primary:hover, .btn-primary:active,
+  .tab-btn { transform: none !important; transition: none !important; }
+}
+
+    
+/* ════════════════════════════════════════════════════════════════════════
+   QUE NO HAYA BARRA HORIZONTAL Y QUE LA VERTICAL SEA DISCRETA
+   ════════════════════════════════════════════════════════════════════════ */
+/* Los orbes decorativos viven acá adentro y no se pueden salir. `fixed` para
+   que no participen del alto de la página: si fueran `absolute` sumarían
+   desplazamiento vertical por adornos que nadie necesita desplazar. */
+.orb-capa {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Red de seguridad: si mañana alguien agrega otro adorno suelto, tampoco
+   aparece la barra horizontal. */
+html, body { overflow-x: hidden; max-width: 100%; }
+
+/* La barra vertical queda —el registro es largo— pero delgada y del color del
+   sistema, en vez de la gris del navegador. */
+* { scrollbar-width: thin; scrollbar-color: rgba(13,148,136,0.55) transparent; }
+
+::-webkit-scrollbar { width: 8px; height: 0; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(13, 148, 136, 0.45);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(20, 184, 166, 0.7); }
+/* height: 0 en la barra horizontal: si algo llegara a salirse, no se ve. */
+
+    
+/* ── El login entra sin desplazarse en pantallas bajas ──────────────────────
+   Pedía 943px de alto contra 813 disponibles en un teléfono, así que había que
+   desplazar una pantalla que se supone entra de una.
+
+   Se comprime SOLO por altura, no por ancho: en un monitor grande queda como
+   estaba. Y solo achica márgenes y el logo — no se saca ningún campo ni el
+   CAPTCHA, que son los que tienen que estar.
+
+   El registro sigue desplazándose: son 17 campos, ahí es esperable. */
+@media (max-height: 860px) {
+  /* El cuerpo traía 32px de aire arriba y abajo. En una pantalla baja esos 64px
+     son justo lo que sobraba para que la tarjeta entrara sin desplazar. */
+  body { padding-top: 14px !important; padding-bottom: 14px !important; }
+  .badge-powered { font-size: 10px; padding: 4px 12px; }
+  #loginForm .space-y-4 > * + *,
+  #loginForm.space-y-4 > * + * { margin-top: 0.6rem; }
+  #loginForm { padding-bottom: 1rem !important; }
+
+  /* El logo: de 100px a 72px libera casi 30px sin que deje de verse. */
+  .glass-card img[src*="icon-"],
+  .glass-card > div:first-child > div[style*="width:100px"] {
+    width: 72px !important;
+    height: 72px !important;
+  }
+
+  .glass-card h1 { font-size: 1.6rem !important; }
+  .glass-card > .text-center { padding-top: 1rem !important; padding-bottom: 0 !important; }
+  .field-label { margin-bottom: 2px !important; }
+  .input-field { padding-top: 10px !important; padding-bottom: 10px !important; }
+
+  /* Lo último que faltaba: el aire entre las pestañas y el formulario, y el pie
+     de página. Son los dos lugares donde sobraba espacio sin que se note. */
+  .flex.gap-2.px-6.mb-5 { margin-bottom: 0.75rem !important; }
+  #turnstileWrap { margin: 2px 0 !important; }
+  .glass-card { padding-bottom: 0 !important; }
+}
+
+/* Pantallas muy bajas (teléfono chico apaisado o con el teclado abierto). */
+@media (max-height: 700px) {
+  .badge-powered { display: none; }
+  .glass-card img[src*="icon-"],
+  .glass-card > div:first-child > div[style*="width:100px"] {
+    width: 56px !important;
+    height: 56px !important;
+  }
+}
+
     </style>
 </head>
 <body class="min-h-screen flex items-start justify-center p-4 py-8">
@@ -328,10 +625,17 @@
     <!-- Líneas de campo (decorativas) -->
     <div class="field-lines"></div>
 
-    <!-- Orbes de luz -->
-    <div class="orb" style="width:500px;height:500px;background:#0d9488;top:-10%;left:-10%;animation-duration:8s;"></div>
-    <div class="orb" style="width:400px;height:400px;background:#2563eb;bottom:-10%;right:-5%;animation-duration:11s;animation-delay:-3s;"></div>
-    <div class="orb" style="width:300px;height:300px;background:#7c3aed;top:40%;left:60%;animation-duration:9s;animation-delay:-5s;"></div>
+    <!-- Orbes de luz.
+         Van DENTRO de un contenedor que recorta, como .field-lines: sueltos en
+         el cuerpo se salían por el costado —el tercero arranca en el 60% del
+         ancho y mide 300px, así que en un teléfono se pasaba— y eso creaba una
+         barra de desplazamiento horizontal en una pantalla que no tiene nada
+         para desplazar. -->
+    <div class="orb-capa">
+        <div class="orb" style="width:500px;height:500px;background:#0d9488;top:-10%;left:-10%;animation-duration:8s;"></div>
+        <div class="orb" style="width:400px;height:400px;background:#2563eb;bottom:-10%;right:-5%;animation-duration:11s;animation-delay:-3s;"></div>
+        <div class="orb" style="width:300px;height:300px;background:#7c3aed;top:40%;left:60%;animation-duration:9s;animation-delay:-5s;"></div>
+    </div>
 
     <!-- Contenedor principal -->
     <div class="w-full max-w-md relative z-10 fade-up">
@@ -356,12 +660,22 @@
                 <h1 class="text-3xl font-black text-white tracking-tight">MY CLUB</h1>
                 <p class="text-sm mt-1" style="color: rgba(255,255,255,0.45);">Gestión de Escuelas de Fútbol</p>
 
-                <!-- Botón instalación PWA -->
-                <button id="installButtonLogin"
-                        class="hidden mt-4 mx-auto btn-primary !w-auto !px-5 !py-2 !text-sm !rounded-xl flex items-center gap-2"
-                        onclick="installPWA()">
-                    <i data-lucide="download" class="w-4 h-4"></i>
-                    Instalar App
+                <!-- Botón de instalación — mismo gesto que el del encabezado de la app
+                     (index.html): al pasar por encima el texto sube y entra el ícono.
+                     Los estilos van en el <style> de esta página porque login.html NO
+                     carga css/styles.css. Si se cambia uno, cambiar el otro. -->
+                <button id="installButtonLogin" class="hidden mc-boton mt-4 mx-auto"
+                        onclick="installPWA()" aria-label="Instalar aplicación">
+                    <span class="mc-boton-cara">
+                        <span class="mc-boton-texto">Instalar</span>
+                        <span class="mc-boton-icono">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M6 21H18M12 3V17M12 17L17 12M12 17L7 12"
+                                      stroke="currentColor" stroke-width="2"
+                                      stroke-linecap="round" stroke-linejoin="round"></path>
+                            </svg>
+                        </span>
+                    </span>
                 </button>
             </div>
 
@@ -777,7 +1091,7 @@
                 input.type = 'password';
                 icon?.setAttribute('data-lucide', 'eye');
             }
-            lucide.createIcons();
+            if (window.lucide) lucide.createIcons();
         }
 
         // ── Preview logo del club ───────────────────
@@ -807,7 +1121,11 @@
         });
 
         // ── Init ────────────────────────────────────
-        lucide.createIcons();
+        // Con `defer`, lucide se carga DESPUÉS de que se analiza la página, así
+        // que acá todavía no existe. Se espera a que el documento esté listo.
+        document.addEventListener('DOMContentLoaded', function () {
+            if (window.lucide) lucide.createIcons();
+        });
 
         // Mostrar mensaje de sesión expirada si existe (lo deja session-check.js)
         (function() {

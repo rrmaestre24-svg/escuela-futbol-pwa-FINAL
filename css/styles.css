@@ -1119,3 +1119,232 @@ body.perf-medium .animate-scale-in {
     line-clamp: unset !important;
 }
 
+
+/* ========================================
+   INTERRUPTOR DE TEMA (día / noche)
+   Adaptado de Uiverse.io — RiccardoRapelli
+======================================== */
+/* Etiqueta con casilla escondida: todo lo dibuja el CSS según `#toggle:checked`.
+   El estado real del tema vive en toggleDarkMode() (js/app.js); esto es la piel.
+
+   Los nombres llevan prefijo `mc-` a propósito. El original usa `.slider`,
+   `#input`, `#cloud-1`, `#star-1` — genéricos de más para un archivo compartido:
+   el día que alguien agregue otro control deslizante, se pisan sin aviso. */
+.mc-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 30px;
+  flex-shrink: 0;
+  vertical-align: middle;
+  /* Área para el dedo. Antes esto era un <button> y la regla global de
+     accesibilidad (button { min-height: 44px }) le daba 44px de alto en
+     pantallas chicas. Al pasar a <label> esa regla dejó de alcanzarlo y el
+     área táctil bajó a 30px — chico para un dedo.
+     El relleno agranda la zona sensible SIN agrandar el dibujo: el interruptor
+     se sigue viendo de 52x30. */
+  padding: 7px 0;
+  box-sizing: content-box;
+}
+
+/* La casilla existe para el teclado y los lectores de pantalla, no se ve. */
+.mc-switch #toggle {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+
+.mc-slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background-color: #2196f3;
+  transition: 0.4s;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.mc-round { border-radius: 34px; }
+.mc-round .mc-sun-moon { border-radius: 50%; }
+
+#toggle:checked + .mc-slider { background-color: #0b1120; }
+
+/* Que se vea al navegar con teclado: la casilla es invisible. */
+#toggle:focus-visible + .mc-slider {
+  box-shadow: 0 0 0 2px var(--primary-color, #0d9488);
+}
+
+/* ── El astro ───────────────────────────────────────────────────────────── */
+.mc-sun-moon {
+  position: absolute;
+  height: 22px;
+  width: 22px;
+  left: 4px;
+  bottom: 4px;
+  background-color: #ffe14d;
+  transition: 0.4s;
+}
+
+#toggle:checked + .mc-slider .mc-sun-moon {
+  transform: translateX(22px);
+  background-color: #fff;
+  animation: mcGirar 0.6s ease-in-out both;
+}
+
+@keyframes mcGirar {
+  from { transform: translateX(22px) rotate(-80deg); }
+  to   { transform: translateX(22px) rotate(0deg); }
+}
+
+/* Cráteres: solo de noche */
+.mc-moon-dot { opacity: 0; transition: 0.4s; fill: #9aa4b2; position: absolute; z-index: 4; }
+#toggle:checked + .mc-slider .mc-sun-moon .mc-moon-dot { opacity: 1; }
+#mc-moon-dot-1 { left: 9px;  top: 3px;  width: 5px;  height: 5px; }
+#mc-moon-dot-2 { left: 2px;  top: 9px;  width: 8px;  height: 8px; }
+#mc-moon-dot-3 { left: 14px; top: 15px; width: 3px;  height: 3px; }
+
+/* Halo del sol. z-index negativo para quedar DETRÁS del astro. */
+.mc-light-ray { position: absolute; z-index: -1; fill: #fff; opacity: 0.10; }
+#mc-ray-1 { left: -7px;  top: -7px;  width: 36px; height: 36px; }
+#mc-ray-2 { left: -13px; top: -13px; width: 48px; height: 48px; }
+#mc-ray-3 { left: -19px; top: -19px; width: 60px; height: 60px; }
+
+/* ── Nubes ─────────────────────────────────────────────────────────────── */
+.mc-cloud-light, .mc-cloud-dark {
+  position: absolute;
+  animation: mcNubes 6s infinite;
+  transition: opacity 0.4s;
+}
+.mc-cloud-light { fill: #eee; }
+.mc-cloud-dark  { fill: #ccc; animation-delay: 1s; }
+
+/* De noche no hay nubes. */
+#toggle:checked + .mc-slider .mc-cloud-light,
+#toggle:checked + .mc-slider .mc-cloud-dark { opacity: 0; }
+
+#mc-cloud-1 { left: 26px; top: 13px; width: 34px; }
+#mc-cloud-2 { left: 38px; top: 9px;  width: 17px; }
+#mc-cloud-3 { left: 16px; top: 21px; width: 26px; }
+#mc-cloud-4 { left: 31px; top: 16px; width: 34px; }
+#mc-cloud-5 { left: 42px; top: 12px; width: 17px; }
+#mc-cloud-6 { left: 19px; top: 22px; width: 26px; }
+
+@keyframes mcNubes {
+  0%, 100% { transform: translateX(0); }
+  40%      { transform: translateX(4px); }
+  80%      { transform: translateX(-4px); }
+}
+
+/* ── Estrellas ─────────────────────────────────────────────────────────── */
+.mc-stars { transform: translateY(-30px); opacity: 0; transition: 0.4s; }
+#toggle:checked + .mc-slider .mc-stars { transform: translateY(0); opacity: 1; }
+
+.mc-star {
+  fill: #fff;
+  position: absolute;
+  transition: 0.4s;
+  animation: mcTitilar 2s infinite;
+}
+#mc-star-1 { width: 9px; top: 3px;  left: 4px;  animation-delay: 0.3s; }
+#mc-star-2 { width: 4px; top: 15px; left: 4px; }
+#mc-star-3 { width: 6px; top: 18px; left: 11px; animation-delay: 0.6s; }
+#mc-star-4 { width: 8px; top: 2px;  left: 18px; animation-delay: 1.3s; }
+
+@keyframes mcTitilar {
+  0%, 100% { transform: scale(1); }
+  40%      { transform: scale(1.2); }
+  80%      { transform: scale(0.8); }
+}
+
+/* Sin movimiento para quien lo pidió: el interruptor sigue funcionando igual. */
+@media (prefers-reduced-motion: reduce) {
+  .mc-slider, .mc-sun-moon, .mc-stars, .mc-star,
+  .mc-cloud-light, .mc-cloud-dark, .mc-moon-dot { transition: none; animation: none; }
+  #toggle:checked + .mc-slider .mc-sun-moon { animation: none; transform: translateX(22px); }
+}
+
+/* ========================================
+   BOTÓN DE INSTALAR
+   Adaptado de Uiverse.io — satyamchaudharydev
+======================================== */
+/* Al pasar por encima el texto sube y entra el ícono.
+
+   SIN globito de ayuda: el botón ya dice "Instalar". Y arriba de todo en el
+   encabezado, cualquier cosa flotante termina peleando con el borde de la
+   pantalla o con las tarjetas de abajo.
+
+   Prefijo `mc-` obligatorio: el original usa `.button`, `.text` e `.icon`, y
+   `.text` sola aparece 774 veces en index.html.
+
+   Azul que vira a violeta: es el único botón del encabezado que invita a hacer
+   algo, y el teal se confundía con el resto del sistema. */
+.mc-boton {
+  /* Alto fijo y explícito: styles.css tiene una regla global de accesibilidad
+     táctil (button { min-height: 44px }) que lo inflaba a 44 en pantallas
+     chicas, mientras que en login.html —que no carga este archivo— medía 32.
+     Quedaba de distinto tamaño en cada página y desalineado con el interruptor
+     de tema. 36px mantiene el área táctil cómoda sin romper la fila. */
+  min-height: 36px !important;
+  --alto: 36px;
+  --color: #1163ff;
+  --color-encima: #6c18ff;
+
+  width: 92px;
+  height: var(--alto);
+  background: var(--color);
+  position: relative;
+  text-align: center;
+  border-radius: 0.45em;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  flex-shrink: 0;
+  box-shadow: 0 3px 12px rgba(17, 99, 255, 0.45);
+  transition: background 0.3s, box-shadow 0.3s;
+}
+
+/* La cara recorta lo que se sale: es lo que hace que el texto se vaya hacia
+   arriba y el ícono entre desde abajo. */
+.mc-boton-cara {
+  overflow: hidden;
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+.mc-boton-texto,
+.mc-boton-icono {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: top 0.5s;
+}
+
+.mc-boton-texto { top: 0; }
+.mc-boton-icono { top: 100%; }
+.mc-boton-icono svg { width: 20px; height: 20px; }
+
+.mc-boton:hover {
+  background: var(--color-encima);
+  box-shadow: 0 3px 16px rgba(108, 24, 255, 0.55);
+}
+.mc-boton:hover .mc-boton-texto { top: -100%; }
+.mc-boton:hover .mc-boton-icono { top: 0; }
+
+/* Con teclado se comporta igual que con el puntero. */
+.mc-boton:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.mc-boton:focus-visible .mc-boton-texto { top: -100%; }
+.mc-boton:focus-visible .mc-boton-icono { top: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .mc-boton, .mc-boton-texto, .mc-boton-icono { transition: none; }
+}

@@ -2,7 +2,7 @@
 window.APP_STATE = {
   currentUser: null,
   authRestored: false,
-  version: '2.1.4' // Fallback de versión si no se puede leer sw.js — mantener al día con sw.js:1
+  version: '2.1.5' // Fallback de versión si no se puede leer sw.js — mantener al día con sw.js:1
 };
 
 // ========================================
@@ -232,11 +232,28 @@ function navigateTo(view) {
   }
 }
 
+/**
+ * Deja las casillas de tema contando lo mismo que el tema real.
+ *
+ * Hay DOS: la del encabezado (#toggle, el interruptor de sol y luna) y la de
+ * Ajustes (#darkModeToggle). Si se cambia el tema desde una, la otra queda
+ * mostrando lo contrario — y el interruptor del encabezado además dibuja el sol
+ * cuando en realidad está en modo noche.
+ *
+ * Asignar `.checked` por código NO dispara `onchange`, así que esto no puede
+ * volver a llamar a toggleDarkMode() ni entrar en un ida y vuelta.
+ */
+function _sincronizarCasillasTema(esOscuro) {
+  ['toggle', 'darkModeToggle'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.checked = esOscuro;
+  });
+}
+
 // Toggle modo oscuro - VERSIÓN DEFINITIVA
 function toggleDarkMode() {
   const html = document.documentElement;
   const body = document.body;
-  const toggle = document.getElementById('darkModeToggle');
   const isDark = html.classList.contains('dark');
   
   console.log('🌓 Cambiando modo - Estado actual:', isDark ? 'OSCURO' : 'CLARO');
@@ -246,7 +263,7 @@ function toggleDarkMode() {
     html.classList.remove('dark');
     body.classList.remove('dark');
     localStorage.setItem('darkMode', 'false');
-    if (toggle) toggle.checked = false;
+    _sincronizarCasillasTema(false);
     console.log('☀️ MODO CLARO ACTIVADO');
     showToast('☀️ Modo claro activado');
   } else {
@@ -254,7 +271,7 @@ function toggleDarkMode() {
     html.classList.add('dark');
     body.classList.add('dark');
     localStorage.setItem('darkMode', 'true');
-    if (toggle) toggle.checked = true;
+    _sincronizarCasillasTema(true);
     console.log('🌙 MODO OSCURO ACTIVADO');
     showToast('🌙 Modo oscuro activado');
   }
@@ -309,6 +326,10 @@ function applyDarkMode() {
   }
   
   updateDarkModeIcons();
+
+  // Al arrancar también: si no, el interruptor del encabezado dibuja el sol
+  // aunque el tema guardado sea oscuro.
+  _sincronizarCasillasTema(darkMode);
 }
 
 function extractVersionLabelFromCacheName(cacheName) {
@@ -333,7 +354,7 @@ function setHeaderAppVersion(versionLabel) {
 
 async function refreshHeaderAppVersion() {
   // 1. Mostrar la versión del estado global (rápido y funciona en local)
-  const appVersion = window.APP_STATE.version || '2.1.4';
+  const appVersion = window.APP_STATE.version || '2.1.5';
   setHeaderAppVersion(appVersion);
 
   // 2. Intentar leer del cache previo
