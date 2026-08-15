@@ -1132,21 +1132,26 @@ body.perf-medium .animate-scale-in {
    el día que alguien agregue otro control deslizante, se pisan sin aviso. */
 .mc-switch {
   position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  display: inline-block;
   width: 52px;
   height: 30px;
   flex-shrink: 0;
   vertical-align: middle;
-  /* Área para el dedo. Antes esto era un <button> y la regla global de
-     accesibilidad (button { min-height: 44px }) le daba 44px de alto en
-     pantallas chicas. Al pasar a <label> esa regla dejó de alcanzarlo y el
-     área táctil bajó a 30px — chico para un dedo.
-     El relleno agranda la zona sensible SIN agrandar el dibujo: el interruptor
-     se sigue viendo de 52x30. */
-  padding: 7px 0;
-  box-sizing: content-box;
+}
+
+/* Área para el dedo, SIN deformar el dibujo.
+   Antes esto era un <button> y la regla global de accesibilidad
+   (button { min-height: 44px }) le daba 44px en pantallas chicas. Al pasar a
+   <label> dejó de alcanzarlo y el área táctil bajó a 30px, chico para un dedo.
+   Se intentó con `padding` y fue peor: `.mc-slider` usa `inset: 0`, así que el
+   relleno lo estiraba y el interruptor se deformaba.
+   Un pseudo-elemento invisible agranda la zona sensible sin tocar el tamaño ni
+   la forma: sigue midiendo 52x30 y se toca como si midiera 52x44. */
+.mc-switch::after {
+  content: '';
+  position: absolute;
+  inset: -7px -4px;
+  border-radius: 999px;
 }
 
 /* La casilla existe para el teclado y los lectores de pantalla, no se ve. */
