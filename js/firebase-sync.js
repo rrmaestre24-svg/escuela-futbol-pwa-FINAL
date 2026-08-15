@@ -675,6 +675,9 @@ async function savePaymentToFirebase(payment) {
       // omitir la clave conserva lo que ya está en la base. Si se mandara null,
       // editar un pago viejo le borraría la firma que sí tenía.
       ...(payment.createdBy ? { created_by: auditInfoAsText(payment.createdBy) } : {}),
+      // Quién lo MODIFICÓ por última vez. Importa tanto como quién lo creó:
+      // casi todos los pagos pasan por "Marcar Pagado", que es una edición.
+      ...(payment.editedBy ? { edited_by: auditInfoAsText(payment.editedBy) } : {}),
       updated_at: new Date().toISOString(),
     });
   }
@@ -880,6 +883,11 @@ async function saveExpenseToFirebase(expense) {
       amount: expense.amount || 0, date: expense.date || null,
       category: expense.category || null, description: expense.description || null,
       invoice_number: expense.invoiceNumber || null,
+      // Quién lo registró y quién lo modificó. Igual que en pagos: van SOLO si
+      // hay dato, nunca como null — la escritura fusiona, así que omitir la
+      // clave conserva la firma que ya está guardada.
+      ...(expense.createdBy ? { created_by: auditInfoAsText(expense.createdBy) } : {}),
+      ...(expense.editedBy  ? { edited_by:  auditInfoAsText(expense.editedBy)  } : {}),
       deleted: expense.deleted || false, updated_at: new Date().toISOString(),
     });
   }
@@ -1862,6 +1870,7 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false } = {}) {
       billingMonth: p.billing_month || undefined,
           // De vuelta a objeto para que formatAuditInfo() lo pueda mostrar.
       createdBy: (typeof auditInfoFromText === 'function') ? auditInfoFromText(p.created_by) : undefined,
+      editedBy:  (typeof auditInfoFromText === 'function') ? auditInfoFromText(p.edited_by)  : undefined,
 }));
     localStorage.removeItem('paymentsFullHistory');
     // 🆕 IDB PRIMERO — recibe TODOS los pagos sin importar la cuota de localStorage.
@@ -1963,6 +1972,9 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false } = {}) {
       id: e.id, concept: e.concept, amount: e.amount, date: e.date,
       category: e.category, description: e.description,
       invoiceNumber: e.invoice_number, deleted: e.deleted, clubId: clubId,
+      // De vuelta a objeto para que formatAuditInfo() las pueda mostrar.
+      createdBy: (typeof auditInfoFromText === 'function') ? auditInfoFromText(e.created_by) : undefined,
+      editedBy:  (typeof auditInfoFromText === 'function') ? auditInfoFromText(e.edited_by)  : undefined,
     }));
     // IDB primero — mergeado con cola pendiente para no borrar locales aún no subidos
     let _finalExpenses = expenses;

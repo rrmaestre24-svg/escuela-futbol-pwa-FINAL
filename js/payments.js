@@ -1337,6 +1337,7 @@ async function loadOlderPaymentsFromSupabase(opts = {}) {
       billingMonth: p.billing_month || undefined,
       // Quién registró el pago, de vuelta a objeto para formatAuditInfo().
       createdBy: (typeof auditInfoFromText === 'function') ? auditInfoFromText(p.created_by) : undefined,
+      editedBy:  (typeof auditInfoFromText === 'function') ? auditInfoFromText(p.edited_by)  : undefined,
     }));
 
     if (!silent) {
