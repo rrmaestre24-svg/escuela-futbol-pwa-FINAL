@@ -806,9 +806,60 @@ function getAuditInfo() {
 }
 
 // Formatear información de auditoría para mostrar
+/**
+ * Devuelve la firma de auditoría lista para guardar en Supabase.
+ *
+ * La columna `created_by` es de texto y el dato es un objeto
+ * {name, userId, date, time}. Se guarda como JSON para no perder ni el nombre
+ * ni el momento — `created_at` dice CUÁNDO llegó la fila a la base, no cuándo
+ * la persona registró el pago ni quién fue.
+ */
+function auditInfoAsText(auditInfo) {
+  if (!auditInfo) return null;
+  if (typeof auditInfo === 'string') return auditInfo;   // ya venía guardado
+  try { return JSON.stringify(auditInfo); } catch (_) { return null; }
+}
+
+/**
+ * Camino inverso: de lo que hay en la base al objeto que espera formatAuditInfo.
+ *
+ * Tolera las TRES formas que existen hoy en producción:
+ *   · JSON  → los 1.796 registros migrados desde Firebase en enero
+ *   · texto → por si alguna vez se guardó solo el nombre
+ *   · vacío → los 1.989 que se registraron sin autor
+ *
+ * Nunca lanza: una firma ilegible no puede tumbar la pantalla de pagos.
+ */
+function auditInfoFromText(valor) {
+  if (!valor) return undefined;
+  if (typeof valor === 'object') return valor;
+  const t = String(valor).trim();
+  if (t.startsWith('{')) {
+    try {
+      const o = JSON.parse(t);
+      return (o && typeof o === 'object') ? o : undefined;
+    } catch (_) { /* JSON roto: se trata como nombre suelto */ }
+  }
+  return { name: t };
+}
+
+/**
+ * Firma de auditoría lista para mostrar: "Roberth - 14/08/2026 21:30".
+ *
+ * Arma solo con lo que hay. Una firma puede venir incompleta —por ejemplo un
+ * registro viejo donde solo quedó el nombre— y antes eso se veía como
+ * "Roberth - - undefined" en la pantalla de pagos.
+ */
 function formatAuditInfo(auditInfo) {
   if (!auditInfo) return '';
-  return `${auditInfo.name} - ${formatDate(auditInfo.date)} ${auditInfo.time}`;
+  const partes = [];
+  if (auditInfo.name) partes.push(auditInfo.name);
+  const cuando = [
+    auditInfo.date ? formatDate(auditInfo.date) : '',
+    auditInfo.time || '',
+  ].filter(Boolean).join(' ');
+  if (cuando) partes.push(cuando);
+  return partes.join(' - ');
 }
 
 // ========================================

@@ -667,6 +667,14 @@ async function savePaymentToFirebase(payment) {
       discount_type: payment.discountType || null,
       discount_reason: payment.discountReason || null,
       billing_month: payment.billingMonth || null,
+      // Quién registró el pago. Antes NO se enviaba: la app lo mostraba en
+      // pantalla pero se perdía al sincronizar, así que desde junio ningún pago
+      // tenía autor y no había forma de saber qué administrador lo cargó.
+      //
+      // Va SOLO si hay dato, nunca como null: la escritura fusiona, así que
+      // omitir la clave conserva lo que ya está en la base. Si se mandara null,
+      // editar un pago viejo le borraría la firma que sí tenía.
+      ...(payment.createdBy ? { created_by: auditInfoAsText(payment.createdBy) } : {}),
       updated_at: new Date().toISOString(),
     });
   }
@@ -1852,7 +1860,9 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false } = {}) {
       discountType: p.discount_type || undefined,
       discountReason: p.discount_reason || undefined,
       billingMonth: p.billing_month || undefined,
-    }));
+          // De vuelta a objeto para que formatAuditInfo() lo pueda mostrar.
+      createdBy: (typeof auditInfoFromText === 'function') ? auditInfoFromText(p.created_by) : undefined,
+}));
     localStorage.removeItem('paymentsFullHistory');
     // 🆕 IDB PRIMERO — recibe TODOS los pagos sin importar la cuota de localStorage.
     // Se mergea con items pendientes en cola para no borrar locales aún no subidos.
