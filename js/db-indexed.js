@@ -53,31 +53,29 @@
   const _LS_DENY_KEYS = new Set([
     'payments', 'players', 'expenses', 'calendarEvents', 'thirdPartyIncomes'
   ]);
-  // Monkey-patch localStorage.setItem: no-op silencioso para las 5 keys pesadas.
+  // Monkey-patch setItem: no-op silencioso para las 5 keys pesadas.
   // Se aplica AL CARGAR este script (antes que cualquier otro módulo escriba).
+  //
+  // Se parchea Storage.prototype y NO la instancia localStorage: en WebKit
+  // (Safari / todo iPhone) `Object.defineProperty(localStorage, 'setItem', …)`
+  // no reemplaza el método — el objeto Storage desvía esa definición a su
+  // almacén y la guarda como un dato más, dejando una clave "setItem" con el
+  // código de la función y el candado SIN efecto. Sobre el prototipo se
+  // comporta igual en Blink y en WebKit.
   try {
-    const _originalSetItem = localStorage.setItem.bind(localStorage);
-    Object.defineProperty(localStorage, 'setItem', {
-      configurable: true,
-      writable: true,
-      value: function (key, value) {
-        if (_LS_DENY_KEYS.has(key)) return; // ignora silenciosamente
-        return _originalSetItem(key, value);
-      }
-    });
+    if (!Storage.prototype._mcDenyPatch) {
+      const _ls = localStorage;                       // referencia fija: evita el getter en cada escritura
+      const _originalSetItem = Storage.prototype.setItem;
+      Storage.prototype.setItem = function (key, value) {
+        // Solo localStorage; sessionStorage queda intacto.
+        if (this === _ls && _LS_DENY_KEYS.has(key)) return; // ignora silenciosamente
+        return _originalSetItem.call(this, key, value);
+      };
+      // No enumerable: la marca no aparece al recorrer propiedades del storage.
+      Object.defineProperty(Storage.prototype, '_mcDenyPatch', { value: true, configurable: true });
+    }
   } catch (e) {
     console.warn('[idb] No se pudo patchear localStorage.setItem:', e);
-  }
-  // Cleanup one-shot: borra las 5 keys pesadas del localStorage existente,
-  // liberando el espacio que ocupaban. Se ejecuta UNA vez por dispositivo.
-  if (localStorage.getItem('idb_fase4_cleanup_v1') !== 'true') {
-    try {
-      _LS_DENY_KEYS.forEach(k => localStorage.removeItem(k));
-      localStorage.setItem('idb_fase4_cleanup_v1', 'true');
-      console.log('[idb] 🧹 Fase 4: localStorage liberado de las 5 listas pesadas.');
-    } catch (e) {
-      console.warn('[idb] Cleanup Fase 4 falló:', e);
-    }
   }
 
   function open() {
@@ -313,6 +311,49 @@
     return results;
   }
 
+  // 🧹 FASE 4 — Libera de localStorage las 5 listas pesadas para recuperar la cuota
+  // de ~5 MB. Corre DENTRO de boot(), después de la migración inicial y de hidratar
+  // la cache: nunca borra una lista sin confirmar que IndexedDB ya la tiene, así que
+  // no hay ventana de pérdida en un dispositivo con IDB vacía y sin internet.
+  // Si alguna queda pendiente no marca la bandera y lo reintenta en el próximo boot.
+  //
+  // v2 — se repite aunque el dispositivo ya hubiera corrido la v1: en Safari el
+  // candado nunca surtió efecto (ver el parche de setItem arriba), así que las 5
+  // listas se siguieron escribiendo y volvieron a llenar la cuota.
+  async function liberarLocalStoragePesado() {
+    if (localStorage.getItem('idb_fase4_cleanup_v2') === 'true') return;
+    let liberadas = 0;
+    let pendientes = 0;
+    for (const s of STORES) {
+      if (!_LS_DENY_KEYS.has(s.localStorageKey)) continue; // 'coaches' sigue viviendo en localStorage
+      const crudo = localStorage.getItem(s.localStorageKey);
+      if (crudo === null) continue;
+      let enLocal = 0;
+      try {
+        const parsed = JSON.parse(crudo);
+        enLocal = Array.isArray(parsed) ? parsed.length : 0;
+      } catch (e) {
+        enLocal = 0; // ilegible: no hay nada que preservar
+      }
+      if (enLocal === 0) { localStorage.removeItem(s.localStorageKey); liberadas++; continue; }
+      // Hay datos reales en localStorage: borrar SOLO si IndexedDB los tiene TODOS.
+      // No alcanza con que IndexedDB tenga "algo": una migración vieja pudo saltearse
+      // el respaldo completo, y ahí localStorage es el único que conserva el resto.
+      // El -1 del catch nunca cumple la comparación → si count() falla, no se borra.
+      const enIdb = await count(s.name).catch(() => -1);
+      if (enIdb >= enLocal) { localStorage.removeItem(s.localStorageKey); liberadas++; }
+      else { pendientes++; }
+    }
+    localStorage.removeItem('setItem');              // basura que dejó el parche viejo en WebKit
+    localStorage.removeItem('idb_fase4_cleanup_v1'); // bandera vieja, ya no se consulta
+    if (pendientes === 0) {
+      localStorage.setItem('idb_fase4_cleanup_v2', 'true');
+      if (liberadas) console.log(`[idb] 🧹 Fase 4: localStorage liberado (${liberadas} listas).`);
+    } else {
+      console.warn(`[idb] 🧹 Fase 4: ${pendientes} lista(s) siguen solo en localStorage; se reintenta en el próximo arranque.`);
+    }
+  }
+
   // Alias retrocompat: solo pagos
   async function migratePaymentsFromLocalStorage() {
     return migrateStoreFromLocalStorage('payments', 'payments');
@@ -405,6 +446,49 @@
     _diagWipe('club_changed', clubId, { lastClubId });
     console.log(`[idb] 🧹 Aislamiento: stores limpiadas (${lastClubId} → ${clubId})`);
     return { cleared: true, previousClubId: lastClubId, newClubId: clubId };
+  }
+
+  /**
+   * Aplica un CAMBIO PARCIAL sobre una store, sin tocar el resto.
+   *
+   * Es la contraparte de syncStore() para la descarga incremental: syncStore
+   * reemplaza la lista entera (clear + put); esto solo mete lo que cambió y saca
+   * lo que se borró. Todo en UNA transacción: o entra completo o no entra nada,
+   * así la store nunca queda a mitad de camino si algo falla en el medio.
+   *
+   * @param {string} storeName
+   * @param {Array}  cambiados  filas nuevas o modificadas (upsert por id)
+   * @param {Array}  borrados   ids a sacar (los que el servidor marcó como borrados)
+   */
+  async function mergeStore(storeName, cambiados, borrados) {
+    const _cambiados = Array.isArray(cambiados) ? cambiados.filter(i => i && i.id) : [];
+    // Si un id viniera en las dos listas, gana el cambio: dentro de una misma
+    // transacción los put corren antes que los delete, así que sin esto el
+    // borrado se comería la actualización. Se resuelve ACÁ y no en quien llama
+    // para no depender de que cada llamador futuro se acuerde de hacerlo.
+    const _idsCambiados = new Set(_cambiados.map(i => i.id));
+    const _borrados = Array.isArray(borrados)
+      ? borrados.filter(id => id && !_idsCambiados.has(id))
+      : [];
+    if (!_cambiados.length && !_borrados.length) {
+      return { store: storeName, actualizados: 0, eliminados: 0 };
+    }
+    const db = await open();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(storeName, 'readwrite');
+      const store = tx.objectStore(storeName);
+      _cambiados.forEach(it => store.put(it));
+      _borrados.forEach(id => store.delete(id));
+      tx.oncomplete = () => {
+        // La cache RAM se toca SOLO si la transacción se completó: nunca mostrar
+        // en pantalla algo que la base no llegó a guardar.
+        _cambiados.forEach(it => _cacheUpsert(storeName, it));
+        _borrados.forEach(id => _cacheDelete(storeName, id));
+        resolve({ store: storeName, actualizados: _cambiados.length, eliminados: _borrados.length });
+      };
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+    });
   }
 
   // Sincroniza una store completa a partir de una lista nueva.
@@ -544,6 +628,14 @@
       // 🚀 FASE 3 — Hidratar cache RAM ANTES de la verificación para que los
       // getters de storage.js lean de cache en cuanto pidan datos.
       await hydrateCache();
+      // Recién acá, con los datos ya en IndexedDB y en la cache RAM, es seguro
+      // liberar las copias pesadas de localStorage. Aislado en su propio try:
+      // si falla, no debe llevarse puesta la verificación de paridad.
+      try {
+        await liberarLocalStoragePesado();
+      } catch (e) {
+        console.warn('[idb] Cleanup Fase 4 falló:', e);
+      }
       await verifyAllConsistency();
       console.log('[idb] ✅ Listo');
     } catch (err) {
@@ -563,6 +655,8 @@
     verifyStoreConsistency, verifyAllConsistency,
     // sync espejo (lo llaman los caminos de descarga remota)
     syncStore,
+    // mezcla parcial (descarga incremental / delta)
+    mergeStore,
     // aislamiento de datos por club (se llama al inicio de cada login/download)
     ensureClubIsolation,
     // Fase 3: hidratación de cache RAM (también re-llamable desde consola)

@@ -105,7 +105,11 @@ async function showParentAccessAutomation() {
     if (modal) modal.classList.remove('hidden');
 
     try {
-        await loadParentAccessStatus();
+        // Si la carga abortó (códigos no disponibles) NO se repinta: con la lista
+        // vacía o con datos de una apertura anterior, la pantalla mentiría sobre
+        // quién tiene código y quién no.
+        const ok = await loadParentAccessStatus();
+        if (ok === false) return;
         renderParentAccessList();
     } catch (error) {
         console.error('Error opening parent automation:', error);
@@ -285,11 +289,25 @@ async function loadParentAccessStatus() {
         : (typeof window.getPlayers === 'function')
             ? window.getPlayers()
             : JSON.parse(localStorage.getItem('players') || '[]');
-    const localCodes = JSON.parse(localStorage.getItem('parentCodes') || '[]');
+    // Los códigos NO se guardan en el equipo (son credenciales de acceso al perfil
+    // del niño). Se piden a Supabase acá, quedan en memoria y se van al cerrar la
+    // pestaña. Ver ensureParentCodes() en js/storage.js.
+    if (typeof window.ensureParentCodes === 'function') await window.ensureParentCodes();
+
+    // ⛔ Si no se pudieron traer, ABORTAR sin pintar la lista.
+    //    Una lista vacía acá no significa "nadie tiene código": significa que no
+    //    sabemos. Y los envíos generan un código nuevo cuando no encuentran uno,
+    //    así que seguir le invalidaría a TODOS los padres el que ya tienen.
+    if (typeof window.parentCodesListos === 'function' && !window.parentCodesListos()) {
+        console.warn('[parent-automation] Códigos no disponibles — no se pinta la lista.');
+        showToast('⚠️ No se pudieron cargar los códigos. Revisá la conexión y volvé a entrar.');
+        return false;
+    }
+
+    const localCodes = (typeof window.getParentCodes === 'function') ? window.getParentCodes() : [];
     const codesByPlayer = {};
 
     if (window.MODO_SUPABASE) {
-        // En Supabase los códigos ya están en localStorage (descargados al login)
         localCodes.forEach(lc => {
             if (lc.playerId && lc.code) codesByPlayer[lc.playerId] = lc;
         });
@@ -349,9 +367,8 @@ async function loadParentAccessStatus() {
                     });
                 }
 
-                if (storedDirty) {
-                    try { localStorage.setItem('parentCodes', JSON.stringify(localCodes)); } catch (e) {}
-                }
+                // localCodes ES la lista en memoria: las mutaciones de arriba ya
+                // quedaron aplicadas, no hay nada que guardar en el equipo.
             }
         } catch (e) {
             console.warn('[parent-automation] No se pudo sincronizar sent_at desde Supabase:', e?.message || e);
@@ -629,19 +646,13 @@ async function openWhatsAppForParent(player, access) {
     try {
         const sentAt = new Date().toISOString();
         if (window.MODO_SUPABASE) {
-            // En Supabase: guardar sentAt en localStorage (UI inmediata) + persistir en BD (cross-device).
-            const storedCodes = JSON.parse(localStorage.getItem('parentCodes') || '[]');
-            const idx = storedCodes.findIndex(lc => lc.playerId === player.id);
-            if (idx !== -1) {
-                storedCodes[idx].sentAt = sentAt;
-                storedCodes[idx].code = access.code;
-            } else {
-                storedCodes.push({ playerId: player.id, code: access.code, sentAt });
+            // sentAt en memoria (UI inmediata) + persistir en BD (cross-device).
+            if (typeof window.marcarCodigoPadreEnviado === 'function') {
+                window.marcarCodigoPadreEnviado(player.id, access.code, sentAt);
             }
-            localStorage.setItem('parentCodes', JSON.stringify(storedCodes));
 
             // 🆕 Persistir sent_at en Supabase parent_codes (NO bloqueante; fire-and-forget).
-            //    Si falla, queda en LS — al próximo load se reintenta sync desde BD.
+            //    Si falla, queda solo en memoria — al próximo load se resincroniza desde BD.
             try {
                 const supaUrl = window.SUPA_URL || window._SUPA_URL;
                 const supaAnon = window.SUPA_ANON || window._SUPA_ANON;
@@ -686,21 +697,15 @@ async function openWhatsAppForParent(player, access) {
 }
 
 /**
- * Marca un código de padre como enviado (sentAt) en LS + BD (cross-device).
+ * Marca un código de padre como enviado (sentAt) en memoria + BD (cross-device).
  * Reutiliza el mismo patrón que openWhatsAppForParent, sin abrir WhatsApp.
  */
 function _markParentCodeSent(playerId, code, clubId) {
     const sentAt = new Date().toISOString();
     try {
-        const storedCodes = JSON.parse(localStorage.getItem('parentCodes') || '[]');
-        const idx = storedCodes.findIndex(lc => lc.playerId === playerId);
-        if (idx !== -1) {
-            storedCodes[idx].sentAt = sentAt;
-            storedCodes[idx].code = code;
-        } else {
-            storedCodes.push({ playerId, code, sentAt });
+        if (typeof window.marcarCodigoPadreEnviado === 'function') {
+            window.marcarCodigoPadreEnviado(playerId, code, sentAt);
         }
-        localStorage.setItem('parentCodes', JSON.stringify(storedCodes));
     } catch (e) { /* defensivo */ }
 
     // Persistir en Supabase (fire-and-forget; el interceptor pone el JWT real).
@@ -819,6 +824,15 @@ async function sendSmsToPendingParents() {
     const clubId = localStorage.getItem('clubId');
     if (!clubId) {
         showToast('❌ No se pudo identificar el club');
+        return;
+    }
+
+    // ⛔ Candado de seguridad: más abajo, a quien no tenga código se le genera uno
+    //    nuevo. Si la lista no está realmente cargada, "no tiene código" es falso
+    //    y este envío le REGENERARÍA el código a todo el club, dejando afuera a
+    //    todos los padres que ya tenían el suyo. No se envía a ciegas.
+    if (typeof window.parentCodesListos === 'function' && !window.parentCodesListos()) {
+        showToast('⚠️ Los códigos no están cargados. Volvé a abrir la pantalla antes de enviar.');
         return;
     }
 
@@ -955,10 +969,10 @@ async function confirmResetAllParentAccess() {
         const clubId = localStorage.getItem('clubId');
 
         if (window.MODO_SUPABASE) {
-            // En Supabase: borrar sentAt del localStorage + de la BD (cross-device).
-            const storedCodes = JSON.parse(localStorage.getItem('parentCodes') || '[]');
-            storedCodes.forEach(lc => { delete lc.sentAt; });
-            localStorage.setItem('parentCodes', JSON.stringify(storedCodes));
+            // En Supabase: borrar sentAt de la memoria + de la BD (cross-device).
+            if (typeof window.limpiarEnviosCodigosPadre === 'function') {
+                window.limpiarEnviosCodigosPadre();
+            }
 
             // 🆕 Borrar sent_at en Supabase para TODOS los códigos del club (un solo PATCH)
             //

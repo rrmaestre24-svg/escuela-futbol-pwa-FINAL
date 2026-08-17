@@ -312,7 +312,7 @@ async function getClubIdForUser(email) {
 // los reutiliza sin hacer lecturas a Firestore.
 const _FULL_DOWNLOAD_TTL_MS = 15 * 60 * 1000; // 15 minutos
 
-async function downloadAllClubData(clubId, { force = false } = {}) {
+async function downloadAllClubData(clubId, { force = false, completa = false } = {}) {
   if (!clubId) {
     console.error('❌ clubId es requerido para descargar datos');
     showToast('❌ Error: No se encontró el ID del club');
@@ -323,7 +323,7 @@ async function downloadAllClubData(clubId, { force = false } = {}) {
   // Nota: downloadAllClubDataFromSupabase ejecuta su propio ensureClubIsolation
   // DESPUÉS del guard de JWT, para no borrar datos locales sin poder reponerlos.
   if (window.MODO_SUPABASE && typeof downloadAllClubDataFromSupabase === 'function') {
-    return downloadAllClubDataFromSupabase(clubId, { force });
+    return downloadAllClubDataFromSupabase(clubId, { force, completa });
   }
 
   console.warn('⚠️ No hay método de descarga disponible');
@@ -735,22 +735,14 @@ document.getElementById('registerForm')?.addEventListener('submit', async functi
     const clubCurrency = document.getElementById('regClubCurrency')?.value || 'COP';
     const clubColor = document.getElementById('regClubColor')?.value || '#0d9488';
 
-    // 2) Subir imágenes a Supabase Storage (best-effort; fallback a imagen por defecto)
+    // 2) Imágenes: se arranca con las de por defecto.
+    //    La subida real NO va acá. Antes se hacía en este punto, ANTES de que
+    //    existieran el club y la sesión, así que salía con la clave anónima —
+    //    y eso obligaba a tener una política abierta en Storage para `anon`.
+    //    Ahora se sube en el paso 4b, después del auto-login, con el JWT del
+    //    admin y amparada por la política que limita cada club a su carpeta.
     let finalClubLogo = (typeof getDefaultLogo === 'function') ? getDefaultLogo() : '';
     let finalAdminAvatar = (typeof getDefaultAvatar === 'function') ? getDefaultAvatar() : '';
-    showToast('⏳ Preparando imágenes...');
-    try {
-      if (clubLogoFile && typeof uploadAvatarToStorage === 'function') {
-        const res = await uploadAvatarToStorage(clubLogoFile, 'logo', clubId, 'logo');
-        finalClubLogo = res.url;
-      }
-    } catch (err) { console.warn('⚠️ Falló subida de logo (se usa default):', err); }
-    try {
-      if (adminAvatarFile && typeof uploadAvatarToStorage === 'function') {
-        const res = await uploadAvatarToStorage(adminAvatarFile, 'admin_' + Date.now(), clubId, 'admin');
-        finalAdminAvatar = res.url;
-      }
-    } catch (err) { console.warn('⚠️ Falló subida de avatar admin (se usa default):', err); }
 
     // 3) Registro server-side: valida código + crea club + admin + licencia + marca código
     showToast('🔐 Creando tu club...');
@@ -789,6 +781,7 @@ document.getElementById('registerForm')?.addEventListener('submit', async functi
 
     // 4) Iniciar sesión con Supabase Auth (email+password)
     showToast('🔗 Iniciando sesión...');
+    let _haySesion = false;
     if (window.SupaAuthV2 && typeof window.SupaAuthV2.login === 'function') {
       try {
         console.log('[AUTH] Ejecutando auto-login en Supabase Auth...');
@@ -797,10 +790,90 @@ document.getElementById('registerForm')?.addEventListener('submit', async functi
         const _regToken = (window.turnstile && typeof window.turnstile.getResponse === 'function' && document.getElementById('cfRegister'))
           ? (window.turnstile.getResponse(document.getElementById('cfRegister')) || '') : '';
         await window.SupaAuthV2.login(adminEmail, adminPassword, _regToken);
+        _haySesion = true;
         console.log('[AUTH] Auto-login exitoso');
       }
       catch (e) {
         console.warn('Login post-registro falló (podrá loguear manualmente):', e);
+      }
+    }
+
+    // 4b) Recién ahora las imágenes, con el JWT del admin ya emitido.
+    //     Todo esto es best-effort: si algo falla, el club queda con el logo por
+    //     defecto y el admin puede cambiarlo después desde Configuración. Nunca
+    //     se interrumpe el registro por una imagen.
+    //     Sin sesión no se intenta: saldría con la clave anónima y la política
+    //     de Storage ya no lo permite (ver migration/cerrar-storage-anon.sql).
+    if (_haySesion && (clubLogoFile || adminAvatarFile) && typeof uploadAvatarToStorage === 'function') {
+      showToast('⏳ Subiendo imágenes...');
+
+      // LOGO DEL CLUB — solo se sube. NO hace falta escribirlo acá: el paso 5
+      // llama saveSchoolSettings() con este mismo valor, y ese camino ya pasa por
+      // saveSchoolSettingsToFirebase(), que está en la cola de reintentos
+      // (js/sync-queue.js, tabla 'schoolSettings'). O sea que si falla la red se
+      // reintenta solo. Un PATCH extra acá sería una escritura duplicada y sin
+      // esa red de contención.
+      if (clubLogoFile) {
+        try {
+          const res = await uploadAvatarToStorage(clubLogoFile, 'logo', clubId, 'logo');
+          finalClubLogo = res.url;
+        } catch (err) { console.warn('⚠️ Falló subida de logo (se usa default):', err); }
+      }
+
+      // AVATAR DEL ADMIN — este sí hay que escribirlo acá.
+      // `saveUser()` del paso 5 solo guarda en el equipo, y la función que sube
+      // usuarios a Supabase no manda el campo `avatar`. Este PATCH es el único
+      // camino, y no está cubierto por la cola de reintentos (esa cola repite
+      // operaciones por tabla y 'users' no está registrada).
+      //
+      // Por eso, en vez de fallar en silencio y dejar la foto huérfana en
+      // Storage: se reintenta una vez y, si tampoco sale, se le AVISA al admin,
+      // que está mirando la pantalla en ese momento y puede resolverlo solo.
+      // Se prefirió esto antes que sumar 'users' a la cola: es una escritura
+      // única del alta, con el usuario presente, no una operación del día a día.
+      if (adminAvatarFile && userId) {
+        try {
+          const res = await uploadAvatarToStorage(adminAvatarFile, 'admin_' + Date.now(), clubId, 'admin');
+          const _url = res.url;
+
+          const _guardarAvatar = async () => {
+            const r = await fetch(
+              `${window.SUPA_URL}/rest/v1/users` +
+              `?id=eq.${encodeURIComponent(userId)}&club_id=eq.${encodeURIComponent(clubId)}`,
+              {
+                method: 'PATCH',
+                headers: {
+                  apikey: window.SUPA_ANON,
+                  Authorization: `Bearer ${window.SUPA_ANON}`, // el interceptor lo cambia por el JWT
+                  'Content-Type': 'application/json',
+                  Prefer: 'return=minimal'
+                },
+                body: JSON.stringify({ avatar: _url })
+              }
+            );
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+          };
+
+          let _guardado = false;
+          for (let intento = 1; intento <= 2 && !_guardado; intento++) {
+            try {
+              await _guardarAvatar();
+              _guardado = true;
+            } catch (e) {
+              console.warn(`⚠️ Intento ${intento}/2 de guardar el avatar falló:`, e?.message || e);
+              if (intento === 1) await new Promise(r => setTimeout(r, 1200));
+            }
+          }
+
+          // Solo se adopta la URL si quedó guardada. Si no, el admin se queda con
+          // la imagen por defecto y el aviso le dice qué hacer — nada de mostrar
+          // una foto que la base no tiene.
+          if (_guardado) {
+            finalAdminAvatar = _url;
+          } else {
+            showToast('⚠️ Tu foto de perfil no se pudo guardar. Podés subirla desde Configuración.');
+          }
+        } catch (err) { console.warn('⚠️ Falló subida de avatar admin (se usa default):', err); }
       }
     }
 
@@ -1049,37 +1122,21 @@ async function logout() {
       // Limpiar TODA la sesión local
       clearCurrentUser();
       localStorage.removeItem('clubId');
-      localStorage.removeItem('players');
-      localStorage.removeItem('payments');
-      // Estas cuatro faltaban. Hasta ahora las borraba, de rebote, un removeItem
-      // masivo al inicio de la descarga; ese bloque se sacó (borraba los datos
-      // locales aunque la descarga fallara después). Sin esto quedaban acá los
-      // egresos e ingresos del club anterior, y getExpenses()/getThirdPartyIncomes()
-      // caen a localStorage cuando la caché RAM no está hidratada → otro club en el
-      // mismo dispositivo podía llegar a verlos.
-      localStorage.removeItem('expenses');
-      localStorage.removeItem('thirdPartyIncomes');
-      localStorage.removeItem('parentCodes');
-      localStorage.removeItem('paymentsFullHistory');
-      localStorage.removeItem('calendarEvents');
-      localStorage.removeItem('users');
-      localStorage.removeItem('schoolSettings');
-      localStorage.removeItem('_lastFullDownload'); // ← forzar descarga limpia en próximo login
-      // Licencia/módulos del club anterior: limpiar para que otro club en el mismo
-      // dispositivo NO herede módulos (fail-closed en los candados de pago).
-      localStorage.removeItem('licenseModulos');
-      localStorage.removeItem('licenseStatus');
-      localStorage.removeItem('licensePlan');
-      localStorage.removeItem('licenseEndDate');
-      localStorage.removeItem('licenseGraceDays');
-      // Aceptación de Términos: es POR CLUB. Si no se limpia, otro club en el
-      // mismo dispositivo se saltaría el modal y no quedaría su consentimiento.
-      localStorage.removeItem('termsAcceptedVersion');
-      // Descartes de notificaciones: la lista NO guarda a qué club pertenece cada
-      // uno. Sin esta línea el próximo club hereda los del anterior — y desde que
-      // se sincronizan con la nube, además los subiría a SU tabla con ids de
-      // jugadores ajenos. Ver js/notifications.js.
-      localStorage.removeItem('dismissedNotifications');
+      // Todo lo que pertenece al club sale por la MISMA lista que usa el cambio
+      // de club sin logout (CLAVES_DEL_CLUB en js/storage.js). Antes eran dos
+      // listas sueltas y se desincronizaron: acá se limpiaban 18 claves y allá
+      // solo 8, así que el club entrante heredaba licencia, Términos y descartes
+      // de notificaciones del anterior.
+      if (typeof limpiarDatosDelClub === 'function') {
+        limpiarDatosDelClub();
+      } else {
+        // Respaldo defensivo por si storage.js no cargó.
+        ['players','payments','paymentsFullHistory','calendarEvents','users','expenses',
+         'thirdPartyIncomes','parentCodes','schoolSettings','_lastFullDownload',
+         'licenseModulos','licenseStatus','licensePlan','licenseEndDate','licenseGraceDays',
+         'termsAcceptedVersion','dismissedNotifications']
+          .forEach(k => { try { localStorage.removeItem(k); } catch (_) {} });
+      }
       sessionStorage.clear();
       
       showToast('👋 Sesión cerrada');

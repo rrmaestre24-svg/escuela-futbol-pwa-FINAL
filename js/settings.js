@@ -1652,7 +1652,10 @@ async function manualSync() {
     }
 
     if (typeof downloadAllClubData === 'function') {
-      await downloadAllClubData(clubId, { force: true });
+      // completa: true → este botón es la salida de emergencia del usuario.
+      // Siempre baja TODO, sin usar la descarga incremental, para que "sincronizar
+      // ahora" signifique de verdad "traeme todo de nuevo".
+      await downloadAllClubData(clubId, { force: true, completa: true });
       console.log('✅ Datos descargados correctamente');
     } else if (typeof downloadAllDataInitially === 'function') {
       await downloadAllDataInitially(clubId);

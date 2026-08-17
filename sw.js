@@ -1,4 +1,4 @@
-const CACHE_NAME = 'my-club-v2.1.8';
+const CACHE_NAME = 'my-club-v2.1.9';
 
 const urlsToCache = [
   '/',
@@ -80,9 +80,6 @@ const urlsToCache = [
   '/js/bootstrap.js',
   '/js/sms-utils.js',
   '/js/sms-history.js',
-
-  // PORTAL PADRES
-  '/js/parent-portal.js',
 
   // CDN — cacheados para disponibilidad offline
   'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js'

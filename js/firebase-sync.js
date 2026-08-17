@@ -1690,7 +1690,84 @@ function _showSessionExpiredBanner() {
  * Equivalente a downloadAllClubData() pero usando Supabase REST.
  * Llamada automáticamente cuando MODO_SUPABASE = true.
  */
-async function downloadAllClubDataFromSupabase(clubId, { force = false } = {}) {
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DESCARGA INCREMENTAL (DELTA) — bajar solo lo que cambió
+// ═══════════════════════════════════════════════════════════════════════════
+// Cada login bajaba las 5.400 filas del club aunque no hubiera cambiado nada.
+// Midiendo producción, en una semana cambian ~88 de 5.466: el 98% del tráfico
+// era volver a traer lo mismo.
+//
+// EL DELTA ES UNA OPTIMIZACIÓN, NUNCA LA FUENTE DE VERDAD. Ante la menor duda
+// se baja todo. Los candados, y qué evita cada uno:
+//
+//  1. Solo si hay marca previa Y la tabla local tiene datos → una base vacía
+//     jamás se "rellena" con las 3 filas de la última semana.
+//  2. La consulta NO filtra borrados → un pago anulado desde otro equipo llega
+//     como baja y se saca de acá. Sin esto quedaría visible para siempre.
+//  3. La marca sale del reloj del SERVIDOR (cabecera Date), menos 60 s de
+//     margen → si una fila se guardó justo mientras leíamos, entra la próxima
+//     vez. Nunca se usa el reloj del dispositivo: puede estar corrido.
+//  4. Marca vencida (7 días) → descarga completa igual. Acota cualquier desvío.
+//  5. Cualquier error en el camino delta → descarga completa de esa tabla.
+//  6. La marca se borra cuando se limpian los datos del club.
+//
+// Requisito que ya está cumplido: `updated_at` lo pone el servidor con un
+// disparador (migration/updated-at-servidor.sql). Sin eso, un equipo con el
+// reloj atrasado dejaría cambios invisibles para siempre.
+const _DELTA_MARGEN_MS   = 60 * 1000;                 // solapamiento de seguridad
+const _DELTA_MAX_EDAD_MS = 7 * 24 * 60 * 60 * 1000;   // resincronización completa semanal
+
+function _deltaClave(tabla, clubId) { return `delta_${tabla}_${clubId}`; }
+
+function _deltaLeerMarca(tabla, clubId) {
+  try { return localStorage.getItem(_deltaClave(tabla, clubId)) || null; }
+  catch (_) { return null; }
+}
+
+function _deltaGuardarMarca(tabla, clubId, iso) {
+  if (!iso) return;
+  try { localStorage.setItem(_deltaClave(tabla, clubId), iso); } catch (_) {}
+}
+
+/** Se llama al limpiar el club: sin datos locales, la marca no debe sobrevivir. */
+function borrarMarcasDelta(clubId) {
+  if (!clubId) return;
+  ['players', 'payments', 'events', 'expenses', 'third_party_incomes']
+    .forEach(t => { try { localStorage.removeItem(_deltaClave(t, clubId)); } catch (_) {} });
+}
+
+/**
+ * ¿Se puede bajar solo lo nuevo de esta tabla? Devuelve la marca desde la que
+ * pedir, o null para bajar todo. Ante cualquier duda: null.
+ */
+async function _deltaDesde(tabla, store, clubId, completa) {
+  if (completa) return null;
+  const marca = _deltaLeerMarca(tabla, clubId);
+  if (!marca) return null;
+
+  const t = Date.parse(marca);
+  if (!Number.isFinite(t)) return null;                    // marca corrupta
+  if (Date.now() - t > _DELTA_MAX_EDAD_MS) return null;    // vencida
+  if (t > Date.now() + _DELTA_MARGEN_MS) return null;      // del futuro: no confiar
+
+  // Sin datos locales no hay nada sobre lo que aplicar un incremento.
+  if (!window.idb || typeof window.idb.count !== 'function') return null;
+  const n = await window.idb.count(store).catch(() => 0);
+  if (!n) return null;
+
+  return marca;
+}
+
+/** Hora del SERVIDOR, ya con el margen restado. null si no vino la cabecera. */
+function _deltaMarcaNueva(res) {
+  const h = res && res.headers && res.headers.get('date');
+  const t = h ? Date.parse(h) : NaN;
+  if (!Number.isFinite(t)) return null;   // sin cabecera no se avanza la marca
+  return new Date(t - _DELTA_MARGEN_MS).toISOString();
+}
+
+async function downloadAllClubDataFromSupabase(clubId, { force = false, completa = false } = {}) {
   if (!clubId) {
     console.error('❌ clubId es requerido');
     showToast('❌ Error: No se encontró el ID del club');
@@ -1726,10 +1803,27 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false } = {}) {
         // está hidratada. Si no se limpian acá, un cambio de club en el mismo
         // dispositivo SIN logout de por medio (sesión vencida, otro admin) dejaría
         // al club entrante leyendo datos del anterior.
-        ['players', 'payments', 'paymentsFullHistory', 'calendarEvents',
-         'users', 'expenses', 'parentCodes', 'thirdPartyIncomes']
-          .forEach(k => { try { localStorage.removeItem(k); } catch (_) {} });
-        console.log('[sync] 🧹 Espejos de localStorage limpiados por cambio de club');
+        //
+        // Se usa la MISMA lista que el logout (CLAVES_DEL_CLUB en js/storage.js).
+        // Antes acá había una lista propia de 8 claves contra las 18 del logout, y
+        // por esa diferencia el club entrante heredaba la licencia y los módulos de
+        // pago del anterior, se salteaba los Términos, y —lo peor— arrastraba los
+        // descartes de notificaciones: como esos descartes se sincronizan a la nube,
+        // terminaba escribiendo ids de jugadores AJENOS en su propio registro.
+        // Las marcas del delta NO pueden sobrevivir al borrado: si el club
+        // vuelve a este equipo, un incremental sobre una base vacía traería solo
+        // lo de la última semana y el resto quedaría faltando.
+        try { borrarMarcasDelta(r.previousClubId); } catch (_) {}
+        try { borrarMarcasDelta(clubId); } catch (_) {}
+        if (typeof limpiarDatosDelClub === 'function') {
+          limpiarDatosDelClub();
+        } else {
+          // Respaldo defensivo por si storage.js no cargó.
+          ['players', 'payments', 'paymentsFullHistory', 'calendarEvents',
+           'users', 'expenses', 'parentCodes', 'thirdPartyIncomes']
+            .forEach(k => { try { localStorage.removeItem(k); } catch (_) {} });
+        }
+        console.log('[sync] 🧹 Datos del club anterior limpiados del equipo');
       }
     } catch (e) { console.warn('[idb] ensureClubIsolation (supabase) falló:', e); }
   }
@@ -1786,7 +1880,11 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false } = {}) {
      */
     const PAGE_SIZE = 1000;
     const MAX_PAGES = 50; // 50.000 filas: techo de seguridad contra bucles infinitos
-    async function fetchAllRows(url, etiqueta) {
+    // `salida` es opcional: si se pasa un objeto, se le deja la hora del servidor
+    // de la PRIMERA respuesta (salida.marca). Se usa la primera y no la última a
+    // propósito: es el instante ANTERIOR a leer, así cualquier fila guardada
+    // mientras paginábamos entra en la próxima descarga en vez de perderse.
+    async function fetchAllRows(url, etiqueta, salida) {
       const filas = [];
       for (let pagina = 0; pagina < MAX_PAGES; pagina++) {
         const desde = pagina * PAGE_SIZE;
@@ -1794,6 +1892,7 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false } = {}) {
           headers: { ...h, Range: `${desde}-${desde + PAGE_SIZE - 1}`, 'Range-Unit': 'items' },
         });
         if (!res.ok) throw new Error(`Error al leer ${etiqueta} de Supabase: ` + await res.text());
+        if (salida && pagina === 0) salida.marca = _deltaMarcaNueva(res);
         const lote = await res.json();
         filas.push(...lote);
         if (lote.length < PAGE_SIZE) return filas; // última página
@@ -1807,11 +1906,31 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false } = {}) {
     }
     const enc = encodeURIComponent;
 
-    // 1️⃣ Jugadores
-    const pRows = await fetchAllRows(
-      `${base}/players?club_id=eq.${enc(clubId)}&deleted=eq.false&select=*&order=id`,
-      'jugadores'
-    );
+    // 1️⃣ Jugadores — PILOTO de la descarga incremental.
+    //    Se estrena acá y no en pagos a propósito: si algo sale mal, el peor caso
+    //    es una lista de jugadores desactualizada, no contabilidad incompleta.
+    //    Cuando esté probado en producción se extiende al resto.
+    const _pUrlCompleta = `${base}/players?club_id=eq.${enc(clubId)}&deleted=eq.false&select=*&order=id`;
+    const _pSalida = {};
+    let _pDesde = await _deltaDesde('players', 'players', clubId, completa);
+    let pRows;
+    try {
+      pRows = await fetchAllRows(
+        _pDesde
+          // Sin filtro de borrados: las bajas tienen que llegar para poder sacarlas
+          // de acá. Si se filtraran, un jugador dado de baja en otro equipo seguiría
+          // apareciendo en este para siempre.
+          ? `${base}/players?club_id=eq.${enc(clubId)}&updated_at=gte.${enc(_pDesde)}&select=*&order=id`
+          : _pUrlCompleta,
+        'jugadores', _pSalida
+      );
+    } catch (e) {
+      if (!_pDesde) throw e;                 // la completa ya falló: que propague
+      console.warn('[delta] jugadores: el incremental falló, se baja todo:', e?.message || e);
+      _pDesde = null;
+      _pSalida.marca = null;
+      pRows = await fetchAllRows(_pUrlCompleta, 'jugadores', _pSalida);
+    }
     const players = pRows.map(p => ({
       id: p.id, name: p.name, status: p.status, category: p.category,
       birthDate: p.birth_date, jerseyNumber: p.jersey_number,
@@ -1826,27 +1945,85 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false } = {}) {
       notificationsStartDate: p.notifications_start_date || null,
       deleted: p.deleted, schoolId: clubId,
     }));
-    try { localStorage.removeItem('players'); } catch(_) {}
-    try {
-      localStorage.setItem('players', JSON.stringify(players));
-    } catch (quotaErr) {
-      // Jugadores no caben completos — guardar solo los activos
-      const reduced = players.filter(p => p.status === 'activo');
-      localStorage.setItem('players', JSON.stringify(reduced));
-      console.warn(`⚠️ Cuota localStorage — almacenados ${reduced.length} jugadores activos (de ${players.length} totales)`);
-    }
-    // 🆕 IDB recibe la lista COMPLETA aunque localStorage haya capado.
-    // Se mergea con items pendientes en cola para no borrar locales aún no subidos.
-    let _finalPlayers = players;
-    try {
-      if (window.syncQueue && window.syncQueue.mergeWithPending) {
-        _finalPlayers = await window.syncQueue.mergeWithPending('players', players, clubId);
+    // `_pAplicado` decide si la marca puede avanzar. Va aparte del try/catch
+    // general a propósito: un fallo escribiendo JUGADORES en IndexedDB NO debe
+    // frenar la descarga de pagos, eventos, egresos ni configuración. Antes de
+    // esta fase el guardado de jugadores era sin esperar, así que un fallo ahí
+    // nunca cortaba el resto; al agregar el `await` para poder decidir la marca,
+    // se coló esa regresión. El principio del piloto es justamente el contrario:
+    // si algo sale mal con jugadores, el peor caso es una lista desactualizada.
+    let _pAplicado = true;
+
+    // Si otra pestaña cambió de club mientras bajábamos, este resultado ya no
+    // corresponde a los datos que hay en el equipo: aplicarlo dejaría la copia
+    // local mezclada o incompleta. Se descarta y se reintenta en la próxima.
+    const _pClubSigue = (() => {
+      try { return (localStorage.getItem('clubId') || clubId) === clubId; }
+      catch (_) { return true; }
+    })();
+    if (!_pClubSigue) {
+      console.warn('[delta] El club cambió durante la descarga de jugadores — se descarta este resultado.');
+      _pAplicado = false;
+    } else if (_pDesde) {
+      // ── CAMINO INCREMENTAL ──
+      // Los vivos se actualizan; los que el servidor marcó borrados se sacan.
+      let _cambios = players.filter(p => !p.deleted);
+      const _bajasSet = new Set(players.filter(p => p.deleted).map(p => p.id));
+      try {
+        if (window.syncQueue && window.syncQueue.mergeWithPending) {
+          // Misma protección que la descarga completa: lo que el equipo todavía
+          // no subió le gana a lo que vino del servidor.
+          _cambios = await window.syncQueue.mergeWithPending('players', _cambios, clubId);
+        }
+      } catch (e) { console.warn('[syncQueue] mergeWithPending players (delta) falló:', e); }
+      // Si un id quedó en las dos listas (el servidor lo borró pero acá hay un
+      // cambio sin subir), gana el cambio local: no se borra.
+      _cambios.forEach(p => _bajasSet.delete(p.id));
+
+      try {
+        if (window.idb && window.idb.mergeStore) {
+          await window.idb.mergeStore('players', _cambios, [..._bajasSet]);
+        }
+        console.log(`⚡ Jugadores al día: ${_cambios.length} cambio(s), ${_bajasSet.size} baja(s) — sin bajar la lista completa`);
+      } catch (e) {
+        _pAplicado = false;
+        console.warn('[idb] No se pudo aplicar el incremental de jugadores (sigue el resto):', e?.message || e);
       }
-    } catch (e) { console.warn('[syncQueue] mergeWithPending players falló:', e); }
-    if (window.idb && window.idb.syncStore) {
-      window.idb.syncStore('players', _finalPlayers).catch(e => console.warn('[idb] sync players (supabase download) falló:', e));
+    } else {
+      // ── CAMINO COMPLETO (el de siempre) ──
+      try { localStorage.removeItem('players'); } catch(_) {}
+      try {
+        localStorage.setItem('players', JSON.stringify(players));
+      } catch (quotaErr) {
+        // Jugadores no caben completos — guardar solo los activos
+        const reduced = players.filter(p => p.status === 'activo');
+        localStorage.setItem('players', JSON.stringify(reduced));
+        console.warn(`⚠️ Cuota localStorage — almacenados ${reduced.length} jugadores activos (de ${players.length} totales)`);
+      }
+      // 🆕 IDB recibe la lista COMPLETA aunque localStorage haya capado.
+      // Se mergea con items pendientes en cola para no borrar locales aún no subidos.
+      let _finalPlayers = players;
+      try {
+        if (window.syncQueue && window.syncQueue.mergeWithPending) {
+          _finalPlayers = await window.syncQueue.mergeWithPending('players', players, clubId);
+        }
+      } catch (e) { console.warn('[syncQueue] mergeWithPending players falló:', e); }
+      if (window.idb && window.idb.syncStore) {
+        // Se ESPERA (antes era sin esperar): la marca solo puede guardarse si esto
+        // ya quedó escrito, porque si no el próximo incremental partiría de una
+        // base incompleta. Pero el fallo se ATAJA acá: no debe llevarse puesta la
+        // descarga de pagos ni del resto.
+        try {
+          await window.idb.syncStore('players', _finalPlayers);
+        } catch (e) {
+          _pAplicado = false;
+          console.warn('[idb] sync players (supabase download) falló (sigue el resto):', e?.message || e);
+        }
+      }
+      console.log(`✅ ${players.length} jugadores descargados desde Supabase`);
     }
-    console.log(`✅ ${players.length} jugadores descargados desde Supabase`);
+    // La marca avanza SOLO si los datos quedaron efectivamente aplicados.
+    if (_pAplicado && _pSalida.marca) _deltaGuardarMarca('players', clubId, _pSalida.marca);
 
     // 2️⃣ Pagos (últimos 6 meses — ver más antiguo on-demand desde payments.js)
     const cutoff = new Date();
@@ -1989,17 +2166,13 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false } = {}) {
     safeSetItem('expenses', JSON.stringify(expenses));
     console.log(`✅ ${expenses.length} egresos descargados desde Supabase`);
 
-    // 6️⃣ Códigos de padres
-    const pcRes = await fetch(`${base}/parent_codes?club_id=eq.${enc(clubId)}&active=eq.true&select=*`, { headers: h });
-    if (pcRes.ok) {
-      const pcRows = await pcRes.json();
-      const parentCodes = pcRows.map(pc => ({
-        playerId: pc.player_id, code: pc.code,
-        createdAt: pc.created_at, lastAccess: pc.last_access || null,
-      }));
-      localStorage.setItem('parentCodes', JSON.stringify(parentCodes));
-      console.log(`✅ ${parentCodes.length} códigos de padres descargados desde Supabase`);
-    }
+    // 6️⃣ Códigos de padres — YA NO SE DESCARGAN ACÁ.
+    //    Cada código da acceso al perfil de un niño; tener el padrón entero del
+    //    club guardado en el equipo dejaba cientos de credenciales en texto plano.
+    //    Ahora viven solo en memoria y se piden a Supabase cuando una pantalla los
+    //    necesita: ver ensureParentCodes() en js/storage.js.
+    //    De paso, deja de bajar ~1.600 filas en cada inicio de sesión.
+    if (typeof clearParentCodes === 'function') clearParentCodes();
 
     // 7️⃣ Otros ingresos (terceros)
     const tpiRes = await fetch(
@@ -2125,6 +2298,7 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false } = {}) {
 }
 
 window.syncAllToSupabase           = syncAllToSupabase;
+window.borrarMarcasDelta           = borrarMarcasDelta;
 window.downloadAllClubDataFromSupabase = downloadAllClubDataFromSupabase;
 
 // ============================================================

@@ -68,9 +68,8 @@ function getLocalFirstCollectionCount(scope) {
           ? getThirdPartyIncomes().length
           : JSON.parse(localStorage.getItem('thirdPartyIncomes') || '[]').length;
       case 'parentCodes':
-        return typeof getParentCodes === 'function'
-          ? getParentCodes().length
-          : JSON.parse(localStorage.getItem('parentCodes') || '[]').length;
+        // Viven solo en memoria (ver ensureParentCodes en js/storage.js).
+        return typeof getParentCodes === 'function' ? getParentCodes().length : 0;
       case 'config':
         return Object.keys(localStorage).some(key => key.startsWith('config_')) ? 1 : 0;
       case 'paymentMovementLog':
@@ -457,31 +456,12 @@ async function downloadAuxiliaryDataInitially(clubId) {
     console.error('⚠️ Error ingresos:', error);
   }
 
-  // 3️⃣ CÓDIGOS DE PADRES
-  try {
-    console.log('📥 3/4 - Códigos de padres...');
-    if (shouldUseLocalFirstCollection(clubId, 'parentCodes', AUX_SYNC_TTL_MS)) {
-      stats.parentCodes = getLocalFirstCollectionCount('parentCodes');
-      console.log(`⚡ Códigos de padres reutilizados desde local (${stats.parentCodes})`);
-    } else {
-      const codesSnapshot = await window.firebase.getDocs(
-        window.firebase.collection(window.firebase.db, `clubs/${clubId}/parentCodes`)
-      );
-
-      const codes = [];
-      codesSnapshot.forEach(doc => {
-        codes.push({ id: doc.id, ...doc.data() });
-      });
-
-      localStorage.setItem('parentCodes', JSON.stringify(codes));
-      markLocalFirstCollection(clubId, 'parentCodes');
-      stats.parentCodes = codes.length;
-      syncedCollections++;
-      console.log(`✅ ${codes.length} códigos`);
-    }
-  } catch (error) {
-    console.error('⚠️ Error códigos:', error);
-  }
+  // 3️⃣ CÓDIGOS DE PADRES — ya no se descargan ni se guardan acá.
+  //    Son credenciales de acceso al perfil del niño: viven solo en memoria y se
+  //    piden a Supabase cuando una pantalla los necesita (ensureParentCodes en
+  //    js/storage.js). Este bloque bajaba de Firestore, que está apagado desde
+  //    julio, así que además era código inalcanzable.
+  stats.parentCodes = (typeof getParentCodes === 'function') ? getParentCodes().length : 0;
 
   // 4️⃣ CONFIGURACIONES ADICIONALES
   try {
@@ -533,7 +513,7 @@ async function downloadAllDataInitially(clubId) {
         if (typeof renderAccounting === 'function') renderAccounting();
         if (typeof renderSchoolUsers === 'function') renderSchoolUsers();
         if (typeof markLocalSnapshotSynced === 'function') {
-          ['players', 'payments', 'events', 'expenses', 'users', 'thirdPartyIncomes', 'parentCodes'].forEach(
+          ['players', 'payments', 'events', 'expenses', 'users', 'thirdPartyIncomes'].forEach(
             scope => markLocalSnapshotSynced(clubId, scope, { source: 'supabase' })
           );
         }
@@ -900,29 +880,10 @@ async function downloadAllDataInitially(clubId) {
     console.error('⚠️ Error ingresos:', error);
   }
   
-  // 8️⃣ CÓDIGOS DE PADRES — ⚡ TTL 60 min (casi no cambian)
-  try {
-    const _codeKey = `parentCodesLastFetch_${clubId}`;
-    const _codeLastFetch = Number(localStorage.getItem(_codeKey) || 0);
-    if (_codeLastFetch > 0 && (Date.now() - _codeLastFetch) < 60 * 60 * 1000) {
-      const _codeCache = JSON.parse(localStorage.getItem('parentCodes') || '[]');
-      console.log(`⚡ [LOCAL-FIRST] Códigos padres desde caché (${_codeCache.length}) — sin lecturas Firestore`);
-      stats.parentCodes = _codeCache.length;
-    } else {
-      console.log('📥 8/9 - Códigos de padres...');
-      const codesSnapshot = await window.firebase.getDocs(
-        window.firebase.collection(window.firebase.db, `clubs/${clubId}/parentCodes`)
-      );
-      const codes = [];
-      codesSnapshot.forEach(doc => { codes.push({ id: doc.id, ...doc.data() }); });
-      localStorage.setItem('parentCodes', JSON.stringify(codes));
-      localStorage.setItem(_codeKey, String(Date.now()));
-      stats.parentCodes = codes.length;
-      console.log(`✅ ${codes.length} códigos`);
-    }
-  } catch (error) {
-    console.error('⚠️ Error códigos:', error);
-  }
+  // 8️⃣ CÓDIGOS DE PADRES — ya no se descargan ni se guardan acá (ver el bloque 3️⃣).
+  //    Solo en memoria, a pedido: ensureParentCodes() en js/storage.js.
+  stats.parentCodes = (typeof getParentCodes === 'function') ? getParentCodes().length : 0;
+  try { localStorage.removeItem(`parentCodesLastFetch_${clubId}`); } catch (e) {}
 
   // 9️⃣ CONFIGURACIONES ADICIONALES — ⚡ TTL 60 min
   try {
@@ -995,7 +956,7 @@ async function downloadAllDataInitially(clubId) {
 
   // ⚡ LOCAL-FIRST: marcar colecciones como sincronizadas para el próximo arranque
   if (typeof markLocalSnapshotSynced === 'function') {
-    ['settings', 'players', 'payments', 'events', 'expenses', 'users', 'thirdPartyIncomes', 'parentCodes', 'config'].forEach(
+    ['settings', 'players', 'payments', 'events', 'expenses', 'users', 'thirdPartyIncomes', 'config'].forEach(
       scope => markLocalSnapshotSynced(clubId, scope, { source: 'firebase' })
     );
     console.log('⚡ [LOCAL-FIRST] Caché de colecciones actualizado tras descarga completa');

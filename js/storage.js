@@ -29,6 +29,91 @@ function safeSetItem(key, value) {
 }
 window.safeSetItem = safeSetItem;
 
+// Se declara ACÁ ARRIBA, antes de cualquier llamada de nivel superior, y no
+// más abajo junto al resto: `const` tiene zona muerta temporal. Si algo entre
+// medio llegara a lanzar, el navegador igual publica limpiarDatosDelClub() en
+// window (así trata las funciones declaradas), pero la lista quedaría sin
+// inicializar. El guard `typeof limpiarDatosDelClub === "function"` de auth.js
+// y firebase-sync.js daría true, el respaldo NO entraría, y la limpieza
+// fallaría con un error confuso dejando datos del club anterior en el equipo.
+// Detectado probando de verdad, no en revisión.
+// ════════════════════════════════════════════════════════════════════════════
+// DATOS QUE PERTENECEN A UN CLUB Y NO PUEDEN SOBREVIVIR A UN CAMBIO DE CLUB
+// ════════════════════════════════════════════════════════════════════════════
+// Una SOLA lista, usada por los dos caminos que la necesitan:
+//
+//   · cerrar sesión                     → js/auth.js, logout()
+//   · cambio de club SIN cerrar sesión  → js/firebase-sync.js, ensureClubIsolation
+//     (pasa cuando vence la sesión, o cuando otro admin entra en el mismo equipo)
+//
+// Antes eran dos listas separadas y se desincronizaron: el logout limpiaba 18
+// claves y el cambio de club solo 8. Lo que quedaba colgado del club anterior:
+//
+//   · dismissedNotifications → lo PEOR. Los descartes se sincronizan a la nube,
+//     así que el club nuevo heredaba los ids del anterior y, al descartar
+//     cualquier aviso, escribía ids de jugadores AJENOS en su propio registro.
+//   · termsAcceptedVersion   → el club nuevo se salteaba los Términos y no
+//     quedaba registrado su consentimiento.
+//   · licenseModulos y las 4 de licencia → heredaba módulos de PAGO del anterior
+//     hasta que la licencia se refrescaba sola.
+//   · schoolSettings         → se reconstruye mezclando con lo anterior, así que
+//     un club sin logo mostraría el del club previo.
+//
+// `clubId` NO va en esta lista a propósito: al cambiar de club hay que
+// conservarlo (ya apunta al club nuevo). El logout lo borra por su cuenta.
+const CLAVES_DEL_CLUB = [
+  // listas de datos
+  'players', 'payments', 'paymentsFullHistory', 'calendarEvents',
+  'users', 'expenses', 'thirdPartyIncomes', 'parentCodes',
+  // Personal/staff del club (getUsers() lo combina con 'users'). Hoy suele quedar
+  // en [], pero es la clave compañera de 'users' y puede tener dato de un flujo
+  // viejo; se limpia por higiene junto con el resto del personal.
+  'schoolUsers',
+  // Registro de movimientos de pagos. Guarda NOMBRE DE JUGADOR y MONTO sin marca
+  // de club, getPaymentLog() lo lee sin filtrar, y no lo borraba nadie: en un
+  // equipo compartido el club entrante veía —y exportaba en PDF— los movimientos
+  // del club anterior. De forma permanente, no por unos segundos.
+  'paymentMovementLog',
+  // Profes: nombre, teléfono y código de acceso. El espejo en localStorage no se
+  // limpiaba nunca, y coach-automation.js lo pinta en pantalla si la cache RAM
+  // todavía no hidrató, antes de corregirse con el dato del servidor.
+  'coaches',
+  // configuración y marcas de descarga del club
+  'schoolSettings', '_lastFullDownload', 'paymentsLoadedFrom',
+  // Conteo de jugadores cacheado para el límite de licencia (license-system.js):
+  // es del club actual; sin limpiarlo, el club entrante ve el conteo del anterior
+  // hasta recalcular.
+  '_cachedPlayerCount',
+  // licencia y módulos de pago
+  'licenseModulos', 'licenseStatus', 'licensePlan', 'licenseEndDate', 'licenseGraceDays',
+  // consentimiento y avisos (son POR CLUB)
+  'termsAcceptedVersion', 'dismissedNotifications',
+];
+
+/**
+ * Borra del equipo todo lo que pertenece al club que se está dejando.
+ * Nunca lanza: una clave que falle no debe impedir que se limpien las demás.
+ */
+function limpiarDatosDelClub() {
+  CLAVES_DEL_CLUB.forEach(k => {
+    try { localStorage.removeItem(k); } catch (e) { /* seguir con las demás */ }
+  });
+  // Los códigos de padres viven en memoria, no en disco: se vacían aparte.
+  //
+  // Va en su propio try aunque el `typeof` diga que existe: las funciones
+  // declaradas se publican en window apenas se instancia el script, pero las
+  // variables que usan por dentro (`let _parentCodesRam`) recién existen cuando
+  // la ejecución llega a su línea. Si algo más arriba de este archivo lanzara,
+  // el typeof daría true y la llamada explotaría — abortando la limpieza a mitad
+  // y dejando datos del club anterior. Verificado probando, no en revisión.
+  try {
+    if (typeof clearParentCodes === 'function') clearParentCodes();
+  } catch (e) {
+    console.warn('[club] No se pudo vaciar la memoria de códigos de padres:', e?.message || e);
+  }
+}
+
+
 // Inicializar estructura de datos
 function initStorage() {
   if (!localStorage.getItem('users')) {
@@ -1136,16 +1221,139 @@ function generateParentAccessCode() {
   return code;
 }
 
+// ════════════════════════════════════════════════════════════════════════════
+// CÓDIGOS DE ACCESO DE PADRES — SOLO EN MEMORIA, NUNCA EN EL DISPOSITIVO
+// ════════════════════════════════════════════════════════════════════════════
+// Cada código, junto al id del jugador, DA ACCESO AL PERFIL DEL NIÑO: es
+// exactamente lo que el SMS le advierte al padre que no comparta. Guardar el
+// padrón completo del club en localStorage dejaba cientos de credenciales en
+// texto plano en cualquier equipo donde alguien hubiera entrado alguna vez
+// (en el club más grande son ~474; en total había 1.626 activos).
+//
+// Por eso viven solo en memoria: se piden a Supabase cuando hacen falta y
+// desaparecen al cerrar la pestaña.
+//
+// Cifrarlos en el navegador NO sería una solución: la llave tendría que estar
+// en el mismo JavaScript que los descifra, así que quien puede leer los datos
+// puede leer la llave. Lo que protege de verdad es no guardarlos.
+//
+// Como beneficio adicional, deja de bajarse esa lista en cada inicio de sesión.
+let _parentCodesRam = [];        // lo que hay en memoria ahora
+let _parentCodesCargados = false; // ¿ya se trajo la lista completa del club?
+let _parentCodesPromesa = null;   // pedido en curso: evita descargas duplicadas
+// La bandera va aparte del array a propósito: si alguien genera o borra un código
+// ANTES de que la lista se haya traído, la memoria se modifica pero NO queda
+// marcada como completa, así que la próxima ensureParentCodes() igual la trae.
+// Sin esa separación, un solo código creado temprano haría creer que ese es todo
+// el padrón del club y la pantalla de envíos mostraría uno solo.
+
+// Limpieza para equipos que ya tenían la lista guardada de la versión anterior.
+try { localStorage.removeItem('parentCodes'); } catch (e) {}
+
+/**
+ * Carga los códigos del club en memoria si todavía no están.
+ * Hay que llamarla (con await) antes de cualquier pantalla que los muestre.
+ * Nunca lanza: ante un fallo deja la memoria vacía y devuelve la lista actual,
+ * para que la UI no se caiga.
+ *
+ * @param {{force?: boolean}} opciones  force: vuelve a pedirlos aunque ya estén.
+ */
+async function ensureParentCodes({ force = false } = {}) {
+  if (_parentCodesCargados && !force) return _parentCodesRam;
+  if (_parentCodesPromesa) return _parentCodesPromesa;
+
+  const clubId = localStorage.getItem('clubId');
+  if (!clubId || !window.MODO_SUPABASE || !window.SUPA_URL) return _parentCodesRam;
+
+  // ⛔ GUARD: sin JWT no se consulta.
+  //    Con el rol anónimo cerrado, RLS no devuelve error: devuelve 200 con lista
+  //    VACÍA. Si marcáramos "cargado" con esa lista, la pantalla de envíos creería
+  //    que el club no tiene ningún código y al generar nuevos INVALIDARÍA el
+  //    código que ya tienen todos los padres. Preferimos no cargar y reintentar.
+  const _jwt = (window.SupaAuthV2 && typeof window.SupaAuthV2.getToken === 'function' && window.SupaAuthV2.getToken())
+            || (window.SupaAuth   && typeof window.SupaAuth.getToken   === 'function' && window.SupaAuth.getToken());
+  if (!_jwt) {
+    console.warn('[códigos padres] Sin sesión — no se consultan (evita creer que el club no tiene ninguno).');
+    return _parentCodesRam;
+  }
+
+  _parentCodesPromesa = (async () => {
+    try {
+      const res = await fetch(
+        `${window.SUPA_URL}/rest/v1/parent_codes` +
+        `?club_id=eq.${encodeURIComponent(clubId)}&active=eq.true&select=*`,
+        { headers: { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}` } }
+      );
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const filas = await res.json();
+      if (!Array.isArray(filas)) throw new Error('respuesta inesperada');
+
+      // ⛔ SEGUNDA VERIFICACIÓN, después de la respuesta.
+      //    El guard de arriba mira la sesión ANTES de salir, pero la petición
+      //    lleva la clave anónima y depende de que el interceptor le ponga el
+      //    JWT al vuelo. Si la sesión muere justo durante la llamada (el refresh
+      //    falla porque otra pestaña ya usó el refresh_token), el interceptor no
+      //    toca los headers, la consulta sale como anónima y RLS responde
+      //    200 con lista VACÍA en lugar de un error.
+      //    Marcar "cargado" con esa lista vacía haría que un envío masivo le
+      //    regenerara el código a TODO el club. Una lista vacía solo se acepta
+      //    si la sesión sigue viva; si no, se trata como fallo y se reintenta.
+      if (filas.length === 0) {
+        const _sigueVivo = (window.SupaAuthV2 && typeof window.SupaAuthV2.getToken === 'function' && window.SupaAuthV2.getToken())
+                        || (window.SupaAuth   && typeof window.SupaAuth.getToken   === 'function' && window.SupaAuth.getToken());
+        if (!_sigueVivo) throw new Error('la sesión se perdió durante la consulta');
+      }
+
+      _parentCodesRam = filas.map(pc => ({
+        playerId:   pc.player_id,
+        code:       pc.code,
+        createdAt:  pc.created_at,
+        lastAccess: pc.last_access || null,
+        sentAt:     pc.sent_at || null,
+      }));
+      _parentCodesCargados = true;
+    } catch (e) {
+      // No se marca como cargada: se reintenta la próxima vez que haga falta.
+      console.warn('[códigos padres] No se pudieron cargar:', e?.message || e);
+    } finally {
+      _parentCodesPromesa = null;
+    }
+    return _parentCodesRam;
+  })();
+
+  return _parentCodesPromesa;
+}
+
+/**
+ * ¿La lista completa del club está efectivamente en memoria?
+ *
+ * Es OBLIGATORIO consultarlo antes de cualquier pantalla o acción que trate la
+ * ausencia de un código como "este jugador no tiene". Si la carga falló (sin red,
+ * sin sesión), la memoria queda vacía y esa ausencia es MENTIRA: los envíos
+ * masivos generan un código nuevo cuando no encuentran uno, así que actuar sobre
+ * una lista vacía le invalidaría a TODOS los padres el código que ya tienen.
+ */
+function parentCodesListos() {
+  return _parentCodesCargados;
+}
+
+/** Vacía la memoria. Se llama al cerrar sesión y al cambiar de club. */
+function clearParentCodes() {
+  _parentCodesRam = [];
+  _parentCodesCargados = false;
+  _parentCodesPromesa = null;
+}
+
 // Guardar código de acceso para un jugador
 function saveParentCode(playerId, code) {
   const parentCodes = getParentCodes();
-  
+
   // Eliminar código anterior si existe
   const existingIndex = parentCodes.findIndex(pc => pc.playerId === playerId);
   if (existingIndex !== -1) {
     parentCodes.splice(existingIndex, 1);
   }
-  
+
   // Agregar nuevo código
   parentCodes.push({
     playerId: playerId,
@@ -1153,30 +1361,55 @@ function saveParentCode(playerId, code) {
     createdAt: new Date().toISOString(),
     lastAccess: null
   });
-  
-  localStorage.setItem('parentCodes', JSON.stringify(parentCodes));
-  
+
+  _parentCodesRam = parentCodes;
+
   // Sincronizar con Firebase si está disponible
   syncParentCodeToFirebase(playerId, code);
-  
+
   return code;
 }
 
-// Obtener todos los códigos de padres
+/**
+ * Códigos que hay en memoria AHORA. Es sincrónica porque la llaman bucles de
+ * render; si todavía no se cargaron devuelve [] — usá ensureParentCodes() antes.
+ */
 function getParentCodes() {
-  try {
-    const codes = localStorage.getItem('parentCodes');
-    return codes ? JSON.parse(codes) : [];
-  } catch (error) {
-    console.error('Error al obtener códigos de padres:', error);
-    return [];
-  }
+  return Array.isArray(_parentCodesRam) ? _parentCodesRam : [];
 }
 
 // Obtener código de un jugador específico
 function getParentCodeByPlayer(playerId) {
   const codes = getParentCodes();
   return codes.find(pc => pc.playerId === playerId);
+}
+
+/**
+ * Marca en memoria que a un jugador ya se le envió su código, para que la
+ * pantalla de envíos lo muestre al instante. La persistencia real va a
+ * Supabase (parent_codes.sent_at), que es la fuente compartida entre equipos.
+ * Si el código todavía no estaba en memoria, lo agrega.
+ *
+ * @param {string} playerId
+ * @param {string} code
+ * @param {string} [sentAt]  ISO; por defecto, ahora.
+ */
+function marcarCodigoPadreEnviado(playerId, code, sentAt = new Date().toISOString()) {
+  if (!playerId) return;
+  const codes = getParentCodes();
+  const i = codes.findIndex(pc => pc.playerId === playerId);
+  if (i !== -1) {
+    codes[i].sentAt = sentAt;
+    if (code) codes[i].code = code;
+  } else {
+    codes.push({ playerId, code, sentAt });
+  }
+  _parentCodesRam = codes;
+}
+
+/** Borra la marca de "enviado" de todos los códigos en memoria. */
+function limpiarEnviosCodigosPadre() {
+  getParentCodes().forEach(pc => { delete pc.sentAt; });
 }
 
 // Validar código de acceso (devuelve el jugador si es válido)
@@ -1204,18 +1437,15 @@ function validateParentCode(clubId, accessCode) {
 function updateParentCodeAccess(playerId) {
   const parentCodes = getParentCodes();
   const index = parentCodes.findIndex(pc => pc.playerId === playerId);
-  
+
   if (index !== -1) {
     parentCodes[index].lastAccess = new Date().toISOString();
-    localStorage.setItem('parentCodes', JSON.stringify(parentCodes));
   }
 }
 
 // Eliminar código de acceso
 function deleteParentCode(playerId) {
-  let parentCodes = getParentCodes();
-  parentCodes = parentCodes.filter(pc => pc.playerId !== playerId);
-  localStorage.setItem('parentCodes', JSON.stringify(parentCodes));
+  _parentCodesRam = getParentCodes().filter(pc => pc.playerId !== playerId);
 
   // Intentar revocar también en Firebase para cortar acceso real en portal
   revokeParentCodeFromFirebase(playerId);
@@ -1290,6 +1520,13 @@ window.getParentCodes = getParentCodes;
 window.getParentCodeByPlayer = getParentCodeByPlayer;
 window.validateParentCode = validateParentCode;
 window.deleteParentCode = deleteParentCode;
+window.limpiarDatosDelClub = limpiarDatosDelClub;
+window.CLAVES_DEL_CLUB = CLAVES_DEL_CLUB;
+window.ensureParentCodes = ensureParentCodes;
+window.parentCodesListos = parentCodesListos;
+window.clearParentCodes = clearParentCodes;
+window.marcarCodigoPadreEnviado = marcarCodigoPadreEnviado;
+window.limpiarEnviosCodigosPadre = limpiarEnviosCodigosPadre;
 
 console.log('✅ Sistema de códigos de padres cargado');
 

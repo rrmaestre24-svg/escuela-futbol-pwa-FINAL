@@ -1157,16 +1157,30 @@ console.log('✅ players.js cargado (CON DOCUMENTO DE IDENTIDAD)');
 // ========================================
 
 // Generar y mostrar código de acceso para padres
-function generateParentCode(playerId) {
+async function generateParentCode(playerId) {
   const player = getPlayerById(playerId);
   if (!player) {
     showToast('❌ Jugador no encontrado');
     return;
   }
-  
+
+  // Los códigos viven solo en memoria y se piden a Supabase cuando hacen falta
+  // (no se guardan en el equipo: son credenciales de acceso al perfil del niño).
+  // Sin esto, un código existente no se vería y se generaría uno nuevo de más,
+  // invalidando el que el padre ya tenía.
+  if (typeof window.ensureParentCodes === 'function') await window.ensureParentCodes();
+
+  // ⛔ Si no se pudieron traer, NO seguir: más abajo, "no tiene código" dispara
+  //    la creación de uno nuevo, y eso invalidaría el que el padre ya tiene.
+  //    Sin código cargado no sabemos si tiene o no; no adivinamos.
+  if (typeof window.parentCodesListos === 'function' && !window.parentCodesListos()) {
+    showToast('⚠️ No se pudieron cargar los códigos. Revisá la conexión e intentá de nuevo.');
+    return;
+  }
+
   // Verificar si ya tiene código
   const existingCode = getParentCodeByPlayer(playerId);
-  
+
   if (existingCode) {
     // Mostrar código existente con opción de regenerar
     showParentCodeModal(player, existingCode.code, true);
