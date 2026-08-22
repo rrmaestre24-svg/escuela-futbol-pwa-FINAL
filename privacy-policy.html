@@ -184,7 +184,7 @@
     
     <div class="container">
         <div class="content">
-            <p><strong>Última actualización:</strong> Febrero 2025</p>
+            <p><strong>Última actualización:</strong> Agosto 2026</p>
             <p><strong>Vigencia:</strong> Esta política está vigente desde su fecha de publicación.</p>
             
             <h2>1. Introducción</h2>
@@ -265,7 +265,7 @@
                 <li>Proporcionar y mantener el funcionamiento de la aplicación</li>
                 <li>Sincronizar datos entre dispositivos del usuario</li>
                 <li>Generar documentos PDF (facturas, reportes, códigos de acceso)</li>
-                <li>Permitir la comunicación vía WhatsApp con los acudientes</li>
+                <li>Enviar avisos y recordatorios a los acudientes vía SMS y WhatsApp</li>
                 <li>Facilitar el acceso de los padres al portal de consulta</li>
                 <li>Mejorar la experiencia del usuario</li>
                 <li>Resolver problemas técnicos</li>
@@ -280,22 +280,22 @@
             <h3>4.1 Dónde se almacenan los datos</h3>
             <p>Los datos se almacenan en dos ubicaciones:</p>
             <ul>
-                <li><strong>Dispositivo local:</strong> En el almacenamiento interno de su dispositivo (localStorage) para permitir el funcionamiento sin conexión a internet.</li>
-                <li><strong>Nube (Firebase):</strong> En los servidores de Google Firebase para sincronización entre dispositivos y respaldo.</li>
+                <li><strong>Dispositivo local:</strong> En el almacenamiento interno de su dispositivo (IndexedDB) para permitir el funcionamiento sin conexión a internet. Los datos sensibles de los jugadores se guardan <strong>cifrados</strong> en el dispositivo.</li>
+                <li><strong>Nube (Supabase):</strong> En los servidores de Supabase (infraestructura de Amazon Web Services) para sincronización entre dispositivos y respaldo. El proveedor cifra los datos en reposo en sus servidores.</li>
             </ul>
             
             <h3>4.2 Medidas de seguridad</h3>
             <p>Implementamos las siguientes medidas para proteger su información:</p>
             <ul>
-                <li>Conexión cifrada mediante HTTPS/SSL</li>
-                <li>Autenticación segura mediante Firebase Authentication</li>
-                <li>Reglas de seguridad en la base de datos que limitan el acceso solo a usuarios autorizados</li>
-                <li>Contraseñas almacenadas de forma encriptada</li>
+                <li>Conexión cifrada mediante HTTPS/TLS</li>
+                <li>Autenticación segura mediante Supabase Auth (contraseñas protegidas con hash)</li>
+                <li>Políticas de seguridad a nivel de fila (RLS) que limitan el acceso a los datos de cada club solo a sus usuarios autorizados</li>
+                <li>Cifrado en reposo de los datos sensibles de los jugadores en el dispositivo</li>
                 <li>Códigos de acceso únicos para el portal de padres</li>
             </ul>
             
             <h3>4.3 Retención de datos</h3>
-            <p>Conservamos sus datos mientras mantenga una cuenta activa en MY CLUB. Si desea eliminar su cuenta y datos, puede hacerlo contactándonos directamente.</p>
+            <p>Conservamos sus datos mientras mantenga una cuenta activa en MY CLUB. Si desea eliminar su cuenta y todos sus datos asociados, puede solicitarlo escribiendo a proyectos98m@gmail.com; procesaremos la solicitud en un plazo máximo de 30 días.</p>
             
             <h2>5. Compartir Información</h2>
             
@@ -303,7 +303,7 @@
             <p>Sus datos pueden ser compartidos en las siguientes circunstancias:</p>
             <ul>
                 <li><strong>Padres de familia:</strong> Los padres con código de acceso válido pueden ver información limitada de sus hijos (datos básicos e historial de pagos).</li>
-                <li><strong>Proveedores de servicio:</strong> Utilizamos Firebase (Google) para autenticación y almacenamiento de datos. Google actúa como procesador de datos bajo sus propias políticas de privacidad.</li>
+                <li><strong>Proveedores de servicio:</strong> Utilizamos Supabase para autenticación y almacenamiento de datos (actúa como procesador de datos), Vercel para el alojamiento de la aplicación, y un proveedor de mensajería para el envío de avisos por SMS a los acudientes. Cada proveedor trata los datos bajo sus propias políticas de privacidad.</li>
             </ul>
             
             <h3>5.2 Con quién NO compartimos datos</h3>
@@ -363,13 +363,13 @@
             <h2>8. Cookies y Tecnologías Similares</h2>
             <p>MY CLUB utiliza:</p>
             <ul>
-                <li><strong>LocalStorage:</strong> Para almacenar datos de la aplicación en su dispositivo y permitir el funcionamiento offline.</li>
+                <li><strong>IndexedDB y almacenamiento local:</strong> Para almacenar datos de la aplicación en su dispositivo y permitir el funcionamiento sin conexión.</li>
                 <li><strong>Service Workers:</strong> Para el funcionamiento de la aplicación como PWA y el almacenamiento en caché de recursos.</li>
             </ul>
             <p>No utilizamos cookies de seguimiento ni tecnologías de rastreo publicitario.</p>
             
             <h2>9. Transferencia Internacional de Datos</h2>
-            <p>Sus datos pueden ser transferidos y almacenados en servidores ubicados fuera de su país de residencia. Utilizamos Firebase de Google, cuyos servidores pueden estar ubicados en diferentes regiones del mundo. Google cumple con estándares internacionales de protección de datos.</p>
+            <p>Sus datos pueden ser transferidos y almacenados en servidores ubicados fuera de su país de residencia. Utilizamos Supabase (sobre infraestructura de Amazon Web Services), cuyos servidores pueden estar ubicados en diferentes regiones del mundo. Estos proveedores cumplen con estándares internacionales de protección de datos.</p>
             
             <h2>10. Cambios en esta Política</h2>
             <p>Podemos actualizar esta política de privacidad periódicamente. Le notificaremos sobre cambios significativos mediante:</p>
@@ -394,16 +394,10 @@
                 </thead>
                 <tbody>
                     <tr>
-                        <td>Firebase Authentication</td>
-                        <td>Google</td>
-                        <td>Autenticación de usuarios</td>
-                        <td><a href="https://firebase.google.com/support/privacy" target="_blank">Ver política</a></td>
-                    </tr>
-                    <tr>
-                        <td>Cloud Firestore</td>
-                        <td>Google</td>
-                        <td>Base de datos en la nube</td>
-                        <td><a href="https://firebase.google.com/support/privacy" target="_blank">Ver política</a></td>
+                        <td>Supabase</td>
+                        <td>Supabase Inc.</td>
+                        <td>Autenticación y base de datos en la nube</td>
+                        <td><a href="https://supabase.com/privacy" target="_blank">Ver política</a></td>
                     </tr>
                     <tr>
                         <td>Vercel</td>
@@ -419,8 +413,7 @@
                 <h3>¿Tiene preguntas sobre esta política?</h3>
                 <p>Si tiene preguntas, inquietudes o desea ejercer sus derechos de privacidad, puede contactarnos:</p>
                 <ul>
-                    <li><strong>Correo electrónico:</strong>reusvalencia41@gmail.com</li>
-                    <li><strong>WhatsApp:</strong>3005452038</li>
+                    <li><strong>Correo electrónico:</strong> proyectos98m@gmail.com</li>
                 </ul>
                 <p>Responderemos a su solicitud en un plazo máximo de 30 días.</p>
             </div>
@@ -437,7 +430,7 @@
     </div>
     
     <footer>
-        <p>&copy; 2025 MY CLUB - Sistema de Gestión para Escuelas de Fútbol</p>
+        <p>&copy; 2026 MY CLUB - Sistema de Gestión para Escuelas de Fútbol</p>
         <p><a href="/">Volver a la aplicación</a></p>
     </footer>
 </body>
