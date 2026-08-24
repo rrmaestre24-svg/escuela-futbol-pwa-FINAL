@@ -88,6 +88,9 @@ const CLAVES_DEL_CLUB = [
   'licenseModulos', 'licenseStatus', 'licensePlan', 'licenseEndDate', 'licenseGraceDays',
   // consentimiento y avisos (son POR CLUB)
   'termsAcceptedVersion', 'dismissedNotifications',
+  // Revisión de morosos (#4): posposición del modal y de jugadores puntuales.
+  // Son marcas del club (a quién se pospuso); se limpian al cambiar de club.
+  'morososReviewSnooze', 'morososReviewPlayerSnooze',
 ];
 
 /**

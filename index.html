@@ -1932,6 +1932,28 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
             </div>
 
             <!-- ========================================
+                PAGOS POR CATEGORÍA (¿quién pagó este mes?)
+            ========================================= -->
+            <div class="glass-card rounded-xl p-4 shadow-sm">
+                <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
+                    <h4 class="font-bold text-gray-800 dark:text-white">📊 Pagos por Categoría
+                        <span class="block text-xs font-normal text-gray-500 dark:text-gray-400">¿Quién pagó la mensualidad y quién falta?</span>
+                    </h4>
+                    <div class="flex items-center gap-2">
+                        <input type="month" id="pbcMonth" onchange="renderPaymentsByCategoryCard()"
+                            class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white text-sm focus:ring-2 focus:ring-teal-500">
+                        <button onclick="generatePaymentsByCategoryPDF(document.getElementById('pbcMonth').value)"
+                            class="bg-orange-600 hover:bg-orange-700 text-white px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-1.5 transition-colors whitespace-nowrap">
+                            <i data-lucide="file-text" class="w-4 h-4"></i> PDF
+                        </button>
+                    </div>
+                </div>
+                <div id="pbcSummary" class="mb-3"></div>
+                <canvas id="pbcChart"></canvas>
+                <div id="pbcFaltanWrap" class="mt-4"></div>
+            </div>
+
+            <!-- ========================================
                 MOROSOS - BOTÓN PRINCIPAL
             ========================================= -->
             <button onclick="toggleMorososSection()"
@@ -1939,6 +1961,13 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
                 <i data-lucide="alert-triangle" class="w-6 h-6"></i>
                 <span id="morososBtnText">Ver Morosos</span>
                 <i id="morososBtnChevron" data-lucide="chevron-down" class="w-5 h-5 transition-transform duration-200"></i>
+            </button>
+
+            <!-- Revisión de morosos dudosos (inactivar / eximir / recordatorio) -->
+            <button onclick="openMorososReview(false)"
+                class="w-full mt-3 bg-gray-800 hover:bg-gray-700 dark:bg-gray-700 dark:hover:bg-gray-600 text-white font-semibold py-3 rounded-xl shadow flex items-center justify-center gap-2 transition-all">
+                <i data-lucide="clipboard-check" class="w-5 h-5"></i>
+                Revisar morosos (decidir qué hacer)
             </button>
 
             <!-- Contenido Morosos (colapsable) -->

@@ -1356,6 +1356,129 @@ async function generateCashRegisterClosurePDF(arqueo, ingresosText, egresosText)
   }
 }
 
+// ========================================
+// 📊 PDF: PAGOS POR CATEGORÍA (mensualidad de un mes)
+// Mismo criterio de datos que la vista (usa _pbcCompute de accounting.js).
+// ========================================
+async function generatePaymentsByCategoryPDF(month) {
+  if (typeof window.jspdf === 'undefined') { loadJsPDF(() => generatePaymentsByCategoryPDF(month)); return; }
+  if (typeof _pbcCompute !== 'function') { showToast('❌ No se pudo generar el reporte'); return; }
+  month = month || (typeof getCurrentDate === 'function' ? getCurrentDate() : new Date().toISOString()).substring(0, 7);
+
+  try {
+    const settings = (typeof getSchoolSettings === 'function') ? getSchoolSettings() : {};
+    const data = _pbcCompute(month);
+    const mesLabel = (typeof _accFormatBillingMonth === 'function') ? _accFormatBillingMonth(month) : month;
+
+    if (!data.rows.length) { showToast('⚠️ No hay jugadores activos para ese mes'); return; }
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    const primaryColor = [13, 148, 136];
+    const textColor = [31, 41, 55];
+    const green = [22, 163, 74];
+    const red = [220, 38, 38];
+    const gray = [107, 114, 128];
+    const pageBottom = 272; // deja lugar para la firma
+
+    // Encabezado
+    await _addLogoToPdf(doc, settings, 15, 12, 22, 22);
+    doc.setFontSize(16); doc.setTextColor(...primaryColor); doc.setFont(undefined, 'bold');
+    doc.text(normalizeForPDF(settings.name || 'MI CLUB'), 42, 20);
+    doc.setFontSize(12); doc.setTextColor(...textColor);
+    doc.text('Pagos por categoria', 42, 27);
+    doc.setFontSize(10); doc.setTextColor(...gray); doc.setFont(undefined, 'normal');
+    doc.text('Mensualidad de ' + normalizeForPDF(mesLabel), 42, 33);
+    doc.setDrawColor(...primaryColor); doc.setLineWidth(0.5); doc.line(15, 38, 195, 38);
+
+    // Resumen en 3 cajas (Total de niños / Pagaron / Faltan)
+    const pct = data.total.registrados > 0 ? Math.round(data.total.pagaron * 100 / data.total.registrados) : 0;
+    let y = 44;
+    const boxW = 58, boxH = 20, boxGap = 3;
+    const boxes = [
+      { label: 'Total ninos', value: String(data.total.registrados), fill: [241, 245, 249], fg: textColor },
+      { label: 'Pagaron (' + pct + '%)', value: String(data.total.pagaron), fill: [220, 252, 231], fg: green },
+      { label: 'Faltan', value: String(data.total.faltan), fill: [254, 226, 226], fg: red }
+    ];
+    let bx = 15;
+    boxes.forEach(b => {
+      doc.setFillColor(...b.fill); doc.roundedRect(bx, y, boxW, boxH, 2, 2, 'F');
+      doc.setTextColor(...b.fg); doc.setFont(undefined, 'bold'); doc.setFontSize(18);
+      doc.text(b.value, bx + boxW / 2, y + 11, { align: 'center' });
+      doc.setFontSize(8); doc.setTextColor(...gray); doc.setFont(undefined, 'normal');
+      doc.text(b.label, bx + boxW / 2, y + 16, { align: 'center' });
+      bx += boxW + boxGap;
+    });
+    y += boxH + 8;
+
+    // Tabla: Categoria | Total | Pagaron | Faltan | % (números centrados)
+    const cCat = 17, cTot = 123, cPag = 147, cFal = 170, cPct = 188;
+    const drawTableHeader = () => {
+      doc.setFillColor(...primaryColor); doc.rect(15, y, 180, 8, 'F');
+      doc.setTextColor(255, 255, 255); doc.setFontSize(9); doc.setFont(undefined, 'bold');
+      doc.text('Categoria', cCat, y + 5.5);
+      doc.text('Total', cTot, y + 5.5, { align: 'center' });
+      doc.text('Pagaron', cPag, y + 5.5, { align: 'center' });
+      doc.text('Faltan', cFal, y + 5.5, { align: 'center' });
+      doc.text('%', cPct, y + 5.5, { align: 'center' });
+      y += 8;
+    };
+    drawTableHeader();
+
+    doc.setFont(undefined, 'normal'); doc.setFontSize(9);
+    data.rows.forEach((r, idx) => {
+      if (y > pageBottom) { doc.addPage(); y = 20; drawTableHeader(); doc.setFont(undefined, 'normal'); doc.setFontSize(9); }
+      if (idx % 2 === 0) { doc.setFillColor(243, 244, 246); doc.rect(15, y, 180, 7, 'F'); }
+      const rpct = r.registrados > 0 ? Math.round(r.pagaron * 100 / r.registrados) : 0;
+      doc.setTextColor(...textColor); doc.text(normalizeForPDF(r.category).substring(0, 42), cCat, y + 5);
+      doc.text(String(r.registrados), cTot, y + 5, { align: 'center' });
+      doc.setTextColor(...green); doc.text(String(r.pagaron), cPag, y + 5, { align: 'center' });
+      doc.setTextColor(...(r.faltan > 0 ? red : gray)); doc.text(String(r.faltan), cFal, y + 5, { align: 'center' });
+      doc.setTextColor(...textColor); doc.text(rpct + '%', cPct, y + 5, { align: 'center' });
+      y += 7;
+    });
+    // Fila de totales (con fondo)
+    if (y > pageBottom) { doc.addPage(); y = 20; }
+    doc.setFillColor(...primaryColor); doc.rect(15, y, 180, 8, 'F');
+    doc.setFont(undefined, 'bold'); doc.setFontSize(9); doc.setTextColor(255, 255, 255);
+    doc.text('TOTAL', cCat, y + 5.5);
+    doc.text(String(data.total.registrados), cTot, y + 5.5, { align: 'center' });
+    doc.text(String(data.total.pagaron), cPag, y + 5.5, { align: 'center' });
+    doc.text(String(data.total.faltan), cFal, y + 5.5, { align: 'center' });
+    doc.text(pct + '%', cPct, y + 5.5, { align: 'center' });
+    y += 14;
+
+    // Detalle: quiénes faltan por categoría
+    const conFaltan = data.rows.filter(r => r.faltan > 0);
+    if (conFaltan.length) {
+      if (y > pageBottom - 10) { doc.addPage(); y = 20; }
+      doc.setFont(undefined, 'bold'); doc.setFontSize(12); doc.setTextColor(...red);
+      doc.text('Faltan por registrar pago', 15, y); y += 3;
+      doc.setDrawColor(...red); doc.setLineWidth(0.3); doc.line(15, y, 195, y); y += 6;
+      conFaltan.forEach(r => {
+        if (y > pageBottom) { doc.addPage(); y = 20; }
+        doc.setFont(undefined, 'bold'); doc.setFontSize(10); doc.setTextColor(...textColor);
+        doc.text(`${normalizeForPDF(r.category)}  —  ${r.faltan} sin pagar`, 15, y); y += 5;
+        doc.setFont(undefined, 'normal'); doc.setFontSize(9); doc.setTextColor(...gray);
+        const nombres = r.faltanList.map(pl => normalizeForPDF(pl.name || 'Sin nombre') + (pl.jerseyNumber ? ' #' + pl.jerseyNumber : '')).join(',   ');
+        const lines = doc.splitTextToSize(nombres, 173);
+        lines.forEach(ln => { if (y > pageBottom) { doc.addPage(); y = 20; } doc.text(ln, 18, y); y += 5; });
+        y += 3;
+      });
+    }
+
+    // Firma
+    if (y > 250) { doc.addPage(); y = 20; }
+    if (typeof addSignatureToDocument === 'function') addSignatureToDocument(doc, Math.max(y + 4, 250));
+
+    doc.save(`Pagos-por-categoria-${month}.pdf`);
+    if (typeof showToast === 'function') showToast('✅ PDF generado');
+  } catch (e) {
+    console.error('[pbc pdf]', e);
+    if (typeof showToast === 'function') showToast('❌ Error al generar el PDF');
+  }
+}
+
 // Hacer funciones globales
 window.generateCashRegisterClosurePDF = generateCashRegisterClosurePDF;
 window.generateExpenseInvoicePDF = generateExpenseInvoicePDF;
@@ -1363,6 +1486,7 @@ window.generateInvoicePDF = generateInvoicePDF;
 window.generatePaymentNotificationPDF = generatePaymentNotificationPDF;
 window.generatePlayerAccountStatementPDF = generatePlayerAccountStatementPDF;
 window.generateFullAccountingReportPDF = generateFullAccountingReportPDF;
+window.generatePaymentsByCategoryPDF = generatePaymentsByCategoryPDF;
 window.formatDocumentForPDF = formatDocumentForPDF;
 
 console.log('✅ pdf.js cargado con DOCUMENTO DE IDENTIDAD + FIRMAS AUTOMÁTICAS');

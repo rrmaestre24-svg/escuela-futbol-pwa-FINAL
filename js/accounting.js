@@ -135,6 +135,10 @@ async function renderAccounting() {
       console.warn('[accounting] Históricos no disponibles (se muestra caché reciente):', e?.message || e);
     }
   }
+
+  // 3) Revisión de morosos: aparece sola (semanal) si hay dudosos. Va al final,
+  //    con los históricos ya cargados, para no señalar deuda por datos incompletos.
+  if (typeof _morososMaybeAutoShow === 'function') _morososMaybeAutoShow();
 }
 
 // 🆕 RESUMEN MEJORADO - CON EGRESOS Y OTROS INGRESOS
@@ -243,6 +247,7 @@ function renderAccountingCharts() {
   renderIncomeVsExpensesChart();
   renderIncomeByCategoryChart();
   renderIncomeByTypeChart();
+  renderPaymentsByCategoryCard();
 }
 
 // 🆕 GRÁFICO DUAL: Ingresos vs Egresos (INCLUYE OTROS INGRESOS)
@@ -2089,3 +2094,470 @@ window.closeMonthlyDetailModal = closeMonthlyDetailModal;
 window.exportMonthlyDetailCSV = exportMonthlyDetailCSV;
 window.generateOverduePDF = generateOverduePDF;
 window.generateMonthlyDetailPDF = generateMonthlyDetailPDF;
+
+// ========================================
+// 📊 PAGOS POR CATEGORÍA (¿quién pagó la mensualidad de un mes?)
+// Compara, por categoría y para un mes elegido: cuántos jugadores ACTIVOS
+// debían pagar, cuántos ya tienen registrado el pago de la mensualidad de ese
+// mes, y cuántos faltan (con la lista de nombres). Descarga en PDF.
+// Reglas de plata: usa _accPayments() (paginado completo, no la caché corta),
+// ignora pagos anulados (deleted), y cuenta el mes con extractBillingMonth
+// (mismo criterio que el resto de Contabilidad). No recalcula deuda: solo mira
+// si existe el registro de la mensualidad del mes.
+// ========================================
+let _pbcData = null; // último cálculo (lo reusa el PDF)
+
+// Calcula el reporte para un mes "YYYY-MM".
+function _pbcCompute(month) {
+  // "Activo" con el MISMO criterio que el resto de accounting.js y fn_deuda_jugadores:
+  // lista negra (solo queda afuera lo explícitamente inactivo). Un status vacío/legacy
+  // cuenta como activo — si no, ese niño quedaría invisible aunque deba plata.
+  const activos = (getPlayers() || []).filter(pl => {
+    if (!pl || pl.deleted) return false;
+    const st = String(pl.status || 'Activo').toLowerCase().trim();
+    return st !== 'inactivo' && st !== 'inactive';
+  });
+  const payments = _accPayments();
+
+  // Jugadores que YA tienen registrada la mensualidad de ese mes (pago no anulado)
+  const paidSet = new Set(
+    payments
+      .filter(p => p && !p.deleted && p.type === 'Mensualidad' && extractBillingMonth(p) === month)
+      .map(p => p.playerId)
+      .filter(Boolean)
+  );
+
+  const cats = Object.create(null);
+  activos.forEach(pl => {
+    // ¿Debía pagar ESE mes? Solo si ya estaba inscrito en o antes del mes elegido.
+    // Un niño inscrito después no infla los "faltan" de un mes anterior.
+    const start = String(pl.enrollmentDate || pl.createdAt || '').substring(0, 7);
+    if (/^\d{4}-\d{2}$/.test(start) && start > month) return;
+
+    const cat = (pl.category && String(pl.category).trim()) || 'Sin categoría';
+    if (!cats[cat]) cats[cat] = { registrados: 0, pagaron: 0, faltanList: [] };
+    cats[cat].registrados++;
+    if (paidSet.has(pl.id)) cats[cat].pagaron++;
+    else cats[cat].faltanList.push(pl);
+  });
+
+  const rows = Object.keys(cats).sort((a, b) => a.localeCompare(b, 'es')).map(cat => {
+    const c = cats[cat];
+    c.faltanList.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'es'));
+    return { category: cat, registrados: c.registrados, pagaron: c.pagaron, faltan: c.registrados - c.pagaron, faltanList: c.faltanList };
+  });
+  const total = rows.reduce((t, r) => ({
+    registrados: t.registrados + r.registrados,
+    pagaron: t.pagaron + r.pagaron,
+    faltan: t.faltan + r.faltan
+  }), { registrados: 0, pagaron: 0, faltan: 0 });
+
+  return { month, rows, total };
+}
+
+// Etiqueta corta para el gráfico: "Categoría 2015" -> "2015"
+function _pbcShortLabel(cat) {
+  return String(cat || '').replace(/^categor[ií]a\s*/i, '').trim() || String(cat || '');
+}
+
+// Tarjeta de "Pagos por categoría" dentro de Contabilidad: gráfico de barras
+// (Pagaron vs Faltan por categoría) + lista de quiénes faltan con botón de
+// WhatsApp. Se re-dibuja al cambiar el mes y cuando renderAccountingCharts corre.
+function renderPaymentsByCategoryCard() {
+  const canvas = document.getElementById('pbcChart');
+  const summary = document.getElementById('pbcSummary');
+  const wrap = document.getElementById('pbcFaltanWrap');
+  if (!canvas && !summary && !wrap) return; // la vista no tiene la tarjeta
+
+  // Mes: usa el elegido; si el input está vacío, arranca en el mes actual
+  const input = document.getElementById('pbcMonth');
+  let month = input && input.value ? input.value : (getCurrentDate()).substring(0, 7);
+  if (input && !input.value) input.value = month;
+
+  _pbcData = _pbcCompute(month);
+  const { rows, total } = _pbcData;
+  const pct = total.registrados > 0 ? Math.round(total.pagaron * 100 / total.registrados) : 0;
+
+  // Resumen (3 números claros)
+  if (summary) {
+    if (!rows.length) {
+      summary.innerHTML = `<p class="text-sm text-gray-500 dark:text-gray-400 text-center py-3">No hay jugadores activos que debieran pagar en ${_accEscapeHtml(_accFormatBillingMonth(month))}.</p>`;
+    } else {
+      summary.innerHTML = `
+        <div class="grid grid-cols-3 gap-2 text-center">
+          <div class="bg-gray-50 dark:bg-gray-900/40 rounded-lg py-2">
+            <div class="text-xl font-bold text-gray-700 dark:text-gray-200">${total.registrados}</div>
+            <div class="text-xs text-gray-500">Registrados</div>
+          </div>
+          <div class="bg-green-50 dark:bg-green-900/20 rounded-lg py-2">
+            <div class="text-xl font-bold text-green-600">${total.pagaron}</div>
+            <div class="text-xs text-gray-500">Pagaron (${pct}%)</div>
+          </div>
+          <div class="bg-red-50 dark:bg-red-900/20 rounded-lg py-2">
+            <div class="text-xl font-bold text-red-600">${total.faltan}</div>
+            <div class="text-xs text-gray-500">Faltan</div>
+          </div>
+        </div>`;
+    }
+  }
+
+  // Gráfico de barras (Pagaron verde / Faltan rojo), mismo estilo que Ingresos vs Egresos
+  if (accountingCharts.byCatPaid) { try { accountingCharts.byCatPaid.destroy(); } catch (e) {} accountingCharts.byCatPaid = null; }
+  if (canvas && typeof Chart !== 'undefined' && rows.length) {
+    // Plugin inline: dibuja el número (dato físico) arriba de cada barra
+    const pbcBarLabels = {
+      id: 'pbcBarLabels',
+      afterDatasetsDraw(chart) {
+        const ctx = chart.ctx;
+        ctx.save();
+        ctx.font = 'bold 11px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        chart.data.datasets.forEach((ds, di) => {
+          const meta = chart.getDatasetMeta(di);
+          if (meta.hidden) return;
+          ctx.fillStyle = di === 0 ? '#16a34a' : '#dc2626';
+          meta.data.forEach((bar, i) => {
+            const v = ds.data[i];
+            if (!v) return; // no dibuja los ceros (menos ruido)
+            ctx.fillText(String(v), bar.x, bar.y - 2);
+          });
+        });
+        ctx.restore();
+      }
+    };
+    accountingCharts.byCatPaid = new Chart(canvas, {
+      type: 'bar',
+      data: {
+        labels: rows.map(r => _pbcShortLabel(r.category)),
+        datasets: [
+          { label: 'Pagaron', data: rows.map(r => r.pagaron), backgroundColor: 'rgba(22, 163, 74, 0.85)', borderColor: 'rgba(22,163,74,1)', borderWidth: 1 },
+          { label: 'Faltan',  data: rows.map(r => r.faltan),  backgroundColor: 'rgba(220, 38, 38, 0.85)', borderColor: 'rgba(220,38,38,1)', borderWidth: 1 }
+        ]
+      },
+      options: {
+        responsive: true,
+        interaction: { mode: 'index', intersect: false },
+        layout: { padding: { top: 18 } }, // espacio para los números sobre las barras
+        plugins: { legend: { display: true, position: 'top' } },
+        scales: { y: { beginAtZero: true, ticks: { precision: 0, stepSize: 1 } } },
+        onClick: function (_, els) { if (els.length) _pbcToggle(els[0].index); }
+      },
+      plugins: [pbcBarLabels]
+    });
+  }
+
+  // Lista de quiénes faltan, por categoría, con botón de WhatsApp por niño
+  if (wrap) {
+    const conFaltan = rows.map((r, i) => ({ r, i })).filter(x => x.r.faltan > 0);
+    if (!conFaltan.length) {
+      wrap.innerHTML = rows.length ? `<p class="text-sm text-green-600 dark:text-green-400 text-center py-2">🎉 ¡Todos al día en ${_accEscapeHtml(_accFormatBillingMonth(month))}!</p>` : '';
+    } else {
+      wrap.innerHTML = `<p class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Faltan por registrar pago — tocá una categoría:</p>` +
+        conFaltan.map(({ r, i }) => `
+        <div class="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden mb-2">
+          <div class="flex items-center justify-between gap-2 px-3 py-2.5 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50" onclick="_pbcToggle(${i})">
+            <div class="min-w-0 flex-1">
+              <p class="font-semibold text-gray-800 dark:text-white text-sm truncate">${_accEscapeHtml(r.category)}</p>
+              <p class="text-xs mt-0.5">
+                <span class="text-green-600 dark:text-green-400 font-medium">${r.pagaron} de ${r.registrados} pagaron</span>
+                <span class="text-gray-400"> · </span>
+                <span class="text-red-600 dark:text-red-400 font-semibold">${r.faltan} ${r.faltan === 1 ? 'falta' : 'faltan'}</span>
+              </p>
+            </div>
+            <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 transition-transform shrink-0" id="pbcChevron-${i}"></i>
+          </div>
+          <div id="pbcFaltan-${i}" class="hidden px-3 pb-3 pt-1 space-y-1.5">
+            ${r.faltanList.map(pl => `
+              <div class="flex items-center justify-between gap-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2">
+                <span class="text-sm text-gray-700 dark:text-gray-200 truncate">${_accEscapeHtml(pl.name || 'Sin nombre')}${pl.jerseyNumber ? ' <span class="text-teal-500">#' + _accEscapeHtml(pl.jerseyNumber) + '</span>' : ''}</span>
+                <button onclick="sendPendingReminderWA('${_accEscapeHtml(pl.id)}')" title="Escribir por WhatsApp"
+                  class="shrink-0 flex items-center gap-1 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg transition-colors">
+                  <i data-lucide="message-circle" class="w-3.5 h-3.5"></i> WhatsApp
+                </button>
+              </div>`).join('')}
+          </div>
+        </div>`).join('');
+    }
+  }
+
+  if (typeof lucide !== 'undefined' && lucide.createIcons) setTimeout(() => { try { lucide.createIcons(); } catch (e) {} }, 30);
+}
+
+// Despliega/oculta la lista de quiénes faltan en una categoría (índice numérico, seguro)
+function _pbcToggle(i) {
+  const el = document.getElementById('pbcFaltan-' + i);
+  const chev = document.getElementById('pbcChevron-' + i);
+  if (!el) return;
+  const nowHidden = el.classList.toggle('hidden');
+  if (chev) chev.style.transform = nowHidden ? '' : 'rotate(180deg)';
+}
+
+window.renderPaymentsByCategoryCard = renderPaymentsByCategoryCard;
+window._pbcToggle = _pbcToggle;
+window._pbcCompute = _pbcCompute;
+
+// ========================================
+// ⚠️ #4 — REVISIÓN DE MOROSOS (dudosos: deben 2+ meses)
+// Aparece cada cierto tiempo (semanal) y con botón manual. Por cada niño el
+// admin decide: inactivar / eximir mes(es) / enviar recordatorio / revisar
+// después. "Eximir" = registrar la mensualidad de ese mes en $0 con nota
+// "Exento" → deja de contar como deuda en TODA la app (incluido el badge de
+// asistencias, que usa fn_deuda_jugadores; verificado que cuenta el mes por
+// la PRESENCIA de la mensualidad, no por el monto).
+// ========================================
+const _MOROSOS_MIN_MESES = 2;             // "dudoso" = debe 2 o más meses
+const _MOROSOS_MODAL_SNOOZE_DIAS = 7;     // no auto-mostrar de nuevo por 7 días
+const _MOROSOS_PLAYER_SNOOZE_DIAS = 30;   // "revisar después" por jugador
+const _MOROSOS_SNOOZE_KEY = 'morososReviewSnooze';
+const _MOROSOS_PLAYER_SNOOZE_KEY = 'morososReviewPlayerSnooze';
+
+function _morososPlayerSnoozeMap() {
+  try { return JSON.parse(localStorage.getItem(_MOROSOS_PLAYER_SNOOZE_KEY) || '{}') || {}; }
+  catch (e) { return {}; }
+}
+function _morososSavePlayerSnooze(map) {
+  try { localStorage.setItem(_MOROSOS_PLAYER_SNOOZE_KEY, JSON.stringify(map)); } catch (e) {}
+}
+
+// Lista de morosos "dudosos" (Activos que deben >= N meses y no fueron pospuestos)
+function _morososDudosos() {
+  const payments = _accPayments();
+  const snooze = _morososPlayerSnoozeMap();
+  const now = Date.now();
+  const byPlayer = Object.create(null);
+  payments.forEach(p => { if (p && p.playerId) (byPlayer[p.playerId] = byPlayer[p.playerId] || []).push(p); });
+
+  return (getPlayers() || [])
+    .filter(pl => {
+      if (!pl || pl.deleted) return false;
+      const st = String(pl.status || 'Activo').toLowerCase().trim();
+      return st !== 'inactivo' && st !== 'inactive'; // los inactivos NO cuentan
+    })
+    .map(pl => ({ player: pl, missing: _accMissingMonthsForPlayer(pl, byPlayer[pl.id] || []) }))
+    .filter(x => x.missing.length >= _MOROSOS_MIN_MESES)
+    .filter(x => !(snooze[x.player.id] && snooze[x.player.id] > now))
+    .sort((a, b) => b.missing.length - a.missing.length);
+}
+
+let _morososList = [];
+
+// Auto-aparición semanal (se llama desde renderAccounting)
+function _morososMaybeAutoShow() {
+  if (document.getElementById('morososReviewModal')) return; // ya está abierto
+  let until = 0;
+  try { until = parseInt(localStorage.getItem(_MOROSOS_SNOOZE_KEY) || '0', 10) || 0; } catch (e) {}
+  if (Date.now() < until) return;                 // pospuesto: no molestar
+  if (_morososDudosos().length === 0) return;     // nada que revisar
+  openMorososReview(true);
+}
+
+function openMorososReview(auto) {
+  _morososList = _morososDudosos();
+  if (auto && _morososList.length === 0) return;
+
+  let modal = document.getElementById('morososReviewModal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'morososReviewModal';
+    modal.className = 'fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4';
+    document.body.appendChild(modal);
+  }
+  const cantidad = _morososList.length;
+  // max-height por estilo inline (no por clase Tailwind arbitraria) para que el
+  // modal SIEMPRE quede dentro de la pantalla y el encabezado con la ✕ se vea.
+  modal.innerHTML = `
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col animate-scale-in" style="max-height:90vh">
+      <div class="px-5 py-4 border-b border-gray-200 dark:border-gray-700 shrink-0">
+        <div class="flex items-start justify-between gap-3">
+          <h2 class="font-bold text-gray-800 dark:text-white text-lg flex items-center gap-2">👋 Un vistazo a los pagos atrasados</h2>
+          <button onclick="closeMorososReview()" aria-label="Cerrar" class="shrink-0 -mt-1 -mr-1 w-9 h-9 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-700 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 text-2xl leading-none">&times;</button>
+        </div>
+        <p class="text-sm text-gray-600 dark:text-gray-300 mt-1.5 leading-snug">
+          Cada tanto te muestro los niños activos que deben <b>${_MOROSOS_MIN_MESES} o más meses</b> (${cantidad}), por si querés ponerte al día con ellos. Por cada uno podés:
+        </p>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 leading-snug">
+          💬 <b>Recordatorio</b> por WhatsApp · ✅ <b>Eximir</b> un mes si se ausentó · 🚫 <b>Inactivar</b> si ya no viene · ⏰ <b>Revisar después</b>.
+          <span class="block mt-1 text-gray-400 dark:text-gray-500">No tenés que hacer nada ahora — cerralo cuando quieras con la ✕. 🙂</span>
+        </p>
+      </div>
+      <div id="morososBody" style="overflow-y:auto" class="flex-1 p-4"></div>
+      <div class="px-5 py-3 border-t border-gray-200 dark:border-gray-700 shrink-0 flex justify-end gap-2">
+        <button onclick="closeMorososReview()" class="px-5 py-2 rounded-lg text-sm font-bold bg-teal-600 hover:bg-teal-700 text-white">Cerrar</button>
+      </div>
+    </div>`;
+  modal.classList.remove('hidden');
+  modal.onclick = e => { if (e.target === modal) closeMorososReview(); };
+  _renderMorososReview();
+  // Si se abrió con el botón manual antes de que llegue el histórico completo, la
+  // caché corta puede subestimar los meses. Al terminar de bajarlo, recalculamos
+  // (solo si el modal sigue abierto) para no mostrar deuda incompleta.
+  if (typeof loadOlderPaymentsFromSupabase === 'function') {
+    loadOlderPaymentsFromSupabase({ silent: true })
+      .then(loaded => { if (loaded && document.getElementById('morososReviewModal')) { _morososList = _morososDudosos(); _renderMorososReview(); } })
+      .catch(() => {});
+  }
+  if (typeof lucide !== 'undefined' && lucide.createIcons) setTimeout(() => { try { lucide.createIcons(); } catch (e) {} }, 50);
+}
+
+// Al cerrar (de cualquier forma) se pospone el auto-aviso una semana, para no
+// molestar en cada entrada a Contabilidad. El botón manual siempre lo reabre.
+function closeMorososReview() {
+  try { localStorage.setItem(_MOROSOS_SNOOZE_KEY, String(Date.now() + _MOROSOS_MODAL_SNOOZE_DIAS * 86400000)); } catch (e) {}
+  const m = document.getElementById('morososReviewModal');
+  if (m) m.remove();
+  closeMorososEximir();
+}
+
+function _renderMorososReview() {
+  const body = document.getElementById('morososBody');
+  if (!body) return;
+  if (!_morososList.length) {
+    body.innerHTML = `<div class="text-center text-green-600 dark:text-green-400 py-10 font-medium">🎉 No hay morosos para revisar.</div>`;
+    return;
+  }
+  body.innerHTML = _morososList.map((x, i) => {
+    const pl = x.player;
+    const meses = x.missing.map(m => `<span class="text-[11px] bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded px-1.5 py-0.5">${_accEscapeHtml(_accFormatBillingMonth(m))}</span>`).join(' ');
+    return `
+      <div class="border border-gray-200 dark:border-gray-700 rounded-xl p-3 mb-3">
+        <div class="flex items-start justify-between gap-2 flex-wrap">
+          <div class="min-w-0 flex-1">
+            <p class="font-semibold text-gray-800 dark:text-white text-sm">${_accEscapeHtml(pl.name || 'Sin nombre')}${pl.jerseyNumber ? ' <span class="text-teal-500">#' + _accEscapeHtml(pl.jerseyNumber) + '</span>' : ''}</p>
+            <p class="text-xs text-gray-500 dark:text-gray-400">${_accEscapeHtml(pl.category || 'Sin categoría')} · debe <b class="text-red-600 dark:text-red-400">${x.missing.length} meses</b></p>
+            <div class="flex flex-wrap gap-1 mt-1.5">${meses}</div>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3">
+          <button onclick="_morososRecordatorio('${_accEscapeHtml(pl.id)}')" class="flex items-center justify-center gap-1 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold px-2 py-2 rounded-lg"><i data-lucide="message-circle" class="w-3.5 h-3.5"></i> Recordatorio</button>
+          <button onclick="_morososEximirAbrir('${_accEscapeHtml(pl.id)}')" class="flex items-center justify-center gap-1 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold px-2 py-2 rounded-lg"><i data-lucide="badge-check" class="w-3.5 h-3.5"></i> Eximir mes(es)</button>
+          <button onclick="_morososInactivar('${_accEscapeHtml(pl.id)}')" class="flex items-center justify-center gap-1 bg-gray-600 hover:bg-gray-700 text-white text-xs font-semibold px-2 py-2 rounded-lg"><i data-lucide="user-x" class="w-3.5 h-3.5"></i> Inactivar</button>
+          <button onclick="_morososSnoozePlayer('${_accEscapeHtml(pl.id)}')" class="flex items-center justify-center gap-1 bg-slate-200 dark:bg-slate-700 text-gray-700 dark:text-gray-200 hover:bg-slate-300 dark:hover:bg-slate-600 text-xs font-semibold px-2 py-2 rounded-lg"><i data-lucide="clock" class="w-3.5 h-3.5"></i> Revisar después</button>
+        </div>
+      </div>`;
+  }).join('');
+  if (typeof lucide !== 'undefined' && lucide.createIcons) setTimeout(() => { try { lucide.createIcons(); } catch (e) {} }, 30);
+}
+
+function _morososRecordatorio(playerId) {
+  if (typeof sendPendingReminderWA === 'function') sendPendingReminderWA(playerId);
+}
+
+async function _morososInactivar(playerId) {
+  const pl = getPlayerById(playerId);
+  if (!confirm(`¿Inactivar a ${pl && pl.name ? pl.name : 'este jugador'}? Dejará de contar como moroso y no recibirá avisos. Podés reactivarlo cuando quieras.`)) return;
+  if (typeof togglePlayerStatus === 'function') await togglePlayerStatus(playerId); // está Activo → queda Inactivo
+  _morososList = _morososList.filter(x => x.player.id !== playerId);
+  _renderMorososReview();
+}
+
+function _morososSnoozePlayer(playerId) {
+  const map = _morososPlayerSnoozeMap();
+  map[playerId] = Date.now() + _MOROSOS_PLAYER_SNOOZE_DIAS * 86400000;
+  _morososSavePlayerSnooze(map);
+  _morososList = _morososList.filter(x => x.player.id !== playerId);
+  _renderMorososReview();
+  showToast('Se revisará más adelante');
+}
+
+// --- Eximir mes(es): sub-modal con los meses adeudados ---
+function _morososEximirAbrir(playerId) {
+  const item = _morososList.find(x => x.player.id === playerId);
+  if (!item) return;
+  let modal = document.getElementById('morososEximirModal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'morososEximirModal';
+    modal.className = 'fixed inset-0 bg-black/70 z-[70] flex items-center justify-center p-4';
+    document.body.appendChild(modal);
+  }
+  const checks = item.missing.map(m => `
+    <label class="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">
+      <input type="checkbox" class="morosos-eximir-chk w-4 h-4 accent-amber-500" value="${_accEscapeHtml(m)}" checked>
+      <span class="text-sm text-gray-700 dark:text-gray-200">${_accEscapeHtml(_accFormatBillingMonth(m))}</span>
+    </label>`).join('');
+  modal.innerHTML = `
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-sm p-5 animate-scale-in">
+      <div class="flex items-center justify-between mb-1">
+        <h3 class="font-bold text-gray-800 dark:text-white">Eximir meses</h3>
+        <button onclick="closeMorososEximir()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-2xl leading-none">&times;</button>
+      </div>
+      <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">${_accEscapeHtml(item.player.name || '')} — se registrará cada mes elegido como <b>Exento ($0)</b> y dejará de figurar como deuda.</p>
+      <div class="max-h-52 overflow-y-auto mb-3 border border-gray-200 dark:border-gray-700 rounded-lg p-1">${checks}</div>
+      <div class="flex gap-2">
+        <button onclick="_morososEximirConfirmar('${_accEscapeHtml(playerId)}')" class="flex-1 bg-amber-500 hover:bg-amber-600 text-white py-2.5 rounded-xl text-sm font-bold">Eximir seleccionados</button>
+        <button onclick="closeMorososEximir()" class="flex-1 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 py-2.5 rounded-xl text-sm font-bold">Cancelar</button>
+      </div>
+    </div>`;
+  modal.classList.remove('hidden');
+  modal.onclick = e => { if (e.target === modal) closeMorososEximir(); };
+}
+
+function closeMorososEximir() {
+  const m = document.getElementById('morososEximirModal');
+  if (m) m.remove();
+}
+
+function _morososEximirConfirmar(playerId) {
+  const meses = Array.from(document.querySelectorAll('.morosos-eximir-chk:checked')).map(c => c.value);
+  if (!meses.length) { showToast('Elegí al menos un mes'); return; }
+  const pl = getPlayerById(playerId);
+  const audit = (typeof getAuditInfo === 'function') ? getAuditInfo() : undefined;
+
+  // Anti-duplicado: releer los pagos FRESCOS y saltar cualquier mes que YA tenga
+  // una mensualidad (mismo criterio que el alta normal en payments.js). Entre que
+  // se abrió el modal y este click, otro admin/dispositivo —o el histórico que
+  // recién bajó— pudo haber cubierto ese mes; no queremos una 2ª fila para el mismo mes.
+  const yaFacturados = new Set(
+    _accPayments()
+      .filter(p => p && !p.deleted && p.playerId === playerId && p.type === 'Mensualidad')
+      .map(p => extractBillingMonth(p))
+      .filter(Boolean)
+  );
+
+  let creados = 0, saltados = 0;
+  meses.forEach(month => {
+    if (yaFacturados.has(month)) { saltados++; return; }
+    const pago = {
+      id: generateId(),
+      playerId: playerId,
+      type: 'Mensualidad',
+      concept: 'Mensualidad ' + _accFormatBillingMonth(month) + ' (Exento)',
+      amount: 0,
+      finalAmount: 0, // beca/exención 100% → cuenta como registrada, aporta $0 al ingreso
+      dueDate: month + '-01',
+      status: 'Pagado',
+      paidDate: getCurrentDate(),
+      method: 'Exento',
+      billingMonth: month,
+      discountType: 'Exencion',
+      discountReason: 'Exento por ausencia',
+      invoiceNumber: null, // exención de $0: no consume consecutivo de factura DIAN
+      createdAt: getCurrentDate()
+    };
+    if (audit) pago.createdBy = audit;
+    savePayment(pago);
+    creados++;
+  });
+
+  if (creados > 0) {
+    showToast(`✅ ${creados} mes(es) eximido(s)${pl && pl.name ? ' — ' + pl.name : ''}` + (saltados ? ` (${saltados} ya estaba(n) registrado(s))` : ''));
+    if (typeof invalidarDeudaNube === 'function') invalidarDeudaNube();
+  } else {
+    showToast(saltados ? 'Esos meses ya estaban registrados' : 'No se eximió ningún mes');
+  }
+  closeMorososEximir();
+  // Recalcular: el jugador puede salir de la lista si ya no llega al umbral
+  _morososList = _morososDudosos();
+  _renderMorososReview();
+  if (typeof renderPaymentsByCategoryCard === 'function') renderPaymentsByCategoryCard();
+}
+
+window.openMorososReview = openMorososReview;
+window.closeMorososReview = closeMorososReview;
+window._morososRecordatorio = _morososRecordatorio;
+window._morososInactivar = _morososInactivar;
+window._morososSnoozePlayer = _morososSnoozePlayer;
+window._morososEximirAbrir = _morososEximirAbrir;
+window.closeMorososEximir = closeMorososEximir;
+window._morososEximirConfirmar = _morososEximirConfirmar;
