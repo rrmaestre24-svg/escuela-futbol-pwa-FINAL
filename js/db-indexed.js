@@ -9,8 +9,16 @@
 
 (function () {
   const DB_NAME = 'myclub_db';
-  const DB_VERSION = 4; // 🆕 v4: agrega store 'coaches' (onupgradeneeded lo crea solo)
+  const DB_VERSION = 5; // 🆕 v5: store 'crypto_keys' para el cifrado en reposo de jugadores
   let _dbPromise = null;
+
+  // 🔐 FASE D — Stores cuyos registros se cifran EN REPOSO en IndexedDB.
+  // Solo JUGADORES: es el dato personal de menores (nombre, documento, fecha de
+  // nacimiento, teléfono, dirección, contacto de emergencia, info médica, foto).
+  // La plata (pagos) NO se cifra a propósito: agrega riesgo sin ser PII de menores.
+  // El cifrado es transparente: se cifra al escribir, se descifra al leer; la cache
+  // RAM (window._cache) y el resto de la app siguen viendo los datos en claro.
+  const _STORES_CIFRADOS = new Set(['players']);
 
   // Stores cubiertas por el espejo IDB.
   // Cada localStorageKey indica qué clave de localStorage refleja esta store
@@ -30,6 +38,10 @@
     // Cola de escrituras a Supabase que fallaron por red.
     // Cada item: { id, table, operation, payload, clubId, attempts, lastAttempt, createdAt }
     { name: 'pendingSyncQueue', keyPath: 'id', indexes: [{ name: 'createdAt', keyPath: 'createdAt' }] },
+    // 🔐 Llave AES-GCM no extraíble para cifrar jugadores en reposo. Guarda un
+    // objeto CryptoKey (IndexedDB lo soporta vía structured clone). La llave NUNCA
+    // sale de acá y el JS no puede leer sus bytes (extractable:false).
+    { name: 'crypto_keys', keyPath: 'id' },
   ];
 
   // 🚀 FASE 3 — Cache RAM hidratada desde IDB al boot.
@@ -117,12 +129,16 @@
 
   async function getAll(storeName) {
     const db = await open();
-    return new Promise((resolve, reject) => {
+    const raw = await new Promise((resolve, reject) => {
       const tx = db.transaction(storeName, 'readonly');
       const req = tx.objectStore(storeName).getAll();
       req.onsuccess = () => resolve(req.result || []);
       req.onerror = () => reject(req.error);
     });
+    if (!_esCifrado(storeName)) return raw;
+    // Descifrar; los que fallen se OMITEN (fail-safe) y se reponen al sincronizar.
+    const desc = await Promise.all(raw.map(_descifrarRegistro));
+    return desc.filter(Boolean);
   }
 
   // Helper: actualiza window._cache después de un cambio en IDB
@@ -147,11 +163,116 @@
     window._cache[storeName] = Array.isArray(items) ? items : [];
   }
 
+  // ══════════════════════════════════════════════════════════════════════════
+  // 🔐 CIFRADO EN REPOSO (FASE D) — solo la store 'players'
+  // ══════════════════════════════════════════════════════════════════════════
+  // La llave AES-GCM es NO EXTRAÍBLE: vive como CryptoKey en IndexedDB (store
+  // crypto_keys). El JS la usa para cifrar/descifrar pero no puede leer sus bytes,
+  // así que una copia de los archivos / un backup / una extensión ve solo ruido.
+  // No protege contra usar la app en el equipo desbloqueado (ahí descifra normal):
+  // eso es una limitación del cifrado en el navegador, no un defecto.
+  function _esCifrado(storeName) { return _STORES_CIFRADOS.has(storeName); }
+
+  const _cryptoOk = (typeof crypto !== 'undefined' && crypto.subtle && crypto.getRandomValues);
+  let _llavePromise = null;
+
+  // Devuelve la CryptoKey (creándola la primera vez) o null si no hay WebCrypto
+  // (contexto no seguro: http fuera de localhost). Memoizada: una sola vez.
+  function _obtenerLlave() {
+    if (_llavePromise) return _llavePromise;
+    _llavePromise = (async () => {
+      if (!_cryptoOk) { console.warn('[idb][🔐] WebCrypto no disponible — jugadores quedan en claro'); return null; }
+      try {
+        const db = await open();
+        // 1. Camino común: la llave ya existe → leerla (readonly).
+        const guardada = await new Promise((res) => {
+          const tx = db.transaction('crypto_keys', 'readonly');
+          const rq = tx.objectStore('crypto_keys').get('players_v1');
+          rq.onsuccess = () => res(rq.result && rq.result.key);
+          rq.onerror = () => res(null);
+        });
+        if (guardada) return guardada;
+        // 2. No existe → generar candidata y hacer get-or-put ATÓMICO en UNA sola
+        // transacción readwrite. IndexedDB serializa las tx readwrite sobre el mismo
+        // store, así que dos pestañas del mismo dispositivo en el primer arranque NO
+        // terminan con llaves distintas: la segunda ve la que puso la primera y la
+        // reusa (antes había un await generateKey entre el get y el put → carrera).
+        const candidata = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+        const llave = await new Promise((res, rej) => {
+          let elegida = candidata;
+          const tx = db.transaction('crypto_keys', 'readwrite');
+          const store = tx.objectStore('crypto_keys');
+          const g = store.get('players_v1');
+          g.onsuccess = () => {
+            if (g.result && g.result.key) elegida = g.result.key; // otra pestaña ya la puso
+            else store.put({ id: 'players_v1', key: candidata });  // la ponemos nosotros
+          };
+          tx.oncomplete = () => res(elegida);
+          tx.onerror = () => rej(tx.error);
+        });
+        if (llave === candidata) console.log('[idb][🔐] Llave de cifrado creada (no extraíble)');
+        return llave;
+      } catch (e) {
+        console.warn('[idb][🔐] No se pudo obtener/crear la llave — jugadores en claro:', e?.message || e);
+        return null;
+      }
+    })();
+    return _llavePromise;
+  }
+
+  // Cifra UN registro → { id, schoolId/clubId EN CLARO, _enc (ArrayBuffer), _iv }.
+  // El id y el campo de club quedan en claro (no son PII y el aislamiento los lee
+  // sin descifrar). El ciphertext se guarda binario (no base64): soporta fotos
+  // grandes sin desbordar la pila. Si algo falla, devuelve el registro EN CLARO:
+  // nunca perder el dato por un problema de cifrado (disponibilidad > confidencialidad).
+  async function _cifrarRegistro(obj) {
+    if (!obj || obj.id == null) return obj;
+    const llave = await _obtenerLlave();
+    if (!llave) return obj;
+    try {
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const datos = new TextEncoder().encode(JSON.stringify(obj));
+      const _enc = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, llave, datos);
+      const meta = { id: obj.id, _enc, _iv: iv };
+      if (obj.schoolId != null) meta.schoolId = obj.schoolId;   // club en claro para el aislamiento
+      if (obj.clubId != null)   meta.clubId = obj.clubId;
+      if (obj.club_id != null)  meta.club_id = obj.club_id;
+      return meta;
+    } catch (e) {
+      console.warn('[idb][🔐] cifrado falló — se guarda en claro:', e?.message || e);
+      return obj;
+    }
+  }
+
+  async function _cifrarLista(items) {
+    return Promise.all((items || []).map(_cifrarRegistro));
+  }
+
+  // Descifra UN registro. Sin `_enc` → registro en claro (legacy o sin cifrar) tal
+  // cual. Con `_enc` pero sin llave o con fallo → null (se OMITE): la descarga lo
+  // repone desde Supabase. Nunca lanza ni rompe la lectura de los demás.
+  async function _descifrarRegistro(rec) {
+    if (!rec) return null;
+    if (rec._enc === undefined) return rec;
+    const llave = await _obtenerLlave();
+    if (!llave) return null;
+    try {
+      const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: rec._iv }, llave, rec._enc);
+      return JSON.parse(new TextDecoder().decode(plain));
+    } catch (e) {
+      console.warn('[idb][🔐] un registro no se pudo descifrar (se omite; se repone al sincronizar):', e?.message || e);
+      return null;
+    }
+  }
+
   async function put(storeName, obj) {
     const db = await open();
+    // Cifrar ANTES de abrir la transacción: no se puede await dentro de una tx de
+    // IndexedDB (se auto-cierra). La cache RAM recibe el objeto EN CLARO.
+    const guardar = _esCifrado(storeName) ? await _cifrarRegistro(obj) : obj;
     return new Promise((resolve, reject) => {
       const tx = db.transaction(storeName, 'readwrite');
-      const req = tx.objectStore(storeName).put(obj);
+      const req = tx.objectStore(storeName).put(guardar);
       req.onsuccess = () => {
         _cacheUpsert(storeName, obj);
         resolve(true);
@@ -229,11 +350,12 @@
   async function bulkPut(storeName, items) {
     if (!items || !items.length) return 0;
     const db = await open();
+    const guardar = _esCifrado(storeName) ? await _cifrarLista(items) : items;
     return new Promise((resolve, reject) => {
       const tx = db.transaction(storeName, 'readwrite');
       const s = tx.objectStore(storeName);
       let n = 0;
-      items.forEach(item => {
+      guardar.forEach(item => {
         const req = s.put(item);
         req.onsuccess = () => { n++; };
       });
@@ -359,6 +481,71 @@
     return migrateStoreFromLocalStorage('payments', 'payments');
   }
 
+  // 🔐 FASE D — MIGRACIÓN one-shot: re-cifra en reposo los jugadores que ya estaban
+  // cacheados EN CLARO antes del cifrado. Hace falta porque el delta solo re-escribe
+  // (y por ende cifra) los jugadores que CAMBIAN, y el resync completo (7 días) casi
+  // nunca dispara en un club activo — así que sin esto el grueso del dato viejo se
+  // quedaría en texto plano indefinidamente. Corre en boot(), después de hidratar.
+  // Sigue el patrón de las otras migraciones: si no puede terminar (sin llave), NO
+  // marca la bandera y lo reintenta en el próximo arranque.
+  async function migrarCifrarJugadores() {
+    const FLAG = 'idb_encrypt_migration_v1';
+    try {
+      if (!_esCifrado('players')) { localStorage.setItem(FLAG, '1'); return; }
+      if (localStorage.getItem(FLAG) === '1') return;
+      if (!_cryptoOk) return; // sin WebCrypto no se puede cifrar → reintentar al próximo boot
+      const db = await open();
+      // Leer TODOS los registros CRUDOS de players (sin descifrar).
+      const crudos = await new Promise((res) => {
+        const tx = db.transaction('players', 'readonly');
+        const rq = tx.objectStore('players').getAll();
+        rq.onsuccess = () => res(rq.result || []);
+        rq.onerror = () => res([]);
+      });
+      // Solo los que están EN CLARO (sin _enc). Los ya cifrados no se tocan.
+      const enClaro = crudos.filter(r => r && r.id != null && r._enc === undefined);
+      if (enClaro.length === 0) { localStorage.setItem(FLAG, '1'); return; }
+      // Si NO hay llave (sin WebCrypto o fallo al crearla) NO se puede cifrar nada:
+      // salir SIN marcar el flag para reintentar en el próximo arranque. Distinto de que
+      // falle un registro puntual (abajo), que sí debe dejar avanzar al resto.
+      const llave = await _obtenerLlave();
+      if (!llave) return;
+      const cifrados = await _cifrarLista(enClaro); // cifra ANTES de abrir la tx de escritura
+      // Escribir SOLO los que se pudieron cifrar. Un registro que no se pudo cifrar (dato
+      // malformado puntual) queda como estaba (en claro) y NO bloquea al resto del roster
+      // — antes un solo registro malo abortaba el cifrado de TODOS para siempre. El flag SÍ
+      // se marca: un registro problemático no debe dejar el dispositivo sin cifrar en loop.
+      const okCifrados = cifrados.filter(c => c && c._enc !== undefined);
+      const noCifrables = cifrados.length - okCifrados.length;
+      if (okCifrados.length) {
+        await new Promise((res, rej) => {
+          const tx = db.transaction('players', 'readwrite');
+          const store = tx.objectStore('players');
+          // Get-or-put ATÓMICO dentro de la MISMA tx (evita la carrera con un sync
+          // que corra en el mismo arranque): solo re-escribimos la versión cifrada
+          // si el registro SIGUE siendo el texto plano que snapshotié. Si ya tiene
+          // _enc, otra escritura (mergeStore/syncStore, que cifran) lo tocó en el
+          // medio → NO pisar con mi snapshot viejo. Si ya no existe, un borrado del
+          // servidor lo sacó → NO resucitarlo. (Como los caminos de sync escriben
+          // SIEMPRE cifrado, "sin _enc" garantiza que nadie lo tocó desde el snapshot.)
+          okCifrados.forEach(c => {
+            const g = store.get(c.id);
+            g.onsuccess = () => { const cur = g.result; if (cur && cur._enc === undefined) store.put(c); };
+            g.onerror = () => { /* saltar este registro, no abortar la tx */ };
+          });
+          tx.oncomplete = res; tx.onerror = () => rej(tx.error);
+        });
+      }
+      // La cache RAM ya tiene el texto en claro (de hidratar): el contenido lógico no
+      // cambia, solo la forma en reposo — no hace falta tocar window._cache.
+      localStorage.setItem(FLAG, '1');
+      if (noCifrables) console.warn(`[idb][🔐] Migración: ${okCifrados.length} jugadores re-cifrados; ${noCifrables} no se pudieron cifrar (dato malformado) — quedan en claro`);
+      else console.log(`[idb][🔐] Migración: ${okCifrados.length} jugadores re-cifrados en reposo`);
+    } catch (e) {
+      console.warn('[idb][🔐] migración de cifrado falló (se reintenta al próximo arranque):', e?.message || e);
+    }
+  }
+
   // Garantiza aislamiento de datos por club. Si el clubId cambió desde la
   // última vez que IDB se pobló, limpia TODAS las stores y devuelve
   // { cleared: true } para que el caller fuerce una re-descarga. Si es el
@@ -461,7 +648,7 @@
    * @param {Array}  borrados   ids a sacar (los que el servidor marcó como borrados)
    */
   async function mergeStore(storeName, cambiados, borrados) {
-    const _cambiados = Array.isArray(cambiados) ? cambiados.filter(i => i && i.id) : [];
+    const _cambiados = Array.isArray(cambiados) ? cambiados.filter(i => i && i.id != null) : []; // mismo criterio que syncStore
     // Si un id viniera en las dos listas, gana el cambio: dentro de una misma
     // transacción los put corren antes que los delete, así que sin esto el
     // borrado se comería la actualización. Se resuelve ACÁ y no en quien llama
@@ -474,10 +661,12 @@
       return { store: storeName, actualizados: 0, eliminados: 0 };
     }
     const db = await open();
+    // Cifrar los cambiados ANTES de la transacción (la cache recibe los EN CLARO).
+    const _guardar = _esCifrado(storeName) ? await _cifrarLista(_cambiados) : _cambiados;
     return new Promise((resolve, reject) => {
       const tx = db.transaction(storeName, 'readwrite');
       const store = tx.objectStore(storeName);
-      _cambiados.forEach(it => store.put(it));
+      _guardar.forEach(it => store.put(it));
       _borrados.forEach(id => store.delete(id));
       tx.oncomplete = () => {
         // La cache RAM se toca SOLO si la transacción se completó: nunca mostrar
@@ -498,13 +687,16 @@
   async function syncStore(storeName, items) {
     if (!Array.isArray(items)) return { error: 'items no es array' };
     const db = await open();
+    // Cifrar (para la store) ANTES de la transacción; la cache recibe los EN CLARO.
+    const _validos = items.filter(it => it && it.id != null);
+    const _guardar = _esCifrado(storeName) ? await _cifrarLista(_validos) : _validos;
     return new Promise((resolve, reject) => {
       const tx = db.transaction(storeName, 'readwrite');
       const store = tx.objectStore(storeName);
       store.clear();
-      items.forEach(it => { if (it && it.id) store.put(it); });
+      _guardar.forEach(it => store.put(it));
       tx.oncomplete = () => {
-        // Mantener cache RAM en sync: reemplazar la lista entera
+        // Mantener cache RAM en sync: reemplazar la lista entera (en claro)
         _cacheReplace(storeName, items);
         resolve({ store: storeName, synced: items.length });
       };
@@ -583,8 +775,15 @@
   // Compara localStorage vs IndexedDB para una store específica
   async function verifyStoreConsistency(storeName, localStorageKey) {
     try {
-      const lsCount = JSON.parse(localStorage.getItem(localStorageKey) || '[]').length;
       const idbCount = await count(storeName);
+      // Las 5 listas pesadas viven SOLO en IndexedDB: localStorage se libera a
+      // propósito (deny-list Fase 4), así que compararlo daría siempre "DIFIEREN".
+      // La fuente de verdad es IndexedDB; se reporta su conteo sin falsa alarma (F-26).
+      if (_LS_DENY_KEYS.has(localStorageKey)) {
+        console.log(`[idb] 📊 ${storeName}: IndexedDB=${idbCount} (localStorage liberado)`);
+        return { store: storeName, lsCount: null, idbCount, ok: true };
+      }
+      const lsCount = JSON.parse(localStorage.getItem(localStorageKey) || '[]').length;
       const ok = lsCount === idbCount;
       console.log(`[idb] 📊 ${storeName}: localStorage=${lsCount} | IndexedDB=${idbCount} ${ok ? '✅' : '⚠️ DIFIEREN'}`);
       return { store: storeName, lsCount, idbCount, ok };
@@ -635,6 +834,13 @@
         await liberarLocalStoragePesado();
       } catch (e) {
         console.warn('[idb] Cleanup Fase 4 falló:', e);
+      }
+      // 🔐 FASE D — re-cifrar en reposo los jugadores viejos que quedaron en claro.
+      // Aislado en su propio try: si falla, no debe tumbar la verificación de paridad.
+      try {
+        await migrarCifrarJugadores();
+      } catch (e) {
+        console.warn('[idb] 🔐 Migración de cifrado falló:', e);
       }
       await verifyAllConsistency();
       console.log('[idb] ✅ Listo');

@@ -1906,6 +1906,87 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false, completa
     }
     const enc = encodeURIComponent;
 
+    // ── Descarga con delta, reutilizable ────────────────────────────────────
+    // Aplica el MISMO patrón probado en jugadores (piloto) a las demás listas.
+    // Diez candados iguales: solo baja lo cambiado si hay marca y datos; sin
+    // filtro de borrados para que las bajas lleguen; marca del reloj del servidor;
+    // ante cualquier error → descarga completa; la marca avanza SOLO si se aplicó;
+    // mergeWithPending protege lo que el equipo no subió; y si otra pestaña cambió
+    // de club, se descarta el resultado.
+    //
+    // `store` es el nombre en IndexedDB / cola (p.ej. 'thirdPartyIncomes');
+    // `tabla` es el nombre en Supabase (p.ej. 'third_party_incomes'). Difieren en
+    // otros ingresos, por eso van separados. NO cubre pagos: eso va en su propia
+    // fase, con el cuidado extra que merece la plata.
+    async function _descargarDelta(store, tabla, etiqueta, mapear) {
+      const urlCompleta = `${base}/${tabla}?club_id=eq.${enc(clubId)}&deleted=eq.false&select=*&order=id`;
+      const salida = {};
+      let desde = await _deltaDesde(tabla, store, clubId, completa);
+      let rows;
+      try {
+        rows = await fetchAllRows(
+          desde
+            ? `${base}/${tabla}?club_id=eq.${enc(clubId)}&updated_at=gte.${enc(desde)}&select=*&order=id`
+            : urlCompleta,
+          etiqueta, salida
+        );
+      } catch (e) {
+        if (!desde) throw e;                 // la completa ya falló: que propague
+        console.warn(`[delta] ${etiqueta}: el incremental falló, se baja todo:`, e?.message || e);
+        desde = null; salida.marca = null;
+        rows = await fetchAllRows(urlCompleta, etiqueta, salida);
+      }
+      const objs = rows.map(mapear);
+
+      let aplicado = true;
+      const clubSigue = (() => {
+        try { return (localStorage.getItem('clubId') || clubId) === clubId; }
+        catch (_) { return true; }
+      })();
+
+      if (!clubSigue) {
+        console.warn(`[delta] El club cambió durante la descarga de ${etiqueta} — se descarta este resultado.`);
+        aplicado = false;
+      } else if (desde) {
+        // ── INCREMENTAL ── vivos se actualizan; borrados del servidor se sacan.
+        let cambios = objs.filter(o => !o.deleted);
+        const bajas = new Set(objs.filter(o => o.deleted).map(o => o.id));
+        try {
+          if (window.syncQueue && window.syncQueue.mergeWithPending) {
+            cambios = await window.syncQueue.mergeWithPending(store, cambios, clubId);
+          }
+        } catch (e) { console.warn(`[syncQueue] mergeWithPending ${store} (delta) falló:`, e); }
+        cambios.forEach(o => bajas.delete(o.id));   // un cambio local le gana a una baja del servidor
+        try {
+          if (window.idb && window.idb.mergeStore) {
+            await window.idb.mergeStore(store, cambios, [...bajas]);
+          }
+          console.log(`⚡ ${etiqueta} al día: ${cambios.length} cambio(s), ${bajas.size} baja(s) — sin bajar la lista completa`);
+        } catch (e) {
+          aplicado = false;
+          console.warn(`[idb] No se pudo aplicar el incremental de ${etiqueta} (sigue el resto):`, e?.message || e);
+        }
+      } else {
+        // ── COMPLETO ──
+        let finales = objs;
+        try {
+          if (window.syncQueue && window.syncQueue.mergeWithPending) {
+            finales = await window.syncQueue.mergeWithPending(store, objs, clubId);
+          }
+        } catch (e) { console.warn(`[syncQueue] mergeWithPending ${store} falló:`, e); }
+        if (window.idb && window.idb.syncStore) {
+          try {
+            await window.idb.syncStore(store, finales);   // se espera: la marca solo avanza si esto quedó escrito
+          } catch (e) {
+            aplicado = false;
+            console.warn(`[idb] sync ${store} (supabase download) falló (sigue el resto):`, e?.message || e);
+          }
+        }
+        console.log(`✅ ${objs.length} ${etiqueta} descargados desde Supabase`);
+      }
+      if (aplicado && salida.marca) _deltaGuardarMarca(tabla, clubId, salida.marca);
+    }
+
     // 1️⃣ Jugadores — PILOTO de la descarga incremental.
     //    Se estrena acá y no en pagos a propósito: si algo sale mal, el peor caso
     //    es una lista de jugadores desactualizada, no contabilidad incompleta.
@@ -2026,6 +2107,11 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false, completa
     if (_pAplicado && _pSalida.marca) _deltaGuardarMarca('players', clubId, _pSalida.marca);
 
     // 2️⃣ Pagos (últimos 6 meses — ver más antiguo on-demand desde payments.js)
+    //    ⚠️ PAGOS SE QUEDA EN DESCARGA COMPLETA a propósito (no delta). El delta con
+    //    la ventana móvil de `due_date` deja congelados en caché los pagos que se
+    //    corren del borde de los 6 meses: si después se anulan/editan, el cambio no
+    //    llega y aparece "plata fantasma". La descarga completa reencuadra la ventana
+    //    cada vez. Ver F-03b en FALLAS_PENDIENTES (B2 rechazada) para el plan correcto.
     const cutoff = new Date();
     cutoff.setMonth(cutoff.getMonth() - 6);
     const cutoffStr = cutoff.toISOString().split('T')[0];
@@ -2085,27 +2171,12 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false, completa
     localStorage.setItem('paymentsLoadedFrom', cutoffStr);
     console.log(`✅ ${payments.length} pagos descargados desde Supabase (desde ${cutoffStr})`);
 
-    // 3️⃣ Eventos
-    const evRes = await fetch(`${base}/events?club_id=eq.${enc(clubId)}&deleted=eq.false&select=*`, { headers: h });
-    if (!evRes.ok) throw new Error('Error al leer eventos de Supabase: ' + await evRes.text());
-    const evRows = await evRes.json();
-    const events = evRows.map(ev => ({
+    // 3️⃣ Eventos — descarga incremental (delta)
+    await _descargarDelta('events', 'events', 'eventos', (ev) => ({
       id: ev.id, title: ev.title, date: ev.date, time: ev.time,
       description: ev.description, location: ev.location,
       deleted: ev.deleted, clubId: clubId,
     }));
-    // IDB primero — mergeado con cola pendiente para no borrar locales aún no subidos
-    let _finalEvents = events;
-    try {
-      if (window.syncQueue && window.syncQueue.mergeWithPending) {
-        _finalEvents = await window.syncQueue.mergeWithPending('events', events, clubId);
-      }
-    } catch (e) { console.warn('[syncQueue] mergeWithPending events falló:', e); }
-    if (window.idb && window.idb.syncStore) {
-      window.idb.syncStore('events', _finalEvents).catch(e => console.warn('[idb] sync events (supabase download) falló:', e));
-    }
-    safeSetItem('calendarEvents', JSON.stringify(events));
-    console.log(`✅ ${events.length} eventos descargados desde Supabase`);
 
     // 4️⃣ Usuarios
     const uRes = await fetch(`${base}/users?club_id=eq.${enc(clubId)}&deleted=eq.false&select=*`, { headers: h });
@@ -2141,11 +2212,8 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false, completa
       }
     } catch (e) { console.warn('No se pudo sincronizar currentUser desde BD:', e?.message || e); }
 
-    // 5️⃣ Egresos
-    const exRes = await fetch(`${base}/expenses?club_id=eq.${enc(clubId)}&deleted=eq.false&select=*`, { headers: h });
-    if (!exRes.ok) throw new Error('Error al leer egresos de Supabase: ' + await exRes.text());
-    const exRows = await exRes.json();
-    const expenses = exRows.map(e => ({
+    // 5️⃣ Egresos — descarga incremental (delta)
+    await _descargarDelta('expenses', 'expenses', 'egresos', (e) => ({
       id: e.id, concept: e.concept, amount: e.amount, date: e.date,
       category: e.category, description: e.description,
       invoiceNumber: e.invoice_number, deleted: e.deleted, clubId: clubId,
@@ -2153,18 +2221,6 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false, completa
       createdBy: (typeof auditInfoFromText === 'function') ? auditInfoFromText(e.created_by) : undefined,
       editedBy:  (typeof auditInfoFromText === 'function') ? auditInfoFromText(e.edited_by)  : undefined,
     }));
-    // IDB primero — mergeado con cola pendiente para no borrar locales aún no subidos
-    let _finalExpenses = expenses;
-    try {
-      if (window.syncQueue && window.syncQueue.mergeWithPending) {
-        _finalExpenses = await window.syncQueue.mergeWithPending('expenses', expenses, clubId);
-      }
-    } catch (e) { console.warn('[syncQueue] mergeWithPending expenses falló:', e); }
-    if (window.idb && window.idb.syncStore) {
-      window.idb.syncStore('expenses', _finalExpenses).catch(e => console.warn('[idb] sync expenses (supabase download) falló:', e));
-    }
-    safeSetItem('expenses', JSON.stringify(expenses));
-    console.log(`✅ ${expenses.length} egresos descargados desde Supabase`);
 
     // 6️⃣ Códigos de padres — YA NO SE DESCARGAN ACÁ.
     //    Cada código da acceso al perfil de un niño; tener el padrón entero del
@@ -2174,14 +2230,12 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false, completa
     //    De paso, deja de bajar ~1.600 filas en cada inicio de sesión.
     if (typeof clearParentCodes === 'function') clearParentCodes();
 
-    // 7️⃣ Otros ingresos (terceros)
-    const tpiRes = await fetch(
-      `${base}/third_party_incomes?club_id=eq.${enc(clubId)}&deleted=eq.false&select=*`,
-      { headers: h }
-    );
-    if (tpiRes.ok) {
-      const tpiRows = await tpiRes.json();
-      const thirdPartyIncomes = tpiRows.map(i => ({
+    // 7️⃣ Otros ingresos (terceros) — descarga incremental (delta).
+    //    Tolerante como el bloque original (antes iba en `if (tpiRes.ok)`): si la
+    //    descarga falla, se loguea y NO aborta el resto. OJO: el store en IndexedDB
+    //    es 'thirdPartyIncomes' pero la tabla en Supabase es 'third_party_incomes'.
+    try {
+      await _descargarDelta('thirdPartyIncomes', 'third_party_incomes', 'otros ingresos', (i) => ({
         id:                   i.id,
         type:                 i.type,
         contributorType:      i.contributor_type,
@@ -2201,19 +2255,7 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false, completa
         createdAt:            i.created_at,
         clubId:               clubId,
       }));
-      // IDB primero — mergeado con cola pendiente para no borrar locales aún no subidos
-      let _finalIncomes = thirdPartyIncomes;
-      try {
-        if (window.syncQueue && window.syncQueue.mergeWithPending) {
-          _finalIncomes = await window.syncQueue.mergeWithPending('thirdPartyIncomes', thirdPartyIncomes, clubId);
-        }
-      } catch (e) { console.warn('[syncQueue] mergeWithPending thirdPartyIncomes falló:', e); }
-      if (window.idb && window.idb.syncStore) {
-        window.idb.syncStore('thirdPartyIncomes', _finalIncomes).catch(e => console.warn('[idb] sync thirdPartyIncomes (supabase download) falló:', e));
-      }
-      safeSetItem('thirdPartyIncomes', JSON.stringify(thirdPartyIncomes));
-      console.log(`✅ ${thirdPartyIncomes.length} otros ingresos descargados desde Supabase`);
-    }
+    } catch (e) { console.warn('[delta] otros ingresos falló (no aborta el resto):', e?.message || e); }
 
     // 8️⃣ Entrenadores (coaches) — 🆕 sync masivo a IndexedDB + cache RAM (v4)
     //     para carga instantánea y disponibilidad offline, igual que players/pagos.

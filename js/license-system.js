@@ -542,8 +542,13 @@ async function updatePlayerCount() {
   if (!clubId) return;
 
   try {
-    const players = JSON.parse(localStorage.getItem('players') || '[]');
-    const totalPlayers = players.length;
+    // Contar desde la cache RAM/IndexedDB, NO desde localStorage: 'players' está
+    // en la deny-list de la Fase 4, así que localStorage.getItem('players') devuelve
+    // siempre [] → total_players quedaba clavado en 0 en la tabla licenses (F-25).
+    const players = (typeof getPlayers === 'function')
+      ? getPlayers()
+      : JSON.parse(localStorage.getItem('players') || '[]');
+    const totalPlayers = Array.isArray(players) ? players.length : 0;
 
     // Solo escribir si el número cambió — evita escrituras innecesarias
     const cachedCount = Number(localStorage.getItem('_cachedPlayerCount') ?? '-1');
