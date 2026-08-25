@@ -326,6 +326,7 @@ function sendVirtualReminderWhatsApp(playerId, nextDueDate) {
 
 // Hacer funciones globales
 window.sendVirtualReminderWhatsApp = sendVirtualReminderWhatsApp;
+window.buildMonthlyReminderMessage = buildMonthlyReminderMessage;
 
 // ========================================
 // FELICITAR CUMPLEAÑOS

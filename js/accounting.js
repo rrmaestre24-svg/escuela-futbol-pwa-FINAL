@@ -136,9 +136,10 @@ async function renderAccounting() {
     }
   }
 
-  // 3) Revisión de morosos: aparece sola (semanal) si hay dudosos. Va al final,
-  //    con los históricos ya cargados, para no señalar deuda por datos incompletos.
-  if (typeof _morososMaybeAutoShow === 'function') _morososMaybeAutoShow();
+  // El modal de "Revisión de morosos" quedó OCULTO a pedido del dueño: "Pagos por
+  // Categoría" cubre mejor ver quién debe. Las funciones (_morososMaybeAutoShow,
+  // openMorososReview, etc.) quedan en el código pero SIN dispararse; reactivar es
+  // volver a llamar _morososMaybeAutoShow() acá y reponer el botón en index.html.
 }
 
 // 🆕 RESUMEN MEJORADO - CON EGRESOS Y OTROS INGRESOS
@@ -2271,7 +2272,7 @@ function renderPaymentsByCategoryCard() {
             ${r.faltanList.map(pl => `
               <div class="flex items-center justify-between gap-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2">
                 <span class="text-sm text-gray-700 dark:text-gray-200 truncate">${_accEscapeHtml(pl.name || 'Sin nombre')}${pl.jerseyNumber ? ' <span class="text-teal-500">#' + _accEscapeHtml(pl.jerseyNumber) + '</span>' : ''}</span>
-                <button onclick="sendPendingReminderWA('${_accEscapeHtml(pl.id)}')" title="Escribir por WhatsApp"
+                <button onclick="_pbcRecordatorioWA('${_accEscapeHtml(pl.id)}', '${_accEscapeHtml(month)}')" title="Escribir por WhatsApp"
                   class="shrink-0 flex items-center gap-1 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg transition-colors">
                   <i data-lucide="message-circle" class="w-3.5 h-3.5"></i> WhatsApp
                 </button>
@@ -2293,9 +2294,43 @@ function _pbcToggle(i) {
   if (chev) chev.style.transform = nowHidden ? '' : 'rotate(180deg)';
 }
 
+// Recordatorio de WhatsApp para el MES seleccionado, con el template rico del club
+// (buildMonthlyReminderMessage de whatsapp.js: nombre, documento, categoría, concepto,
+// fecha sugerida, estado/días de atraso, días de gracia, teléfono del club). Solo abre
+// WhatsApp — NO dispara SMS (la mensajería paga no se toca desde este botón).
+function _pbcRecordatorioWA(playerId, month) {
+  const player = (typeof getPlayerById === 'function') ? getPlayerById(playerId) : null;
+  if (!player) { showToast('Jugador no encontrado'); return; }
+  if (!player.phone || !String(player.phone).trim()) { showToast('⚠️ Este jugador no tiene teléfono registrado'); return; }
+  const settings = (typeof getSchoolSettings === 'function') ? getSchoolSettings() : {};
+  // Fecha sugerida = día de pago configurado del club, dentro del mes elegido
+  const dueDay = Math.max(1, Math.min(28, Number(settings && settings.monthlyDueDay) || 10));
+  const nextDueDate = month + '-' + String(dueDay).padStart(2, '0');
+
+  const today = new Date();
+  const due = (typeof parseLocalDate === 'function') ? parseLocalDate(nextDueDate) : new Date(nextDueDate);
+  const daysDiff = (typeof daysBetween === 'function') ? daysBetween(today, due) : Math.round((due - today) / 86400000);
+  const graceDays = Math.max(0, Math.min(60, Number(settings && settings.monthlyGraceDays) || 5));
+  const stateText = daysDiff < 0
+    ? (Math.abs(daysDiff) <= graceDays
+        ? `⏱️ *Estado:* en período de gracia (${Math.abs(daysDiff)} día${Math.abs(daysDiff) > 1 ? 's' : ''})`
+        : `⏱️ *Estado:* ${Math.abs(daysDiff)} días de atraso`)
+    : `📅 *Estado:* Próximo a vencer en ${daysDiff} días`;
+
+  const message = (typeof buildMonthlyReminderMessage === 'function')
+    ? buildMonthlyReminderMessage(settings, player, nextDueDate, stateText)
+    : `Recordatorio de pago — ${player.name}`;
+
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  if (isIOS && typeof openWhatsAppWithConfirm === 'function') openWhatsAppWithConfirm(player.phone, message, player.name);
+  else if (typeof openWhatsApp === 'function') openWhatsApp(player.phone, message);
+  else showToast('❌ WhatsApp no disponible');
+}
+
 window.renderPaymentsByCategoryCard = renderPaymentsByCategoryCard;
 window._pbcToggle = _pbcToggle;
 window._pbcCompute = _pbcCompute;
+window._pbcRecordatorioWA = _pbcRecordatorioWA;
 
 // ========================================
 // ⚠️ #4 — REVISIÓN DE MOROSOS (dudosos: deben 2+ meses)
