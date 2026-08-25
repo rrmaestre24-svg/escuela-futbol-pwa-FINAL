@@ -1953,23 +1953,13 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
                 <div id="pbcFaltanWrap" class="mt-4"></div>
             </div>
 
-            <!-- ========================================
-                MOROSOS - BOTÓN PRINCIPAL
-            ========================================= -->
-            <button onclick="toggleMorososSection()"
-                class="w-full bg-gradient-to-r from-red-600 to-orange-600 text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 hover:shadow-xl transition-all transform hover:scale-105">
-                <i data-lucide="alert-triangle" class="w-6 h-6"></i>
-                <span id="morososBtnText">Ver Morosos</span>
-                <i id="morososBtnChevron" data-lucide="chevron-down" class="w-5 h-5 transition-transform duration-200"></i>
-            </button>
+            <!-- "Ver Morosos" + "Jugadores Vencidos" OCULTOS: los reemplaza "Pagos por Categoría".
+                 Se conserva "Estado por Jugador" (visible) y "Facturas Anuladas" (sección aparte). -->
+            <div id="morososContent" class="space-y-4">
 
-            <!-- Contenido Morosos (colapsable) -->
-            <div id="morososContent" class="hidden space-y-4">
-
-            <!-- ========================================
-                JUGADORES CON PAGOS VENCIDOS
-            ========================================= -->
-            <div class="glass-card rounded-xl shadow-sm overflow-hidden">
+            <!-- Jugadores Vencidos: OCULTO (reemplazado por Pagos por Categoría). Se conserva el
+                 DOM (con `hidden`) para que renderOverduePlayers no rompa; queda invisible. -->
+            <div class="glass-card rounded-xl shadow-sm overflow-hidden hidden">
                 <button onclick="toggleOverdueSection()"
                     class="w-full flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors">
                     <h3 class="font-bold text-gray-700 dark:text-gray-200 flex items-center gap-2 text-sm">
