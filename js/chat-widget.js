@@ -1,15 +1,17 @@
 // ========================================
 // CHAT WIDGET — Asistente MY CLUB (ayuda de uso)
-// Botón flotante + panel de chat. Llama a la Edge Function chat-asistente
-// con el JWT del usuario. Hasta que exista la función + la key, degrada
-// con un mensaje amable. Modo DEMO (respuestas de ejemplo) para previsualizar.
+// Botón flotante + panel de chat. Llama al Chatbot Capacitador RAG (Edge Function
+// `ask` en el proyecto aislado del chatbot): pregunta -> busca en el manual ->
+// responde. Es PÚBLICO (no necesita login). Ante un fallo degrada con un mensaje
+// amable. Modo DEMO (respuestas de ejemplo) para previsualizar sin backend.
 //
 // Cómo se muestra:
 //   - En la app real: SOLO si al cargar está window.MACW_ENABLED = true.
-//     (queda cableado pero invisible hasta prenderlo cuando esté el backend + la key).
-//   - Para PROBARLO a mano en cualquier momento (aunque el flag no estuviera al cargar):
+//     (queda cableado pero invisible hasta prenderlo).
+//   - PREVIEW LOCAL sin tocar prod: abrir la app con ?macw=1 en la URL.
+//   - A mano en cualquier momento:
 //       ChatAsistente.mostrar({ demo: true })   → con respuestas de ejemplo
-//       ChatAsistente.mostrar()                  → tal cual irá (necesita backend)
+//       ChatAsistente.mostrar()                  → tal cual irá (llama al bot RAG)
 //
 // Estilo: usa --primary-color del club y respeta el modo oscuro (.dark).
 // Autónomo: inyecta su propio CSS y DOM, no depende de Tailwind.
@@ -18,7 +20,11 @@
 (function () {
   'use strict';
 
-  const FUNCION = 'chat-asistente';
+  // Endpoint del bot RAG (proyecto Supabase aislado del chatbot). Público.
+  const RAG_URL = window.MACW_RAG_URL || 'https://ipghbkengvweubgvczhk.supabase.co/functions/v1/ask';
+  // Logo del encabezado: por defecto el de la app (MY CLUB). Se puede cambiar por el
+  // del club con window.MACW_LOGO = '<url>' antes de que cargue el widget.
+  const LOGO = window.MACW_LOGO || 'assets/icons/icon-192x192.png';
   const SUGERENCIAS = [
     '¿Cómo cambio el tema a oscuro?',
     '¿Dónde veo los morosos?',
@@ -56,8 +62,9 @@
     .macw-panel.macw-open{display:flex;transform:none;opacity:1}
     .macw-head{background:var(--macw-pri);color:var(--macw-prifg);padding:14px 16px;display:flex;
       align-items:center;gap:10px}
-    .macw-ava{width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.22);display:flex;
-      align-items:center;justify-content:center;font-size:20px;flex:0 0 auto}
+    .macw-ava{width:36px;height:36px;border-radius:50%;background:#fff;display:flex;
+      align-items:center;justify-content:center;font-size:20px;flex:0 0 auto;overflow:hidden}
+    .macw-ava img{width:100%;height:100%;object-fit:cover;display:block}
     .macw-head h4{margin:0;font-size:15px;font-weight:700;line-height:1.1;color:#fff}
     .macw-head p{margin:2px 0 0;font-size:12px;opacity:.9;display:flex;align-items:center;gap:5px;color:#fff}
     .macw-head p i{width:8px;height:8px;border-radius:50%;background:#4ade80;display:inline-block}
@@ -99,7 +106,7 @@
       </button>
       <section class="macw-panel" role="dialog" aria-label="Asistente MY CLUB">
         <header class="macw-head">
-          <div class="macw-ava">⚽</div>
+          <div class="macw-ava"><img src="${LOGO}" alt="MY CLUB" onerror="this.parentNode.textContent='⚽'"></div>
           <div><h4>Asistente MY CLUB</h4><p><i></i> Te ayudo a usar la app</p></div>
           <button class="macw-x" aria-label="Cerrar">×</button>
         </header>
@@ -159,18 +166,18 @@
     }
 
     async function llamarBackend(q) {
-      const base = window.SUPA_URL, anon = window.SUPA_ANON;
-      if (!base || !anon) throw new Error('sin backend');
-      const sesion = (window.SupaAuthV2 && window.SupaAuthV2.getSession && window.SupaAuthV2.getSession()) || null;
-      const token = (sesion && sesion.access_token) || anon;
-      const resp = await fetch(`${base}/functions/v1/${FUNCION}`, {
+      // Bot RAG: público, no necesita JWT. Contrato: { query } -> { answer }.
+      // Mandamos club_id (para el tope diario por club y la analítica) — cada club cuenta aparte.
+      const clubId = (typeof getClubId === 'function' ? getClubId() : null) || localStorage.getItem('clubId') || null;
+      const resp = await fetch(RAG_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'apikey': anon, 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ message: q, history: historial.slice(-10) }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: q, conversation_id: window.__macwConv || null, club_id: clubId }),
       });
       const data = await resp.json().catch(() => ({}));
       if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
-      return data.reply || 'No pude generar una respuesta.';
+      if (data.conversation_id) window.__macwConv = data.conversation_id;
+      return data.answer || 'No pude generar una respuesta.';
     }
 
     async function enviar(texto) {
@@ -206,8 +213,30 @@
     window.ChatAsistente = { mostrar: montar, abrir, cerrar };
   }
 
-  // Auto-montar solo si el flag está prendido AL CARGAR (en la app real: MACW_ENABLED).
-  if (window.MACW_DEMO || window.MACW_ENABLED) montar();
+  // Auto-montar si el flag está prendido AL CARGAR (en la app real: MACW_ENABLED),
+  // si la URL trae ?macw=1, o si se está corriendo en LOCAL (preview de desarrollo).
+  // El chequeo de localhost nunca da true en producción (appmyclub.com), así que
+  // esto deja ver el widget al correr la app en la máquina sin tocar el flag de prod.
+  const _h = location.hostname;
+  const _macwLocal = (_h === 'localhost' || _h === '127.0.0.1' || _h === '' || _h.endsWith('.local'));
+  const _macwUrlOn = /[?&#]macw=1(?![0-9])/.test(location.href);
+  const _macwOn = window.MACW_DEMO || window.MACW_ENABLED || _macwUrlOn || _macwLocal;
+
+  // El chatbot SOLO debe verse cuando ya estás DENTRO del sistema: en la app cargada
+  // (index.html) y pasadas AMBAS pantallas de arranque — el preloader de sesión
+  // (#sessionLoader) y el splash de bienvenida del admin (#adminWelcomeSplash, se crea
+  // en app.js). El FAB tiene z-index altísimo, así que si se monta antes se dibuja
+  // ENCIMA de esos splash. En login.html el widget ni se incluye. En DEMO monta directo.
+  function montarCuandoDentro() {
+    const cubierto = () => document.getElementById('sessionLoader') || document.getElementById('adminWelcomeSplash');
+    if (window.MACW_DEMO || !cubierto()) return montar();
+    let intentos = 0;
+    const iv = setInterval(() => {
+      if (!cubierto()) { clearInterval(iv); montar(); }
+      else if (++intentos > 150) { clearInterval(iv); } // ~60s de tope: si nunca entra, no monta
+    }, 400);
+  }
+  if (_macwOn) montarCuandoDentro();
   // Siempre exponer mostrar() para poder verlo a mano en pruebas.
   window.ChatAsistente = window.ChatAsistente || { mostrar: montar };
 })();

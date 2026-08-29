@@ -1301,7 +1301,7 @@ async function loadOlderPaymentsFromSupabase(opts = {}) {
 
     const supaUrl  = window.SUPA_URL;
     const supaAnon = window.SUPA_ANON;
-    if (!supaUrl || !supaAnon) { if (!silent) showToast('⚠️ Sin conexión a Supabase'); return false; }
+    if (!supaUrl || !supaAnon) { if (!silent) showToast('⚠️ Sin conexión a la nube'); return false; }
 
     // Paginado: PostgREST corta en 1000 filas. Sin esto, un club con más de 1000
     // pagos históricos veía la contabilidad de 7-12 meses atrás incompleta.
@@ -2295,7 +2295,7 @@ async function backfillDiscountsToSupabase() {
       if (typeof savePaymentToFirebase === 'function') { await savePaymentToFirebase(p); ok++; }
     } catch (e) { console.warn('[backfill] falló', p.id, e && e.message); }
   }
-  if (typeof showToast === 'function') showToast(`✅ ${ok}/${withDiscount.length} descuentos subidos a Supabase`);
+  if (typeof showToast === 'function') showToast(`✅ ${ok}/${withDiscount.length} descuentos subidos a la nube`);
   console.log(`[backfill] descuentos subidos: ${ok}/${withDiscount.length}`);
 }
 window.backfillDiscountsToSupabase = backfillDiscountsToSupabase;

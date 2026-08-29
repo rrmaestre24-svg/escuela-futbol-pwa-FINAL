@@ -101,7 +101,7 @@ function checkFirebaseReady() {
     // Solo mostrar toast si la app lleva más de 8 segundos cargada
     // (en móviles lentos Firebase tarda más en iniciar)
     if (!window._appStartTime || (Date.now() - window._appStartTime) > 8000) {
-      showToast('⚠️ Firebase no está listo. Espera unos segundos.');
+      showToast('⚠️ El sistema no está listo. Espera unos segundos.');
     }
     return false;
   }
@@ -490,14 +490,14 @@ async function checkForUpdates() {
         `${window.SUPA_URL}/rest/v1/clubs?id=eq.${encodeURIComponent(clubId)}&select=name,updated_at`,
         { headers: _supaHeaders() }
       );
-      if (!res.ok) { showToast('⚠️ Error al verificar en Supabase'); return; }
+      if (!res.ok) { showToast('⚠️ Error al verificar en la nube'); return; }
       const rows = await res.json();
       if (rows.length) {
         const clubName = rows[0].name || 'Sin nombre';
         const lastUpdate = rows[0].updated_at || 'desconocida';
         showToast(`✅ Club: ${clubName}\n📅 Última actualización: ${lastUpdate}`);
       } else {
-        showToast('ℹ️ No hay datos en Supabase para este club');
+        showToast('ℹ️ No hay datos en la nube para este club');
       }
     } catch (error) {
       showToast('⚠️ Error al verificar actualizaciones: ' + error.message);
@@ -526,7 +526,7 @@ async function checkForUpdates() {
       showToast(`✅ Club: ${clubName}\n📅 Última actualización: ${lastUpdate}`);
       console.log('✅ Datos encontrados:', data);
     } else {
-      showToast('ℹ️ No hay datos en Firebase para este club');
+      showToast('ℹ️ No hay datos en la nube para este club');
       console.log('⚠️ No se encontraron datos');
     }
   } catch (error) {
@@ -1563,7 +1563,7 @@ async function syncAllToSupabase() {
   const currentUser = getCurrentUser();
   if (!currentUser) { showToast('❌ No hay usuario en sesión'); return; }
 
-  showToast('📤 Subiendo a Supabase...');
+  showToast('📤 Subiendo a la nube...');
   console.log('📤 syncAllToSupabase — club:', clubId);
   const syncedItems = [];
 
@@ -1665,7 +1665,7 @@ async function syncAllToSupabase() {
   }));
   syncedItems.push(`${await _supaUpsert('third_party_incomes', tpiRows)} otros ingresos`);
 
-  showToast(`✅ Supabase: ${syncedItems.join(', ')}`);
+  showToast(`✅ Guardado en la nube: ${syncedItems.join(', ')}`);
   console.log('✅ syncAllToSupabase completado:', syncedItems.join(', '));
 }
 
@@ -1866,7 +1866,7 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false, completa
 
   try {
     console.log('☁️ Descargando datos desde Supabase — club:', clubId);
-    showToast('☁️ Sincronizando desde Supabase...');
+    showToast('☁️ Sincronizando desde la nube...');
     const h = { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}` };
     const base = `${window.SUPA_URL}/rest/v1`;
 
@@ -2330,11 +2330,11 @@ async function downloadAllClubDataFromSupabase(clubId, { force = false, completa
       );
     }
 
-    showToast('✅ Datos sincronizados desde Supabase');
+    showToast('✅ Datos sincronizados desde la nube');
     return true;
   } catch (error) {
     console.error('❌ Error al descargar desde Supabase:', error);
-    showToast('⚠️ Error al descargar desde Supabase: ' + error.message);
+    showToast('⚠️ Error al descargar desde la nube: ' + error.message);
     return false;
   }
 }

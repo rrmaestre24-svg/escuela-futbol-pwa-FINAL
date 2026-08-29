@@ -189,7 +189,10 @@
         <header class="cabecera fixed top-0 left-0 right-0 z-40">
             <div class="flex items-center justify-between px-4 py-3">
                 <div class="flex items-center gap-3">
-                    <img id="headerLogo" src="" alt="Logo del club" class="logo-club w-10 h-10 rounded-lg">
+                    <img id="headerLogo" src="" alt="Ir a Inicio" title="Ir a Inicio" role="button" tabindex="0"
+                        onclick="navigateTo('dashboard')"
+                        onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();navigateTo('dashboard');}"
+                        class="logo-club w-10 h-10 rounded-lg cursor-pointer">
                     <div>
                         <h1 id="headerClubName" class="font-bold text-gray-800 dark:text-white">MY CLUB</h1>
                         <p id="headerViewName" class="text-xs text-gray-500 dark:text-gray-400">Dashboard</p>
@@ -3446,8 +3449,9 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
     <script defer src="js/coach-automation.js"></script>
     <script src="js/session-check.js"></script>
     <script defer src="js/vibration.js"></script>
-    <!-- 💬 Asistente de ayuda (widget). Queda CABLEADO pero invisible; se prende con
-         window.MACW_ENABLED = true cuando esté la Edge Function chat-asistente + la ANTHROPIC_API_KEY. -->
+    <!-- 💬 Asistente de ayuda (widget) — PRENDIDO. Apunta al Chatbot Capacitador (RAG + DeepSeek,
+         proyecto aislado). Solo aparece DENTRO del sistema (pasadas las pantallas de carga). -->
+    <script>window.MACW_ENABLED = true;</script>
     <script defer src="js/chat-widget.js"></script>
     <script src="js/bootstrap.js"></script>
 

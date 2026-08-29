@@ -1699,7 +1699,7 @@ function showSyncIndicator(isActive) {
     // Crear indicador
     indicator = document.createElement('div');
     indicator.id = 'syncIndicator';
-    indicator.className = 'fixed bottom-20 right-4 bg-white dark:bg-gray-800 rounded-full shadow-lg border border-gray-200 dark:border-gray-700 z-50 cursor-pointer flex items-center gap-2 px-3 py-2';
+    indicator.className = 'fixed bottom-28 left-4 bg-white dark:bg-gray-800 rounded-full shadow-lg border border-gray-200 dark:border-gray-700 z-50 cursor-pointer flex items-center gap-2 px-3 py-2';
     indicator.style.transition = 'all 0.3s ease';
     indicator.title = 'Sincronización en tiempo real activa';
     

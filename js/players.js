@@ -195,7 +195,7 @@ document.getElementById('playerForm')?.addEventListener('submit', async function
       savePlayerData(result.url, targetId);
     } catch (err) {
       console.error(err);
-      showToast('⚠️ Error en Supabase, guardando local: ' + err.message);
+      showToast('⚠️ Error al guardar en la nube, guardado en el dispositivo: ' + err.message);
       // Fallback a base64 solo si falla la subida a Supabase
       imageToBase64(avatarFile, (base64) => savePlayerData(base64, targetId));
     }
