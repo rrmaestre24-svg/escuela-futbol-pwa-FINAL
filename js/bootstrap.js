@@ -62,7 +62,11 @@ if ('serviceWorker' in navigator) {
      */
     const ofrecerActualizacion = (workerEnEspera) => {
         if (!workerEnEspera) return;
-        const aplicar = () => workerEnEspera.postMessage({ type: 'SKIP_WAITING' });
+        const aplicar = () => {
+            // Marca que el usuario ACEPTÓ actualizar → tras recargar se muestra el modal de novedades.
+            try { localStorage.setItem('pendingNovedades', '1'); } catch (_) {}
+            workerEnEspera.postMessage({ type: 'SKIP_WAITING' });
+        };
 
         if (typeof showUpdateModal === 'function') {
             showUpdateModal(aplicar);

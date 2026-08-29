@@ -1,4 +1,4 @@
-const CACHE_NAME = 'my-club-v2.2.3';
+const CACHE_NAME = 'my-club-v2.2.6';
 
 const urlsToCache = [
   '/',
@@ -8,6 +8,7 @@ const urlsToCache = [
   '/offline.html',
   '/rescate.html',   // salida de emergencia: se cachea sólo como red de seguridad
   '/manifest.json',
+  '/changelog.json',
 
   // ICONOS PWA
   '/assets/icons/icon-72x72.png',

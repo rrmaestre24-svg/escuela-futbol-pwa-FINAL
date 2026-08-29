@@ -111,6 +111,69 @@ function showUpdateModal(onAccept) {
   };
 }
 
+// ── Modal "Novedades": qué trajo la actualización (se muestra 1 vez por versión) ──────────────
+function mostrarNovedadesModal(data) {
+  if (document.getElementById('novedadesModal')) return;
+  const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  const items = (data.novedades || [])
+    .map((n) => `<li style="margin-bottom:.6rem;line-height:1.45;display:flex;gap:.5rem"><span>•</span><span>${esc(n)}</span></li>`)
+    .join('');
+  if (!items) return;
+  const settings = typeof getSchoolSettings === 'function' ? getSchoolSettings() : {};
+  const logoSrc = settings.logo || 'assets/icons/icon-192x192.png';
+  const modal = document.createElement('div');
+  modal.id = 'novedadesModal';
+  modal.style.cssText = 'position:fixed;inset:0;z-index:99998;display:flex;align-items:center;justify-content:center;padding:1rem;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px)';
+  modal.innerHTML = `
+    <div style="background:#1f2937;border-radius:1.25rem;padding:1.75rem;max-width:380px;width:100%;box-shadow:0 25px 50px rgba(0,0,0,0.5);animation:scaleIn .2s ease">
+      <div style="text-align:center;margin-bottom:1rem">
+        <div style="width:64px;height:64px;border-radius:50%;overflow:hidden;margin:0 auto .6rem;border:3px solid #0d9488;background:#111827">
+          <img src="${logoSrc}" alt="Logo" style="width:100%;height:100%;object-fit:cover" onerror="this.src='assets/icons/icon-192x192.png'">
+        </div>
+        <p style="color:#f9fafb;font-weight:800;font-size:1.1rem;margin:0">${esc(data.titulo || '¡Novedades!')}</p>
+        <p style="color:#6b7280;font-size:.72rem;letter-spacing:.05em;margin:.15rem 0 0">MY CLUB${data.version ? ' · v' + esc(data.version) : ''}</p>
+      </div>
+      <ul style="list-style:none;padding:0;margin:0 0 1.25rem;color:#e5e7eb;font-size:.9rem">${items}</ul>
+      <button id="novedadesClose" style="width:100%;padding:.8rem;border-radius:.75rem;background:linear-gradient(135deg,#0d9488,#0891b2);color:#fff;font-weight:700;font-size:.95rem;border:none;cursor:pointer">Entendido 👍</button>
+    </div>`;
+  document.body.appendChild(modal);
+  const cerrar = () => modal.remove();
+  document.getElementById('novedadesClose').onclick = cerrar;
+  modal.addEventListener('click', (e) => { if (e.target === modal) cerrar(); });
+}
+
+// Muestra las novedades SOLO después de que la persona ACEPTÓ actualizar y la app recargó.
+// El flujo pone la bandera 'pendingNovedades' al aceptar el update (ver bootstrap.js y
+// checkForUpdates); acá, ya recargados y DENTRO del sistema (pasados los splash), se lee esa
+// bandera, se muestra el modal una vez y se limpia. Nunca aparece junto al aviso de actualizar.
+async function checkNovedadesPostUpdate() {
+  try {
+    let pending = null;
+    try { pending = localStorage.getItem('pendingNovedades'); } catch (_) {}
+    if (pending !== '1') return;                                  // solo tras un update aceptado
+    try { localStorage.removeItem('pendingNovedades'); } catch (_) {}
+    const cur = (window.APP_STATE && window.APP_STATE.version) || '';
+    let intentos = 0;
+    const iv = setInterval(async () => {
+      const cubierto = document.getElementById('sessionLoader') || document.getElementById('adminWelcomeSplash');
+      if (cubierto) { if (++intentos > 150) clearInterval(iv); return; } // aún cargando
+      clearInterval(iv);
+      try {
+        const r = await fetch('changelog.json');   // el SW ya cachea la versión nueva
+        const data = await r.json();
+        // Solo si el changelog corresponde a la versión que quedó corriendo.
+        if (!cur || String(data.version || '') === String(cur)) mostrarNovedadesModal(data);
+      } catch (_) { /* sin changelog → no molestar */ }
+    }, 400);
+  } catch (_) {}
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => setTimeout(checkNovedadesPostUpdate, 1500));
+} else {
+  setTimeout(checkNovedadesPostUpdate, 1500);
+}
+
 // Buscar actualizaciones manualmente
 async function checkForUpdates() {
   console.log('🔍 Buscando actualizaciones...');
@@ -140,6 +203,8 @@ async function checkForUpdates() {
               .forEach(k => localStorage.removeItem(k));
             console.log('🧹 Caché de sync borrado antes de actualizar');
 
+            // Marca que el usuario aceptó actualizar → tras recargar aparece el modal de novedades.
+            try { localStorage.setItem('pendingNovedades', '1'); } catch (_) {}
             // Activar el nuevo Service Worker
             registration.waiting.postMessage({ type: 'SKIP_WAITING' });
             // Recargar cuando el nuevo SW tome control

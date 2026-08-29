@@ -46,7 +46,7 @@
       --macw-prifg:#ffffff;--macw-shadow:0 12px 40px rgba(0,0,0,.18);font-family:inherit}
     .dark .macw-root{--macw-bg:#1f2937;--macw-fg:#f3f4f6;--macw-muted:#9ca3af;--macw-line:#374151;
       --macw-botbg:#374151;--macw-botfg:#f3f4f6;--macw-shadow:0 12px 40px rgba(0,0,0,.5)}
-    .macw-fab{position:fixed;right:16px;bottom:calc(88px + env(safe-area-inset-bottom,0px));z-index:2147483000;
+    .macw-fab{position:fixed;right:16px;bottom:calc(88px + env(safe-area-inset-bottom,0px));z-index:3900;
       width:58px !important;height:58px !important;border-radius:50%;border:none;cursor:pointer;background:var(--macw-pri);
       color:var(--macw-prifg);box-shadow:0 6px 18px rgba(0,0,0,.28);display:flex;align-items:center;
       justify-content:center;padding:0;transition:transform .15s ease}
@@ -55,7 +55,7 @@
     .macw-fab svg{width:28px !important;height:28px !important}
     .macw-fab .macw-dot{position:absolute;top:2px;right:2px;width:14px;height:14px;border-radius:50%;
       background:#ef4444;border:2px solid var(--macw-pri)}
-    .macw-panel{position:fixed;right:16px;bottom:calc(88px + env(safe-area-inset-bottom,0px));z-index:2147483001;
+    .macw-panel{position:fixed;right:16px;bottom:calc(88px + env(safe-area-inset-bottom,0px));z-index:3901;
       width:min(370px,calc(100vw - 32px));height:min(560px,calc(100vh - 180px));background:var(--macw-bg);
       color:var(--macw-fg);border-radius:18px;box-shadow:var(--macw-shadow);display:none;flex-direction:column;
       overflow:hidden;transform:translateY(12px) scale(.98);opacity:0;transition:transform .18s ease, opacity .18s ease}
@@ -225,8 +225,9 @@
   // El chatbot SOLO debe verse cuando ya estás DENTRO del sistema: en la app cargada
   // (index.html) y pasadas AMBAS pantallas de arranque — el preloader de sesión
   // (#sessionLoader) y el splash de bienvenida del admin (#adminWelcomeSplash, se crea
-  // en app.js). El FAB tiene z-index altísimo, así que si se monta antes se dibuja
-  // ENCIMA de esos splash. En login.html el widget ni se incluye. En DEMO monta directo.
+  // en app.js). Por eso NO se monta hasta que ninguno de los dos esté en el DOM (no depende
+  // del z-index, sino de esperar a que se vayan). En login.html el widget ni se incluye.
+  // En DEMO monta directo.
   function montarCuandoDentro() {
     const cubierto = () => document.getElementById('sessionLoader') || document.getElementById('adminWelcomeSplash');
     if (window.MACW_DEMO || !cubierto()) return montar();
