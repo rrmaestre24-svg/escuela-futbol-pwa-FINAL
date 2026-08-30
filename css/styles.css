@@ -1353,3 +1353,24 @@ body.perf-medium .animate-scale-in {
 @media (prefers-reduced-motion: reduce) {
   .mc-boton, .mc-boton-texto, .mc-boton-icono { transition: none; }
 }
+
+/* ════════════════════════════════════════════════════════════════════
+   Contener el ancho del contenido en pantallas grandes (PC)
+   ────────────────────────────────────────────────────────────────────
+   Antes, en pantalla completa de PC, el contenido se estiraba de lado a
+   lado y se veía saturado. Ahora se centra con un ancho máximo cómodo
+   (como se veía a media pantalla). En tablet y celular NO cambia nada:
+   por debajo de --app-maxw el ancho sigue siendo el del viewport, así que
+   el responsive queda intacto.
+   - Solo se centra el CONTENIDO (las 9 vistas dentro de <main> y el
+     contenido del header). Las barras fijas (header/nav) siguen a lo ancho.
+   - Los modales están FUERA de <main>, así que no se ven afectados
+     (ya vienen centrados con su propio max-width).
+   Para ajustar el ancho, cambiar solo --app-maxw. ==================== */
+:root { --app-maxw: 1100px; }
+main > div,
+.cabecera > div {
+  max-width: var(--app-maxw);
+  margin-left: auto;
+  margin-right: auto;
+}

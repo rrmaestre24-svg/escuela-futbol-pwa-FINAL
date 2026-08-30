@@ -2,7 +2,7 @@
 window.APP_STATE = {
   currentUser: null,
   authRestored: false,
-  version: '2.2.6' // Fallback de versión si no se puede leer sw.js — mantener al día con sw.js:1
+  version: '2.2.7' // Fallback de versión si no se puede leer sw.js — mantener al día con sw.js:1
 };
 
 // ========================================
@@ -354,7 +354,7 @@ function setHeaderAppVersion(versionLabel) {
 
 async function refreshHeaderAppVersion() {
   // 1. Mostrar la versión del estado global (rápido y funciona en local)
-  const appVersion = window.APP_STATE.version || '2.2.6';
+  const appVersion = window.APP_STATE.version || '2.2.7';
   setHeaderAppVersion(appVersion);
 
   // 2. Intentar leer del cache previo

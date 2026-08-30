@@ -1,9 +1,9 @@
 {
-  "version": "2.2.6",
+  "version": "2.2.7",
   "titulo": "¡Novedades de esta versión!",
   "novedades": [
-    "🤖 Nuevo Asistente de ayuda: un chat dentro de la app. Preguntale cómo hacer cualquier cosa (cargar un pago, ver morosos, tomar asistencia…) y te guía paso a paso al instante.",
-    "📰 Ahora cada actualización te cuenta qué trae de nuevo (¡justo como esto!).",
-    "✨ Mejoras de rendimiento y pequeñas correcciones."
+    "🖥️ Mejor vista en computadora: el contenido ahora se centra y no se estira de lado a lado, para leer y trabajar más cómodo en pantallas grandes.",
+    "📱 En el celular todo queda igual que siempre.",
+    "✨ Pequeños ajustes visuales."
   ]
 }
