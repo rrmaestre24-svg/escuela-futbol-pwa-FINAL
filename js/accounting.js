@@ -2257,7 +2257,7 @@ function renderPaymentsByCategoryCard() {
       wrap.innerHTML = `<p class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Faltan por registrar pago — tocá una categoría:</p>` +
         conFaltan.map(({ r, i }) => `
         <div class="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden mb-2">
-          <div class="flex items-center justify-between gap-2 px-3 py-2.5 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50" onclick="_pbcToggle(${i})">
+          <div class="flex items-center justify-between gap-2 px-3 py-2.5 cursor-pointer mc-row-hover" onclick="_pbcToggle(${i})">
             <div class="min-w-0 flex-1">
               <p class="font-semibold text-gray-800 dark:text-white text-sm truncate">${_accEscapeHtml(r.category)}</p>
               <p class="text-xs mt-0.5">

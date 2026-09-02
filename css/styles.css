@@ -1374,3 +1374,9 @@ main > div,
   margin-left: auto;
   margin-right: auto;
 }
+
+/* Hover de filas theme-agnóstico: el Tailwind podado no tiene las variantes
+   dark:hover:bg-gray-* → en modo oscuro el hover caía a bg-gray-50 (blanco).
+   Este tinte gris translúcido se ve bien en claro Y oscuro (nunca blanco). */
+.mc-row-hover { transition: background-color .15s ease; }
+.mc-row-hover:hover { background-color: rgba(148, 163, 184, 0.16); }

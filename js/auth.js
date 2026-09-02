@@ -425,6 +425,8 @@ document.getElementById('loginForm')?.addEventListener('submit', async function(
 
     // Intento Supabase v2
     if (window.SupaAuthV2) {
+      // ── 1) AUTENTICACIÓN ─────────────────────────────────────────────────
+      // Un fallo ACÁ sí es credencial/captcha inválidos (no la búsqueda de perfil).
       try {
         // Token del CAPTCHA (Turnstile) si el widget lo produjo. Fail-open: si no
         // hay widget/token, se manda vacío y Supabase lo ignora (hasta activarlo).
@@ -433,58 +435,64 @@ document.getElementById('loginForm')?.addEventListener('submit', async function(
         await window.SupaAuthV2.login(email, password, _captchaToken);
         authMethod = 'supabase';
         console.log('✅ Autenticado en Supabase (v2)');
-
-        // Resolver el perfil del admin (id + name/avatar/phone/is_main_admin) por email,
-        // con el JWT v2 (vía interceptor). Antes solo traía el id → faltaban perfil y rol.
-        //
-        // `ilike` y NO `eq`: Supabase Auth valida el correo sin distinguir mayúsculas,
-        // pero Postgres sí las distingue. Un admin guardado como `Fulano@gmail.com`
-        // autenticaba bien y después no aparecía acá (la app normaliza a minúsculas),
-        // con lo cual el login moría en "No se pudo identificar el usuario" y el club
-        // quedaba afuera. Caso real en producción. El email ya viene normalizado y
-        // escapado. Se pide `email` en el select y se vuelve a comparar en JS porque
-        // en SQL `_` es comodín de un carácter: sin esa verificación, un correo como
-        // `juan_perez@…` podría traer la fila de `juanXperez@…` y meter al admin en
-        // el club equivocado. La comparación final es exacta (ignorando mayúsculas).
-        const lookup = await fetch(
-          `${window.SUPA_URL}/rest/v1/users?email=ilike.${encodeURIComponent(email)}&deleted=eq.false&select=id,email,name,avatar,phone,is_main_admin&limit=1`
-        );
-        let _prof = {};
-        if (lookup.ok) {
-          const rows = await lookup.json();
-          const _row = rows[0];
-          const _coincide = _row?.email && normalizeUserEmail(_row.email) === email;
-          if (_row?.id && _coincide) { firebaseUid = _row.id; _prof = _row; }
-          else if (_row?.id) {
-            console.warn('[LOGIN] El correo devuelto no coincide exactamente — se descarta por seguridad');
-          }
-        }
-
-        // currentUser con el perfil real (name/avatar/phone/isMainAdmin) para el dashboard
-        // y la gestión de usuarios (que dependen de currentUser.isMainAdmin).
-        window.APP_STATE.currentUser = {
-          uid: firebaseUid,
-          email,
-          name: _prof.name || '',
-          avatar: _prof.avatar || '',
-          phone: _prof.phone || '',
-          isMainAdmin: _prof.is_main_admin || false,
-          getIdToken: async () => null,
-        };
       } catch (supaErr) {
         console.error('[LOGIN] Supabase falló:', supaErr?.message || supaErr);
-        // El token de Turnstile es de un solo uso: reiniciar el widget para el reintento
-        // y volver a mostrarlo (por si el reintento necesita interacción).
+        // El token de Turnstile es de un solo uso: reiniciar el widget para el reintento.
         if (window.turnstile && typeof window.turnstile.reset === 'function') { try { window.turnstile.reset(); } catch (_) {} }
         var _tw = document.getElementById('turnstileWrap');
         if (_tw) { _tw.style.opacity = '1'; _tw.style.maxHeight = '90px'; _tw.style.margin = '6px 0'; }
         showToast('❌ Correo o contraseña incorrectos');
         return;
       }
+
+      // ── 2) PERFIL (id + name/avatar/phone/is_main_admin) ─────────────────
+      // Resolución ROBUSTA, separada de la autenticación: buscar la PROPIA fila por
+      // email. La política RLS `users_read_self` la permite aunque el JWT no traiga
+      // `app_metadata.club_id` (ese claim faltante era la causa del bug intermitente
+      // "No se pudo identificar el usuario"). Si vuelve vacío por una carrera de token,
+      // se refresca y se reintenta UNA vez. Un fallo acá ya NO se confunde con
+      // "contraseña incorrecta".
+      //
+      // `ilike` (no `eq`): Supabase Auth ignora mayúsculas pero Postgres no; un admin
+      // guardado como `Fulano@gmail.com` autenticaba pero no aparecía. Se re-compara en
+      // JS exacto (ignorando mayúsculas) porque en SQL `_` es comodín, así `juan_perez@…`
+      // no puede traer la fila de `juanXperez@…` y meter al admin en el club equivocado.
+      const _resolverPerfil = async () => {
+        try {
+          const r = await fetch(
+            `${window.SUPA_URL}/rest/v1/users?email=ilike.${encodeURIComponent(email)}&deleted=eq.false&select=id,email,name,avatar,phone,is_main_admin&limit=1`
+          );
+          if (!r.ok) return null;
+          const rows = await r.json();
+          const row = rows[0];
+          if (row?.id && row.email && normalizeUserEmail(row.email) === email) return row;
+          return null;
+        } catch (_) { return null; }
+      };
+
+      let _prof = await _resolverPerfil();
+      if (!_prof) {
+        // Reintento defensivo: forzar un token fresco (por si faltaba un claim) y rebuscar.
+        try { if (typeof window.SupaAuthV2.refreshToken === 'function') await window.SupaAuthV2.refreshToken(); } catch (_) {}
+        _prof = await _resolverPerfil();
+      }
+      if (_prof?.id) firebaseUid = _prof.id;
+
+      // currentUser con el perfil real (name/avatar/phone/isMainAdmin) para el dashboard
+      // y la gestión de usuarios (que dependen de currentUser.isMainAdmin).
+      window.APP_STATE.currentUser = {
+        uid: firebaseUid,
+        email,
+        name: _prof?.name || '',
+        avatar: _prof?.avatar || '',
+        phone: _prof?.phone || '',
+        isMainAdmin: _prof?.is_main_admin || false,
+        getIdToken: async () => null,
+      };
     }
 
     if (!firebaseUid) {
-      showToast('❌ No se pudo identificar el usuario');
+      showToast('❌ No se pudo identificar el usuario. Reintentá o revisá tu conexión.');
       return;
     }
 

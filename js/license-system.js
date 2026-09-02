@@ -459,54 +459,115 @@ function showLicenseBanner(status) {
   });
 }
 
+// ── MODO SOLO LECTURA (licencia inactiva) ─────────────────────────────────────
+// Modal lindo (estilo del de "módulo bloqueado", inline → a prueba de purga de
+// Tailwind). Aparece al entrar y REAPARECE cuando el usuario intenta una acción de
+// escritura. El nombre del club solo va en la URL de WhatsApp (encodeURIComponent),
+// nunca en el innerHTML → sin XSS.
+function showLicenseLockModal() {
+  if (document.getElementById('licenseLockModal')) return; // no apilar
+
+  const _s = (typeof getSchoolSettings === 'function') ? getSchoolSettings() : null;
+  const clubNombre = _s ? (_s.name || _s.schoolName || '') : (localStorage.getItem('clubId') || '');
+  const waMsg = 'Hola, mi licencia de MY CLUB está inactiva y quiero ponerme al día para reactivarla.' + (clubNombre ? ' Mi club es ' + clubNombre + '.' : '');
+  const waUrl = 'https://wa.me/' + ADMIN_WHATSAPP + '?text=' + encodeURIComponent(waMsg);
+
+  const modal = document.createElement('div');
+  modal.id = 'licenseLockModal';
+  modal.style.cssText = 'position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;padding:1rem;background:rgba(0,0,0,0.65);backdrop-filter:blur(4px);animation:mcFadeIn .18s ease-out';
+  modal.innerHTML =
+    '<div style="background:#1f2937;border-radius:1.25rem;padding:1.75rem;max-width:380px;width:100%;text-align:center;box-shadow:0 25px 50px rgba(0,0,0,0.55);animation:mcPop .2s ease-out">' +
+      '<div style="width:66px;height:66px;border-radius:1rem;margin:0 auto 1rem;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#dc2626,#b91c1c)">' +
+        '<i data-lucide="lock" style="width:32px;height:32px;color:#fff"></i>' +
+      '</div>' +
+      '<p style="font-size:1.2rem;font-weight:800;color:#fff;margin-bottom:.4rem">Licencia inactiva</p>' +
+      '<div style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:#fecaca;background:rgba(220,38,38,0.22);padding:3px 11px;border-radius:999px;margin-bottom:.9rem">👁️ Modo solo lectura</div>' +
+      '<p style="font-size:.9rem;color:#d1d5db;line-height:1.55;margin-bottom:1rem">Podés <b style="color:#fff">ver toda tu información</b>, pero no hacer cambios. Para reactivar tu licencia y ponerte al día, escribinos y te ayudamos.</p>' +
+      '<a href="' + waUrl + '" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:center;gap:.5rem;width:100%;padding:.85rem;border-radius:.75rem;background:linear-gradient(135deg,#25d366,#128c7e);color:#fff;font-weight:700;font-size:.92rem;text-decoration:none;margin-bottom:.6rem">' +
+        '<i data-lucide="message-circle" style="width:18px;height:18px"></i> Hablar con soporte y ponerme al día' +
+      '</a>' +
+      '<button type="button" id="licenseLockClose" style="width:100%;padding:.7rem;border-radius:.75rem;background:#374151;color:#d1d5db;font-weight:600;font-size:.85rem;border:none;cursor:pointer">Seguir en modo lectura</button>' +
+    '</div>';
+
+  // Animaciones (se inyectan una sola vez)
+  if (!document.getElementById('mcLockAnim')) {
+    const st = document.createElement('style');
+    st.id = 'mcLockAnim';
+    st.textContent = '@keyframes mcFadeIn{from{opacity:0}to{opacity:1}}@keyframes mcPop{from{opacity:0;transform:scale(.94) translateY(8px)}to{opacity:1;transform:none}}';
+    document.head.appendChild(st);
+  }
+
+  document.body.appendChild(modal);
+  const close = () => modal.remove();
+  modal.querySelector('#licenseLockClose').addEventListener('click', close);
+  modal.addEventListener('click', function (e) { if (e.target === modal) close(); });
+  if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+}
+if (typeof window !== 'undefined') { window.showLicenseLockModal = showLicenseLockModal; }
+
+// ¿El click/submit es un intento de ESCRITURA? (crear/guardar/editar/borrar/enviar…)
+// Modo lectura (licencia vencida): DENEGAR POR DEFECTO.
+// Solo se permite NAVEGAR y VER; todo lo demás — módulos, agregar, editar, borrar,
+// enviar, importar, PDF, documentos, cobrar, etc. — queda bloqueado ("no funciona
+// nada, solo lectura"). Solo corre en clubes con licencia inactiva → impacto acotado.
+function _bloquearEnLectura(target) {
+  const ctrl = target.closest('button, a, [role="button"], [onclick], input[type="submit"], input[type="button"]');
+  if (!ctrl) return false; // clic en vacío/texto → no bloquea
+  // Exentos: modal de licencia, banner, enlaces de contacto, y lo marcado a mano
+  if (ctrl.closest('#licenseLockModal, #licenseBanner, #moduloBloqueadoModal')) return false;
+  if (ctrl.classList.contains('license-exempt') || ctrl.closest('.license-exempt')) return false;
+  const href = (ctrl.getAttribute && ctrl.getAttribute('href')) || '';
+  if (/^(https?:\/\/wa\.me|tel:|mailto:)/i.test(href)) return false;
+  // Botones de MÓDULOS (PRO): SIEMPRE bloqueados en modo lectura, sin importar su
+  // texto (ej. "Ver Inventario y Facturación" tiene "Ver" pero es un módulo → bloquear).
+  if (ctrl.closest('[data-modulo], .modulo-btn')) return true;
+  // Navegación estructural (barra inferior / pestañas) → permitido para poder VER
+  if (ctrl.closest('nav, [role="tablist"], .bottom-nav, #bottomNav, .nav-item')) return false;
+  const txt = (
+    (ctrl.getAttribute && (ctrl.getAttribute('onclick') || '')) + ' ' +
+    (ctrl.getAttribute && (ctrl.getAttribute('aria-label') || '')) + ' ' +
+    (ctrl.className || '') + ' ' + (ctrl.textContent || '')
+  ).toLowerCase().slice(0, 500);
+  // LISTA BLANCA: navegar / ver / sistema → permitido. TODO lo demás se bloquea.
+  // (Nota: se quitó "whats" a propósito → los botones "Enviar por WhatsApp" quedan
+  //  bloqueados; el WhatsApp de soporte del modal/banner ya está exento por su id.)
+  const permitido = /(navigate|navego|navegar|\binicio\b|jugador|\bpagos\b|calendario|\bm[aá]s\b|home|dashboard|volver|atr[aá]s|cerrar|close|cancelar|×|\bver\b|detalle|detail|buscar|search|filtr|\btodos\b|activos|inactivos|categor|tema|theme|logout|salir|cerrar sesi|renovar|contactar|copiar|\bcopy\b|siguiente|anterior|expand|colaps|desplegar)/;
+  if (permitido.test(txt)) return false;
+  return true; // denegar por defecto
+}
+
 function applyReadOnlyMode() {
+  if (window.__licenseReadOnly) { showLicenseLockModal(); return; } // idempotente
   console.log('🔒 Aplicando modo solo lectura...');
-  
-  const actionButtons = document.querySelectorAll('button[onclick*="show"], button[onclick*="add"], button[onclick*="save"], button[onclick*="delete"]');
-  
-  actionButtons.forEach(btn => {
-    if (!btn.classList.contains('license-exempt')) {
-      btn.disabled = true;
-      btn.classList.add('opacity-50', 'cursor-not-allowed');
-      btn.onclick = function(e) {
+  window.__licenseReadOnly = true;
+
+  // Interceptor global en fase de captura: cualquier intento de ESCRITURA muestra
+  // el modal (funciona también con botones creados dinámicamente en modales).
+  const guard = function (e) {
+    if (!window.__licenseReadOnly) return;
+    try {
+      if (_bloquearEnLectura(e.target)) {
         e.preventDefault();
-        showToast('🔒 Licencia vencida - Modo solo lectura');
-        return false;
-      };
-    }
-  });
+        e.stopPropagation();
+        if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+        showLicenseLockModal();
+      }
+    } catch (_) { /* ante la duda, no bloquear la navegación */ }
+  };
+  document.addEventListener('click', guard, true);
+  // Cualquier envío de formulario también queda bloqueado
+  document.addEventListener('submit', function (e) {
+    if (!window.__licenseReadOnly) return;
+    try {
+      if (e.target && e.target.closest && e.target.closest('.license-exempt, #licenseLockModal')) return;
+      e.preventDefault();
+      e.stopPropagation();
+      showLicenseLockModal();
+    } catch (_) { /* ante la duda, no romper */ }
+  }, true);
 
-  const inputs = document.querySelectorAll('input:not([type="search"]), textarea, select');
-  inputs.forEach(input => {
-    if (!input.classList.contains('license-exempt')) {
-      input.disabled = true;
-      input.classList.add('bg-gray-100', 'dark:bg-gray-700', 'cursor-not-allowed');
-    }
-  });
-
-  const modals = document.querySelectorAll('[id*="Modal"]');
-  modals.forEach(modal => {
-    const overlay = document.createElement('div');
-    overlay.className = 'absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
-    overlay.innerHTML = `
-      <div class="bg-white dark:bg-gray-800 rounded-lg p-6 text-center max-w-sm">
-        <div class="text-4xl mb-3">🔒</div>
-        <h3 class="font-bold text-lg mb-2">Licencia Vencida</h3>
-        <p class="text-gray-600 dark:text-gray-400 text-sm mb-4">
-          Contacta al administrador para renovar tu suscripción.
-        </p>
-        <a href="https://wa.me/${ADMIN_WHATSAPP}?text=Hola,%20necesito%20renovar%20mi%20licencia%20de%20MY%20CLUB" 
-           target="_blank"
-           class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm inline-block">
-          📱 Contactar por WhatsApp
-        </a>
-      </div>
-    `;
-    modal.style.position = 'relative';
-    modal.appendChild(overlay);
-  });
-
-  showToast('🔒 Modo solo lectura activado');
+  // Aviso inicial al entrar (se puede cerrar; reaparece al intentar una acción)
+  showLicenseLockModal();
 }
 
 // ========================================
