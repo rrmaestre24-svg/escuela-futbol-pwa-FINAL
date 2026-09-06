@@ -1380,3 +1380,12 @@ main > div,
    Este tinte gris translúcido se ve bien en claro Y oscuro (nunca blanco). */
 .mc-row-hover { transition: background-color .15s ease; }
 .mc-row-hover:hover { background-color: rgba(148, 163, 184, 0.16); }
+
+/* Los <summary> de la preventa se estilan a mano: se saca el triangulito nativo
+   (Chrome/Safari lo pintan distinto y descuadra la fila). */
+summary::-webkit-details-marker { display: none; }
+summary::marker { content: ''; }
+
+/* La flecha de los desplegables de preventa apunta abajo cerrada y gira al
+   abrir, así se ve de un vistazo qué secciones están expandidas. */
+details[open] > summary .sv-flecha { transform: rotate(180deg); }

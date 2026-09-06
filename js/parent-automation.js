@@ -33,6 +33,15 @@
  *
  * Dice "del jugador" y no "de tu hijo": en la base hay jugadoras.
  */
+/* Escape de HTML para texto que viene del usuario/BD (nombres de jugador).
+   Para lo que va DENTRO de un on*="fn('...')" no alcanza con esto: ahí va
+   escAttrJs() de js/utils.js, que además escapa para cadena JS. */
+function _paEsc(t) {
+  return String(t ?? '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 function mensajeAccesoSms(clubName, codigo, clubId) {
   const club = (typeof nombreCortoSms === 'function')
     ? nombreCortoSms(clubName, 18)
@@ -165,15 +174,15 @@ function showFormalConfirmModal({
         modal.innerHTML = `
             <div class="w-full max-w-md rounded-3xl overflow-hidden bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 shadow-2xl">
                 <div class="px-5 py-4 bg-gradient-to-r ${cfg.header} text-white">
-                    <h4 class="text-lg font-black tracking-tight">${title}</h4>
+                    <h4 class="text-lg font-black tracking-tight">${_paEsc(title)}</h4>
                 </div>
                 <div class="p-5 space-y-4">
                     <div class="rounded-2xl border ${cfg.ring} p-4">
-                        <p class="text-sm leading-relaxed ${cfg.text}">${message}</p>
+                        <p class="text-sm leading-relaxed ${cfg.text}">${_paEsc(message)}</p>
                     </div>
                     <div class="grid grid-cols-2 gap-3">
-                        <button id="formalConfirmCancelBtn" class="py-2.5 px-4 rounded-xl font-bold text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">${cancelText}</button>
-                        <button id="formalConfirmAcceptBtn" class="py-2.5 px-4 rounded-xl font-bold text-white bg-gradient-to-r ${cfg.button} shadow-md transition-all">${confirmText}</button>
+                        <button id="formalConfirmCancelBtn" class="py-2.5 px-4 rounded-xl font-bold text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">${_paEsc(cancelText)}</button>
+                        <button id="formalConfirmAcceptBtn" class="py-2.5 px-4 rounded-xl font-bold text-white bg-gradient-to-r ${cfg.button} shadow-md transition-all">${_paEsc(confirmText)}</button>
                     </div>
                 </div>
             </div>
@@ -484,24 +493,24 @@ function renderParentAccessList() {
         const phone = contactPhone || 'Sin teléfono';
         
         return `
-            <div data-player-id="${player.id}" class="group flex items-center justify-between p-3.5 bg-white dark:bg-gray-800/70 rounded-2xl border border-gray-100 dark:border-gray-700 hover:border-emerald-500/30 hover:shadow-md transition-all">
+            <div data-player-id="${_paEsc(player.id)}" class="group flex items-center justify-between p-3.5 bg-white dark:bg-gray-800/70 rounded-2xl border border-gray-100 dark:border-gray-700 hover:border-emerald-500/30 hover:shadow-md transition-all">
                 <div class="flex items-center gap-3 min-w-0">
                     <div class="relative shrink-0">
-                        <img src="${player.avatar || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(player.name) + '&background=random'}" 
+                        <img src="${_paEsc(player.avatar || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(player.name) + '&background=random')}" 
                              class="w-12 h-12 rounded-full object-cover border-2 border-white dark:border-gray-700 shadow-sm"
-                             onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(player.name)}&background=random'">
+                             onerror="this.src='https://ui-avatars.com/api/?name=${escAttrJs(encodeURIComponent(player.name))}&background=random'">
                         ${isSent ? `
                             <span class="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full border-2 border-white dark:border-gray-800 flex items-center justify-center">
                                 <i data-lucide="check" class="w-3 h-3 text-white"></i>
                             </span>` : ''}
                     </div>
                     <div class="min-w-0">
-                        <p class="font-bold text-gray-800 dark:text-white text-sm truncate">${player.name}</p>
+                        <p class="font-bold text-gray-800 dark:text-white text-sm truncate">${_paEsc(player.name)}</p>
                         <p class="text-[11px] text-gray-500 dark:text-gray-400 truncate flex items-center gap-1 mt-0.5">
-                            <i data-lucide="phone" class="w-3 h-3 shrink-0"></i> ${phone}
+                            <i data-lucide="phone" class="w-3 h-3 shrink-0"></i> ${_paEsc(phone)}
                         </p>
                         <div class="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                            ${hasCode ? `<span class="text-[10px] font-mono font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 rounded-md border border-emerald-100 dark:border-emerald-800/40">#${access.code}</span>` : `<span class="text-[10px] font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 px-2 py-0.5 rounded-md border border-amber-100 dark:border-amber-800/40">Sin código</span>`}
+                            ${hasCode ? `<span class="text-[10px] font-mono font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 rounded-md border border-emerald-100 dark:border-emerald-800/40">#${_paEsc(access.code)}</span>` : `<span class="text-[10px] font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 px-2 py-0.5 rounded-md border border-amber-100 dark:border-amber-800/40">Sin código</span>`}
                             ${isNoAccess
                                 ? `<span class="text-[10px] font-bold text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/30 px-2 py-0.5 rounded-md border border-red-100 dark:border-red-800/40">Acceso revocado</span>`
                                 : (isSent
@@ -514,17 +523,17 @@ function renderParentAccessList() {
                 ${isNoAccess
                     ? `<div class="ml-2 shrink-0 text-[10px] font-bold text-red-600 dark:text-red-300 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded-lg border border-red-100 dark:border-red-800/40">Sin portal</div>`
                     : `<div class="flex items-center gap-1 ml-2 shrink-0 opacity-100 sm:opacity-80 sm:group-hover:opacity-100 transition-opacity">
-                        <button onclick="resendParentCode('${player.id}')"
+                        <button onclick="resendParentCode('${escAttrJs(player.id)}')"
                                 title="${isSent ? 'Reenviar por WhatsApp' : 'Enviar por WhatsApp'}"
                                 class="p-2 rounded-xl text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/40 transition-colors border border-transparent hover:border-emerald-200 dark:hover:border-emerald-800/40">
                             <i data-lucide="send" class="w-4 h-4"></i>
                         </button>
-                        <button onclick="sendSmsToOneParent('${player.id}')"
+                        <button onclick="sendSmsToOneParent('${escAttrJs(player.id)}')"
                                 title="Enviar por SMS"
                                 class="p-2 rounded-xl text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-900/40 transition-colors border border-transparent hover:border-teal-200 dark:hover:border-teal-800/40">
                             <i data-lucide="message-square" class="w-4 h-4"></i>
                         </button>
-                        <button onclick="regenerateParentCodeBatch('${player.id}')"
+                        <button onclick="regenerateParentCodeBatch('${escAttrJs(player.id)}')"
                                 title="Regenerar nuevo código"
                                 class="p-2 rounded-xl text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/40 transition-colors border border-transparent hover:border-amber-200 dark:hover:border-amber-800/40">
                             <i data-lucide="refresh-cw" class="w-4 h-4"></i>
@@ -1087,7 +1096,7 @@ function updateBatchButtonUI() {
 
     mainBtn.innerHTML = `
         <div class="flex flex-col items-center">
-            <span class="text-sm font-bold">Enviar a: ${nextPlayer.name}</span>
+            <span class="text-sm font-bold">Enviar a: ${_paEsc(nextPlayer.name)}</span>
             <span class="text-[10px] opacity-80">Alumno ${current} de ${total} · Pulsa para continuar</span>
         </div>
     `;

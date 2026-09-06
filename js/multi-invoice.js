@@ -130,7 +130,7 @@ function _mi_renderPlayerItems(players) {
             ? `<img src="${avatarSrc}" alt="${p.name}" class="w-9 h-9 rounded-full object-cover flex-shrink-0">`
             : `<div class="w-9 h-9 rounded-full bg-teal-100 dark:bg-teal-800 flex items-center justify-center text-sm font-bold text-teal-700 dark:text-teal-300 flex-shrink-0">${(p.name || '?').charAt(0).toUpperCase()}</div>`;
         return `
-        <button onclick="_mi_selectPlayer('${p.id}')"
+        <button onclick="_mi_selectPlayer('${escAttrJs(p.id)}')"
             class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors text-left">
             ${avatarHtml}
             <div>
@@ -430,7 +430,7 @@ function _mi_goToStep2(mode) {
         return `
             <label id="_miLabel_${month}" class="flex items-center gap-3 p-3 rounded-xl border-2 border-gray-200 dark:border-gray-600 cursor-pointer transition-all">
                 <input type="checkbox" value="${month}"
-                    onchange="_mi_toggleMonth('${month}', this.checked)"
+                    onchange="_mi_toggleMonth('${escAttrJs(month)}', this.checked)"
                     class="w-4 h-4 accent-teal-600 flex-shrink-0">
                 <span class="text-sm text-gray-800 dark:text-white">${label}</span>
             </label>
@@ -588,7 +588,8 @@ async function _mi_confirm() {
         }
 
         try {
-            // Número de factura con transacción atómica (nunca duplicado)
+            // El número lo entrega el servidor (rpc next_invoice_number): es atómico
+            // y por club. Solo si el servidor no responde cae al cálculo local.
             const invoiceNumber = await getNextInvoiceNumberFromFirebase();
 
             const newPayment = {
@@ -785,13 +786,13 @@ function _mi_showMultiWAModal(paymentIds, player) {
             <!-- Botones -->
             <div class="p-4 space-y-2">
                 ${tieneWA ? `
-                <button onclick="_mi_sendWA('${idsCsv}')"
+                <button onclick="_mi_sendWA('${escAttrJs(idsCsv)}')"
                     class="w-full bg-green-500 hover:bg-green-600 active:scale-95 text-white py-3 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2">
                     ${waIcon}
                     Sí, enviar resumen por WhatsApp
                 </button>` : ''}
 
-                <button onclick="_mi_downloadPDFs('${idsCsv}')"
+                <button onclick="_mi_downloadPDFs('${escAttrJs(idsCsv)}')"
                     style="background:${clubColor}"
                     class="w-full active:scale-95 text-white py-2.5 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">

@@ -175,7 +175,7 @@ function renderBirthdayCard(birthday) {
           ${birthday.type === 'player' ? `<p class="text-xs text-gray-500 dark:text-gray-400">${birthday.category}</p>` : ''}
           ${daysText}
         </div>
-        <button onclick="sendBirthdayWhatsApp('${birthday.id}', ${birthday.type === 'staff'})" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-1 text-sm">
+        <button onclick="sendBirthdayWhatsApp('${escAttrJs(birthday.id)}', ${birthday.type === 'staff'})" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-1 text-sm">
           <i data-lucide="message-circle" class="w-4 h-4"></i>
           Felicitar
         </button>

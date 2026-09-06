@@ -599,18 +599,18 @@ function renderPaymentCard(payment, player) {
 
       <div class="flex gap-2">
         ${payment.status === 'Pagado' ? `
-          <button onclick="generateInvoicePDFWithWhatsApp('${payment.id}')" class="flex-1 bg-teal-600 hover:bg-teal-700 text-white text-sm py-2 rounded-lg flex items-center justify-center gap-1">
+          <button onclick="generateInvoicePDFWithWhatsApp('${escAttrJs(payment.id)}')" class="flex-1 bg-teal-600 hover:bg-teal-700 text-white text-sm py-2 rounded-lg flex items-center justify-center gap-1">
             <i data-lucide="file-text" class="w-4 h-4"></i>
             📄 Factura+WA
           </button>
         ` : `
-          <button onclick="markAsPaid('${payment.id}')" class="flex-1 bg-green-600 hover:bg-green-700 text-white text-sm py-2 rounded-lg flex items-center justify-center gap-1">
+          <button onclick="markAsPaid('${escAttrJs(payment.id)}')" class="flex-1 bg-green-600 hover:bg-green-700 text-white text-sm py-2 rounded-lg flex items-center justify-center gap-1">
             <i data-lucide="check" class="w-4 h-4"></i>
             Marcar Pagado
           </button>
         `}
         ${getCurrentUser()?.isMainAdmin ? `
-        <button onclick="deletePaymentConfirm('${payment.id}')" class="bg-red-600 hover:bg-red-700 text-white text-sm py-2 px-3 rounded-lg">
+        <button onclick="deletePaymentConfirm('${escAttrJs(payment.id)}')" class="bg-red-600 hover:bg-red-700 text-white text-sm py-2 px-3 rounded-lg">
           <i data-lucide="trash-2" class="w-4 h-4"></i>
         </button>
         ` : ''}
@@ -689,11 +689,11 @@ function renderExpenseCard(expense) {
       </div>
       
       <div class="flex gap-2">
-        <button onclick="generateExpenseInvoicePDFWithWhatsApp('${expense.id}')" class="flex-1 bg-teal-600 hover:bg-teal-700 text-white text-sm py-2 rounded-lg flex items-center justify-center gap-1">
+        <button onclick="generateExpenseInvoicePDFWithWhatsApp('${escAttrJs(expense.id)}')" class="flex-1 bg-teal-600 hover:bg-teal-700 text-white text-sm py-2 rounded-lg flex items-center justify-center gap-1">
           <i data-lucide="file-text" class="w-4 h-4"></i>
           📄 Factura+WA
         </button>
-        <button onclick="deleteExpenseConfirm('${expense.id}')" class="bg-red-600 hover:bg-red-700 text-white text-sm py-2 px-3 rounded-lg">
+        <button onclick="deleteExpenseConfirm('${escAttrJs(expense.id)}')" class="bg-red-600 hover:bg-red-700 text-white text-sm py-2 px-3 rounded-lg">
           <i data-lucide="trash-2" class="w-4 h-4"></i>
         </button>
       </div>
@@ -1583,13 +1583,13 @@ function _mostrarOpcionWAPaymentCompleto(paymentId) {
       <!-- Botones -->
       <div class="p-4 space-y-2">
         ${tieneWA ? `
-        <button onclick="enviarWADesdeOverlayPayment('${paymentId}')"
+        <button onclick="enviarWADesdeOverlayPayment('${escAttrJs(paymentId)}')"
           class="w-full bg-green-500 hover:bg-green-600 active:scale-95 text-white py-3 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2">
           <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
           Sí, enviar por WhatsApp
         </button>` : ''}
 
-        <button onclick="soloDescargarPDFPayment('${paymentId}')"
+        <button onclick="soloDescargarPDFPayment('${escAttrJs(paymentId)}')"
           style="background:${clubColor}"
           class="w-full active:scale-95 text-white py-2.5 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -1706,12 +1706,12 @@ function enviarWADesdeOverlayPayment(paymentId) {
       <!-- Botones -->
       <div class="p-4 space-y-2">
         <a href="${waUrl}" target="_blank"
-          onclick="generateInvoicePDF('${paymentId}', true); setTimeout(() => document.getElementById('_waInvoiceOverlay')?.remove(), 300)"
+          onclick="generateInvoicePDF('${escAttrJs(paymentId)}', true); setTimeout(() => document.getElementById('_waInvoiceOverlay')?.remove(), 300)"
           class="w-full bg-green-500 hover:bg-green-600 active:scale-95 text-white py-3 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 no-underline">
           <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
           Abrir WhatsApp
         </a>
-        <button onclick="generateInvoicePDF('${paymentId}', true); document.getElementById('_waInvoiceOverlay')?.remove()"
+        <button onclick="generateInvoicePDF('${escAttrJs(paymentId)}', true); document.getElementById('_waInvoiceOverlay')?.remove()"
           style="background:${clubColor}"
           class="w-full text-white py-2.5 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -2196,30 +2196,30 @@ function renderPaymentCard(payment, player) {
 
       <div class="flex gap-2">
         ${payment.status === 'Pagado' ? `
-          <button onclick="showEditPaymentModal('${payment.id}')"
+          <button onclick="showEditPaymentModal('${escAttrJs(payment.id)}')"
             class="bg-blue-600 hover:bg-blue-700 text-white text-sm py-2 px-3 rounded-lg flex items-center gap-1"
             title="Editar factura">
             <i data-lucide="edit-3" class="w-4 h-4"></i>
           </button>
-          <button onclick="generateInvoicePDFWithWhatsApp('${payment.id}')" 
+          <button onclick="generateInvoicePDFWithWhatsApp('${escAttrJs(payment.id)}')" 
             class="flex-1 bg-teal-600 hover:bg-teal-700 text-white text-sm py-2 rounded-lg flex items-center justify-center gap-1">
             <i data-lucide="file-text" class="w-4 h-4"></i>
             📄 Factura+WA
           </button>
         ` : `
-          <button onclick="showEditPaymentModal('${payment.id}')" 
+          <button onclick="showEditPaymentModal('${escAttrJs(payment.id)}')" 
             class="bg-blue-600 hover:bg-blue-700 text-white text-sm py-2 px-3 rounded-lg flex items-center gap-1"
             title="Editar pago">
             <i data-lucide="edit-3" class="w-4 h-4"></i>
           </button>
-          <button onclick="markAsPaid('${payment.id}')" 
+          <button onclick="markAsPaid('${escAttrJs(payment.id)}')" 
             class="flex-1 bg-green-600 hover:bg-green-700 text-white text-sm py-2 rounded-lg flex items-center justify-center gap-1">
             <i data-lucide="check" class="w-4 h-4"></i>
             Marcar Pagado
           </button>
         `}
         ${getCurrentUser()?.isMainAdmin ? `
-        <button onclick="deletePaymentConfirm('${payment.id}')"
+        <button onclick="deletePaymentConfirm('${escAttrJs(payment.id)}')"
           class="bg-red-600 hover:bg-red-700 text-white text-sm py-2 px-3 rounded-lg"
           title="Eliminar pago">
           <i data-lucide="trash-2" class="w-4 h-4"></i>
@@ -2569,7 +2569,7 @@ function renderPlayerSearchResults(players) {
     
     return `
       <div 
-        onclick="selectPlayer('${player.id}')" 
+        onclick="selectPlayer('${escAttrJs(player.id)}')" 
         class="flex items-center gap-3 p-3 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer rounded-lg transition-colors ${isSelected ? 'bg-teal-50 dark:bg-teal-900 border-2 border-teal-500' : 'border border-transparent'}"
       >
         <img 
@@ -2759,9 +2759,16 @@ async function handlePaymentFormSubmit(e) {
         const nombreJugador = player?.name || 'este jugador';
 
         // 1. Activa en storage local → BLOQUEO TOTAL
-        const activoExiste = getPayments().some(p =>
+        // OJO: va con _getPaymentsAll(), NO con getPayments(). getPayments() se
+        // queda en las 1000 filas que devuelve PostgREST y en la ventana de meses
+        // de la caché: si la factura vieja cae fuera, el candado no la ve y deja
+        // crear el duplicado. Es el mismo motivo por el que _mi_monthExists()
+        // (facturación múltiple) ya usaba la versión completa.
+        const _todosLosPagos = typeof _getPaymentsAll === 'function' ? _getPaymentsAll() : getPayments();
+        const activoExiste = _todosLosPagos.some(p =>
           p.playerId === playerId &&
           p.type === 'Mensualidad' &&
+          !p.deleted &&
           extractBillingMonth(p) === mesRef
         );
         if (activoExiste) {

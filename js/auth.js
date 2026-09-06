@@ -953,7 +953,7 @@ function showClubIdToUser(clubId, clubName) {
               ${clubId}
             </code>
             <button 
-              onclick="copyClubId('${clubId}')" 
+              onclick="copyClubId('${escAttrJs(clubId)}')" 
               class="p-2 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
               title="Copiar Club ID"
             >

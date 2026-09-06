@@ -640,6 +640,15 @@
                 </button>
             </div>
 
+            <!-- 🛍️ Preventas (ventas de uniformes): abre el modal de gestión.
+                 Va FUERA de la grilla de arriba (esa está medida al píxel, no tocarla). -->
+            <button type="button" onclick="showSalesModal()"
+                class="w-full px-3 py-3 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold text-xs shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-transform focus:ring-2 focus:ring-teal-400 focus:outline-none mb-3"
+                style="touch-action: manipulation;">
+                <i data-lucide="shopping-bag" class="w-4 h-4 shrink-0"></i>
+                <span class="truncate min-w-0">Ventas / Preventa de uniformes</span>
+            </button>
+
             <!-- Buscador + Botón Registrar -->
             <div class="flex gap-2">
                 <!-- Botón Buscar -->
@@ -2188,6 +2197,10 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
                 </div>
             </div>
 
+            <!-- Cierres ya guardados: prueba visible de que el arqueo quedó -->
+            <div id="crHistory"
+                class="mt-4 pt-3 border-t border-gray-200 dark:border-gray-700"></div>
+
             <button id="btnSaveCashRegister" onclick="saveCashRegister()"
                 class="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold py-3.5 rounded-xl shadow-lg mt-6 flex items-center justify-center gap-2 transition-all active:scale-[0.98]">
                 <i data-lucide="file-check" class="w-5 h-5"></i>
@@ -2386,8 +2399,9 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Número de
                                     Camiseta</label>
-                                <input type="number" id="playerJerseyNumber" min="1" max="99"
+                                <input type="number" id="playerJerseyNumber" min="1" max="1000"
                                     class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-teal-500">
+                                <p id="jerseyHint" class="hidden text-xs mt-1 font-medium"></p>
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Talla
@@ -3423,6 +3437,7 @@ VISTA: CONFIGURACIÓN - MEJORADA PARA MOBILE
 
     <!-- 8️⃣ MÓDULOS DE ANÁLISIS Y CONFIGURACIÓN (CARGA DIFERIDA) -->
     <script defer src="js/accounting.js"></script>
+    <script defer src="js/sales.js"></script>
     <script defer src="js/dashboard.js"></script>
     <script defer src="js/sms-history.js"></script>
     <script defer src="js/settings.js"></script>

@@ -365,21 +365,21 @@ function renderThirdPartyIncomeCard(income) {
       ${income.notes ? `<div class="text-sm text-gray-500 dark:text-gray-400 mb-3 italic">📝 ${income.notes}</div>` : ''}
       
       <div class="flex gap-2">
-        <button onclick="generateThirdPartyIncomePDF('${income.id}')" 
+        <button onclick="generateThirdPartyIncomePDF('${escAttrJs(income.id)}')" 
           class="flex-1 bg-gray-800 hover:bg-gray-900 dark:bg-gray-700 dark:hover:bg-gray-600 text-white text-sm py-2 rounded-lg flex items-center justify-center gap-1">
           <i data-lucide="file-text" class="w-4 h-4"></i>
           PDF
         </button>
-        <button onclick="sendThirdPartyIncomeWhatsApp('${income.id}')" 
+        <button onclick="sendThirdPartyIncomeWhatsApp('${escAttrJs(income.id)}')" 
           class="flex-1 bg-green-600 hover:bg-green-700 text-white text-sm py-2 rounded-lg flex items-center justify-center gap-1">
           <i data-lucide="message-circle" class="w-4 h-4"></i>
           WhatsApp
         </button>
-        <button onclick="editThirdPartyIncome('${income.id}')" 
+        <button onclick="editThirdPartyIncome('${escAttrJs(income.id)}')" 
           class="bg-blue-600 hover:bg-blue-700 text-white text-sm py-2 px-3 rounded-lg" title="Editar">
           <i data-lucide="edit" class="w-4 h-4"></i>
         </button>
-        <button onclick="deleteThirdPartyIncomeConfirm('${income.id}')" 
+        <button onclick="deleteThirdPartyIncomeConfirm('${escAttrJs(income.id)}')" 
           class="bg-red-600 hover:bg-red-700 text-white text-sm py-2 px-3 rounded-lg" title="Eliminar">
           <i data-lucide="trash-2" class="w-4 h-4"></i>
         </button>

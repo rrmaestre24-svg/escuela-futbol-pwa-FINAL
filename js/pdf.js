@@ -1360,17 +1360,36 @@ async function generateCashRegisterClosurePDF(arqueo, ingresosText, egresosText)
 // 📊 PDF: PAGOS POR CATEGORÍA (mensualidad de un mes)
 // Mismo criterio de datos que la vista (usa _pbcCompute de accounting.js).
 // ========================================
-async function generatePaymentsByCategoryPDF(month) {
-  if (typeof window.jspdf === 'undefined') { loadJsPDF(() => generatePaymentsByCategoryPDF(month)); return; }
+async function generatePaymentsByCategoryPDF(month, categoria) {
+  if (typeof window.jspdf === 'undefined') { loadJsPDF(() => generatePaymentsByCategoryPDF(month, categoria)); return; }
   if (typeof _pbcCompute !== 'function') { showToast('❌ No se pudo generar el reporte'); return; }
   month = month || (typeof getCurrentDate === 'function' ? getCurrentDate() : new Date().toISOString()).substring(0, 7);
 
   try {
     const settings = (typeof getSchoolSettings === 'function') ? getSchoolSettings() : {};
-    const data = _pbcCompute(month);
+    let data = _pbcCompute(month);
     const mesLabel = (typeof _accFormatBillingMonth === 'function') ? _accFormatBillingMonth(month) : month;
 
-    if (!data.rows.length) { showToast('⚠️ No hay jugadores activos para ese mes'); return; }
+    // Filtro opcional por categoría. Los totales se RECALCULAN sobre lo filtrado
+    // para que las cajas del resumen cuadren con lo que realmente se imprime.
+    const soloCat = categoria ? String(categoria) : '';
+    if (soloCat) {
+      const rows = data.rows.filter(r => r.category === soloCat);
+      data = {
+        rows,
+        total: rows.reduce((t, r) => ({
+          registrados: t.registrados + r.registrados,
+          pagaron:     t.pagaron + r.pagaron,
+          faltan:      t.faltan + r.faltan,
+        }), { registrados: 0, pagaron: 0, faltan: 0 }),
+      };
+    }
+
+    if (!data.rows.length) {
+      showToast(soloCat ? '⚠️ Esa categoría no tiene jugadores en ese mes'
+                        : '⚠️ No hay jugadores activos para ese mes');
+      return;
+    }
 
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
@@ -1386,7 +1405,7 @@ async function generatePaymentsByCategoryPDF(month) {
     doc.setFontSize(16); doc.setTextColor(...primaryColor); doc.setFont(undefined, 'bold');
     doc.text(normalizeForPDF(settings.name || 'MI CLUB'), 42, 20);
     doc.setFontSize(12); doc.setTextColor(...textColor);
-    doc.text('Pagos por categoria', 42, 27);
+    doc.text(soloCat ? 'Pagos por categoria - ' + normalizeForPDF(soloCat) : 'Pagos por categoria', 42, 27);
     doc.setFontSize(10); doc.setTextColor(...gray); doc.setFont(undefined, 'normal');
     doc.text('Mensualidad de ' + normalizeForPDF(mesLabel), 42, 33);
     doc.setDrawColor(...primaryColor); doc.setLineWidth(0.5); doc.line(15, 38, 195, 38);
@@ -1471,7 +1490,11 @@ async function generatePaymentsByCategoryPDF(month) {
     if (y > 250) { doc.addPage(); y = 20; }
     if (typeof addSignatureToDocument === 'function') addSignatureToDocument(doc, Math.max(y + 4, 250));
 
-    doc.save(`Pagos-por-categoria-${month}.pdf`);
+    const sufijoCat = soloCat
+      ? '-' + soloCat.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                     .replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase()
+      : '';
+    doc.save(`Pagos-por-categoria-${month}${sufijoCat}.pdf`);
     if (typeof showToast === 'function') showToast('✅ PDF generado');
   } catch (e) {
     console.error('[pbc pdf]', e);

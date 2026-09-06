@@ -88,7 +88,7 @@ function updateDashboardBirthdays() {
             ${isTodayBirthday ? '🎉 ¡HOY!' : `En ${birthday.daysUntil} día${birthday.daysUntil > 1 ? 's' : ''}`} • ${age} años
           </p>
         </div>
-        <button onclick="sendBirthdayWhatsApp('${birthday.id}', ${birthday.type === 'staff'})" class="bg-white text-purple-600 px-3 py-1 rounded-lg text-sm font-medium hover:bg-opacity-90">
+        <button onclick="sendBirthdayWhatsApp('${escAttrJs(birthday.id)}', ${birthday.type === 'staff'})" class="bg-white text-purple-600 px-3 py-1 rounded-lg text-sm font-medium hover:bg-opacity-90">
           Felicitar
         </button>
       </div>
@@ -225,7 +225,7 @@ function updateDashboardNotifications() {
         <div class="flex items-center gap-2">
           <!-- Botón Omitir (Discreto) -->
           <button 
-            onclick="dismissNotification('${notif.id}')"
+            onclick="dismissNotification('${escAttrJs(notif.id)}')"
             title="Omitir esta notificación"
             class="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-lg transition-all duration-200"
           >
@@ -233,16 +233,16 @@ function updateDashboardNotifications() {
           </button>
 
           ${!notif.isVirtual ? `
-            <button onclick="downloadPaymentPDF('${notif.paymentId}')" class="p-1.5 text-blue-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all duration-200" title="PDF">
+            <button onclick="downloadPaymentPDF('${escAttrJs(notif.paymentId)}')" class="p-1.5 text-blue-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all duration-200" title="PDF">
               <i data-lucide="file-text" class="w-4 h-4"></i>
             </button>
-            <button onclick="markAsPaid('${notif.paymentId}')" class="p-1.5 text-gray-500 hover:text-gray-600 hover:bg-gray-50 dark:hover:bg-gray-900/20 rounded-lg transition-all duration-200" title="Marcar pagado">
+            <button onclick="markAsPaid('${escAttrJs(notif.paymentId)}')" class="p-1.5 text-gray-500 hover:text-gray-600 hover:bg-gray-50 dark:hover:bg-gray-900/20 rounded-lg transition-all duration-200" title="Marcar pagado">
               <i data-lucide="check-circle" class="w-4 h-4"></i>
             </button>
           ` : ''}
           <!-- Botón WhatsApp -->
           <button 
-            onclick="${notif.isVirtual ? `sendVirtualReminderWhatsApp('${notif.playerId}', '${notif.nextDueDate}')` : `sendPaymentNotificationWhatsApp('${notif.paymentId}')`}"
+            onclick="${notif.isVirtual ? `sendVirtualReminderWhatsApp('${escAttrJs(notif.playerId)}', '${escAttrJs(notif.nextDueDate)}')` : `sendPaymentNotificationWhatsApp('${escAttrJs(notif.paymentId)}')`}"
             class="p-1.5 text-green-500 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-all duration-200"
           >
             <i data-lucide="message-circle" class="w-4 h-4"></i>

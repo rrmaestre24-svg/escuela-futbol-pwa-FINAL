@@ -946,7 +946,7 @@ function activarFormatoMonto(input) {
 /** Aplica el formato a todos los campos de monto de la app. */
 function activarFormatoMontos() {
   ['paymentAmount', 'expenseAmount', 'thirdPartyIncomeAmount', '_miAmount',
-   'clubMonthlyFee', 'editPaymentAmount']
+   'clubMonthlyFee', 'editPaymentAmount', 'crCashCounted']
     .forEach((id) => activarFormatoMonto(document.getElementById(id)));
 }
 
@@ -955,6 +955,37 @@ function activarFormatoMontos() {
 window.addEventListener('DOMContentLoaded', () => {
   try { activarFormatoMontos(); } catch (e) { console.warn('[monto] formato:', e); }
 });
+
+// ========================================
+// ESCAPE PARA on*="fn('...')" — NO alcanza con escapar HTML
+// ========================================
+/* El navegador DECODIFICA las entidades del atributo y RECIÉN DESPUÉS compila
+   el contenido como JavaScript. Por eso escapar solo HTML no protege acá: un
+   &#39; vuelve a ser una comilla y cierra el string del handler, dejando
+   ejecutar código arbitrario. Verificado: un valor como
+
+       Sub15'); window.__pwned=1; //
+
+   pasado por el escape HTML de siempre produce un onclick que SÍ compila y
+   ejecuta lo inyectado.
+
+   El orden importa: primero se escapa para cadena JS (\ y ') y DESPUÉS para
+   atributo HTML (& primero, si no un "&#39;" escrito a mano se vuelve comilla
+   al decodificar). Así el navegador decodifica y le queda una comilla ya
+   escapada dentro del string, que es inofensiva. */
+function escAttrJs(valor) {
+  return String(valor ?? '')
+    // 1) cadena JS
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/\r?\n/g, '\\n')
+    // 2) atributo HTML (& va primero a propósito)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+window.escAttrJs = escAttrJs;
 
 // ── Sesión: distinguir "no hay datos" de "no tenés permiso" ──────────────────
 //

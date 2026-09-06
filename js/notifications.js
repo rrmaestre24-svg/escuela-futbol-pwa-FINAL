@@ -790,19 +790,19 @@ function renderNotifications() {
         
         <div class="flex gap-2">
           ${!notif.isVirtual ? `
-            <button onclick="generatePaymentNotificationPDF('${notif.paymentId}')" class="flex-1 bg-gray-800 hover:bg-gray-900 dark:bg-gray-700 dark:hover:bg-gray-600 text-white text-sm py-2 rounded-lg flex items-center justify-center gap-1">
+            <button onclick="generatePaymentNotificationPDF('${escAttrJs(notif.paymentId)}')" class="flex-1 bg-gray-800 hover:bg-gray-900 dark:bg-gray-700 dark:hover:bg-gray-600 text-white text-sm py-2 rounded-lg flex items-center justify-center gap-1">
               <i data-lucide="download" class="w-4 h-4"></i>
               PDF
             </button>
-            <button onclick="sendPaymentNotificationWhatsApp('${notif.paymentId}')" class="flex-1 bg-green-600 hover:bg-green-700 text-white text-sm py-2 rounded-lg flex items-center justify-center gap-1">
+            <button onclick="sendPaymentNotificationWhatsApp('${escAttrJs(notif.paymentId)}')" class="flex-1 bg-green-600 hover:bg-green-700 text-white text-sm py-2 rounded-lg flex items-center justify-center gap-1">
               <i data-lucide="message-circle" class="w-4 h-4"></i>
               WhatsApp
             </button>
-            <button onclick="markAsPaid('${notif.paymentId}'); renderNotifications();" class="bg-teal-600 hover:bg-teal-700 text-white text-sm py-2 px-3 rounded-lg" title="Marcar como pagado">
+            <button onclick="markAsPaid('${escAttrJs(notif.paymentId)}'); renderNotifications();" class="bg-teal-600 hover:bg-teal-700 text-white text-sm py-2 px-3 rounded-lg" title="Marcar como pagado">
               <i data-lucide="check" class="w-4 h-4"></i>
             </button>
           ` : `
-            <button onclick="sendVirtualReminderWhatsApp('${notif.playerId}', '${notif.nextDueDate}')" class="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg flex items-center justify-center gap-2 font-medium">
+            <button onclick="sendVirtualReminderWhatsApp('${escAttrJs(notif.playerId)}', '${escAttrJs(notif.nextDueDate)}')" class="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg flex items-center justify-center gap-2 font-medium">
               <i data-lucide="message-circle" class="w-4 h-4"></i>
               Enviar Recordatorio por Historial
             </button>

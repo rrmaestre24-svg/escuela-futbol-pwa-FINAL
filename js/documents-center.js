@@ -257,7 +257,10 @@ function _dcPlayerRow(p) {
     const docRows = docs.map(d =>
       '<div class="flex items-center justify-between gap-2">' +
         '<span class="text-xs text-gray-600 dark:text-gray-300 truncate">' + _dcDocIcon(d.fileType) + ' ' + _dcEsc(d.name) + '</span>' +
+        '<span class="flex items-center gap-1.5 shrink-0">' +
         '<button data-dc-action="download" data-url="' + _dcEsc(d.url) + '" class="px-2.5 py-1 rounded-md bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 text-xs font-semibold flex-shrink-0">Descargar</button>' +
+        '<button data-dc-action="delete-doc" data-id="' + _dcEsc(p.id) + '" data-doc="' + _dcEsc(d.id) + '" title="Eliminar documento" class="px-2.5 py-1 rounded-md bg-red-100 dark:bg-red-900 text-red-600 dark:text-red-300 text-xs font-semibold">🗑</button>' +
+        '</span>' +
       '</div>'
     ).join('');
     const emptyNote = !has
@@ -302,6 +305,8 @@ function _dcListClick(e) {
     const id = el.getAttribute('data-id');
     if (_dcOpenPlayers.has(id)) _dcOpenPlayers.delete(id); else _dcOpenPlayers.add(id);
     _dcRenderList();
+  } else if (action === 'delete-doc') {
+    _dcBorrarDoc(el.getAttribute('data-id'), el.getAttribute('data-doc'));
   } else if (action === 'download') {
     const url = el.getAttribute('data-url');
     // Solo https:// (bloquea esquemas peligrosos como javascript: o data:)
@@ -417,3 +422,68 @@ window.dcSetFilter = dcSetFilter;
 window.dcOnSearch = dcOnSearch;
 
 console.log('📁 Centro de Documentos cargado');
+
+/* Borrar un documento del jugador.
+   Vivía en la ficha del jugador; al sacar esa sección quedó sin lugar y los
+   clubes se quedaron SIN forma de borrar un documento mal cargado. Se rehace
+   acá, que es donde ahora se manejan los documentos.
+   Filtra por club_id en toda la operación: nunca puede tocar otro club. */
+async function _dcBorrarDoc(playerId, docId) {
+  if (!playerId || !docId) return;
+  const jugador = (typeof getPlayerById === 'function' ? getPlayerById(playerId) : null);
+  const doc = (jugador && jugador.documents || []).find(d => d.id === docId);
+  const nombre = (doc && doc.name) || 'este documento';
+
+  const ok = (typeof showAppConfirm === 'function')
+    ? await showAppConfirm(`\u00bfEliminar "${nombre}"? El registro se borra del perfil del jugador.`,
+        { type: 'danger', title: 'Eliminar documento', confirmText: 'S\u00ed, eliminar' })
+    : confirm(`\u00bfEliminar "${nombre}"?`);
+  if (!ok) return;
+
+  const clubId = typeof getClubId === 'function' ? getClubId() : localStorage.getItem('clubId');
+  if (!clubId || !jugador) { if (typeof showToast === 'function') showToast('\u274c No se pudo identificar el jugador'); return; }
+
+  let actuales = jugador.documents || [];
+  // Se parte de lo que hay en el SERVIDOR, no del cach\u00e9: si otro dispositivo
+  // subi\u00f3 algo, borrar desde una copia vieja lo har\u00eda desaparecer.
+  if (window.MODO_SUPABASE) {
+    try {
+      const r = await fetch(
+        `${window.SUPA_URL}/rest/v1/players?id=eq.${encodeURIComponent(playerId)}&club_id=eq.${encodeURIComponent(clubId)}&select=documents`,
+        { headers: { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}` } });
+      if (r.ok) {
+        const filas = await r.json();
+        const delServidor = (filas && filas[0] && filas[0].documents) || [];
+        const idsServidor = new Set(delServidor.map(d => d.id).filter(Boolean));
+        const soloLocales = actuales.filter(d => d.id && !idsServidor.has(d.id));
+        actuales = delServidor.concat(soloLocales);
+      }
+    } catch (_) { /* si falla, se sigue con lo local */ }
+  }
+
+  const quedan = actuales.filter(d => d.id !== docId);
+  const borrado = actuales.find(d => d.id === docId);
+  if (borrado && borrado.publicId && typeof deleteDocumentFromStorage === 'function') {
+    deleteDocumentFromStorage(borrado.publicId);
+  }
+
+  try {
+    const players = getPlayers();
+    const i = players.findIndex(x => x.id === playerId);
+    if (i !== -1) {
+      players[i] = Object.assign({}, players[i], { documents: quedan });
+      localStorage.setItem('players', JSON.stringify(players));
+      if (window.idb && window.idb.put) {
+        window.idb.put('players', players[i]).catch(e => console.warn('[idb] docs:', e));
+      }
+      if (typeof savePlayerToFirebase === 'function') await savePlayerToFirebase(players[i]);
+    } else if (typeof updatePlayer === 'function') {
+      updatePlayer(playerId, { documents: quedan });
+    }
+    if (typeof showToast === 'function') showToast('\ud83d\uddd1\ufe0f Documento eliminado');
+    _dcRenderList();
+  } catch (e) {
+    console.error('[documentos] borrar:', e);
+    if (typeof showToast === 'function') showToast('\u274c No se pudo eliminar');
+  }
+}

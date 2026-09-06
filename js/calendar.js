@@ -120,7 +120,7 @@ function renderCalendarGrid() {
     }
     
     html += `
-      <div class="${classes} ${dayColor}" onclick="showDayEvents('${dateStr}')">
+      <div class="${classes} ${dayColor}" onclick="showDayEvents('${escAttrJs(dateStr)}')">
         <span class="cd-num">${day}</span>
         <span class="calendar-weather" data-date="${dateStr}"></span>
         <span class="calendar-temp" data-date="${dateStr}"></span>
@@ -159,7 +159,7 @@ function showDayEvents(date) {
             <p class="text-sm text-gray-600 dark:text-gray-400">${event.time} - ${event.location || 'Sin ubicación'}</p>
             ${event.description ? `<p class="text-sm text-gray-500 dark:text-gray-400 mt-1">${event.description}</p>` : ''}
           </div>
-          <button onclick="deleteEventConfirm('${event.id}')" class="text-red-600 hover:text-red-700">
+          <button onclick="deleteEventConfirm('${escAttrJs(event.id)}')" class="text-red-600 hover:text-red-700">
             <i data-lucide="trash-2" class="w-4 h-4"></i>
           </button>
         </div>
@@ -222,7 +222,7 @@ function renderUpcomingEvents() {
             daysUntil === 1 ? '<span class="text-xs font-medium text-blue-600">Mañana</span>' :
             `<span class="text-xs text-gray-500">En ${daysUntil} días</span>`}
         </div>
-        <button onclick="deleteEventConfirm('${event.id}')" class="text-red-600 hover:text-red-700">
+        <button onclick="deleteEventConfirm('${escAttrJs(event.id)}')" class="text-red-600 hover:text-red-700">
           <i data-lucide="trash-2" class="w-4 h-4"></i>
         </button>
       </div>

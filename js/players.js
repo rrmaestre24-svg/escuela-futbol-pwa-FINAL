@@ -15,6 +15,9 @@ const PLAYERS_PER_PAGE = 20;
 
 // Mostrar modal agregar jugador
 function showAddPlayerModal() {
+  // El aviso de dorsal de la vez anterior no debe quedar pegado.
+  const _h = document.getElementById('jerseyHint');
+  if (_h) { _h.classList.add('hidden'); _h.textContent = ''; }
   currentEditingPlayerId = null;
   document.getElementById('playerModalTitle').textContent = 'Agregar Jugador';
   document.getElementById('playerForm').reset();
@@ -38,6 +41,9 @@ function showAddPlayerModal() {
 
 // Mostrar modal editar jugador
 function showEditPlayerModal(playerId) {
+  // El aviso de dorsal de la vez anterior no debe quedar pegado.
+  const _h = document.getElementById('jerseyHint');
+  if (_h) { _h.classList.add('hidden'); _h.textContent = ''; }
   currentEditingPlayerId = playerId;
   const player = getPlayerById(playerId);
   
@@ -98,6 +104,50 @@ document.getElementById('playerAvatar')?.addEventListener('change', function(e) 
   }
 });
 
+/* ── Dorsal repetido dentro de la categoría ──────────────────────────────
+   Dos jugadores de la MISMA categoría no deberían llevar el mismo número; entre
+   categorías distintas sí es normal (cada una es un equipo aparte).
+   No bloquea: avisa quién lo tiene y deja que el admin decida — sirve para
+   cuando un jugador se va y el número se reasigna. */
+function _dorsalOcupadoPor(numero, categoria, idQueSeEdita) {
+  const n = String(numero || '').trim();
+  if (!n) return null;                       // sin número no hay conflicto
+  const cat = String(categoria || '').trim();
+  const otros = (typeof getPlayers === 'function' ? getPlayers() : []) || [];
+  return otros.find(p =>
+    p && p.id !== idQueSeEdita &&
+    !p.deleted &&
+    String(p.jerseyNumber || '').trim() === n &&
+    String(p.category || '').trim() === cat
+  ) || null;
+}
+
+/* Aviso en vivo: se dispara al escribir el número o cambiar la categoría, para
+   que el admin vea el conflicto ANTES de guardar y no recién al confirmar. */
+function _revisarDorsalEnVivo() {
+  const hint = document.getElementById('jerseyHint');
+  const campo = document.getElementById('playerJerseyNumber');
+  const cat = document.getElementById('playerCategory');
+  if (!hint || !campo || !cat) return;
+
+  const ocupa = _dorsalOcupadoPor(campo.value, cat.value, document.getElementById('playerId')?.value || null);
+  if (!ocupa) { hint.classList.add('hidden'); hint.textContent = ''; return; }
+  hint.classList.remove('hidden');
+  hint.style.color = '#d97706';
+  hint.textContent = `⚠️ El ${String(campo.value).trim()} ya lo tiene ${ocupa.name} en ${cat.value}.`;
+}
+
+/* Se engancha por delegación en el documento: así funciona aunque el formulario
+   se dibuje después, y no depende de que DOMContentLoaded todavía no haya pasado
+   cuando corre este archivo. */
+['input', 'change'].forEach(evento => {
+  document.addEventListener(evento, (e) => {
+    if (e.target && (e.target.id === 'playerJerseyNumber' || e.target.id === 'playerCategory')) {
+      _revisarDorsalEnVivo();
+    }
+  });
+});
+
 // Guardar jugador
 document.getElementById('playerForm')?.addEventListener('submit', async function(e) {
   e.preventDefault();
@@ -128,6 +178,20 @@ document.getElementById('playerForm')?.addEventListener('submit', async function
       sisben: document.getElementById('playerSisben').value.trim()
     }
   };
+
+  // Aviso de dorsal repetido en la misma categoría (no bloquea: decide el admin)
+  const ocupa = _dorsalOcupadoPor(playerData.jerseyNumber, playerData.category, playerId || null);
+  if (ocupa) {
+    const seguir = confirm(
+      `El número ${playerData.jerseyNumber} ya lo tiene ${ocupa.name} en ${playerData.category}.\n\n` +
+      `¿Asignárselo igual? Van a quedar dos jugadores con el mismo dorsal en esa categoría.`
+    );
+    if (!seguir) {
+      const campo = document.getElementById('playerJerseyNumber');
+      if (campo) { campo.focus(); campo.select?.(); }
+      return;
+    }
+  }
 
   // Recibe el avatar final y el ID pregenerado (opcional) y guarda el jugador
   const savePlayerData = (avatar, preGeneratedId = null) => {
@@ -487,7 +551,7 @@ function renderPlayersList(append = false) {
                 ` : ''}
               </div>
               <button 
-                onclick="togglePlayerStatus('${player.id}')" 
+                onclick="togglePlayerStatus('${escAttrJs(player.id)}')" 
                 class="badge ${statusColor} text-xs cursor-pointer transition-all transform hover:scale-105 active:scale-95 flex items-center gap-1"
                 title="Click para cambiar estado"
               >
@@ -508,15 +572,15 @@ function renderPlayersList(append = false) {
               ` : ''}
             </div>
             <div class="mt-3 flex gap-2">
-              <button onclick="showPlayerDetails('${player.id}')" class="flex-1 bg-teal-600 hover:bg-teal-700 text-white text-sm py-2 px-3 rounded-lg flex items-center justify-center gap-1">
+              <button onclick="showPlayerDetails('${escAttrJs(player.id)}')" class="flex-1 bg-teal-600 hover:bg-teal-700 text-white text-sm py-2 px-3 rounded-lg flex items-center justify-center gap-1">
                 <i data-lucide="eye" class="w-4 h-4"></i>
                 Ver
               </button>
-              <button onclick="showEditPlayerModal('${player.id}')" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-sm py-2 px-3 rounded-lg flex items-center justify-center gap-1">
+              <button onclick="showEditPlayerModal('${escAttrJs(player.id)}')" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-sm py-2 px-3 rounded-lg flex items-center justify-center gap-1">
                 <i data-lucide="edit" class="w-4 h-4"></i>
                 Editar
               </button>
-              <button onclick="deletePlayerConfirm('${player.id}')" class="bg-red-600 hover:bg-red-700 text-white text-sm py-2 px-3 rounded-lg">
+              <button onclick="deletePlayerConfirm('${escAttrJs(player.id)}')" class="bg-red-600 hover:bg-red-700 text-white text-sm py-2 px-3 rounded-lg">
                 <i data-lucide="trash-2" class="w-4 h-4"></i>
               </button>
             </div>
@@ -580,6 +644,11 @@ document.getElementById('playerSearch')?.addEventListener('input', function() {
 });
 
 // Mostrar detalles del jugador - MEJORADO CON DOCUMENTO
+/* Temporizador del auto-refresco mientras el perfil está abierto (foto y datos
+   que el padre puede cambiar desde el portal). Vive fuera de las funciones
+   porque lo arranca showPlayerDetails y lo apaga closePlayerDetailsModal. */
+let _playerDetailsRefreshTimer = null;
+
 function showPlayerDetails(playerId, skipRefresh = false) {
   const player = getPlayerById(playerId);
   if (!player) {
@@ -593,6 +662,23 @@ function showPlayerDetails(playerId, skipRefresh = false) {
   const pending = payments.filter(p => p.status === 'Pendiente');
   const totalPaid = paid.reduce((sum, p) => sum + p.amount, 0);
   const totalPending = pending.reduce((sum, p) => sum + p.amount, 0);
+
+  /* Orden del historial: del más reciente al más viejo, como se lee un estado
+     de cuenta. El criterio es la FECHA, no el texto: ordenar por nombre pondría
+     "Abril, Agosto, Diciembre, Enero…", que no sirve. Para las mensualidades
+     manda el mes facturado (extractBillingMonth, el mismo que usa Contabilidad);
+     para el resto, la fecha de pago o de vencimiento. */
+  const _clavePago = (p) => {
+    const mes = (typeof extractBillingMonth === 'function') ? extractBillingMonth(p) : null;
+    if (mes) return mes + '-01';
+    return String(p.paidDate || p.dueDate || p.createdAt || '').slice(0, 10);
+  };
+  const paymentsOrdenados = [...payments].sort((a, b) => {
+    const ka = _clavePago(a), kb = _clavePago(b);
+    if (ka !== kb) return kb.localeCompare(ka);
+    // Mismo mes: desempata por número de factura, para que no baile el orden.
+    return String(b.invoiceNumber || '').localeCompare(String(a.invoiceNumber || ''));
+  });
   
   const isActive = player.status === 'Activo';
   const statusClass = isActive ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
@@ -610,7 +696,7 @@ function showPlayerDetails(playerId, skipRefresh = false) {
           </p>
         ` : ''}
         <button 
-          onclick="togglePlayerStatus('${player.id}'); showPlayerDetails('${player.id}')" 
+          onclick="togglePlayerStatus('${escAttrJs(player.id)}'); showPlayerDetails('${escAttrJs(player.id)}')" 
           class="inline-block mt-2 px-4 py-1 rounded-full text-sm font-medium ${statusClass} cursor-pointer hover:opacity-80 transition-opacity"
         >
           ${player.status || 'Activo'}
@@ -729,9 +815,9 @@ function showPlayerDetails(playerId, skipRefresh = false) {
           </div>
         </div>
         
-        ${payments.length > 0 ? `
+        ${paymentsOrdenados.length > 0 ? `
           <div class="space-y-2 max-h-48 overflow-y-auto">
-            ${payments.map(p => `
+            ${paymentsOrdenados.map(p => `
               <div class="flex items-center justify-between text-sm border-b border-gray-200 dark:border-gray-600 pb-2">
                 <div>
                   <p class="font-medium text-gray-800 dark:text-white">${p.concept}</p>
@@ -749,18 +835,15 @@ function showPlayerDetails(playerId, skipRefresh = false) {
         `}
       </div>
       
-  <!-- Documentos del jugador -->
-      ${renderDocumentsSection(player)}
-
   <!-- Botones de acción -->
         <div class="space-y-2">
           <!-- Fila 1: PDF y WhatsApp -->
           <div class="flex gap-2">
-            <button onclick="generatePlayerAccountStatementPDF('${player.id}')" class="flex-1 bg-teal-600 hover:bg-teal-700 text-white py-3 rounded-lg flex items-center justify-center gap-2">
+            <button onclick="generatePlayerAccountStatementPDF('${escAttrJs(player.id)}')" class="flex-1 bg-teal-600 hover:bg-teal-700 text-white py-3 rounded-lg flex items-center justify-center gap-2">
               <i data-lucide="file-text" class="w-5 h-5"></i>
               Estado de Cuenta PDF
             </button>
-            <button onclick="sendAccountStatementWhatsApp('${player.id}')" class="flex-1 bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg flex items-center justify-center gap-2">
+            <button onclick="sendAccountStatementWhatsApp('${escAttrJs(player.id)}')" class="flex-1 bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg flex items-center justify-center gap-2">
               <i data-lucide="message-circle" class="w-5 h-5"></i>
               Enviar WhatsApp
             </button>
@@ -805,89 +888,6 @@ function closePlayerDetailsModal() {
 // ── DOCUMENTOS DEL JUGADOR ───────────────────────────────────
 
 // Genera el HTML de la sección de documentos dentro del perfil
-function renderDocumentsSection(player) {
-  const docs = player.documents || [];
-  const MAX_DOCS = 5;
-
-  // Lista de documentos ya subidos
-  const docItems = docs.length === 0
-    ? '<p class="text-sm text-gray-500 dark:text-gray-400 text-center py-3">No hay documentos cargados</p>'
-    : docs.map(doc => `
-        <div class="flex items-center justify-between bg-white dark:bg-gray-600 rounded-lg px-3 py-2 gap-2">
-          <div class="flex items-center gap-2 min-w-0">
-            <span class="text-xl flex-shrink-0">${doc.fileType === 'pdf' ? '📄' : doc.fileType === 'word' ? '📝' : '🖼️'}</span>
-            <div class="min-w-0">
-              <p class="text-sm font-medium text-gray-800 dark:text-white truncate">${doc.name}</p>
-              <p class="text-xs text-gray-500 dark:text-gray-400">${doc.uploadedAt || ''}</p>
-            </div>
-          </div>
-          <div class="flex gap-1 flex-shrink-0">
-            <button onclick="downloadDocument('${doc.url}')"
-               class="px-3 py-1.5 rounded-lg bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400 hover:opacity-80 text-xs font-semibold">
-              Ver
-            </button>
-            <button onclick="deletePlayerDocument('${player.id}', '${doc.id}')"
-                    class="px-3 py-1.5 rounded-lg bg-red-100 dark:bg-red-900 text-red-600 dark:text-red-400 hover:opacity-80 text-xs font-semibold">
-              Borrar
-            </button>
-          </div>
-        </div>
-      `).join('');
-
-  // Formulario de carga — gateado por el módulo Portal de Padres.
-  // Sin portal: solo lectura (ver/descargar); la subida muestra un candado.
-  const _portalOk = (typeof moduloActivo === 'function') && moduloActivo('portal_padres');
-  let uploadForm;
-  if (!_portalOk) {
-    uploadForm = `
-    <div class="mt-3 flex items-center gap-2 text-xs text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg px-3 py-2.5">
-      <i data-lucide="lock" class="w-4 h-4 flex-shrink-0"></i>
-      <span>Subir documentos requiere el <strong>Portal de Padres</strong>. Podés ver y descargar los existentes.</span>
-    </div>`;
-  } else if (docs.length < MAX_DOCS) {
-    uploadForm = `
-    <div class="space-y-2 mt-3">
-      <p class="text-xs text-gray-500 dark:text-gray-400">
-        <strong class="text-blue-600 dark:text-blue-400">Paso 1:</strong> Escribí el nombre del documento
-      </p>
-      <input type="text" id="docName_${player.id}"
-             placeholder="Ej: Registro Civil, Foto carnet..."
-             class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
-      <p class="text-xs text-gray-500 dark:text-gray-400">
-        <strong class="text-blue-600 dark:text-blue-400">Paso 2:</strong> Buscá y seleccioná el archivo
-      </p>
-      <label class="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white py-2.5 rounded-lg cursor-pointer text-sm font-medium transition-all">
-        <i data-lucide="upload" class="w-4 h-4"></i>
-        Seleccionar archivo (PDF, imagen o Word)
-        <input type="file" class="hidden" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx"
-               onchange="uploadPlayerDocument('${player.id}', this)">
-      </label>
-    </div>`;
-  } else {
-    uploadForm = '<p class="text-xs text-center text-gray-500 mt-2">Límite de 5 documentos alcanzado</p>';
-  }
-
-  return `
-    <div id="docsSection_${player.id}" class="bg-gray-50 dark:bg-gray-700 rounded-xl p-4">
-      <h3 class="font-bold text-gray-800 dark:text-white mb-3 flex items-center gap-2">
-        <i data-lucide="folder-open" class="w-5 h-5 text-blue-600"></i>
-        Documentos
-        <span class="text-xs font-normal text-gray-500 dark:text-gray-400">${docs.length}/${MAX_DOCS}</span>
-      </h3>
-      <div class="space-y-2">
-        ${docItems}
-      </div>
-      ${uploadForm}
-    </div>
-  `;
-}
-
-// Timer de auto-refresco mientras el modal de detalles está abierto
-let _playerDetailsRefreshTimer = null;
-
-// Refresca desde Supabase al abrir el perfil lo que el padre puede editar en el
-// portal (foto, nombre, fecha, info médica, documentos), para que el club lo vea
-// al instante sin esperar el TTL del caché local.
 async function refreshPlayerFromSupabase(playerId) {
   if (!window.MODO_SUPABASE) return;
   const clubId = (typeof getClubId === 'function') ? getClubId() : null;
@@ -947,171 +947,6 @@ async function refreshPlayerFromSupabase(playerId) {
 }
 
 // Sube un documento al perfil del jugador
-async function uploadPlayerDocument(playerId, input) {
-  // Doble candado: subir documentos requiere el módulo Portal de Padres.
-  if (!(typeof moduloActivo === 'function' && moduloActivo('portal_padres'))) {
-    if (typeof showToast === 'function') showToast('🔒 Subir documentos requiere el Portal de Padres');
-    if (input) input.value = '';
-    return;
-  }
-  const file = input.files[0];
-  if (!file) return;
-
-  // Verificar que se escribió el nombre
-  const nameInput = document.getElementById(`docName_${playerId}`);
-  const docName = nameInput?.value.trim();
-  if (!docName) {
-    showToast('⚠️ Escribe el nombre del documento primero');
-    input.value = '';
-    return;
-  }
-
-  const player = getPlayerById(playerId);
-  if (!player) return;
-
-  let docs = player.documents || [];
-  let canUpdateDocsFieldDirectly = false;
-  let playerRef = null;
-  const clubId = localStorage.getItem('clubId');
-
-  if (window.MODO_SUPABASE) {
-    // Leer documentos desde Supabase y hacer merge con localStorage
-    // (evita sobreescribir docs subidos desde el portal de padres)
-    try {
-      const _sr = await fetch(
-        `${window.SUPA_URL}/rest/v1/players?id=eq.${encodeURIComponent(playerId)}&club_id=eq.${encodeURIComponent(clubId)}&select=documents&limit=1`,
-        { headers: { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}` } }
-      );
-      if (_sr.ok) {
-        const _srows = await _sr.json();
-        const supaDocs = _srows?.[0]?.documents || [];
-        const supaIds = new Set(supaDocs.map(d => d.id).filter(Boolean));
-        const localOnly = docs.filter(d => d.id && !supaIds.has(d.id));
-        docs = [...supaDocs, ...localOnly];
-      }
-    } catch (_) { /* usar docs locales si falla */ }
-    canUpdateDocsFieldDirectly = true;
-  }
-
-  if (docs.length >= 5) {
-    showToast('⚠️ Límite de 5 documentos alcanzado');
-    return;
-  }
-
-  // Deshabilitar botón mientras sube
-  const label = input.closest('label');
-  if (label) {
-    label.style.opacity = '0.6';
-    label.style.pointerEvents = 'none';
-  }
-  showToast('⏳ Subiendo documento...');
-
-  try {
-    const result = await uploadDocument(file, playerId);
-
-    const newDoc = {
-      id:         generateId(),
-      name:       docName,
-      url:        result.url,
-      publicId:   result.publicId,
-      fileType:   result.fileType,
-      uploadedAt: new Date().toLocaleString('es-CO', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' })
-    };
-
-    const updatedDocs = [...docs, newDoc];
-
-    if (canUpdateDocsFieldDirectly) {
-      const currentPlayers = getPlayers();
-      const playerIndex = currentPlayers.findIndex(p => p.id === playerId);
-      if (playerIndex !== -1) {
-        currentPlayers[playerIndex] = { ...currentPlayers[playerIndex], documents: updatedDocs };
-        localStorage.setItem('players', JSON.stringify(currentPlayers));
-        // 🆕 ESPEJO A INDEXEDDB (update documents)
-        if (window.idb && window.idb.put) {
-          window.idb.put('players', currentPlayers[playerIndex]).catch(e => console.warn('[idb] sync player (docs update) falló:', e));
-        }
-        if (typeof savePlayerToFirebase === 'function') {
-          savePlayerToFirebase(currentPlayers[playerIndex]).catch(() => {});
-        }
-      } else {
-        updatePlayer(playerId, { documents: updatedDocs });
-      }
-    } else {
-      updatePlayer(playerId, { documents: updatedDocs });
-    }
-
-    showToast('✅ Documento subido correctamente');
-    showPlayerDetails(playerId); // Refrescar la vista
-
-  } catch (error) {
-    showToast('❌ ' + error.message);
-    input.value = '';
-    if (label) {
-      label.style.opacity = '';
-      label.style.pointerEvents = '';
-    }
-  }
-}
-
-// Elimina un documento del perfil del jugador
-async function deletePlayerDocument(playerId, docId) {
-  const confirmed = await showAppConfirm('¿Eliminar este documento? El registro se borrará del perfil.', {
-    type: 'danger',
-    title: 'Eliminar documento',
-    confirmText: 'Sí, eliminar'
-  });
-  if (!confirmed) return;
-
-  const player = getPlayerById(playerId);
-  if (!player) return;
-
-  const clubId = localStorage.getItem('clubId');
-  let currentDocs = player.documents || [];
-
-  // En modo Supabase: merge con docs de Supabase antes de eliminar
-  if (window.MODO_SUPABASE && clubId) {
-    try {
-      const _sr = await fetch(
-        `${window.SUPA_URL}/rest/v1/players?id=eq.${encodeURIComponent(playerId)}&club_id=eq.${encodeURIComponent(clubId)}&select=documents&limit=1`,
-        { headers: { apikey: window.SUPA_ANON, Authorization: `Bearer ${window.SUPA_ANON}` } }
-      );
-      if (_sr.ok) {
-        const _srows = await _sr.json();
-        const supaDocs = _srows?.[0]?.documents || [];
-        const supaIds = new Set(supaDocs.map(d => d.id).filter(Boolean));
-        const localOnly = currentDocs.filter(d => d.id && !supaIds.has(d.id));
-        currentDocs = [...supaDocs, ...localOnly];
-      }
-    } catch (_) { /* usar docs locales si falla */ }
-  }
-
-  const docs = currentDocs.filter(d => d.id !== docId);
-  const docToDelete = currentDocs.find(d => d.id === docId);
-
-  if (docToDelete?.publicId) {
-    deleteDocumentFromStorage(docToDelete.publicId);
-  }
-  const currentPlayers = getPlayers();
-  const playerIndex = currentPlayers.findIndex(p => p.id === playerId);
-  if (playerIndex !== -1) {
-    currentPlayers[playerIndex] = { ...currentPlayers[playerIndex], documents: docs };
-    localStorage.setItem('players', JSON.stringify(currentPlayers));
-    // 🆕 ESPEJO A INDEXEDDB (update documents)
-    if (window.idb && window.idb.put) {
-      window.idb.put('players', currentPlayers[playerIndex]).catch(e => console.warn('[idb] sync player (docs) falló:', e));
-    }
-    if (typeof savePlayerToFirebase === 'function') {
-      savePlayerToFirebase(currentPlayers[playerIndex]).catch(() => {});
-    }
-    showToast('🗑️ Documento eliminado');
-    showPlayerDetails(playerId);
-    return;
-  }
-  updatePlayer(playerId, { documents: docs });
-  showToast('🗑️ Documento eliminado');
-  showPlayerDetails(playerId); // Refrescar la vista
-}
-
 // Eliminar jugador
 async function deletePlayerConfirm(playerId) {
   const player = getPlayerById(playerId);
@@ -1263,7 +1098,7 @@ function showParentCodeModal(player, code, isExisting) {
           <p class="text-xs text-slate-500 dark:text-slate-400 mb-1">Club ID</p>
           <p class="font-mono text-sm font-semibold text-slate-800 dark:text-slate-200">${clubId}</p>
         </div>
-        <button onclick="copyParentCode('${code}')" class="flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg border border-slate-100 dark:border-slate-700 text-slate-700 dark:text-slate-300 transition-colors group">
+        <button onclick="copyParentCode('${escAttrJs(code)}')" class="flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg border border-slate-100 dark:border-slate-700 text-slate-700 dark:text-slate-300 transition-colors group">
           <i data-lucide="copy" class="w-4 h-4 text-emerald-600 mb-1 group-hover:scale-110 transition-transform"></i>
           <span class="text-xs font-medium">Copiar Datos</span>
         </button>
@@ -1283,12 +1118,12 @@ function showParentCodeModal(player, code, isExisting) {
       
       <!-- Botones de acción principales -->
       <div class="space-y-3">
-        <button onclick="shareParentCodeWhatsApp('${player.name}', '${clubId}', '${code}', '${player.phone}')" class="w-full flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#128C7E] text-white py-3 rounded-xl font-medium transition-colors shadow-sm">
+        <button onclick="shareParentCodeWhatsApp('${escAttrJs(player.name)}', '${escAttrJs(clubId)}', '${escAttrJs(code)}', '${escAttrJs(player.phone)}')" class="w-full flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#128C7E] text-white py-3 rounded-xl font-medium transition-colors shadow-sm">
           <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
           Enviar Vía WhatsApp
         </button>
         
-        <button onclick="regenerateParentCode('${player.id}')" class="w-full flex items-center justify-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 py-3 rounded-xl font-medium transition-colors">
+        <button onclick="regenerateParentCode('${escAttrJs(player.id)}')" class="w-full flex items-center justify-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 py-3 rounded-xl font-medium transition-colors">
           <i data-lucide="refresh-cw" class="w-4 h-4"></i>
           Regenerar Nuevo Código
         </button>
@@ -1643,11 +1478,11 @@ function renderDuplicatePairHTML(pair, idx) {
       <p class="${nor}">Estado: ${p.status || 'Activo'}</p>
       ${p.enrollmentDate ? `<p class="text-xs text-gray-400 dark:text-gray-500">Creado: ${p.enrollmentDate}</p>` : ''}
       <div class="flex gap-1 pt-2">
-        <button onclick="closeDuplicatesModal(); showPlayerDetails('${p.id}')"
+        <button onclick="closeDuplicatesModal(); showPlayerDetails('${escAttrJs(p.id)}')"
           class="flex-1 py-1.5 text-xs rounded-lg bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 font-semibold hover:opacity-80">
           Ver
         </button>
-        <button onclick="deleteDuplicatePlayer('${p.id}', ${idx})"
+        <button onclick="deleteDuplicatePlayer('${escAttrJs(p.id)}', ${idx})"
           class="flex-1 py-1.5 text-xs rounded-lg bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 font-semibold hover:opacity-80">
           Eliminar
         </button>
@@ -1826,7 +1661,7 @@ function showNameDuplicatesTab() {
               <p class="text-sm font-semibold text-blue-700 dark:text-blue-300">→ ${fixRepeatedName(p.name)}</p>
               <p class="text-xs text-gray-500 dark:text-gray-400">${p.category || '—'}</p>
             </div>
-            <button onclick="fixOneRepeatedName('${p.id}')"
+            <button onclick="fixOneRepeatedName('${escAttrJs(p.id)}')"
               class="px-3 py-1.5 text-xs rounded-lg bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 font-semibold hover:opacity-80 whitespace-nowrap flex-shrink-0">
               Corregir
             </button>
@@ -1902,7 +1737,7 @@ function renderNameDuplicateGroup(group) {
         </p>
       </div>
       <div class="flex flex-col gap-1 flex-shrink-0">
-        <button onclick="keepThisPlayerDeleteRest('${p.id}', ${JSON.stringify(group.map(x => x.id)).replace(/"/g, '&quot;')})"
+        <button onclick="keepThisPlayerDeleteRest('${escAttrJs(p.id)}', ${JSON.stringify(group.map(x => x.id)).replace(/"/g, '&quot;')})"
           class="px-3 py-1.5 text-xs rounded-lg bg-green-600 hover:bg-green-700 text-white font-semibold whitespace-nowrap">
           ✓ Conservar este
         </button>

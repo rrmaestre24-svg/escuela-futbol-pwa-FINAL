@@ -1,9 +1,14 @@
 {
-  "version": "2.2.7",
+  "version": "2.2.9",
   "titulo": "¡Novedades de esta versión!",
   "novedades": [
-    "🖥️ Mejor vista en computadora: el contenido ahora se centra y no se estira de lado a lado, para leer y trabajar más cómodo en pantallas grandes.",
-    "📱 En el celular todo queda igual que siempre.",
-    "✨ Pequeños ajustes visuales."
+    "👕 NUEVO — Ventas / Preventa de uniformes: los papás piden desde el portal y te queda la lista armada para el proveedor.",
+    "📋 Planilla de la preventa ordenada por categoría, con talla, número, para quién es cada prenda y cuánto abonó.",
+    "📦 Dos informes: uno para el proveedor (sin precios) y uno interno con todo. Ahora salen con el color de tu escuela.",
+    "🔒 Cierre de Caja: ahora confirma que quedó guardado de verdad, muestra los cierres anteriores y avisa si el día ya tiene uno.",
+    "🧾 Facturación: cada escuela con su propia numeración, sin repetir números.",
+    "📄 Pagos por Categoría: un botón de PDF por cada categoría.",
+    "👤 Perfil del jugador: historial de pagos del más reciente al más viejo.",
+    "🔑 Ingreso más estable y arreglos en fallas al guardar que no avisaban."
   ]
 }

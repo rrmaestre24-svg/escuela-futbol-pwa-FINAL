@@ -1242,8 +1242,41 @@ function markCounterSyncRun(clubId) {
  * Obtener el siguiente número de factura (Firebase o Supabase según MODO_SUPABASE).
  * En Supabase usa el máximo local cross-módulos — suficiente para un solo admin activo.
  */
+/* Consecutivo ATÓMICO por club, calculado en el SERVIDOR (rpc next_invoice_number).
+   Cada escuela lleva su propia numeración: la función saca el club de
+   get_my_club_id(), así que nadie puede pedir ni ver el consecutivo de otra.
+   Al ser un INSERT..ON CONFLICT DO UPDATE..RETURNING toma un candado de fila,
+   así que dos dispositivos guardando a la vez NUNCA sacan el mismo número —
+   que es lo que el cálculo en el navegador no podía garantizar.
+
+   Devuelve null si no se pudo (sin red, sin sesión): ahí decide quien llama. */
+async function _consecutivoDelServidor() {
+  try {
+    if (!window.SUPA_URL) return null;
+    const res = await fetch(`${window.SUPA_URL}/rest/v1/rpc/next_invoice_number`, {
+      method: 'POST', headers: _supaHeaders(), body: '{}',
+    });
+    if (!res.ok) {
+      console.warn('⚠️ consecutivo del servidor no disponible:', res.status, await res.text());
+      return null;
+    }
+    const dato = await res.json();
+    const num = typeof dato === 'number' ? dato : parseInt(dato, 10);
+    if (!Number.isFinite(num) || num <= 0) return null;
+    return `INV-${new Date().getFullYear()}-${String(num).padStart(4, '0')}`;
+  } catch (e) {
+    console.warn('⚠️ consecutivo del servidor no disponible:', e.message);
+    return null;
+  }
+}
+
 async function getNextInvoiceNumberFromFirebase() {
   if (window.MODO_SUPABASE) {
+    const delServidor = await _consecutivoDelServidor();
+    if (delServidor) return delServidor;
+    // Respaldo sin conexión: el cálculo local. Puede repetir si dos equipos
+    // están offline a la vez, pero es preferible a no poder registrar el pago.
+    console.warn('📋 Usando consecutivo LOCAL (el servidor no respondió)');
     return getNextInvoiceNumberLocal();
   }
 
@@ -1314,21 +1347,66 @@ async function getNextInvoiceNumberFromFirebase() {
 /**
  * ✅ Consecutivo local (fallback) - cuenta todos los módulos con factura
  */
-function getNextInvoiceNumberLocal() {
-  const payments = typeof getPayments === 'function' ? (getPayments() || []) : [];
+/* Número más alto entre las facturas ANULADAS del club.
+   Si la consulta falla devuelve 0: así nunca hace RETROCEDER el consecutivo,
+   solo puede empujarlo hacia adelante. Son pocas filas (22 como máximo por
+   club al 05/09/2026), por eso se traen todas y se calcula acá. */
+async function _maxSecuenciaAnuladas() {
+  try {
+    const clubId = typeof getClubId === 'function' ? getClubId() : null;
+    if (!clubId || !window.SUPA_URL) return 0;
+    const res = await fetch(
+      `${window.SUPA_URL}/rest/v1/voided_payments?club_id=eq.${encodeURIComponent(clubId)}` +
+      `&select=invoice_number,original_data`,
+      { headers: _supaHeaders() });
+    if (!res.ok) { console.warn('⚠️ consecutivo: no se pudieron leer las anuladas:', res.status); return 0; }
+    const filas = await res.json();
+    if (!Array.isArray(filas)) return 0;
+    return filas.reduce((max, f) => {
+      const propio = extractInvoiceSequence(f && f.invoice_number);
+      const dentro = extractInvoiceSequence(f && f.original_data ? f.original_data.invoiceNumber : null);
+      return Math.max(max, propio, dentro);
+    }, 0);
+  } catch (e) {
+    console.warn('⚠️ consecutivo: anuladas no consultadas:', e.message);
+    return 0;
+  }
+}
+
+/* Consecutivo de factura = (número más alto conocido + 1).
+   Dos cuidados que costaron facturas repetidas en producción:
+
+   1) La fuente son TODOS los pagos (_getPaymentsAll), no getPayments(): ese se
+      queda en la ventana de la pantalla y en las 1000 filas que devuelve
+      PostgREST. Si el número más alto cae afuera, el consecutivo RETROCEDE y
+      repite un número ya emitido.
+
+   2) Se incluyen las facturas ANULADAS. Al anular, el pago sale de `payments`
+      y su número quedaba libre para reasignarse: medido en producción
+      (05/09/2026) había 36 números reusados en 5 clubes. Para la DIAN un
+      número emitido no se puede volver a usar aunque la factura se anule.
+
+   OJO — esto es solo el RESPALDO sin conexión. El camino normal pide el número
+   al servidor (rpc next_invoice_number), que sí es atómico y por club. Acá, con
+   dos dispositivos offline a la vez, el número todavía puede repetirse. */
+async function getNextInvoiceNumberLocal() {
+  const payments = typeof _getPaymentsAll === 'function' ? (_getPaymentsAll() || [])
+                 : (typeof getPayments === 'function' ? (getPayments() || []) : []);
   const expenses = typeof getExpenses === 'function' ? (getExpenses() || []) : [];
   const thirdPartyIncomes = typeof getThirdPartyIncomes === 'function' ? (getThirdPartyIncomes() || []) : [];
   const allInvoices = [...payments, ...expenses, ...thirdPartyIncomes];
 
-  const maxSequence = allInvoices.reduce((max, item) => {
-    const sequence = extractInvoiceSequence(item.invoiceNumber);
+  let maxSequence = allInvoices.reduce((max, item) => {
+    const sequence = extractInvoiceSequence(item && item.invoiceNumber);
     return Math.max(max, sequence);
   }, 0);
+
+  maxSequence = Math.max(maxSequence, await _maxSecuenciaAnuladas());
 
   const nextNumber = maxSequence + 1;
   const year = new Date().getFullYear();
   const invoiceNumber = `INV-${year}-${String(nextNumber).padStart(4, '0')}`;
-  
+
   console.log('📋 Consecutivo local (global):', invoiceNumber);
   return invoiceNumber;
 }

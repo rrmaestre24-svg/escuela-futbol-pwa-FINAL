@@ -570,7 +570,7 @@ function renderAccountingChunk(tbody, cards) {
       ? 'text-red-600 border-red-600 hover:bg-red-600'
       : 'text-green-600 border-green-600 hover:bg-green-600';
     const title  = alerta ? 'Recordar pago por WhatsApp' : 'Enviar WhatsApp';
-    return `<button onclick="sendPendingReminderWA('${r.player.id}')"
+    return `<button onclick="sendPendingReminderWA('${escAttrJs(r.player.id)}')"
                     title="${title}"
                     class="inline-flex items-center justify-center w-8 h-8 rounded hover:text-white border transition-colors ${cls}">
               <i data-lucide="message-circle" class="w-4 h-4"></i>
@@ -621,7 +621,7 @@ function renderAccountingChunk(tbody, cards) {
           <td class="py-3 text-center align-top sm:align-middle">
             <div class="inline-flex flex-col sm:flex-row items-center gap-1 sm:gap-1">
               ${waButtonHtml(r)}
-              <button onclick="generatePlayerAccountStatementPDF('${r.player.id}')" class="bg-teal-600 hover:bg-teal-700 text-white px-2 sm:px-3 py-1 rounded text-xs sm:text-sm whitespace-nowrap">
+              <button onclick="generatePlayerAccountStatementPDF('${escAttrJs(r.player.id)}')" class="bg-teal-600 hover:bg-teal-700 text-white px-2 sm:px-3 py-1 rounded text-xs sm:text-sm whitespace-nowrap">
                 <span class="hidden sm:inline">Estado </span>PDF
               </button>
             </div>
@@ -666,7 +666,7 @@ function renderAccountingChunk(tbody, cards) {
           </div>
           <div class="flex items-center gap-2 mt-3">
             ${waButtonHtml(r)}
-            <button onclick="generatePlayerAccountStatementPDF('${r.player.id}')" class="flex-1 bg-teal-600 hover:bg-teal-700 text-white px-3 py-2 rounded text-sm font-medium">
+            <button onclick="generatePlayerAccountStatementPDF('${escAttrJs(r.player.id)}')" class="flex-1 bg-teal-600 hover:bg-teal-700 text-white px-3 py-2 rounded text-sm font-medium">
               Estado PDF
             </button>
           </div>
@@ -1163,6 +1163,101 @@ function toggleVoidedSection() {
 window.toggleVoidedSection = toggleVoidedSection;
 
 // ========================================
+/* ── Historial y verificación del arqueo ──────────────────────────────────
+   El cierre de caja era "ciego": guardaba sin mirar el resultado y avisaba
+   éxito siempre, así que un fallo (sesión vencida, sin internet, RLS) pasaba
+   por bueno y el club se quedaba sin el cierre creyendo que lo tenía.
+   Acá se lee el historial del club para (a) demostrar que quedó guardado de
+   verdad y (b) avisar si el día ya tiene un arqueo hecho. */
+function _crHeaders(extra) {
+  return Object.assign({
+    apikey: window.SUPA_ANON,
+    Authorization: `Bearer ${window.SUPA_ANON}`,
+    'Content-Type': 'application/json',
+  }, extra || {});
+}
+
+// Devuelve el array de arqueos, o null si NO se pudo consultar (≠ "no hay ninguno").
+async function _crFetchRecent(limite = 8) {
+  const clubId = typeof getClubId === 'function' ? getClubId() : null;
+  if (!clubId || !window.SUPA_URL) return null;
+  try {
+    const r = await fetch(
+      `${window.SUPA_URL}/rest/v1/cash_registers?club_id=eq.${encodeURIComponent(clubId)}` +
+      `&select=id,date,cash_expected,cash_counted,discrepancy,audited_by,notes` +
+      `&order=date.desc&limit=${limite}`,
+      { headers: _crHeaders() });
+    if (!r.ok) { console.warn('[arqueo] historial:', r.status, await r.text()); return null; }
+    const filas = await r.json();
+    return Array.isArray(filas) ? filas : null;
+  } catch (e) {
+    console.warn('[arqueo] historial:', e?.message || e);
+    return null;
+  }
+}
+
+/* Confirma leyendo de vuelta que la fila existe. Es la única prueba real de que
+   se guardó: un upsert puede contestar OK y no dejar nada (familia de fallos
+   silenciosos del proyecto). */
+async function _crVerifySaved(id) {
+  const clubId = typeof getClubId === 'function' ? getClubId() : null;
+  if (!clubId || !id) return false;
+  try {
+    const r = await fetch(
+      `${window.SUPA_URL}/rest/v1/cash_registers?id=eq.${encodeURIComponent(id)}` +
+      `&club_id=eq.${encodeURIComponent(clubId)}&select=id`,
+      { headers: _crHeaders() });
+    if (!r.ok) return false;
+    const filas = await r.json();
+    return Array.isArray(filas) && filas.length > 0;
+  } catch (_) { return false; }
+}
+
+function _crMismoDiaLocal(iso, hoyISO) {
+  if (!iso) return false;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return false;
+  const local = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return local === hoyISO;
+}
+
+async function _crRenderHistory(hoyISO) {
+  const cont = document.getElementById('crHistory');
+  if (!cont) return;
+  cont.innerHTML = '<p class="text-xs text-gray-400 text-center py-2">Cargando cierres anteriores...</p>';
+
+  const filas = await _crFetchRecent();
+  if (filas === null) {
+    cont.innerHTML = '<p class="text-xs text-amber-600 dark:text-amber-400 text-center py-2">' +
+      'No se pudo leer el historial. Revisa la conexion o volve a iniciar sesion.</p>';
+    return;
+  }
+  if (!filas.length) {
+    cont.innerHTML = '<p class="text-xs text-gray-400 text-center py-2">Todavia no hay cierres guardados.</p>';
+    return;
+  }
+
+  const yaHoy = filas.some(f => _crMismoDiaLocal(f.date, hoyISO));
+  const aviso = yaHoy
+    ? '<div class="mb-2 p-2 rounded-lg text-xs font-semibold" ' +
+      'style="background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.45);color:#b45309;">' +
+      'Ojo: hoy ya tiene un cierre guardado. Si guardas otro, quedan los dos.</div>'
+    : '';
+
+  cont.innerHTML = aviso +
+    '<p class="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5">Ultimos cierres guardados</p>' +
+    filas.map(f => {
+      const d = Number(f.discrepancy || 0);
+      const colorDif = Math.abs(d) < 0.01 ? 'text-green-600' : (d > 0 ? 'text-yellow-600' : 'text-red-600');
+      const txt = Math.abs(d) < 0.01 ? 'Cuadro' : (d > 0 ? '+' + formatCurrency(d) : formatCurrency(d));
+      return `<div class="flex items-center justify-between gap-2 text-xs py-1.5 border-b border-gray-100 dark:border-gray-700 last:border-0">
+          <span class="text-gray-600 dark:text-gray-300 truncate">${_accEscapeHtml(formatDate(f.date))}
+            <span class="text-gray-400">· ${_accEscapeHtml(f.audited_by || '-')}</span></span>
+          <span class="font-bold ${colorDif} shrink-0">${_accEscapeHtml(txt)}</span>
+        </div>`;
+    }).join('');
+}
+
 // 🆕 ARQUEO DE CAJA DIARIO (Cierre de Caja)
 // ========================================
 
@@ -1237,13 +1332,21 @@ function openCashRegisterModal() {
   
   // Limpiar campos
   const crCashCounted = document.getElementById('crCashCounted');
-  if(crCashCounted) crCashCounted.value = '';
+  if(crCashCounted) {
+    crCashCounted.value = '';
+    // Separador de miles en vivo: "100000" se ve "100.000" mientras se teclea.
+    // activarFormatoMonto es idempotente, así que llamarla de nuevo no molesta.
+    if (typeof activarFormatoMonto === 'function') activarFormatoMonto(crCashCounted);
+  }
   const crNotes = document.getElementById('crNotes');
   if(crNotes) crNotes.value = '';
   const crAlert = document.getElementById('crDiscrepancyAlert');
   if(crAlert) crAlert.classList.add('hidden');
   
   modal.classList.remove('hidden');
+
+  // Historial: se pide aparte para no demorar la apertura del modal.
+  _crRenderHistory(currentLocalISODate);
 }
 
 function closeCashRegisterModal() {
@@ -1261,7 +1364,9 @@ function calculateCashRegisterDiscrepancy() {
       return;
   }
   
-  const cashCounted = parseFloat(countedInput) || 0;
+  // parseMonto entiende el texto con puntos de miles ("100.000" → 100000) y
+  // también el número pelado, así que sirve venga como venga.
+  const cashCounted = parseMonto(countedInput);
   const diff = cashCounted - cashExpected;
   
   alertBox.classList.remove('hidden', 'bg-green-100', 'text-green-800', 'border-green-300', 'bg-red-100', 'text-red-800', 'border-red-300', 'bg-yellow-100', 'text-yellow-800', 'border-yellow-300');
@@ -1297,7 +1402,7 @@ async function saveCashRegister() {
   btnText.innerText = 'Guardando Arqueo...';
 
   try {
-      const cashCounted = parseFloat(countedInput) || 0;
+      const cashCounted = parseMonto(countedInput);
       const cashExpected = parseFloat(document.getElementById('crCashExpected').dataset.val || 0);
       const bankExpected = parseFloat(document.getElementById('crBankExpected').dataset.val || 0);
       const notes = document.getElementById('crNotes').value.trim();
@@ -1314,11 +1419,34 @@ async function saveCashRegister() {
           auditedBy: currentUser.name || currentUser.email || 'Administrador'
       };
 
+      /* Guardar y COMPROBAR. Antes se ignoraba el resultado y se avisaba éxito
+         siempre: si fallaba (sesión vencida, sin internet, RLS) el club se
+         quedaba sin cierre creyendo que lo tenía. Ahora se relee la fila, que
+         es la única prueba de que quedó guardada. */
+      let guardado = false;
       if (typeof saveCashRegisterToFirebase === 'function') {
-          await saveCashRegisterToFirebase(newArqueo);
+          guardado = await saveCashRegisterToFirebase(newArqueo) !== false;
+          if (guardado) guardado = await _crVerifySaved(newArqueo.id);
+
+          // Un solo reintento: si el token estaba vencido, se refresca y va de nuevo.
+          if (!guardado) {
+              try {
+                  const sa = window.SupaAuthV2;
+                  if (sa && typeof sa.refreshToken === 'function') await sa.refreshToken();
+              } catch (_) {}
+              await saveCashRegisterToFirebase(newArqueo);
+              guardado = await _crVerifySaved(newArqueo.id);
+          }
       }
-      
-      showToast('✅ Arqueo de caja guardado con éxito');
+
+      if (!guardado) {
+          // El modal NO se cierra: los datos contados quedan a la vista para
+          // reintentar, y no se entrega un PDF de algo que no se guardó.
+          showToast('❌ No se pudo guardar el cierre. Revisá la conexión o volvé a iniciar sesión.');
+          return;
+      }
+
+      showToast('✅ Arqueo de caja guardado y verificado');
       
       closeCashRegisterModal();
       
@@ -2266,13 +2394,18 @@ function renderPaymentsByCategoryCard() {
                 <span class="text-red-600 dark:text-red-400 font-semibold">${r.faltan} ${r.faltan === 1 ? 'falta' : 'faltan'}</span>
               </p>
             </div>
+            <button onclick="event.stopPropagation(); generatePaymentsByCategoryPDF('${escAttrJs(month)}', '${escAttrJs(r.category)}')"
+              title="Descargar el PDF de esta categoría"
+              class="shrink-0 flex items-center gap-1 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold px-2 py-1.5 rounded-lg transition-colors">
+              <i data-lucide="file-text" class="w-3.5 h-3.5"></i> PDF
+            </button>
             <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 transition-transform shrink-0" id="pbcChevron-${i}"></i>
           </div>
           <div id="pbcFaltan-${i}" class="hidden px-3 pb-3 pt-1 space-y-1.5">
             ${r.faltanList.map(pl => `
               <div class="flex items-center justify-between gap-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2">
                 <span class="text-sm text-gray-700 dark:text-gray-200 truncate">${_accEscapeHtml(pl.name || 'Sin nombre')}${pl.jerseyNumber ? ' <span class="text-teal-500">#' + _accEscapeHtml(pl.jerseyNumber) + '</span>' : ''}</span>
-                <button onclick="_pbcRecordatorioWA('${_accEscapeHtml(pl.id)}', '${_accEscapeHtml(month)}')" title="Escribir por WhatsApp"
+                <button onclick="_pbcRecordatorioWA('${escAttrJs(pl.id)}', '${escAttrJs(month)}')" title="Escribir por WhatsApp"
                   class="shrink-0 flex items-center gap-1 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg transition-colors">
                   <i data-lucide="message-circle" class="w-3.5 h-3.5"></i> WhatsApp
                 </button>
@@ -2464,10 +2597,10 @@ function _renderMorososReview() {
           </div>
         </div>
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3">
-          <button onclick="_morososRecordatorio('${_accEscapeHtml(pl.id)}')" class="flex items-center justify-center gap-1 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold px-2 py-2 rounded-lg"><i data-lucide="message-circle" class="w-3.5 h-3.5"></i> Recordatorio</button>
-          <button onclick="_morososEximirAbrir('${_accEscapeHtml(pl.id)}')" class="flex items-center justify-center gap-1 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold px-2 py-2 rounded-lg"><i data-lucide="badge-check" class="w-3.5 h-3.5"></i> Eximir mes(es)</button>
-          <button onclick="_morososInactivar('${_accEscapeHtml(pl.id)}')" class="flex items-center justify-center gap-1 bg-gray-600 hover:bg-gray-700 text-white text-xs font-semibold px-2 py-2 rounded-lg"><i data-lucide="user-x" class="w-3.5 h-3.5"></i> Inactivar</button>
-          <button onclick="_morososSnoozePlayer('${_accEscapeHtml(pl.id)}')" class="flex items-center justify-center gap-1 bg-slate-200 dark:bg-slate-700 text-gray-700 dark:text-gray-200 hover:bg-slate-300 dark:hover:bg-slate-600 text-xs font-semibold px-2 py-2 rounded-lg"><i data-lucide="clock" class="w-3.5 h-3.5"></i> Revisar después</button>
+          <button onclick="_morososRecordatorio('${escAttrJs(pl.id)}')" class="flex items-center justify-center gap-1 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold px-2 py-2 rounded-lg"><i data-lucide="message-circle" class="w-3.5 h-3.5"></i> Recordatorio</button>
+          <button onclick="_morososEximirAbrir('${escAttrJs(pl.id)}')" class="flex items-center justify-center gap-1 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold px-2 py-2 rounded-lg"><i data-lucide="badge-check" class="w-3.5 h-3.5"></i> Eximir mes(es)</button>
+          <button onclick="_morososInactivar('${escAttrJs(pl.id)}')" class="flex items-center justify-center gap-1 bg-gray-600 hover:bg-gray-700 text-white text-xs font-semibold px-2 py-2 rounded-lg"><i data-lucide="user-x" class="w-3.5 h-3.5"></i> Inactivar</button>
+          <button onclick="_morososSnoozePlayer('${escAttrJs(pl.id)}')" class="flex items-center justify-center gap-1 bg-slate-200 dark:bg-slate-700 text-gray-700 dark:text-gray-200 hover:bg-slate-300 dark:hover:bg-slate-600 text-xs font-semibold px-2 py-2 rounded-lg"><i data-lucide="clock" class="w-3.5 h-3.5"></i> Revisar después</button>
         </div>
       </div>`;
   }).join('');
@@ -2520,7 +2653,7 @@ function _morososEximirAbrir(playerId) {
       <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">${_accEscapeHtml(item.player.name || '')} — se registrará cada mes elegido como <b>Exento ($0)</b> y dejará de figurar como deuda.</p>
       <div class="max-h-52 overflow-y-auto mb-3 border border-gray-200 dark:border-gray-700 rounded-lg p-1">${checks}</div>
       <div class="flex gap-2">
-        <button onclick="_morososEximirConfirmar('${_accEscapeHtml(playerId)}')" class="flex-1 bg-amber-500 hover:bg-amber-600 text-white py-2.5 rounded-xl text-sm font-bold">Eximir seleccionados</button>
+        <button onclick="_morososEximirConfirmar('${escAttrJs(playerId)}')" class="flex-1 bg-amber-500 hover:bg-amber-600 text-white py-2.5 rounded-xl text-sm font-bold">Eximir seleccionados</button>
         <button onclick="closeMorososEximir()" class="flex-1 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 py-2.5 rounded-xl text-sm font-bold">Cancelar</button>
       </div>
     </div>`;

@@ -744,7 +744,7 @@ function renderSchoolUsers() {
         </div>
       </div>
       ${!user.isMainAdmin && currentUser.isMainAdmin ? `
-        <button onclick="deleteSchoolUser('${user.id}')" class="text-red-600 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20">
+        <button onclick="deleteSchoolUser('${escAttrJs(user.id)}')" class="text-red-600 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20">
           <i data-lucide="trash-2" class="w-4 h-4"></i>
         </button>
       ` : ''}

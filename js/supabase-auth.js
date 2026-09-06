@@ -106,9 +106,32 @@
     return url.includes('/rest/v1/') || url.includes('/storage/v1/') || url.includes('/functions/v1/');
   }
 
+  /* ¿La app tiene el helper v2 con sesión activa?
+     v2 (Supabase Auth real) es la identidad verdadera de la app principal; v1
+     sólo acuña JWT para el portal de padres y para los clubes que quedaron en el
+     flujo viejo. El portal de padres NO carga v2, así que allí esto da false
+     siempre y nada cambia. */
+  function _v2Manda() {
+    try {
+      return !!(window.SupaAuthV2
+        && typeof window.SupaAuthV2.getToken === 'function'
+        && window.SupaAuthV2.getToken());
+    } catch (_) { return false; }
+  }
+
   window.fetch = async function (input, init = {}) {
     const url = typeof input === 'string' ? input : (input && input.url) || '';
     if (_shouldUseJwt(url)) {
+      /* ⛔ Si v2 tiene sesión, ya puso SU Authorization y v1 no lo toca.
+         v2 se instala DESPUÉS que v1, así que la cadena es v2 → v1 → red: v1
+         corre último y antes pisaba el header sin mirar de quién era el token.
+         Con una sesión de padre viva en v1 (pasa al probar el portal en el mismo
+         origen), la app de admin salía autenticada como PADRE: get_my_club_id()
+         devuelve NULL para 'parent', así que las lecturas colaban por la policy
+         de padres pero TODA escritura afectaba 0 filas y PostgREST contestaba
+         200 con [] — un fallo silencioso, sin error a la vista. */
+      if (_v2Manda()) return _origFetch(input, init);
+
       // 1) Refresh proactivo si el token está próximo a expirar
       if (_session && _isExpiredSoon(_session)) {
         try { await _refresh(); } catch (_) {}

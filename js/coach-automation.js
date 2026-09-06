@@ -128,22 +128,22 @@ function renderCoachAccessList() {
                 </div>
                 
                 <div class="flex items-center gap-1">
-                    <button onclick="editCoachPWA('${coach.id}')" 
+                    <button onclick="editCoachPWA('${escAttrJs(coach.id)}')" 
                             title="Modificar Profesor"
                             class="p-2 rounded-xl text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/40 transition-colors">
                         <i data-lucide="edit-2" class="w-4 h-4"></i>
                     </button>
-                    <button onclick="copyCoachCredentials('${coach.id}')" 
+                    <button onclick="copyCoachCredentials('${escAttrJs(coach.id)}')" 
                             title="Copiar Acceso"
                             class="p-2 rounded-xl text-blue-600 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 transition-colors">
                         <i data-lucide="copy" class="w-5 h-5"></i>
                     </button>
-                    <button onclick="sendCoachWhatsApp('${coach.id}')" 
+                    <button onclick="sendCoachWhatsApp('${escAttrJs(coach.id)}')" 
                             title="Enviar Acceso por WhatsApp"
                             class="p-2 rounded-xl text-emerald-600 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:hover:bg-emerald-900/40 transition-colors">
                         <i data-lucide="message-circle" class="w-5 h-5"></i>
                     </button>
-                    <button onclick="deleteCoachPWA('${coach.id}')" 
+                    <button onclick="deleteCoachPWA('${escAttrJs(coach.id)}')" 
                             title="Eliminar Profesor"
                             class="p-2 rounded-xl text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/40 transition-colors">
                         <i data-lucide="trash-2" class="w-4 h-4"></i>
