@@ -250,6 +250,14 @@ async function _svFetchAllOrders(clubId, campaignId) {
 
 // ── Modal principal ──────────────────────────────────────────────────────────
 function showSalesModal() {
+  /* Ocultar el botón no alcanza: se puede llamar desde la consola, o quedar un
+     botón viejo si la licencia cambió a mitad de sesión. moduloActivo() falla
+     CERRADO: ante cualquier duda, deniega. */
+  if (typeof moduloActivo === 'function' && !moduloActivo('portal_padres')) {
+    if (typeof mostrarModuloBloqueado === 'function') mostrarModuloBloqueado('portal_padres');
+    else if (typeof showToast === 'function') showToast('🔒 La preventa necesita el módulo Portal de Padres');
+    return;
+  }
   let modal = document.getElementById('salesModal');
   if (!modal) {
     modal = document.createElement('div');

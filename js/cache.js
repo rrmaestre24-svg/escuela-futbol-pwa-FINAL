@@ -148,11 +148,38 @@ function mostrarNovedadesModal(data) {
 // bandera, se muestra el modal una vez y se limpia. Nunca aparece junto al aviso de actualizar.
 async function checkNovedadesPostUpdate() {
   try {
-    let pending = null;
-    try { pending = localStorage.getItem('pendingNovedades'); } catch (_) {}
-    if (pending !== '1') return;                                  // solo tras un update aceptado
-    try { localStorage.removeItem('pendingNovedades'); } catch (_) {}
     const cur = (window.APP_STATE && window.APP_STATE.version) || '';
+
+    /* Se muestra si la persona todavía no vio las novedades de ESTA versión,
+       sin importar cómo llegó a ella. Antes dependía de que pasara por el aviso
+       de actualizar: si el Service Worker se activaba por otro camino (una
+       recarga forzada, un navegador que descartó el registro), la novedad se
+       perdía para siempre y el club nunca se enteraba de lo nuevo.
+
+       La bandera 'pendingNovedades' se sigue respetando para el caso normal. */
+    let vista = null, pending = null;
+    try {
+      vista   = localStorage.getItem('novedadesVistas');
+      pending = localStorage.getItem('pendingNovedades');
+    } catch (_) {}
+
+    /* Instalación nueva de verdad: no hay nada que anunciar, es la app
+       arrancando por primera vez. Se distingue por si el dispositivo YA tiene
+       un club configurado — si lo tiene, es alguien que viene usando la app y
+       simplemente nunca se le guardó la marca (por ejemplo porque actualizó
+       antes de que existiera este mecanismo). A ese SÍ hay que mostrarle. */
+    let yaUsaba = false;
+    try { yaUsaba = !!localStorage.getItem('clubId'); } catch (_) {}
+    if (!vista && pending !== '1' && !yaUsaba) {
+      try { if (cur) localStorage.setItem('novedadesVistas', cur); } catch (_) {}
+      return;
+    }
+    if (pending !== '1' && vista === cur) return;   // ya las vio
+
+    try {
+      localStorage.removeItem('pendingNovedades');
+      if (cur) localStorage.setItem('novedadesVistas', cur);
+    } catch (_) {}
     let intentos = 0;
     const iv = setInterval(async () => {
       const cubierto = document.getElementById('sessionLoader') || document.getElementById('adminWelcomeSplash');

@@ -642,8 +642,8 @@
 
             <!-- 🛍️ Preventas (ventas de uniformes): abre el modal de gestión.
                  Va FUERA de la grilla de arriba (esa está medida al píxel, no tocarla). -->
-            <button type="button" onclick="showSalesModal()"
-                class="w-full px-3 py-3 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold text-xs shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-transform focus:ring-2 focus:ring-teal-400 focus:outline-none mb-3"
+            <button type="button" id="btnPreventa" onclick="showSalesModal()"
+                class="hidden w-full px-3 py-3 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold text-xs shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-transform focus:ring-2 focus:ring-teal-400 focus:outline-none mb-3"
                 style="touch-action: manipulation;">
                 <i data-lucide="shopping-bag" class="w-4 h-4 shrink-0"></i>
                 <span class="truncate min-w-0">Ventas / Preventa de uniformes</span>

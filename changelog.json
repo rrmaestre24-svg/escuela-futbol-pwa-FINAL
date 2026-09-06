@@ -1,5 +1,5 @@
 {
-  "version": "2.2.9",
+  "version": "2.2.10",
   "titulo": "¡Novedades de esta versión!",
   "novedades": [
     "👕 NUEVO — Ventas / Preventa de uniformes: los papás piden desde el portal y te queda la lista armada para el proveedor.",
@@ -9,6 +9,7 @@
     "🧾 Facturación: cada escuela con su propia numeración, sin repetir números.",
     "📄 Pagos por Categoría: un botón de PDF por cada categoría.",
     "👤 Perfil del jugador: historial de pagos del más reciente al más viejo.",
-    "🔑 Ingreso más estable y arreglos en fallas al guardar que no avisaban."
+    "🔑 Ingreso más estable y arreglos en fallas al guardar que no avisaban.",
+    "👕 La preventa aparece solo en las escuelas que tienen activo el Portal de Padres."
   ]
 }

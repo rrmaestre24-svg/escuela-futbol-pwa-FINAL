@@ -270,6 +270,15 @@ function _applyModuloButtons(modulos) {
       btn.onclick = function () { mostrarModuloBloqueado(key); };
     }
   });
+    /* Preventa no es un módulo de pago aparte, pero DEPENDE del Portal de
+       Padres: son los papás los que piden desde ahí. Sin portal el botón no
+       sirve de nada, así que nace oculto (class="hidden" en el HTML) y solo se
+       muestra cuando el club tiene el módulo activo. */
+    const btnPreventa = document.getElementById('btnPreventa');
+    if (btnPreventa) {
+      btnPreventa.classList.toggle('hidden', !(modulos && modulos.portal_padres === true));
+    }
+
   if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
 }
 
