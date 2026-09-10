@@ -5,174 +5,169 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Política de Privacidad - MY CLUB</title>
     <meta name="description" content="Política de privacidad de MY CLUB - Sistema de gestión para escuelas de fútbol">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        :root {
+            --primary: #6C63FF;
+            --primary-light: #8B83FF;
+            --accent: #00D4AA;
+            --bg-dark: #0B0E1A;
+            --bg-card: #131627;
+            --text-primary: #F0F0F5;
+            --text-secondary: #A0A3B5;
+            --text-muted: #8B8FA3;
+            --border: rgba(108, 99, 255, 0.15);
+            color-scheme: dark;
         }
-        
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             line-height: 1.7;
-            color: #333;
-            background-color: #f9fafb;
+            color: var(--text-secondary);
+            background-color: var(--bg-dark);
         }
-        
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 40px 20px;
-        }
-        
+
+        .container { max-width: 800px; margin: 0 auto; padding: 40px 20px; }
+
         header {
-            background: linear-gradient(135deg, #0d9488 0%, #065f46 100%);
-            color: white;
-            padding: 40px 20px;
+            background: linear-gradient(rgba(11,14,26,0.42), rgba(11,14,26,0.42)),
+                        linear-gradient(135deg, #6C63FF 0%, #00D4AA 100%);
+            color: #fff;
+            padding: 48px 20px;
             text-align: center;
             margin-bottom: 40px;
         }
-        
+
         header h1 {
+            font-family: 'Outfit', sans-serif;
             font-size: 2rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            color: #fff;
             margin-bottom: 10px;
         }
-        
-        header p {
-            opacity: 0.9;
-            font-size: 0.95rem;
-        }
-        
+
+        header p { color: rgba(255, 255, 255, 0.92); font-size: 0.95rem; }
+
         .content {
-            background: white;
-            border-radius: 12px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
             padding: 40px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
         }
-        
+
         h2 {
-            color: #0d9488;
+            font-family: 'Outfit', sans-serif;
+            color: var(--primary-light);
             font-size: 1.4rem;
+            font-weight: 700;
             margin-top: 35px;
             margin-bottom: 15px;
             padding-bottom: 8px;
-            border-bottom: 2px solid #e5e7eb;
+            border-bottom: 1px solid var(--border);
         }
-        
-        h2:first-of-type {
-            margin-top: 0;
-        }
-        
+
+        h2:first-of-type { margin-top: 0; }
+
         h3 {
-            color: #374151;
+            font-family: 'Outfit', sans-serif;
+            color: var(--text-primary);
             font-size: 1.1rem;
+            font-weight: 600;
             margin-top: 25px;
             margin-bottom: 10px;
         }
-        
-        p {
-            margin-bottom: 15px;
-            color: #4b5563;
-        }
-        
-        ul, ol {
-            margin-bottom: 15px;
-            padding-left: 25px;
-            color: #4b5563;
-        }
-        
-        li {
-            margin-bottom: 8px;
-        }
-        
+
+        p { margin-bottom: 15px; color: var(--text-secondary); }
+        strong { color: var(--text-primary); font-weight: 600; }
+
+        ul, ol { margin-bottom: 15px; padding-left: 25px; color: var(--text-secondary); }
+        li { margin-bottom: 8px; }
+        li::marker { color: var(--primary); }
+
+        .content a { color: var(--accent); text-decoration: none; }
+        .content a:hover { text-decoration: underline; }
+
         .highlight-box {
-            background-color: #f0fdfa;
-            border-left: 4px solid #0d9488;
+            background-color: rgba(0, 212, 170, 0.08);
+            border-left: 4px solid var(--accent);
             padding: 15px 20px;
             margin: 20px 0;
-            border-radius: 0 8px 8px 0;
+            border-radius: 0 10px 10px 0;
         }
-        
-        .highlight-box p {
-            margin-bottom: 0;
-            color: #065f46;
-        }
-        
+
+        .highlight-box p { margin-bottom: 0; color: #7FE7D0; }
+        .highlight-box strong { color: #A5F3E0; }
+
         .warning-box {
-            background-color: #fef3c7;
-            border-left: 4px solid #f59e0b;
+            background-color: rgba(245, 158, 11, 0.10);
+            border-left: 4px solid #F59E0B;
             padding: 15px 20px;
             margin: 20px 0;
-            border-radius: 0 8px 8px 0;
+            border-radius: 0 10px 10px 0;
         }
-        
-        .warning-box p {
-            margin-bottom: 0;
-            color: #92400e;
-        }
-        
+
+        .warning-box p { margin-bottom: 0; color: #F3C77A; }
+        .warning-box strong { color: #FCD9A0; }
+
         table {
             width: 100%;
             border-collapse: collapse;
             margin: 20px 0;
         }
-        
-        th, td {
-            padding: 12px 15px;
-            text-align: left;
-            border-bottom: 1px solid #e5e7eb;
-        }
-        
+
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid var(--border); }
+
         th {
-            background-color: #f9fafb;
-            color: #374151;
+            background-color: rgba(108, 99, 255, 0.10);
+            color: var(--text-primary);
             font-weight: 600;
         }
-        
-        td {
-            color: #4b5563;
-        }
-        
+
+        td { color: var(--text-secondary); }
+
         .contact-info {
-            background-color: #f3f4f6;
+            background-color: rgba(108, 99, 255, 0.07);
+            border: 1px solid var(--border);
             padding: 25px;
-            border-radius: 8px;
+            border-radius: 12px;
             margin-top: 30px;
         }
-        
-        .contact-info h3 {
-            margin-top: 0;
-            color: #0d9488;
-        }
-        
+
+        .contact-info h3 { margin-top: 0; color: var(--primary-light); }
+
         footer {
             text-align: center;
             padding: 30px 20px;
-            color: #6b7280;
+            color: var(--text-muted);
             font-size: 0.9rem;
         }
-        
-        footer a {
-            color: #0d9488;
-            text-decoration: none;
-        }
-        
-        footer a:hover {
-            text-decoration: underline;
-        }
-        
+
+        footer a { color: var(--accent); text-decoration: none; }
+        footer a:hover { text-decoration: underline; }
+
+
+        .pista-tabla { display: none; }
         @media (max-width: 600px) {
-            .content {
-                padding: 25px;
-            }
-            
-            header h1 {
-                font-size: 1.5rem;
-            }
-            
-            h2 {
-                font-size: 1.2rem;
-            }
+            .pista-tabla { display: block; font-size: 0.8rem; color: var(--text-muted); margin: -4px 0 8px; }
+        }
+        @media (max-width: 600px) {
+            .content { padding: 25px; }
+            header h1 { font-size: 1.5rem; }
+            h2 { font-size: 1.2rem; }
+        }
+
+        @media (max-width: 600px) {
+            /* La tabla se desplaza dentro de su propio marco, para que la página
+               no se corra en horizontal y no se pierdan las últimas columnas. */
+            table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+            th, td { padding: 10px 8px; font-size: 0.88rem; white-space: nowrap; }
+            th:nth-child(3), td:nth-child(3) { white-space: normal; min-width: 190px; }
         }
     </style>
 </head>
@@ -184,7 +179,7 @@
     
     <div class="container">
         <div class="content">
-            <p><strong>Última actualización:</strong> Agosto 2026</p>
+            <p><strong>Última actualización:</strong> Septiembre 2026</p>
             <p><strong>Vigencia:</strong> Esta política está vigente desde su fecha de publicación.</p>
             
             <h2>1. Introducción</h2>
@@ -303,7 +298,7 @@
             <p>Sus datos pueden ser compartidos en las siguientes circunstancias:</p>
             <ul>
                 <li><strong>Padres de familia:</strong> Los padres con código de acceso válido pueden ver información limitada de sus hijos (datos básicos e historial de pagos).</li>
-                <li><strong>Proveedores de servicio:</strong> Utilizamos Supabase para autenticación y almacenamiento de datos (actúa como procesador de datos), Vercel para el alojamiento de la aplicación, y un proveedor de mensajería para el envío de avisos por SMS a los acudientes. Cada proveedor trata los datos bajo sus propias políticas de privacidad.</li>
+                <li><strong>Proveedores de servicio:</strong> Utilizamos Supabase para autenticación y almacenamiento de datos (actúa como procesador de datos), Vercel para el alojamiento de la aplicación, y <strong>Onurix</strong> para el envío de avisos por SMS a los acudientes (a este proveedor solo se le comparte el número de teléfono y el texto del aviso). Cada proveedor trata los datos bajo sus propias políticas de privacidad.</li>
             </ul>
             
             <h3>5.2 Con quién NO compartimos datos</h3>
@@ -316,6 +311,9 @@
             
             <h3>5.3 Requisitos legales</h3>
             <p>Podemos divulgar información si es requerido por ley o en respuesta a solicitudes legales válidas de autoridades públicas.</p>
+            
+            <h3>5.4 Asistente de ayuda (chatbot)</h3>
+            <p>La aplicación incluye un asistente que responde dudas sobre cómo usar MY CLUB. Las preguntas que usted escriba se envían, junto con el identificador del club, a un proveedor de inteligencia artificial que genera la respuesta. El asistente <strong>no accede</strong> a los datos de jugadores, pagos ni asistencias: únicamente consulta el manual de uso de la aplicación. Le recomendamos no escribir datos personales en el chat. Las conversaciones se eliminan automáticamente a los <strong>90 días</strong>.</p>
             
             <h2>6. Derechos del Usuario</h2>
             <p>Usted tiene los siguientes derechos sobre sus datos personales:</p>
@@ -352,6 +350,7 @@
             </table>
             
             <p>Para ejercer cualquiera de estos derechos, puede hacerlo directamente desde la aplicación o contactándonos a través de los medios indicados al final de este documento.</p>
+            <p><strong>Marco legal.</strong> El tratamiento de los datos personales se realiza conforme a la <strong>Ley 1581 de 2012</strong> (Habeas Data) y al Decreto 1377 de 2013 de la República de Colombia. El titular puede conocer, actualizar, rectificar y suprimir sus datos, así como revocar la autorización otorgada, escribiendo a nuestro correo de contacto. La escuela que carga los datos actúa como <strong>responsable del tratamiento</strong>; MY CLUB actúa como <strong>encargado</strong> y solo los procesa siguiendo sus instrucciones.</p>
             
             <h2>7. Datos de Menores de Edad</h2>
             <p>MY CLUB está diseñado para ser utilizado por administradores de escuelas de fútbol (adultos). La información de menores de edad (jugadores) es ingresada y gestionada por los administradores del club, quienes son responsables de obtener el consentimiento de los padres o tutores legales.</p>
@@ -382,6 +381,7 @@
             
             <h2>11. Servicios de Terceros</h2>
             <p>MY CLUB utiliza los siguientes servicios de terceros:</p>
+            <p class="pista-tabla">Desliza la tabla para ver todas las columnas →</p>
             
             <table>
                 <thead>
@@ -404,6 +404,24 @@
                         <td>Vercel Inc.</td>
                         <td>Hosting de la aplicación</td>
                         <td><a href="https://vercel.com/legal/privacy-policy" target="_blank">Ver política</a></td>
+                    </tr>
+                    <tr>
+                        <td>Onurix</td>
+                        <td>Onurix</td>
+                        <td>Envío de avisos por SMS a los acudientes</td>
+                        <td><a href="https://www.onurix.com/privacidad" target="_blank" rel="noopener">Ver política</a></td>
+                    </tr>
+                    <tr>
+                        <td>Asistente de ayuda (IA)</td>
+                        <td>DeepSeek</td>
+                        <td>Generación de las respuestas del asistente dentro de la aplicación</td>
+                        <td><a href="https://cdn.deepseek.com/policies/en-US/deepseek-privacy-policy.html" target="_blank" rel="noopener">Ver política</a></td>
+                    </tr>
+                    <tr>
+                        <td>Open-Meteo</td>
+                        <td>Open-Meteo</td>
+                        <td>Pronóstico del clima para la ciudad del club (no se envían datos personales)</td>
+                        <td><a href="https://open-meteo.com/en/terms" target="_blank" rel="noopener">Ver política</a></td>
                     </tr>
                 </tbody>
             </table>
