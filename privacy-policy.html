@@ -449,7 +449,24 @@
     
     <footer>
         <p>&copy; 2026 MY CLUB - Sistema de Gestión para Escuelas de Fútbol</p>
-        <p><a href="/">Volver a la aplicación</a></p>
+        <p><a data-volver href="/">Volver a la aplicación</a></p>
     </footer>
+
+    <script>
+      // El visitante puede llegar acá desde la web comercial (appmyclub.com) o
+      // desde dentro de la app. El boton de volver lo devuelve a donde estaba.
+      (function () {
+        try {
+          var ref = document.referrer || '';
+          var vieneDeLaWeb = /(^|\/\/|\.)appmyclub\.com/.test(ref) && !/\/\/app\.appmyclub\.com/.test(ref);
+          if (!vieneDeLaWeb) return;                     // vino de la app: se deja como esta
+          var a = document.querySelector('[data-volver]');
+          if (!a) return;
+          a.setAttribute('href', 'https://www.appmyclub.com');
+          var txt = a.textContent.trim();
+          if (txt) a.innerHTML = a.innerHTML.replace(txt, 'Volver a la web');
+        } catch (_) {}
+      })();
+    </script>
 </body>
 </html>

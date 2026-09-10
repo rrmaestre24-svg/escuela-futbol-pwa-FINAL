@@ -276,9 +276,26 @@
     los acudientes de los menores cuyos datos registre, incluida la autorización para la transferencia
     internacional de datos.</p>
     <p style="margin-top:12px">MY CLUB · Versión 2026-07</p>
-    <a class="volver" href="index.html">Volver a la app</a>
+    <a data-volver class="volver" href="index.html">Volver a la app</a>
   </footer>
 
 </div>
+
+    <script>
+      // El visitante puede llegar acá desde la web comercial (appmyclub.com) o
+      // desde dentro de la app. El boton de volver lo devuelve a donde estaba.
+      (function () {
+        try {
+          var ref = document.referrer || '';
+          var vieneDeLaWeb = /(^|\/\/|\.)appmyclub\.com/.test(ref) && !/\/\/app\.appmyclub\.com/.test(ref);
+          if (!vieneDeLaWeb) return;                     // vino de la app: se deja como esta
+          var a = document.querySelector('[data-volver]');
+          if (!a) return;
+          a.setAttribute('href', 'https://www.appmyclub.com');
+          var txt = a.textContent.trim();
+          if (txt) a.innerHTML = a.innerHTML.replace(txt, 'Volver a la web');
+        } catch (_) {}
+      })();
+    </script>
 </body>
 </html>
